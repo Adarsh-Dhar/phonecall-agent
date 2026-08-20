@@ -15,6 +15,18 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+// Set DATABASE_URL if not provided
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "file:./dev.db";
+} else {
+  // If DATABASE_URL is provided, make sure it's an absolute path
+  if (process.env.DATABASE_URL.startsWith('file:.')) {
+    const path = require('path');
+    const absolutePath = path.resolve(process.env.DATABASE_URL.replace('file:', ''));
+    process.env.DATABASE_URL = `file:${absolutePath}`;
+  }
+}
+
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");

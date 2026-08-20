@@ -49,3 +49,8 @@ Thumbs.db
 
 
 .local
+/lib/generated/prisma
+
+.windsurf
+.agents
+.claude

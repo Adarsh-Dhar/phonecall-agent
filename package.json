@@ -4,13 +4,25 @@
   "license": "MIT",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "start": "./start-all.sh",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "db:seed": "tsx seed.ts",
+    "db:studio": "prisma studio",
+    "db:migrate": "prisma migrate dev --name init",
+    "db:generate": "prisma generate"
   },
   "private": true,
   "devDependencies": {
+    "@types/pg": "^8.20.0",
     "prettier": "^3.9.6",
+    "prisma": "^6.19.3",
+    "tsx": "catalog:",
     "typescript": "~5.9.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "better-sqlite3": "^13.0.3"
   }
 }

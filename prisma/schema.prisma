@@ -1,0 +1,59 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/db-prisma/generated"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  business  String
+  initials  String
+  color     String
+  note      String?
+  online    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  Message[]
+  history   History[]
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  role           String       // "user" | "assistant"
+  content        String
+  time           String
+  pending        Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model History {
+  id             String       @id @default(cuid())
+  title          String
+  detail         String
+  status         String       // "Completed" | "Needs you" | "In Progress"
+  time           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
