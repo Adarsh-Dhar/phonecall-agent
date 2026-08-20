@@ -3,11 +3,14 @@ import { prisma } from "@workspace/db-prisma";
 
 const router: IRouter = Router();
 
-// Get all conversations
-router.get("/conversations", async (_req, res) => {
+// Get all conversations (optionally scoped to one contact via ?contactId=)
+router.get("/conversations", async (req, res) => {
   try {
+    const { contactId } = req.query;
     const conversations = await prisma.conversation.findMany({
+      where: contactId ? { contactId: String(contactId) } : undefined,
       include: {
+        contact: true,
         messages: {
           orderBy: { createdAt: "asc" },
         },
@@ -20,6 +23,35 @@ router.get("/conversations", async (_req, res) => {
     res.json(conversations);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch conversations" });
+  }
+});
+
+// Get a contact's single chat thread (creating it on first contact if needed)
+router.get("/contacts/:contactId/conversation", async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    let conversation = await prisma.conversation.findFirst({
+      where: { contactId },
+      include: {
+        messages: { orderBy: { createdAt: "asc" } },
+        history: { orderBy: { createdAt: "desc" } },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+    if (!conversation) {
+      const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+      if (!contact) {
+        res.status(404).json({ error: "Contact not found" });
+        return;
+      }
+      conversation = await prisma.conversation.create({
+        data: { title: `Chat with ${contact.name}`, contactId },
+        include: { messages: true, history: true },
+      });
+    }
+    res.json(conversation);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch contact's conversation" });
   }
 });
 
@@ -48,13 +80,19 @@ router.get("/conversations/:id", async (req, res) => {
   }
 });
 
-// Create a new conversation
+// Create a new conversation for a contact (contactId is required —
+// every conversation is a specific contact's chat thread)
 router.post("/conversations", async (req, res) => {
   try {
-    const { title } = req.body;
+    const { title, contactId } = req.body;
+    if (!contactId) {
+      res.status(400).json({ error: "contactId is required" });
+      return;
+    }
     const conversation = await prisma.conversation.create({
       data: {
         title,
+        contactId,
       },
     });
     res.json(conversation);

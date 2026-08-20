@@ -43,7 +43,7 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
 });
 
 // Update a message
-router.put("/messages/:id", async (req, res) => {
+router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { role, content, time, pending } = req.body;
@@ -63,7 +63,7 @@ router.put("/messages/:id", async (req, res) => {
 });
 
 // Delete a message
-router.delete("/messages/:id", async (req, res) => {
+router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     await prisma.message.delete({

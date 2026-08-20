@@ -4,12 +4,19 @@ export type Contact = {
   id: string;
   name: string;
   business: string;
+  category: string;
+  phone: string;
   initials: string;
   color: string;
   note: string | null;
   online: boolean;
   createdAt: string;
   updatedAt: string;
+  conversations?: Array<{
+    id: string;
+    title: string;
+    updatedAt: string;
+  }>;
 };
 
 export type Message = {
@@ -39,6 +46,8 @@ export type Conversation = {
   title: string | null;
   createdAt: string;
   updatedAt: string;
+  contactId?: string;
+  contact?: Contact;
   messages: Message[];
   history: History[];
 };
@@ -64,6 +73,12 @@ export const createContact = async (data: Omit<Contact, 'id' | 'createdAt' | 'up
 export const fetchConversations = async (): Promise<Conversation[]> => {
   const response = await fetch(`${API_BASE_URL}/conversations`);
   if (!response.ok) throw new Error('Failed to fetch conversations');
+  return response.json();
+};
+
+export const fetchContactConversation = async (contactId: string): Promise<Conversation> => {
+  const response = await fetch(`${API_BASE_URL}/contacts/${contactId}/conversation`);
+  if (!response.ok) throw new Error('Failed to fetch contact conversation');
   return response.json();
 };
 

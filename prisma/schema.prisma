@@ -15,12 +15,16 @@ model Contact {
   id        String   @id @default(cuid())
   name      String
   business  String
+  category  String   // e.g. "Healthcare", "Personal Care", "Home & Auto", "Financial & Insurance", "Government", "Retail & Customer Service", "Other"
+  phone     String   // dummy phone number for the contact
   initials  String
   color     String
   note      String?
   online    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  conversations Conversation[]
 }
 
 model Conversation {
@@ -30,6 +34,11 @@ model Conversation {
   updatedAt DateTime @updatedAt
   messages  Message[]
   history   History[]
+
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
 }
 
 model Message {

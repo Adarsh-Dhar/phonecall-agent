@@ -3,10 +3,18 @@ import { prisma } from "@workspace/db-prisma";
 
 const router: IRouter = Router();
 
-// Get all contacts
-router.get("/contacts", async (_req, res) => {
+// Get all contacts (optionally filter by category), including their conversation thread ids
+router.get("/contacts", async (req, res) => {
   try {
+    const { category } = req.query;
     const contacts = await prisma.contact.findMany({
+      where: category ? { category: String(category) } : undefined,
+      include: {
+        conversations: {
+          select: { id: true, title: true, updatedAt: true },
+          orderBy: { updatedAt: "desc" },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
     res.json(contacts);
@@ -15,19 +23,26 @@ router.get("/contacts", async (_req, res) => {
   }
 });
 
-// Create a new contact
+// Create a new contact. If `withConversation` is truthy, also creates
+// that contact's first (empty) chat thread in the same call.
 router.post("/contacts", async (req, res) => {
   try {
-    const { name, business, initials, color, note, online } = req.body;
+    const { name, business, category, phone, initials, color, note, online, withConversation } = req.body;
     const contact = await prisma.contact.create({
       data: {
         name,
         business,
+        category,
+        phone,
         initials,
         color,
         note,
         online: online || false,
+        ...(withConversation
+          ? { conversations: { create: { title: `Chat with ${name}` } } }
+          : {}),
       },
+      include: { conversations: true },
     });
     res.json(contact);
   } catch (error) {
@@ -39,12 +54,14 @@ router.post("/contacts", async (req, res) => {
 router.put("/contacts/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, business, initials, color, note, online } = req.body;
+    const { name, business, category, phone, initials, color, note, online } = req.body;
     const contact = await prisma.contact.update({
       where: { id },
       data: {
         name,
         business,
+        category,
+        phone,
         initials,
         color,
         note,

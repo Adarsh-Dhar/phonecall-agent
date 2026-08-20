@@ -10,14 +10,14 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
-import { Route, Switch, useLocation, Router as WouterRouter } from 'wouter';
+import { Route, Switch, useLocation, Router as WouterRouter, useLocation as useWouterLocation, useRoute, Link } from 'wouter';
 import * as api from '@/lib/api';
 
 const queryClient = new QueryClient();
 
 type View = 'inbox' | 'history' | 'contacts';
 type Message = { id: string; role: 'user' | 'assistant'; content: string; time: string; pending?: boolean };
-type Contact = { id: string; name: string; business: string; initials: string; color: string; note: string; online: boolean };
+type Contact = { id: string; name: string; business: string; category: string; phone: string; initials: string; color: string; note: string; online: boolean };
 
 const quickPrompts = [
   'Book me a dental cleaning next week, late mornings are best.',
@@ -29,7 +29,7 @@ function IconButton({ label, children, onClick, className = '' }: { label: strin
   return <button type="button" aria-label={label} data-testid={`button-${label.toLowerCase().replaceAll(' ', '-')}`} onClick={onClick} className={`grid place-items-center transition-transform duration-200 hover:-translate-y-0.5 ${className}`}>{children}</button>;
 }
 
-function Avatar({ contact, size = 'md' }: { contact: Contact; size?: 'sm' | 'md' | 'lg' }) {
+function Avatar({ contact, size = 'md' }: { contact: any; size?: 'sm' | 'md' | 'lg' }) {
   const sizes = size === 'sm' ? 'h-7 w-7 text-[10px]' : size === 'lg' ? 'h-12 w-12 text-sm' : 'h-10 w-10 text-xs';
   return <div data-testid={`avatar-${contact.id}`} className={`grid shrink-0 place-items-center rounded-full font-bold text-[hsl(var(--foreground))] ${sizes}`} style={{ background: contact.color }}>{contact.initials}</div>;
 }
@@ -80,7 +80,7 @@ function AppShell() {
         console.error('Failed to load data:', error);
         // Fallback to seed data if API fails
         setContacts([
-          { id: 'agent', name: 'Phone Agent', business: 'Your personal assistant', initials: 'PA', color: '#ff9b83', note: 'Ready to help with everyday admin', online: true },
+          { id: 'agent', name: 'Phone Agent', business: 'Your personal assistant', category: 'Assistant', phone: '0123456789', initials: 'PA', color: '#ff9b83', note: 'Ready to help with everyday admin', online: true },
         ]);
         setActiveContact('agent');
       } finally {
@@ -176,13 +176,13 @@ function AppShell() {
         <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end"><div className="animate-rise"><p className="mb-2 font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">Good morning, Alex</p><h1 className="max-w-[600px] font-serif text-[clamp(2.5rem,5vw,4.7rem)] leading-[.94] tracking-[-.055em] text-[#203039]">A little help,<br className="hidden md:block" /> right here.</h1></div><div className="animate-rise animate-rise-1 flex items-center gap-2 rounded-2xl border border-[hsl(var(--border))] bg-[#f2eee5] px-4 py-3 text-xs text-[hsl(var(--muted-foreground))]"><Zap size={15} className="text-[#e26951]" /><span>3 quiet hours saved this week</span></div></div>
         <section className="animate-rise animate-rise-1 grid gap-5 xl:grid-cols-[minmax(0,1.34fr)_minmax(300px,.66fr)]">
           <div className="flex min-h-[620px] flex-col overflow-hidden rounded-[24px] border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] shadow-[0_16px_45px_rgba(39,53,58,.06)]">
-            <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-5 py-4 md:px-7"><div className="flex items-center gap-3"><Avatar contact={contacts[0] || { id: 'agent', name: 'Phone Agent', business: 'Your personal assistant', initials: 'PA', color: '#ff9b83', note: 'Ready to help with everyday admin', online: true }} /><div><h2 className="text-sm font-bold">Phone Agent</h2><p className="text-[11px] text-[hsl(var(--muted-foreground))]">Personal admin assistant</p></div></div><StatusPill busy={busy} /></div>
+            <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-5 py-4 md:px-7"><div className="flex items-center gap-3"><Avatar contact={contacts[0] || { id: 'agent', name: 'Phone Agent', business: 'Your personal assistant', category: 'Assistant', phone: '0123456789', initials: 'PA', color: '#ff9b83', note: 'Ready to help with everyday admin', online: true }} /><div><h2 className="text-sm font-bold">Phone Agent</h2><p className="text-[11px] text-[hsl(var(--muted-foreground))]">Personal admin assistant</p></div></div><StatusPill busy={busy} /></div>
             <div className="flex-1 space-y-5 overflow-y-auto px-5 py-6 md:px-7">{messages.map((message) => <div key={message.id} data-testid={`message-${message.role}`} className={`flex gap-3 animate-rise ${message.role === 'user' ? 'justify-end' : ''}`}><div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === 'user' ? 'rounded-br-md bg-[#2854cc] text-white' : 'rounded-bl-md bg-[#edf1ec] text-[#34443f]'}`}><p>{message.content}</p><span className={`mt-2 block text-[10px] ${message.role === 'user' ? 'text-[#c9d5ff]' : 'text-[#82918a]'}`}>{message.time}</span></div></div>)}{busy ? <div className="flex gap-3"><div className="rounded-2xl rounded-bl-md bg-[#edf1ec] px-4 py-3"><span className="inline-flex items-center gap-2 text-xs text-[#697a73]"><LoaderCircle size={13} className="animate-spin" /> Thinking through it</span></div></div> : null}<div ref={endRef} /></div>
             <div className="border-t border-[hsl(var(--border))] px-5 py-4 md:px-7"><div className="mb-3 flex flex-wrap gap-2">{quickPrompts.map((prompt) => <button type="button" data-testid="button-quick-prompt" key={prompt} onClick={() => { setDraft(prompt); }} className="rounded-full border border-[hsl(var(--border))] bg-[#f6f3ed] px-3 py-2 text-xs font-medium text-[#58645f] transition-all hover:-translate-y-0.5 hover:border-[#a2b4e8] hover:bg-[#edf1ff] hover:text-[#244dbd]">{prompt.length > 38 ? `${prompt.slice(0, 38)}…` : prompt}</button>)}</div><div className="flex items-end gap-2 rounded-2xl border border-[hsl(var(--border))] bg-[#fbfaf6] p-2 focus-within:border-[#4168e5] focus-within:ring-4 focus-within:ring-[#4168e5]/10"><button type="button" aria-label="attach file" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[#82918a] hover:bg-[#edf1ec]"><Paperclip size={17} /></button><textarea data-testid="input-message" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="What would you like help with?" className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 outline-none placeholder:text-[#99a19d]" /><button type="button" data-testid="button-send-message" onClick={() => void sendMessage()} disabled={busy || !draft.trim()} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#2854cc] text-white transition-all hover:-translate-y-0.5 hover:bg-[#2148b4] disabled:cursor-not-allowed disabled:opacity-40"><Send size={16} /></button></div><p className="mt-2 text-center text-[10px] text-[hsl(var(--muted-foreground))]">Powered by Gemini · Press Enter to send</p></div>
           </div>
           <div className="space-y-5"><div className="rounded-[24px] border border-[hsl(var(--card-border))] bg-[#eef4f0] p-5 md:p-7"><div className="flex items-start justify-between"><div><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#588176]">How it works</p><h3 className="mt-2 font-serif text-3xl tracking-tight text-[#233b3b]">Quiet by default.</h3><p className="mt-2 text-xs leading-5 text-[#55716a]">Start with a message. Get a useful next step, not a wall of text.</p></div><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#d2e8df] text-[#3f8274]"><Sparkles size={18} /></div></div><div className="mt-7 space-y-4 text-xs text-[#55716a]">{[['01', 'Tell me what you need'], ['02', 'I help you make a plan'], ['03', 'You stay in control']].map(([number, label]) => <div className="flex items-center gap-3" key={number}><strong className="font-mono text-lg text-[#3f8274]">{number}</strong><span>{label}</span></div>)}</div></div><RecentTasks history={history} onOpen={() => setView('history')} /><div className="rounded-[22px] border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] p-5"><p className="font-mono text-[9px] uppercase tracking-[.18em] text-[hsl(var(--muted-foreground))]">Active conversation</p><div className="mt-4 flex items-center gap-3"><Avatar contact={contact} size="sm" /><div className="min-w-0 flex-1"><strong className="block truncate text-xs">{contact.name}</strong><small className="text-[10px] text-[hsl(var(--muted-foreground))]">{contact.business}</small></div><button type="button" data-testid="button-change-contact" onClick={() => setActiveContact(activeContact === 'agent' ? 'bright-smile' : 'agent')} className="text-[10px] font-bold text-[#3159c4]">Change</button></div></div></div>
         </section>
-      </div> : view === 'history' ? <HistoryView history={history} onBack={() => setView('inbox')} /> : <ContactsView contacts={contacts} onSelect={(id) => { setActiveContact(id); setView('inbox'); }} />}
+      </div> : view === 'history' ? <HistoryView history={history} onBack={() => setView('inbox')} /> : <ContactsView contacts={contacts} />}
     </main>
     {prefsOpen ? <Preferences onClose={() => setPrefsOpen(false)} /> : null}
     <div className="fixed bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full border border-[#3c4c4d] bg-[#243434] p-1 shadow-xl md:hidden"><button type="button" data-testid="mobile-nav-inbox" onClick={() => setView('inbox')} className={`rounded-full px-4 py-2 text-xs font-bold ${view === 'inbox' ? 'bg-[#ff9478] text-[#3b211b]' : 'text-[#d1dcd5]'}`}>Messages</button><button type="button" data-testid="mobile-nav-history" onClick={() => setView('history')} className={`rounded-full px-4 py-2 text-xs font-bold ${view === 'history' ? 'bg-[#ff9478] text-[#3b211b]' : 'text-[#d1dcd5]'}`}>History</button><button type="button" data-testid="mobile-nav-contacts" onClick={() => setView('contacts')} className={`rounded-full px-4 py-2 text-xs font-bold ${view === 'contacts' ? 'bg-[#ff9478] text-[#3b211b]' : 'text-[#d1dcd5]'}`}>Contacts</button></div>
@@ -197,8 +197,115 @@ function HistoryView({ history, onBack }: { history: api.History[]; onBack: () =
   return <div className="mx-auto max-w-[980px] px-5 py-8 md:px-10 md:py-12"><button type="button" data-testid="button-history-back" onClick={onBack} className="mb-8 text-xs font-bold text-[#3159c4] hover:underline">← Back to messages</button><div className="mb-8"><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">The paper trail</p><h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Task history</h1></div><div className="space-y-3">{history.map((item) => <div data-testid={`card-history-${item.id}`} key={item.id} className="flex flex-col gap-4 rounded-2xl border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] p-5 transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${item.status === 'Needs you' ? 'bg-[#ffe5dd] text-[#bd5d47]' : 'bg-[#e1efe9] text-[#4a8978]'}`}>{item.status === 'Needs you' ? <CircleHelp size={17} /> : <Check size={17} />}</span><div className="min-w-0 flex-1"><h3 className="font-bold">{item.title}</h3><p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{item.detail}</p></div><div className="flex items-center gap-4"><span className={`text-[10px] font-bold uppercase tracking-[.1em] ${item.status === 'Needs you' ? 'text-[#bd5d47]' : 'text-[#4b8a78]'}`}>{item.status}</span><span className="text-xs text-[hsl(var(--muted-foreground))]">{item.time}</span><MoreHorizontal size={16} className="text-[hsl(var(--muted-foreground))]" /></div></div>)}</div></div>;
 }
 
-function ContactsView({ contacts, onSelect }: { contacts: Contact[]; onSelect: (id: string) => void }) {
-  return <div className="mx-auto max-w-[980px] px-5 py-8 md:px-10 md:py-12"><button type="button" data-testid="button-contacts-back" onClick={() => onSelect('agent')} className="mb-8 text-xs font-bold text-[#3159c4] hover:underline">← Back to messages</button><div className="mb-8"><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">Your network</p><h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Contacts</h1></div><div className="space-y-3">{contacts.map((contact) => <button type="button" data-testid={`button-contact-${contact.id}`} key={contact.id} onClick={() => onSelect(contact.id)} className="flex w-full items-center gap-4 rounded-2xl border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] p-5 transition-transform hover:-translate-y-0.5"><Avatar contact={contact} /><div className="min-w-0 flex-1 text-left"><h3 className="font-bold">{contact.name}</h3><p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{contact.business}</p></div><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${contact.online ? 'bg-[#5bc4a3]' : 'bg-[#879a94]'}`} /><span className="text-xs text-[hsl(var(--muted-foreground))]">{contact.online ? 'Online' : 'Offline'}</span></div></button>)}</div></div>;
+function ContactsView({ contacts }: { contacts: Contact[] }) {
+  return <div className="mx-auto max-w-[980px] px-5 py-8 md:px-10 md:py-12"><Link href="/" className="mb-8 text-xs font-bold text-[#3159c4] hover:underline block">← Back to messages</Link><div className="mb-8"><p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">Your network</p><h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Contacts</h1></div><div className="space-y-3">{contacts.map((contact) => <Link href={`/messages/${contact.id}`} key={contact.id} className="flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-5 transition-transform hover:-translate-y-0.5"><Avatar contact={contact} /><div className="min-w-0 flex-1 text-left"><h3 className="font-bold">{contact.name}</h3><p className="mt-1 text-xs text-muted-foreground">{contact.business}</p></div><div className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${contact.online ? 'bg-[#5bc4a3]' : 'bg-[#879a94]'}`} /><span className="text-xs text-muted-foreground">{contact.online ? 'Online' : 'Offline'}</span></div></Link>)}</div></div>;
+}
+
+function ContactMessages({ contactId }: { contactId: string }) {
+  const [conversation, setConversation] = useState<api.Conversation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const loadConversation = async () => {
+      try {
+        const data = await api.fetchContactConversation(contactId);
+        setConversation(data);
+      } catch (error) {
+        console.error('Failed to load conversation:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadConversation();
+  }, [contactId]);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [conversation?.messages, busy]);
+
+  const sendMessage = async () => {
+    const content = draft.trim();
+    if (!content || busy || !conversation) return;
+    
+    const userMessage: api.Message = { id: `user-${Date.now()}`, role: 'user', content, time: 'Now', pending: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), conversationId: conversation.id };
+    setConversation((current) => current ? { ...current, messages: [...current.messages, userMessage] } : null);
+    setDraft('');
+    setBusy(true);
+
+    try {
+      const payload = await api.sendGeminiMessage(conversation.messages.map(({ role, content: value }) => ({ role, content: value })));
+      const assistantMessage: api.Message = { id: `assistant-${Date.now()}`, role: 'assistant', content: payload.message || 'I\'m here. What should we work on?', time: 'Now', pending: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), conversationId: conversation.id };
+      setConversation((current) => current ? { ...current, messages: [...current.messages, assistantMessage] } : null);
+      
+      // Save the messages to the server
+      if (conversation.id) {
+        await api.createMessage(conversation.id, { role: 'user', content, time: 'Now', pending: false });
+        await api.createMessage(conversation.id, { role: 'assistant', content: assistantMessage.content, time: 'Now', pending: false });
+      }
+    } catch (error) {
+      setConversation((current) => current ? { ...current, messages: [...current.messages, { id: `error-${Date.now()}`, role: 'assistant', content: error instanceof Error ? error.message : 'Something went wrong. Please try again.', time: 'Now', pending: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), conversationId: conversation.id }] } : null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading conversation...</div>;
+  }
+
+  const contact = conversation?.contact;
+
+  return <div className="grain min-h-dvh bg-background">
+    <main className="min-h-dvh">
+      <header className="flex h-19 items-center justify-between border-b border-border px-5 md:px-10">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="text-xs font-bold text-[#3159c4] hover:underline">← Back</Link>
+          {contact && (
+            <>
+              <Avatar contact={contact} />
+              <div>
+                <h2 className="text-sm font-bold">{contact.name}</h2>
+                <p className="text-[11px] text-[hsl(var(--muted-foreground))]">{contact.business}</p>
+              </div>
+            </>
+          )}
+        </div>
+        <StatusPill busy={busy} />
+      </header>
+
+      <div className="mx-auto max-w-7xl px-5 py-8 md:px-10 md:py-10">
+        <div className="flex min-h-155 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[0_16px_45px_rgba(39,53,58,.06)]">
+          <div className="flex-1 space-y-5 overflow-y-auto px-5 py-6 md:px-7">
+            {conversation?.messages.map((message) => (
+              <div key={message.id} data-testid={`message-${message.role}`} className={`flex gap-3 animate-rise ${message.role === 'user' ? 'justify-end' : ''}`}>
+                <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === 'user' ? 'rounded-br-md bg-[#2854cc] text-white' : 'rounded-bl-md bg-[#edf1ec] text-[#34443f]'}`}>
+                  <p>{message.content}</p>
+                  <span className={`mt-2 block text-[10px] ${message.role === 'user' ? 'text-[#c9d5ff]' : 'text-[#82918a]'}`}>{message.time}</span>
+                </div>
+              </div>
+            ))}
+            {busy ? <div className="flex gap-3"><div className="rounded-2xl rounded-bl-md bg-[#edf1ec] px-4 py-3"><span className="inline-flex items-center gap-2 text-xs text-[#697a73]"><LoaderCircle size={13} className="animate-spin" /> Thinking through it</span></div></div> : null}
+            <div ref={endRef} />
+          </div>
+          <div className="border-t border-border px-5 py-4 md:px-7">
+            <div className="flex items-end gap-2 rounded-2xl border border-border bg-[#fbfaf6] p-2 focus-within:border-[#4168e5] focus-within:ring-4 focus-within:ring-[#4168e5]/10">
+              <button type="button" aria-label="attach file" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[#82918a] hover:bg-[#edf1ec]"><Paperclip size={17} /></button>
+              <textarea 
+                value={draft} 
+                onChange={(event) => setDraft(event.target.value)} 
+                onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} 
+                placeholder="Type your message..." 
+                className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 outline-none placeholder:text-[#99a19d]" 
+              />
+              <button type="button" onClick={() => void sendMessage()} disabled={busy || !draft.trim()} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#2854cc] text-white transition-all hover:-translate-y-0.5 hover:bg-[#2148b4] disabled:cursor-not-allowed disabled:opacity-40"><Send size={16} /></button>
+            </div>
+            <p className="mt-2 text-center text-[10px] text-[hsl(var(--muted-foreground))]">Powered by Gemini · Press Enter to send</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>;
 }
 
 function Preferences({ onClose }: { onClose: () => void }) {
@@ -213,6 +320,7 @@ export default function App() {
           <WouterRouter>
             <Switch>
               <Route path="/" component={AppShell} />
+              <Route path="/:contactId" component={(params) => <ContactMessages contactId={params.contactId} />} />
               <Route component={NotFound} />
             </Switch>
           </WouterRouter>

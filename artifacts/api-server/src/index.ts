@@ -18,7 +18,7 @@ if (Number.isNaN(port) || port <= 0) {
 // Set DATABASE_URL if not provided
 if (!process.env.DATABASE_URL) {
   const path = require('path');
-  const rootPath = path.resolve(__dirname, '../../prisma/dev.db');
+  const rootPath = path.resolve(__dirname, '../../../prisma/dev.db');
   process.env.DATABASE_URL = `file:${rootPath}`;
   logger.info("DATABASE_URL not provided, using default: file:" + rootPath);
 } else {

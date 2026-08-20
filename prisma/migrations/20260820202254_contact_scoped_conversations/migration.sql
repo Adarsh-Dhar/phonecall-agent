@@ -3,6 +3,8 @@ CREATE TABLE "Contact" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "business" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
     "initials" TEXT NOT NULL,
     "color" TEXT NOT NULL,
     "note" TEXT,
@@ -16,7 +18,9 @@ CREATE TABLE "Conversation" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "title" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "updatedAt" DATETIME NOT NULL,
+    "contactId" TEXT NOT NULL,
+    CONSTRAINT "Conversation_contactId_fkey" FOREIGN KEY ("contactId") REFERENCES "Contact" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -44,3 +48,6 @@ CREATE TABLE "History" (
     "conversationId" TEXT NOT NULL,
     CONSTRAINT "History_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "Conversation" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
+
+-- CreateIndex
+CREATE INDEX "Conversation_contactId_idx" ON "Conversation"("contactId");
