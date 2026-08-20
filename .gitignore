@@ -11,6 +11,9 @@ out-tsc
 # dependencies
 node_modules
 
+# Environment variables
+.env
+
 # IDEs and editors
 /.idea
 .project
@@ -44,6 +47,7 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
-# Replit
-.cache/
-.local/
+
+.local
+.agents
+.conversation
