@@ -260,11 +260,14 @@ function buildTemplateThread(c: ContactSeed) {
 async function main() {
   console.log('Starting seed...');
 
-  await prisma.history.deleteMany();
-  await prisma.message.deleteMany();
-  await prisma.conversation.deleteMany();
-  await prisma.contact.deleteMany();
-  console.log('Cleared existing data.');
+  // Check if data already exists — if so, skip seeding entirely
+  const existing = await prisma.contact.count();
+  if (existing > 0) {
+    console.log(`Database already has ${existing} contacts — skipping seed.`);
+    return;
+  }
+
+  console.log('Empty database, seeding contacts...');
 
   for (const c of CONTACTS) {
     const thread = c.custom ?? buildTemplateThread(c);
@@ -289,28 +292,7 @@ async function main() {
       },
     });
 
-    for (const m of thread.messages) {
-      await prisma.message.create({
-        data: {
-          role: m.role,
-          content: m.content,
-          time: m.time,
-          conversationId: conversation.id,
-        },
-      });
-    }
-
-    if (thread.history) {
-      await prisma.history.create({
-        data: {
-          title: thread.history.title,
-          detail: thread.history.detail,
-          status: thread.history.status,
-          time: thread.history.time,
-          conversationId: conversation.id,
-        },
-      });
-    }
+    // No seed messages or history — conversations start fresh
   }
 
   console.log(`Seeded ${CONTACTS.length} contacts, each with their own conversation.`);

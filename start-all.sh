@@ -1,12 +1,13 @@
 #!/bin/bash
-
 # Script to start all processes in the Phone-Agent-MVP workspace
 
 echo "Starting all processes..."
 
 # Load environment variables from .env file if it exists
 if [ -f .env ]; then
-  export $(cat .env | grep -v '^#' | xargs)
+  set -a
+  source .env
+  set +a
   echo "Environment variables loaded from .env"
 fi
 
@@ -30,11 +31,11 @@ echo "Ports cleared."
 
 # Run Prisma migrations
 echo "Running Prisma migrations..."
-DATABASE_URL="file:./prisma/dev.db" npx prisma migrate dev --name init || echo "Migration failed (might already exist)"
+npx prisma db push || echo "Migration failed"
 
 # Seed the database
 echo "Seeding database..."
-DATABASE_URL="file:./prisma/dev.db" npx tsx seed.ts || echo "Seed failed (might already exist)"
+npx tsx seed.ts || echo "Seed failed (might already exist)"
 
 # Function to handle cleanup on exit
 cleanup() {
@@ -51,7 +52,6 @@ trap cleanup SIGINT SIGTERM
 echo "Starting API server..."
 cd artifacts/api-server
 export PORT=5175
-export DATABASE_URL="file:$(pwd)/../../prisma/dev.db"
 pnpm run dev &
 API_PID=$!
 cd ../..
@@ -77,7 +77,7 @@ echo "All processes started:"
 echo "  - API server (PID: $API_PID) - http://localhost:5175"
 echo "  - Mockup sandbox (PID: $SANDBOX_PID) - http://localhost:5176"
 echo "  - Phone agent (PID: $AGENT_PID) - http://localhost:5177"
-echo "  - SQLite database (file:./prisma/dev.db)"
+echo "  - Database: $DATABASE_URL"
 echo ""
 echo "Press Ctrl+C to stop all processes"
 

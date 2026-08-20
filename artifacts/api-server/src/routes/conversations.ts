@@ -33,6 +33,7 @@ router.get("/contacts/:contactId/conversation", async (req, res) => {
     let conversation = await prisma.conversation.findFirst({
       where: { contactId },
       include: {
+        contact: true,
         messages: { orderBy: { createdAt: "asc" } },
         history: { orderBy: { createdAt: "desc" } },
       },
@@ -46,7 +47,7 @@ router.get("/contacts/:contactId/conversation", async (req, res) => {
       }
       conversation = await prisma.conversation.create({
         data: { title: `Chat with ${contact.name}`, contactId },
-        include: { messages: true, history: true },
+        include: { contact: true, messages: true, history: true },
       });
     }
     res.json(conversation);
