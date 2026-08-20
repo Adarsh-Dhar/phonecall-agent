@@ -17,14 +17,12 @@ if (Number.isNaN(port) || port <= 0) {
 
 // Set DATABASE_URL if not provided
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "file:./dev.db";
+  const path = require('path');
+  const rootPath = path.resolve(__dirname, '../../prisma/dev.db');
+  process.env.DATABASE_URL = `file:${rootPath}`;
+  logger.info("DATABASE_URL not provided, using default: file:" + rootPath);
 } else {
-  // If DATABASE_URL is provided, make sure it's an absolute path
-  if (process.env.DATABASE_URL.startsWith('file:.')) {
-    const path = require('path');
-    const absolutePath = path.resolve(process.env.DATABASE_URL.replace('file:', ''));
-    process.env.DATABASE_URL = `file:${absolutePath}`;
-  }
+  logger.info("DATABASE_URL provided: " + process.env.DATABASE_URL);
 }
 
 app.listen(port, (err) => {

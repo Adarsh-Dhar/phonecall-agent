@@ -111,6 +111,13 @@ export const createHistory = async (conversationId: string, data: Omit<History, 
   return response.json();
 };
 
+export const createHistoryWithConversation = async (data: Omit<History, 'id' | 'createdAt' | 'updatedAt' | 'conversationId'>): Promise<History> => {
+  // First create a conversation
+  const conversation = await createConversation({ title: 'New conversation' });
+  // Then create history with that conversation
+  return createHistory(conversation.id, data);
+};
+
 // Gemini Chat API
 export const sendGeminiMessage = async (messages: Array<{ role: string; content: string }>) => {
   const response = await fetch('/api/gemini/chat', {
@@ -119,8 +126,16 @@ export const sendGeminiMessage = async (messages: Array<{ role: string; content:
     body: JSON.stringify({ messages }),
   });
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to send message');
+    try {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to send message');
+    } catch {
+      throw new Error('Failed to send message');
+    }
   }
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    throw new Error('Invalid response from server');
+  }
 };

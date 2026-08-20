@@ -48,7 +48,20 @@ function AppShell() {
   const [activeContact, setActiveContact] = useState('');
   const [history, setHistory] = useState<api.History[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
+
+  // Update current date
+  useEffect(() => {
+    const updateDate = () => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'long', day: 'numeric' };
+      setCurrentDate(new Intl.DateTimeFormat('en-US', options).format(now));
+    };
+    updateDate();
+    const interval = setInterval(updateDate, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
 
   // Load initial data
   useEffect(() => {
@@ -91,15 +104,27 @@ function AppShell() {
       const assistantMessage: Message = { id: `assistant-${Date.now()}`, role: 'assistant', content: payload.message || 'I\'m here. What should we work on?', time: 'Now' };
       setMessages((current) => [...current, assistantMessage]);
       
-      // Create history item (using a default conversation ID for now)
+      // Create history item (get conversation ID from history if available)
       try {
-        const newHistory = await api.createHistory('default', {
-          title: content.slice(0, 32),
-          detail: 'Chat · Gemini response',
-          status: 'Completed',
-          time: 'Just now',
-        });
-        setHistory((current) => [newHistory, ...current]);
+        const conversationId = history.length > 0 ? history[0].conversationId : null;
+        if (conversationId) {
+          const newHistory = await api.createHistory(conversationId, {
+            title: content.slice(0, 32),
+            detail: 'Chat · Gemini response',
+            status: 'Completed',
+            time: 'Just now',
+          });
+          setHistory((current) => [newHistory, ...current]);
+        } else {
+          // Create a new conversation with history
+          const newHistory = await api.createHistoryWithConversation({
+            title: content.slice(0, 32),
+            detail: 'Chat · Gemini response',
+            status: 'Completed',
+            time: 'Just now',
+          });
+          setHistory((current) => [newHistory, ...current]);
+        }
       } catch (historyError) {
         console.error('Failed to create history item:', historyError);
         // Fallback to local state update
@@ -143,7 +168,7 @@ function AppShell() {
     <main className="min-h-[100dvh] md:ml-[224px]">
       <header className="flex h-[76px] items-center justify-between border-b border-[hsl(var(--border))] px-5 md:px-10">
         <div className="flex items-center gap-3 md:hidden"><span className="grid h-8 w-8 place-items-center rounded-[10px] bg-[hsl(var(--accent))]"><MessageCircle size={15} /></span><strong className="text-sm">phone agent</strong></div>
-        <div className="hidden items-center gap-2 md:flex"><span className="font-mono text-[10px] uppercase tracking-[.18em] text-[hsl(var(--muted-foreground))]">Tuesday, June 18</span><span className="text-[hsl(var(--border))]">/</span><span className="text-xs text-[hsl(var(--muted-foreground))]">{view === 'inbox' ? 'Messages' : view === 'history' ? 'Task history' : 'Contacts'}</span></div>
+        <div className="hidden items-center gap-2 md:flex"><span className="font-mono text-[10px] uppercase tracking-[.18em] text-[hsl(var(--muted-foreground))]">{currentDate}</span><span className="text-[hsl(var(--border))]">/</span><span className="text-xs text-[hsl(var(--muted-foreground))]">{view === 'inbox' ? 'Messages' : view === 'history' ? 'Task history' : 'Contacts'}</span></div>
         <div className="ml-auto flex items-center gap-2"><IconButton label="help" onClick={() => setPrefsOpen(true)} className="h-9 w-9 rounded-full text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"><CircleHelp size={18} /></IconButton><div className="ml-1 grid h-8 w-8 place-items-center rounded-full bg-[#c8d9e8] text-[10px] font-bold">AP</div></div>
       </header>
 

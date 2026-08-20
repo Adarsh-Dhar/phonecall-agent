@@ -8,10 +8,10 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "db:seed": "tsx seed.ts",
-    "db:studio": "prisma studio",
-    "db:migrate": "prisma migrate dev --name init",
-    "db:generate": "prisma generate"
+    "db:seed": "DATABASE_URL=\"file:./prisma/dev.db\" npx tsx seed.ts",
+    "db:studio": "DATABASE_URL=\"file:./prisma/dev.db\" prisma studio",
+    "db:migrate": "DATABASE_URL=\"file:./prisma/dev.db\" npx prisma migrate dev --name init",
+    "db:generate": "DATABASE_URL=\"file:./prisma/dev.db\" npx prisma generate"
   },
   "private": true,
   "devDependencies": {
