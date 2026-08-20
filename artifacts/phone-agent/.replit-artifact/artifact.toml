@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Phone Agent"
+description = "A personal AI phone agent that turns everyday admin instructions into outbound call plans, live conversation simulations, and structured outcome summaries."
+version = "1.0.0"
+id = "artifacts/phone-agent"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20002
+
+[services.development]
+run = "pnpm --filter @workspace/phone-agent run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/phone-agent", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/phone-agent/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20002"
+BASE_PATH = "/"
