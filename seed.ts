@@ -34,6 +34,8 @@ type ContactSeed = {
     messages: { role: 'user' | 'assistant'; content: string; time: string }[];
     history?: { title: string; detail: string; status: Status; time: string };
   };
+  // Seed queries that should appear as pending in the Queries panel.
+  queries?: { question: string }[];
 };
 
 // One reusable conversation "shape" per category: an opening line the
@@ -130,6 +132,10 @@ const CONTACTS: ContactSeed[] = [
       ],
       history: { title: 'Dental cleaning', detail: 'Chat · Preferences saved', status: 'Completed', time: 'Yesterday' },
     },
+    queries: [
+      { question: 'Do you want fluoride treatment added to the cleaning?' },
+      { question: 'Would you like a copy of your X-rays emailed to you?' },
+    ],
   },
   { name: 'Dr. Patel — Family Practice', business: 'Doctor / GP', category: CATEGORY.HEALTHCARE, initials: 'DP', color: '#8fc9b0', note: 'Annual physical is due' },
   { name: 'Riverside Pharmacy', business: 'Pharmacy', category: CATEGORY.HEALTHCARE, initials: 'RP', color: '#9ec5e8', note: 'Refill: blood pressure medication' },
@@ -187,6 +193,9 @@ const CONTACTS: ContactSeed[] = [
       ],
       history: { title: 'Insurance renewal', detail: 'Chat · Waiting on agent callback', status: 'In Progress', time: 'Jun 05' },
     },
+    queries: [
+      { question: 'Would you like to add roadside assistance to the policy while we have the agent on the line?' },
+    ],
   },
   { name: 'Meridian Bank', business: 'Bank / credit card company', category: CATEGORY.FINANCIAL, initials: 'MB', color: '#7fa8dd', note: 'Dispute a charge' },
   { name: 'CityLine Utilities', business: 'Utility company (electric/gas)', category: CATEGORY.FINANCIAL, initials: 'CU', color: '#e8c268', note: 'Billing looks off this month' },
@@ -292,10 +301,25 @@ async function main() {
       },
     });
 
+    // Seed any pre-defined queries for this contact's conversation
+    if (c.queries && c.queries.length > 0) {
+      for (const q of c.queries) {
+        await prisma.query.create({
+          data: {
+            question: q.question,
+            status: 'pending',
+            conversationId: conversation.id,
+            contactId: contact.id,
+          },
+        });
+      }
+    }
+
     // No seed messages or history — conversations start fresh
   }
 
-  console.log(`Seeded ${CONTACTS.length} contacts, each with their own conversation.`);
+  const totalQueries = CONTACTS.reduce((n, c) => n + (c.queries?.length ?? 0), 0);
+  console.log(`Seeded ${CONTACTS.length} contacts, each with their own conversation (${totalQueries} seed queries).`);
   console.log('Seed completed successfully!');
 }
 
