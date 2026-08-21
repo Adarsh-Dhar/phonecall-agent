@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import {
-  ArrowUpRight, Check, CircleHelp, History,
-  LoaderCircle, MessageCircle, MoreHorizontal, Paperclip,
-  Send, ShieldCheck, Sparkles, Users, X, Zap,
+  ArrowUpRight, Check, CheckSquare, CircleHelp, History,
+  ListTodo, LoaderCircle, MessageCircle, MoreHorizontal, Paperclip,
+  Plus, RefreshCw, Send, ShieldCheck, Sparkles, Users, X, Zap,
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -458,7 +458,7 @@ function InboxPage() {
             </div>
           </div>
 
-          {/* Right column — unchanged layout */}
+          {/* Right column — tasks panel + supporting widgets */}
           <div className="space-y-5">
             <div className="rounded-[24px] border border-[hsl(var(--card-border))] bg-[#eef4f0] p-5 md:p-7">
               <div className="flex items-start justify-between">
@@ -478,6 +478,11 @@ function InboxPage() {
                 ))}
               </div>
             </div>
+
+            <TasksPanel
+              conversationId={conversation?.id}
+              contactId={activeContact?.id}
+            />
 
             <RecentTasksWidget history={history} />
 
@@ -614,6 +619,308 @@ function ContactsPage() {
         )}
       </div>
     </AppLayout>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TasksPanel — mined + manual tasks for the active conversation
+// ---------------------------------------------------------------------------
+
+const STATUS_META: Record<string, { label: string; dot: string; text: string }> = {
+  suggested: { label: 'Suggested',   dot: 'bg-[#f5a623]',  text: 'text-[#995500]' },
+  open:       { label: 'Open',       dot: 'bg-[#3b9a83]',  text: 'text-[#216457]' },
+  in_progress:{ label: 'In progress',dot: 'bg-[#4168e5]',  text: 'text-[#1f40ad]' },
+  done:       { label: 'Done',       dot: 'bg-[#8fba9a]',  text: 'text-[#3d6e4a]' },
+  cancelled:  { label: 'Cancelled',  dot: 'bg-[#c9b0a0]',  text: 'text-[#7a5c50]' },
+};
+
+const PRIORITY_BADGE: Record<string, string> = {
+  high:   'bg-[#ffe5dd] text-[#bd5d47]',
+  normal: 'bg-[#edf1ec] text-[#4a7060]',
+  low:    'bg-[#f3f0ea] text-[#7a7060]',
+};
+
+const ACTIVE_STATUSES: api.TaskStatus[] = ['suggested', 'open', 'in_progress'];
+
+function TasksPanel({
+  conversationId,
+  contactId,
+}: {
+  conversationId: string | undefined;
+  contactId: string | undefined;
+}) {
+  const [tasks, setTasks] = useState<api.Task[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [filter, setFilter] = useState<'active' | 'all'>('active');
+
+  const loadTasks = useCallback(async () => {
+    if (!conversationId) return;
+    setLoading(true);
+    try {
+      const data = await api.fetchConversationTasks(conversationId);
+      setTasks(data);
+    } catch {
+      // silently ignore — panel is non-critical
+    } finally {
+      setLoading(false);
+    }
+  }, [conversationId]);
+
+  // Reload whenever the conversation changes
+  useEffect(() => { void loadTasks(); }, [loadTasks]);
+
+  const handleExtract = async () => {
+    if (!conversationId || extracting) return;
+    setExtracting(true);
+    try {
+      await api.extractTasks(conversationId);
+      await loadTasks();
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleStatusChange = async (taskId: string, status: api.TaskStatus) => {
+    try {
+      const updated = await api.updateTask(taskId, { status });
+      setTasks((prev) => prev.map((t) => t.id === taskId ? updated : t));
+    } catch { /* no-op */ }
+  };
+
+  const handleAddTask = async () => {
+    const title = newTitle.trim();
+    if (!title || !conversationId || !contactId) return;
+    try {
+      const task = await api.createTask({ title, conversationId, contactId });
+      setTasks((prev) => [...prev, task]);
+      setNewTitle('');
+      setShowAddForm(false);
+    } catch { /* no-op */ }
+  };
+
+  const visible = filter === 'active'
+    ? tasks.filter((t) => ACTIVE_STATUSES.includes(t.status as api.TaskStatus))
+    : tasks;
+
+  const suggestedCount = tasks.filter((t) => t.status === 'suggested').length;
+
+  return (
+    <section className="rounded-[22px] border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] p-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#edf1ec] text-[#3f8274]">
+            <ListTodo size={15} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold tracking-tight">Tasks</h3>
+            {suggestedCount > 0 && (
+              <p className="text-[10px] text-[#995500]">{suggestedCount} suggested</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Refresh tasks"
+            onClick={() => void loadTasks()}
+            className="grid h-7 w-7 place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+          </button>
+          <button
+            type="button"
+            aria-label="Check conversation for new tasks"
+            onClick={() => void handleExtract()}
+            disabled={extracting || !conversationId}
+            className="flex items-center gap-1 rounded-lg border border-[hsl(var(--border))] px-2 py-1 text-[10px] font-bold text-[#3159c4] hover:bg-[#edf1ff] disabled:opacity-40"
+          >
+            {extracting ? <LoaderCircle size={11} className="animate-spin" /> : <Sparkles size={11} />}
+            {extracting ? 'Scanning…' : 'Scan'}
+          </button>
+          <button
+            type="button"
+            aria-label="Add task manually"
+            onClick={() => setShowAddForm((v) => !v)}
+            className="grid h-7 w-7 place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="mt-3 flex gap-1">
+        {(['active', 'all'] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFilter(f)}
+            className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[.08em] transition-colors ${
+              filter === f ? 'bg-[#2854cc] text-white' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]'
+            }`}
+          >
+            {f === 'active' ? 'Active' : 'All'}
+          </button>
+        ))}
+      </div>
+
+      {/* Inline add form */}
+      {showAddForm && (
+        <div className="mt-3 flex gap-2">
+          <input
+            autoFocus
+            type="text"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void handleAddTask(); if (e.key === 'Escape') setShowAddForm(false); }}
+            placeholder="New task…"
+            className="flex-1 rounded-xl border border-[hsl(var(--border))] bg-[#fbfaf6] px-3 py-2 text-xs outline-none focus:border-[#4168e5] focus:ring-2 focus:ring-[#4168e5]/10"
+          />
+          <button
+            type="button"
+            onClick={() => void handleAddTask()}
+            disabled={!newTitle.trim()}
+            className="rounded-xl bg-[#2854cc] px-3 py-2 text-xs font-bold text-white hover:bg-[#2148b4] disabled:opacity-40"
+          >
+            Add
+          </button>
+        </div>
+      )}
+
+      {/* Task list */}
+      <div className="mt-3 space-y-2">
+        {!conversationId ? (
+          <p className="py-3 text-center text-xs text-[hsl(var(--muted-foreground))]">Select a conversation to see tasks.</p>
+        ) : loading && tasks.length === 0 ? (
+          <div className="flex items-center justify-center py-6">
+            <LoaderCircle size={14} className="animate-spin text-[hsl(var(--muted-foreground))]" />
+          </div>
+        ) : visible.length === 0 ? (
+          <p className="py-3 text-center text-xs text-[hsl(var(--muted-foreground))]">
+            {filter === 'active' ? 'No active tasks — hit Scan to mine the conversation.' : 'No tasks yet.'}
+          </p>
+        ) : (
+          visible.map((task) => (
+            <TaskRow key={task.id} task={task} onStatusChange={handleStatusChange} />
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function TaskRow({
+  task,
+  onStatusChange,
+}: {
+  task: api.Task;
+  onStatusChange: (id: string, status: api.TaskStatus) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const meta = STATUS_META[task.status] ?? STATUS_META.open;
+  const isDone = task.status === 'done' || task.status === 'cancelled';
+
+  // Next logical status to advance to on checkbox click
+  const advanceStatus = (): api.TaskStatus => {
+    if (task.status === 'suggested') return 'open';
+    if (task.status === 'open') return 'in_progress';
+    if (task.status === 'in_progress') return 'done';
+    return task.status as api.TaskStatus;
+  };
+
+  return (
+    <div
+      className={`rounded-xl border bg-[#fafaf7] p-3 transition-all ${
+        task.status === 'suggested' ? 'border-[#f5d78e] bg-[#fffbf0]' : 'border-[hsl(var(--border))]'
+      }`}
+    >
+      <div className="flex items-start gap-2">
+        {/* Checkbox / advance button */}
+        <button
+          type="button"
+          aria-label={isDone ? 'Task complete' : 'Advance task status'}
+          onClick={() => !isDone && onStatusChange(task.id, advanceStatus())}
+          className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded ${
+            isDone
+              ? 'bg-[#8fba9a] text-white cursor-default'
+              : task.status === 'suggested'
+              ? 'border border-[#f5a623] bg-[#fff8e8]'
+              : 'border border-[#3b9a83] bg-white hover:bg-[#edf9f5]'
+          }`}
+        >
+          {(task.status === 'in_progress' || isDone) && <Check size={10} strokeWidth={3} />}
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`text-xs font-semibold leading-4 ${isDone ? 'line-through text-[hsl(var(--muted-foreground))]' : ''}`}>
+              {task.title}
+            </span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[.07em] ${PRIORITY_BADGE[task.priority] ?? PRIORITY_BADGE.normal}`}>
+              {task.priority}
+            </span>
+          </div>
+
+          {/* Status + due date */}
+          <div className="mt-1 flex items-center gap-2">
+            <span className={`flex items-center gap-1 text-[10px] font-bold ${meta.text}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+              {meta.label}
+            </span>
+            {task.dueDate && (
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                Due {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </span>
+            )}
+            {task.source === 'agent' && task.confidence < 1 && (
+              <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
+                {Math.round(task.confidence * 100)}% conf.
+              </span>
+            )}
+          </div>
+
+          {/* Expand toggle for description */}
+          {task.description && (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="mt-1 text-[10px] font-bold text-[#3159c4] hover:underline"
+            >
+              {open ? 'Hide detail' : 'Show detail'}
+            </button>
+          )}
+          {open && task.description && (
+            <p className="mt-1 text-[11px] leading-4 text-[hsl(var(--muted-foreground))]">{task.description}</p>
+          )}
+        </div>
+
+        {/* Suggested task quick-actions: confirm or dismiss */}
+        {task.status === 'suggested' && (
+          <div className="flex shrink-0 gap-1">
+            <button
+              type="button"
+              aria-label="Confirm task"
+              onClick={() => onStatusChange(task.id, 'open')}
+              className="grid h-6 w-6 place-items-center rounded-lg bg-[#dcefe9] text-[#216457] hover:bg-[#c4e3da]"
+            >
+              <Check size={11} strokeWidth={3} />
+            </button>
+            <button
+              type="button"
+              aria-label="Dismiss task"
+              onClick={() => onStatusChange(task.id, 'cancelled')}
+              className="grid h-6 w-6 place-items-center rounded-lg bg-[#f3ebe8] text-[#a05a4a] hover:bg-[#e8d5cf]"
+            >
+              <X size={11} strokeWidth={3} />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

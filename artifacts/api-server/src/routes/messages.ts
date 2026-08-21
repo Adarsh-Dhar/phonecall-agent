@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
+import { scheduleExtraction } from "../services/taskExtraction";
 
 const router: IRouter = Router();
 
@@ -36,6 +37,10 @@ router.post("/conversations/:conversationId/messages", async (req, res) => {
       where: { id: conversationId },
       data: { updatedAt: new Date() },
     });
+
+    // Schedule background task extraction — fire-and-forget, never blocks the response
+    scheduleExtraction(conversationId);
+
     res.json(message);
   } catch (error) {
     res.status(500).json({ error: "Failed to create message" });

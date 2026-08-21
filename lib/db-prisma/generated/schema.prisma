@@ -25,6 +25,7 @@ model Contact {
   updatedAt DateTime @updatedAt
 
   conversations Conversation[]
+  tasks         Task[]
 }
 
 model Conversation {
@@ -34,6 +35,12 @@ model Conversation {
   updatedAt DateTime  @updatedAt
   messages  Message[]
   history   History[]
+  tasks     Task[]
+
+  // Extraction cursor — tracks the last message already processed by the
+  // task-mining pipeline so each run only sees the delta.
+  lastExtractedMessageId String?
+  lastExtractedAt        DateTime?
 
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -52,6 +59,8 @@ model Message {
 
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  taskSources TaskSourceMessage[]
 }
 
 model History {
@@ -65,4 +74,43 @@ model History {
 
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("suggested")
+  // suggested -> open -> in_progress -> done | cancelled
+  priority    String    @default("normal") // low | normal | high
+  dueDate     DateTime?
+  confidence  Float     @default(1.0) // model certainty 0-1
+  source      String    @default("agent") // "agent" | "user"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  sources TaskSourceMessage[]
+
+  @@index([conversationId])
+  @@index([contactId])
+  @@index([status])
+}
+
+// Join table: which message(s) a task was mined from / updated by.
+model TaskSourceMessage {
+  id        String  @id @default(cuid())
+  taskId    String
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  role      String // "created" | "updated" | "completed" — why this message is linked
+
+  @@unique([taskId, messageId, role])
 }

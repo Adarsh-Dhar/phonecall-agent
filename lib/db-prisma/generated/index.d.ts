@@ -33,6 +33,16 @@ export type Message = $Result.DefaultSelection<Prisma.$MessagePayload>
  * 
  */
 export type History = $Result.DefaultSelection<Prisma.$HistoryPayload>
+/**
+ * Model Task
+ * 
+ */
+export type Task = $Result.DefaultSelection<Prisma.$TaskPayload>
+/**
+ * Model TaskSourceMessage
+ * 
+ */
+export type TaskSourceMessage = $Result.DefaultSelection<Prisma.$TaskSourceMessagePayload>
 
 /**
  * ##  Prisma Client ʲˢ
@@ -191,6 +201,26 @@ export class PrismaClient<
     * ```
     */
   get history(): Prisma.HistoryDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.task`: Exposes CRUD operations for the **Task** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Tasks
+    * const tasks = await prisma.task.findMany()
+    * ```
+    */
+  get task(): Prisma.TaskDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.taskSourceMessage`: Exposes CRUD operations for the **TaskSourceMessage** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more TaskSourceMessages
+    * const taskSourceMessages = await prisma.taskSourceMessage.findMany()
+    * ```
+    */
+  get taskSourceMessage(): Prisma.TaskSourceMessageDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -635,7 +665,9 @@ export namespace Prisma {
     Contact: 'Contact',
     Conversation: 'Conversation',
     Message: 'Message',
-    History: 'History'
+    History: 'History',
+    Task: 'Task',
+    TaskSourceMessage: 'TaskSourceMessage'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -654,7 +686,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "contact" | "conversation" | "message" | "history"
+      modelProps: "contact" | "conversation" | "message" | "history" | "task" | "taskSourceMessage"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -954,6 +986,154 @@ export namespace Prisma {
           }
         }
       }
+      Task: {
+        payload: Prisma.$TaskPayload<ExtArgs>
+        fields: Prisma.TaskFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.TaskFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.TaskFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload>
+          }
+          findFirst: {
+            args: Prisma.TaskFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.TaskFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload>
+          }
+          findMany: {
+            args: Prisma.TaskFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload>[]
+          }
+          create: {
+            args: Prisma.TaskCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload>
+          }
+          createMany: {
+            args: Prisma.TaskCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.TaskCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload>[]
+          }
+          delete: {
+            args: Prisma.TaskDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload>
+          }
+          update: {
+            args: Prisma.TaskUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload>
+          }
+          deleteMany: {
+            args: Prisma.TaskDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.TaskUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.TaskUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload>[]
+          }
+          upsert: {
+            args: Prisma.TaskUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskPayload>
+          }
+          aggregate: {
+            args: Prisma.TaskAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateTask>
+          }
+          groupBy: {
+            args: Prisma.TaskGroupByArgs<ExtArgs>
+            result: $Utils.Optional<TaskGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.TaskCountArgs<ExtArgs>
+            result: $Utils.Optional<TaskCountAggregateOutputType> | number
+          }
+        }
+      }
+      TaskSourceMessage: {
+        payload: Prisma.$TaskSourceMessagePayload<ExtArgs>
+        fields: Prisma.TaskSourceMessageFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.TaskSourceMessageFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.TaskSourceMessageFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload>
+          }
+          findFirst: {
+            args: Prisma.TaskSourceMessageFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.TaskSourceMessageFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload>
+          }
+          findMany: {
+            args: Prisma.TaskSourceMessageFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload>[]
+          }
+          create: {
+            args: Prisma.TaskSourceMessageCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload>
+          }
+          createMany: {
+            args: Prisma.TaskSourceMessageCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.TaskSourceMessageCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload>[]
+          }
+          delete: {
+            args: Prisma.TaskSourceMessageDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload>
+          }
+          update: {
+            args: Prisma.TaskSourceMessageUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload>
+          }
+          deleteMany: {
+            args: Prisma.TaskSourceMessageDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.TaskSourceMessageUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.TaskSourceMessageUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload>[]
+          }
+          upsert: {
+            args: Prisma.TaskSourceMessageUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$TaskSourceMessagePayload>
+          }
+          aggregate: {
+            args: Prisma.TaskSourceMessageAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateTaskSourceMessage>
+          }
+          groupBy: {
+            args: Prisma.TaskSourceMessageGroupByArgs<ExtArgs>
+            result: $Utils.Optional<TaskSourceMessageGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.TaskSourceMessageCountArgs<ExtArgs>
+            result: $Utils.Optional<TaskSourceMessageCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -1054,6 +1234,8 @@ export namespace Prisma {
     conversation?: ConversationOmit
     message?: MessageOmit
     history?: HistoryOmit
+    task?: TaskOmit
+    taskSourceMessage?: TaskSourceMessageOmit
   }
 
   /* Types for Logging */
@@ -1135,10 +1317,12 @@ export namespace Prisma {
 
   export type ContactCountOutputType = {
     conversations: number
+    tasks: number
   }
 
   export type ContactCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversations?: boolean | ContactCountOutputTypeCountConversationsArgs
+    tasks?: boolean | ContactCountOutputTypeCountTasksArgs
   }
 
   // Custom InputTypes
@@ -1159,6 +1343,13 @@ export namespace Prisma {
     where?: ConversationWhereInput
   }
 
+  /**
+   * ContactCountOutputType without action
+   */
+  export type ContactCountOutputTypeCountTasksArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: TaskWhereInput
+  }
+
 
   /**
    * Count Type ConversationCountOutputType
@@ -1167,11 +1358,13 @@ export namespace Prisma {
   export type ConversationCountOutputType = {
     messages: number
     history: number
+    tasks: number
   }
 
   export type ConversationCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     messages?: boolean | ConversationCountOutputTypeCountMessagesArgs
     history?: boolean | ConversationCountOutputTypeCountHistoryArgs
+    tasks?: boolean | ConversationCountOutputTypeCountTasksArgs
   }
 
   // Custom InputTypes
@@ -1197,6 +1390,75 @@ export namespace Prisma {
    */
   export type ConversationCountOutputTypeCountHistoryArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: HistoryWhereInput
+  }
+
+  /**
+   * ConversationCountOutputType without action
+   */
+  export type ConversationCountOutputTypeCountTasksArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: TaskWhereInput
+  }
+
+
+  /**
+   * Count Type MessageCountOutputType
+   */
+
+  export type MessageCountOutputType = {
+    taskSources: number
+  }
+
+  export type MessageCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    taskSources?: boolean | MessageCountOutputTypeCountTaskSourcesArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * MessageCountOutputType without action
+   */
+  export type MessageCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MessageCountOutputType
+     */
+    select?: MessageCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * MessageCountOutputType without action
+   */
+  export type MessageCountOutputTypeCountTaskSourcesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: TaskSourceMessageWhereInput
+  }
+
+
+  /**
+   * Count Type TaskCountOutputType
+   */
+
+  export type TaskCountOutputType = {
+    sources: number
+  }
+
+  export type TaskCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    sources?: boolean | TaskCountOutputTypeCountSourcesArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * TaskCountOutputType without action
+   */
+  export type TaskCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskCountOutputType
+     */
+    select?: TaskCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * TaskCountOutputType without action
+   */
+  export type TaskCountOutputTypeCountSourcesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: TaskSourceMessageWhereInput
   }
 
 
@@ -1417,6 +1679,7 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     conversations?: boolean | Contact$conversationsArgs<ExtArgs>
+    tasks?: boolean | Contact$tasksArgs<ExtArgs>
     _count?: boolean | ContactCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["contact"]>
 
@@ -1465,6 +1728,7 @@ export namespace Prisma {
   export type ContactOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "business" | "category" | "phone" | "initials" | "color" | "note" | "online" | "createdAt" | "updatedAt", ExtArgs["result"]["contact"]>
   export type ContactInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversations?: boolean | Contact$conversationsArgs<ExtArgs>
+    tasks?: boolean | Contact$tasksArgs<ExtArgs>
     _count?: boolean | ContactCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type ContactIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
@@ -1474,6 +1738,7 @@ export namespace Prisma {
     name: "Contact"
     objects: {
       conversations: Prisma.$ConversationPayload<ExtArgs>[]
+      tasks: Prisma.$TaskPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -1882,6 +2147,7 @@ export namespace Prisma {
   export interface Prisma__ContactClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     conversations<T extends Contact$conversationsArgs<ExtArgs> = {}>(args?: Subset<T, Contact$conversationsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ConversationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    tasks<T extends Contact$tasksArgs<ExtArgs> = {}>(args?: Subset<T, Contact$tasksArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2334,6 +2600,30 @@ export namespace Prisma {
   }
 
   /**
+   * Contact.tasks
+   */
+  export type Contact$tasksArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    where?: TaskWhereInput
+    orderBy?: TaskOrderByWithRelationInput | TaskOrderByWithRelationInput[]
+    cursor?: TaskWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: TaskScalarFieldEnum | TaskScalarFieldEnum[]
+  }
+
+  /**
    * Contact without action
    */
   export type ContactDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -2367,6 +2657,8 @@ export namespace Prisma {
     title: string | null
     createdAt: Date | null
     updatedAt: Date | null
+    lastExtractedMessageId: string | null
+    lastExtractedAt: Date | null
     contactId: string | null
   }
 
@@ -2375,6 +2667,8 @@ export namespace Prisma {
     title: string | null
     createdAt: Date | null
     updatedAt: Date | null
+    lastExtractedMessageId: string | null
+    lastExtractedAt: Date | null
     contactId: string | null
   }
 
@@ -2383,6 +2677,8 @@ export namespace Prisma {
     title: number
     createdAt: number
     updatedAt: number
+    lastExtractedMessageId: number
+    lastExtractedAt: number
     contactId: number
     _all: number
   }
@@ -2393,6 +2689,8 @@ export namespace Prisma {
     title?: true
     createdAt?: true
     updatedAt?: true
+    lastExtractedMessageId?: true
+    lastExtractedAt?: true
     contactId?: true
   }
 
@@ -2401,6 +2699,8 @@ export namespace Prisma {
     title?: true
     createdAt?: true
     updatedAt?: true
+    lastExtractedMessageId?: true
+    lastExtractedAt?: true
     contactId?: true
   }
 
@@ -2409,6 +2709,8 @@ export namespace Prisma {
     title?: true
     createdAt?: true
     updatedAt?: true
+    lastExtractedMessageId?: true
+    lastExtractedAt?: true
     contactId?: true
     _all?: true
   }
@@ -2490,6 +2792,8 @@ export namespace Prisma {
     title: string | null
     createdAt: Date
     updatedAt: Date
+    lastExtractedMessageId: string | null
+    lastExtractedAt: Date | null
     contactId: string
     _count: ConversationCountAggregateOutputType | null
     _min: ConversationMinAggregateOutputType | null
@@ -2515,9 +2819,12 @@ export namespace Prisma {
     title?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    lastExtractedMessageId?: boolean
+    lastExtractedAt?: boolean
     contactId?: boolean
     messages?: boolean | Conversation$messagesArgs<ExtArgs>
     history?: boolean | Conversation$historyArgs<ExtArgs>
+    tasks?: boolean | Conversation$tasksArgs<ExtArgs>
     contact?: boolean | ContactDefaultArgs<ExtArgs>
     _count?: boolean | ConversationCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["conversation"]>
@@ -2527,6 +2834,8 @@ export namespace Prisma {
     title?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    lastExtractedMessageId?: boolean
+    lastExtractedAt?: boolean
     contactId?: boolean
     contact?: boolean | ContactDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["conversation"]>
@@ -2536,6 +2845,8 @@ export namespace Prisma {
     title?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    lastExtractedMessageId?: boolean
+    lastExtractedAt?: boolean
     contactId?: boolean
     contact?: boolean | ContactDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["conversation"]>
@@ -2545,13 +2856,16 @@ export namespace Prisma {
     title?: boolean
     createdAt?: boolean
     updatedAt?: boolean
+    lastExtractedMessageId?: boolean
+    lastExtractedAt?: boolean
     contactId?: boolean
   }
 
-  export type ConversationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "createdAt" | "updatedAt" | "contactId", ExtArgs["result"]["conversation"]>
+  export type ConversationOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "createdAt" | "updatedAt" | "lastExtractedMessageId" | "lastExtractedAt" | "contactId", ExtArgs["result"]["conversation"]>
   export type ConversationInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     messages?: boolean | Conversation$messagesArgs<ExtArgs>
     history?: boolean | Conversation$historyArgs<ExtArgs>
+    tasks?: boolean | Conversation$tasksArgs<ExtArgs>
     contact?: boolean | ContactDefaultArgs<ExtArgs>
     _count?: boolean | ConversationCountOutputTypeDefaultArgs<ExtArgs>
   }
@@ -2567,6 +2881,7 @@ export namespace Prisma {
     objects: {
       messages: Prisma.$MessagePayload<ExtArgs>[]
       history: Prisma.$HistoryPayload<ExtArgs>[]
+      tasks: Prisma.$TaskPayload<ExtArgs>[]
       contact: Prisma.$ContactPayload<ExtArgs>
     }
     scalars: $Extensions.GetPayloadResult<{
@@ -2574,6 +2889,8 @@ export namespace Prisma {
       title: string | null
       createdAt: Date
       updatedAt: Date
+      lastExtractedMessageId: string | null
+      lastExtractedAt: Date | null
       contactId: string
     }, ExtArgs["result"]["conversation"]>
     composites: {}
@@ -2971,6 +3288,7 @@ export namespace Prisma {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     messages<T extends Conversation$messagesArgs<ExtArgs> = {}>(args?: Subset<T, Conversation$messagesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     history<T extends Conversation$historyArgs<ExtArgs> = {}>(args?: Subset<T, Conversation$historyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$HistoryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    tasks<T extends Conversation$tasksArgs<ExtArgs> = {}>(args?: Subset<T, Conversation$tasksArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     contact<T extends ContactDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ContactDefaultArgs<ExtArgs>>): Prisma__ContactClient<$Result.GetResult<Prisma.$ContactPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -3005,6 +3323,8 @@ export namespace Prisma {
     readonly title: FieldRef<"Conversation", 'String'>
     readonly createdAt: FieldRef<"Conversation", 'DateTime'>
     readonly updatedAt: FieldRef<"Conversation", 'DateTime'>
+    readonly lastExtractedMessageId: FieldRef<"Conversation", 'String'>
+    readonly lastExtractedAt: FieldRef<"Conversation", 'DateTime'>
     readonly contactId: FieldRef<"Conversation", 'String'>
   }
     
@@ -3450,6 +3770,30 @@ export namespace Prisma {
   }
 
   /**
+   * Conversation.tasks
+   */
+  export type Conversation$tasksArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    where?: TaskWhereInput
+    orderBy?: TaskOrderByWithRelationInput | TaskOrderByWithRelationInput[]
+    cursor?: TaskWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: TaskScalarFieldEnum | TaskScalarFieldEnum[]
+  }
+
+  /**
    * Conversation without action
    */
   export type ConversationDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -3657,6 +4001,8 @@ export namespace Prisma {
     updatedAt?: boolean
     conversationId?: boolean
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    taskSources?: boolean | Message$taskSourcesArgs<ExtArgs>
+    _count?: boolean | MessageCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["message"]>
 
   export type MessageSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -3697,6 +4043,8 @@ export namespace Prisma {
   export type MessageOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "role" | "content" | "time" | "pending" | "createdAt" | "updatedAt" | "conversationId", ExtArgs["result"]["message"]>
   export type MessageInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    taskSources?: boolean | Message$taskSourcesArgs<ExtArgs>
+    _count?: boolean | MessageCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type MessageIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
@@ -3709,6 +4057,7 @@ export namespace Prisma {
     name: "Message"
     objects: {
       conversation: Prisma.$ConversationPayload<ExtArgs>
+      taskSources: Prisma.$TaskSourceMessagePayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -4114,6 +4463,7 @@ export namespace Prisma {
   export interface Prisma__MessageClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     conversation<T extends ConversationDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ConversationDefaultArgs<ExtArgs>>): Prisma__ConversationClient<$Result.GetResult<Prisma.$ConversationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    taskSources<T extends Message$taskSourcesArgs<ExtArgs> = {}>(args?: Subset<T, Message$taskSourcesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4544,6 +4894,30 @@ export namespace Prisma {
      * Limit how many Messages to delete.
      */
     limit?: number
+  }
+
+  /**
+   * Message.taskSources
+   */
+  export type Message$taskSourcesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    where?: TaskSourceMessageWhereInput
+    orderBy?: TaskSourceMessageOrderByWithRelationInput | TaskSourceMessageOrderByWithRelationInput[]
+    cursor?: TaskSourceMessageWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: TaskSourceMessageScalarFieldEnum | TaskSourceMessageScalarFieldEnum[]
   }
 
   /**
@@ -5663,6 +6037,2293 @@ export namespace Prisma {
 
 
   /**
+   * Model Task
+   */
+
+  export type AggregateTask = {
+    _count: TaskCountAggregateOutputType | null
+    _avg: TaskAvgAggregateOutputType | null
+    _sum: TaskSumAggregateOutputType | null
+    _min: TaskMinAggregateOutputType | null
+    _max: TaskMaxAggregateOutputType | null
+  }
+
+  export type TaskAvgAggregateOutputType = {
+    confidence: number | null
+  }
+
+  export type TaskSumAggregateOutputType = {
+    confidence: number | null
+  }
+
+  export type TaskMinAggregateOutputType = {
+    id: string | null
+    title: string | null
+    description: string | null
+    status: string | null
+    priority: string | null
+    dueDate: Date | null
+    confidence: number | null
+    source: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+    completedAt: Date | null
+    conversationId: string | null
+    contactId: string | null
+  }
+
+  export type TaskMaxAggregateOutputType = {
+    id: string | null
+    title: string | null
+    description: string | null
+    status: string | null
+    priority: string | null
+    dueDate: Date | null
+    confidence: number | null
+    source: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+    completedAt: Date | null
+    conversationId: string | null
+    contactId: string | null
+  }
+
+  export type TaskCountAggregateOutputType = {
+    id: number
+    title: number
+    description: number
+    status: number
+    priority: number
+    dueDate: number
+    confidence: number
+    source: number
+    createdAt: number
+    updatedAt: number
+    completedAt: number
+    conversationId: number
+    contactId: number
+    _all: number
+  }
+
+
+  export type TaskAvgAggregateInputType = {
+    confidence?: true
+  }
+
+  export type TaskSumAggregateInputType = {
+    confidence?: true
+  }
+
+  export type TaskMinAggregateInputType = {
+    id?: true
+    title?: true
+    description?: true
+    status?: true
+    priority?: true
+    dueDate?: true
+    confidence?: true
+    source?: true
+    createdAt?: true
+    updatedAt?: true
+    completedAt?: true
+    conversationId?: true
+    contactId?: true
+  }
+
+  export type TaskMaxAggregateInputType = {
+    id?: true
+    title?: true
+    description?: true
+    status?: true
+    priority?: true
+    dueDate?: true
+    confidence?: true
+    source?: true
+    createdAt?: true
+    updatedAt?: true
+    completedAt?: true
+    conversationId?: true
+    contactId?: true
+  }
+
+  export type TaskCountAggregateInputType = {
+    id?: true
+    title?: true
+    description?: true
+    status?: true
+    priority?: true
+    dueDate?: true
+    confidence?: true
+    source?: true
+    createdAt?: true
+    updatedAt?: true
+    completedAt?: true
+    conversationId?: true
+    contactId?: true
+    _all?: true
+  }
+
+  export type TaskAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which Task to aggregate.
+     */
+    where?: TaskWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Tasks to fetch.
+     */
+    orderBy?: TaskOrderByWithRelationInput | TaskOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: TaskWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Tasks from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Tasks.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned Tasks
+    **/
+    _count?: true | TaskCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: TaskAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: TaskSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: TaskMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: TaskMaxAggregateInputType
+  }
+
+  export type GetTaskAggregateType<T extends TaskAggregateArgs> = {
+        [P in keyof T & keyof AggregateTask]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateTask[P]>
+      : GetScalarType<T[P], AggregateTask[P]>
+  }
+
+
+
+
+  export type TaskGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: TaskWhereInput
+    orderBy?: TaskOrderByWithAggregationInput | TaskOrderByWithAggregationInput[]
+    by: TaskScalarFieldEnum[] | TaskScalarFieldEnum
+    having?: TaskScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: TaskCountAggregateInputType | true
+    _avg?: TaskAvgAggregateInputType
+    _sum?: TaskSumAggregateInputType
+    _min?: TaskMinAggregateInputType
+    _max?: TaskMaxAggregateInputType
+  }
+
+  export type TaskGroupByOutputType = {
+    id: string
+    title: string
+    description: string | null
+    status: string
+    priority: string
+    dueDate: Date | null
+    confidence: number
+    source: string
+    createdAt: Date
+    updatedAt: Date
+    completedAt: Date | null
+    conversationId: string
+    contactId: string
+    _count: TaskCountAggregateOutputType | null
+    _avg: TaskAvgAggregateOutputType | null
+    _sum: TaskSumAggregateOutputType | null
+    _min: TaskMinAggregateOutputType | null
+    _max: TaskMaxAggregateOutputType | null
+  }
+
+  type GetTaskGroupByPayload<T extends TaskGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<TaskGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof TaskGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], TaskGroupByOutputType[P]>
+            : GetScalarType<T[P], TaskGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type TaskSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    title?: boolean
+    description?: boolean
+    status?: boolean
+    priority?: boolean
+    dueDate?: boolean
+    confidence?: boolean
+    source?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    completedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+    sources?: boolean | Task$sourcesArgs<ExtArgs>
+    _count?: boolean | TaskCountOutputTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["task"]>
+
+  export type TaskSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    title?: boolean
+    description?: boolean
+    status?: boolean
+    priority?: boolean
+    dueDate?: boolean
+    confidence?: boolean
+    source?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    completedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["task"]>
+
+  export type TaskSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    title?: boolean
+    description?: boolean
+    status?: boolean
+    priority?: boolean
+    dueDate?: boolean
+    confidence?: boolean
+    source?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    completedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["task"]>
+
+  export type TaskSelectScalar = {
+    id?: boolean
+    title?: boolean
+    description?: boolean
+    status?: boolean
+    priority?: boolean
+    dueDate?: boolean
+    confidence?: boolean
+    source?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    completedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+  }
+
+  export type TaskOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "title" | "description" | "status" | "priority" | "dueDate" | "confidence" | "source" | "createdAt" | "updatedAt" | "completedAt" | "conversationId" | "contactId", ExtArgs["result"]["task"]>
+  export type TaskInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+    sources?: boolean | Task$sourcesArgs<ExtArgs>
+    _count?: boolean | TaskCountOutputTypeDefaultArgs<ExtArgs>
+  }
+  export type TaskIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }
+  export type TaskIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }
+
+  export type $TaskPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "Task"
+    objects: {
+      conversation: Prisma.$ConversationPayload<ExtArgs>
+      contact: Prisma.$ContactPayload<ExtArgs>
+      sources: Prisma.$TaskSourceMessagePayload<ExtArgs>[]
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      title: string
+      description: string | null
+      status: string
+      priority: string
+      dueDate: Date | null
+      confidence: number
+      source: string
+      createdAt: Date
+      updatedAt: Date
+      completedAt: Date | null
+      conversationId: string
+      contactId: string
+    }, ExtArgs["result"]["task"]>
+    composites: {}
+  }
+
+  type TaskGetPayload<S extends boolean | null | undefined | TaskDefaultArgs> = $Result.GetResult<Prisma.$TaskPayload, S>
+
+  type TaskCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<TaskFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: TaskCountAggregateInputType | true
+    }
+
+  export interface TaskDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['Task'], meta: { name: 'Task' } }
+    /**
+     * Find zero or one Task that matches the filter.
+     * @param {TaskFindUniqueArgs} args - Arguments to find a Task
+     * @example
+     * // Get one Task
+     * const task = await prisma.task.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends TaskFindUniqueArgs>(args: SelectSubset<T, TaskFindUniqueArgs<ExtArgs>>): Prisma__TaskClient<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one Task that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {TaskFindUniqueOrThrowArgs} args - Arguments to find a Task
+     * @example
+     * // Get one Task
+     * const task = await prisma.task.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends TaskFindUniqueOrThrowArgs>(args: SelectSubset<T, TaskFindUniqueOrThrowArgs<ExtArgs>>): Prisma__TaskClient<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first Task that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskFindFirstArgs} args - Arguments to find a Task
+     * @example
+     * // Get one Task
+     * const task = await prisma.task.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends TaskFindFirstArgs>(args?: SelectSubset<T, TaskFindFirstArgs<ExtArgs>>): Prisma__TaskClient<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first Task that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskFindFirstOrThrowArgs} args - Arguments to find a Task
+     * @example
+     * // Get one Task
+     * const task = await prisma.task.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends TaskFindFirstOrThrowArgs>(args?: SelectSubset<T, TaskFindFirstOrThrowArgs<ExtArgs>>): Prisma__TaskClient<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more Tasks that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all Tasks
+     * const tasks = await prisma.task.findMany()
+     * 
+     * // Get first 10 Tasks
+     * const tasks = await prisma.task.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const taskWithIdOnly = await prisma.task.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends TaskFindManyArgs>(args?: SelectSubset<T, TaskFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a Task.
+     * @param {TaskCreateArgs} args - Arguments to create a Task.
+     * @example
+     * // Create one Task
+     * const Task = await prisma.task.create({
+     *   data: {
+     *     // ... data to create a Task
+     *   }
+     * })
+     * 
+     */
+    create<T extends TaskCreateArgs>(args: SelectSubset<T, TaskCreateArgs<ExtArgs>>): Prisma__TaskClient<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many Tasks.
+     * @param {TaskCreateManyArgs} args - Arguments to create many Tasks.
+     * @example
+     * // Create many Tasks
+     * const task = await prisma.task.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends TaskCreateManyArgs>(args?: SelectSubset<T, TaskCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many Tasks and returns the data saved in the database.
+     * @param {TaskCreateManyAndReturnArgs} args - Arguments to create many Tasks.
+     * @example
+     * // Create many Tasks
+     * const task = await prisma.task.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many Tasks and only return the `id`
+     * const taskWithIdOnly = await prisma.task.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends TaskCreateManyAndReturnArgs>(args?: SelectSubset<T, TaskCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a Task.
+     * @param {TaskDeleteArgs} args - Arguments to delete one Task.
+     * @example
+     * // Delete one Task
+     * const Task = await prisma.task.delete({
+     *   where: {
+     *     // ... filter to delete one Task
+     *   }
+     * })
+     * 
+     */
+    delete<T extends TaskDeleteArgs>(args: SelectSubset<T, TaskDeleteArgs<ExtArgs>>): Prisma__TaskClient<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one Task.
+     * @param {TaskUpdateArgs} args - Arguments to update one Task.
+     * @example
+     * // Update one Task
+     * const task = await prisma.task.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends TaskUpdateArgs>(args: SelectSubset<T, TaskUpdateArgs<ExtArgs>>): Prisma__TaskClient<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more Tasks.
+     * @param {TaskDeleteManyArgs} args - Arguments to filter Tasks to delete.
+     * @example
+     * // Delete a few Tasks
+     * const { count } = await prisma.task.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends TaskDeleteManyArgs>(args?: SelectSubset<T, TaskDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Tasks.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many Tasks
+     * const task = await prisma.task.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends TaskUpdateManyArgs>(args: SelectSubset<T, TaskUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Tasks and returns the data updated in the database.
+     * @param {TaskUpdateManyAndReturnArgs} args - Arguments to update many Tasks.
+     * @example
+     * // Update many Tasks
+     * const task = await prisma.task.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more Tasks and only return the `id`
+     * const taskWithIdOnly = await prisma.task.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends TaskUpdateManyAndReturnArgs>(args: SelectSubset<T, TaskUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one Task.
+     * @param {TaskUpsertArgs} args - Arguments to update or create a Task.
+     * @example
+     * // Update or create a Task
+     * const task = await prisma.task.upsert({
+     *   create: {
+     *     // ... data to create a Task
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the Task we want to update
+     *   }
+     * })
+     */
+    upsert<T extends TaskUpsertArgs>(args: SelectSubset<T, TaskUpsertArgs<ExtArgs>>): Prisma__TaskClient<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of Tasks.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskCountArgs} args - Arguments to filter Tasks to count.
+     * @example
+     * // Count the number of Tasks
+     * const count = await prisma.task.count({
+     *   where: {
+     *     // ... the filter for the Tasks we want to count
+     *   }
+     * })
+    **/
+    count<T extends TaskCountArgs>(
+      args?: Subset<T, TaskCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], TaskCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a Task.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends TaskAggregateArgs>(args: Subset<T, TaskAggregateArgs>): Prisma.PrismaPromise<GetTaskAggregateType<T>>
+
+    /**
+     * Group by Task.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends TaskGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: TaskGroupByArgs['orderBy'] }
+        : { orderBy?: TaskGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, TaskGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetTaskGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the Task model
+   */
+  readonly fields: TaskFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for Task.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__TaskClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    conversation<T extends ConversationDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ConversationDefaultArgs<ExtArgs>>): Prisma__ConversationClient<$Result.GetResult<Prisma.$ConversationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    contact<T extends ContactDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ContactDefaultArgs<ExtArgs>>): Prisma__ContactClient<$Result.GetResult<Prisma.$ContactPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    sources<T extends Task$sourcesArgs<ExtArgs> = {}>(args?: Subset<T, Task$sourcesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the Task model
+   */
+  interface TaskFieldRefs {
+    readonly id: FieldRef<"Task", 'String'>
+    readonly title: FieldRef<"Task", 'String'>
+    readonly description: FieldRef<"Task", 'String'>
+    readonly status: FieldRef<"Task", 'String'>
+    readonly priority: FieldRef<"Task", 'String'>
+    readonly dueDate: FieldRef<"Task", 'DateTime'>
+    readonly confidence: FieldRef<"Task", 'Float'>
+    readonly source: FieldRef<"Task", 'String'>
+    readonly createdAt: FieldRef<"Task", 'DateTime'>
+    readonly updatedAt: FieldRef<"Task", 'DateTime'>
+    readonly completedAt: FieldRef<"Task", 'DateTime'>
+    readonly conversationId: FieldRef<"Task", 'String'>
+    readonly contactId: FieldRef<"Task", 'String'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * Task findUnique
+   */
+  export type TaskFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    /**
+     * Filter, which Task to fetch.
+     */
+    where: TaskWhereUniqueInput
+  }
+
+  /**
+   * Task findUniqueOrThrow
+   */
+  export type TaskFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    /**
+     * Filter, which Task to fetch.
+     */
+    where: TaskWhereUniqueInput
+  }
+
+  /**
+   * Task findFirst
+   */
+  export type TaskFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    /**
+     * Filter, which Task to fetch.
+     */
+    where?: TaskWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Tasks to fetch.
+     */
+    orderBy?: TaskOrderByWithRelationInput | TaskOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for Tasks.
+     */
+    cursor?: TaskWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Tasks from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Tasks.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Tasks.
+     */
+    distinct?: TaskScalarFieldEnum | TaskScalarFieldEnum[]
+  }
+
+  /**
+   * Task findFirstOrThrow
+   */
+  export type TaskFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    /**
+     * Filter, which Task to fetch.
+     */
+    where?: TaskWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Tasks to fetch.
+     */
+    orderBy?: TaskOrderByWithRelationInput | TaskOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for Tasks.
+     */
+    cursor?: TaskWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Tasks from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Tasks.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Tasks.
+     */
+    distinct?: TaskScalarFieldEnum | TaskScalarFieldEnum[]
+  }
+
+  /**
+   * Task findMany
+   */
+  export type TaskFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    /**
+     * Filter, which Tasks to fetch.
+     */
+    where?: TaskWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Tasks to fetch.
+     */
+    orderBy?: TaskOrderByWithRelationInput | TaskOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing Tasks.
+     */
+    cursor?: TaskWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Tasks from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Tasks.
+     */
+    skip?: number
+    distinct?: TaskScalarFieldEnum | TaskScalarFieldEnum[]
+  }
+
+  /**
+   * Task create
+   */
+  export type TaskCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    /**
+     * The data needed to create a Task.
+     */
+    data: XOR<TaskCreateInput, TaskUncheckedCreateInput>
+  }
+
+  /**
+   * Task createMany
+   */
+  export type TaskCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many Tasks.
+     */
+    data: TaskCreateManyInput | TaskCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * Task createManyAndReturn
+   */
+  export type TaskCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * The data used to create many Tasks.
+     */
+    data: TaskCreateManyInput | TaskCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * Task update
+   */
+  export type TaskUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    /**
+     * The data needed to update a Task.
+     */
+    data: XOR<TaskUpdateInput, TaskUncheckedUpdateInput>
+    /**
+     * Choose, which Task to update.
+     */
+    where: TaskWhereUniqueInput
+  }
+
+  /**
+   * Task updateMany
+   */
+  export type TaskUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update Tasks.
+     */
+    data: XOR<TaskUpdateManyMutationInput, TaskUncheckedUpdateManyInput>
+    /**
+     * Filter which Tasks to update
+     */
+    where?: TaskWhereInput
+    /**
+     * Limit how many Tasks to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * Task updateManyAndReturn
+   */
+  export type TaskUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * The data used to update Tasks.
+     */
+    data: XOR<TaskUpdateManyMutationInput, TaskUncheckedUpdateManyInput>
+    /**
+     * Filter which Tasks to update
+     */
+    where?: TaskWhereInput
+    /**
+     * Limit how many Tasks to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * Task upsert
+   */
+  export type TaskUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    /**
+     * The filter to search for the Task to update in case it exists.
+     */
+    where: TaskWhereUniqueInput
+    /**
+     * In case the Task found by the `where` argument doesn't exist, create a new Task with this data.
+     */
+    create: XOR<TaskCreateInput, TaskUncheckedCreateInput>
+    /**
+     * In case the Task was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<TaskUpdateInput, TaskUncheckedUpdateInput>
+  }
+
+  /**
+   * Task delete
+   */
+  export type TaskDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+    /**
+     * Filter which Task to delete.
+     */
+    where: TaskWhereUniqueInput
+  }
+
+  /**
+   * Task deleteMany
+   */
+  export type TaskDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which Tasks to delete
+     */
+    where?: TaskWhereInput
+    /**
+     * Limit how many Tasks to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * Task.sources
+   */
+  export type Task$sourcesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    where?: TaskSourceMessageWhereInput
+    orderBy?: TaskSourceMessageOrderByWithRelationInput | TaskSourceMessageOrderByWithRelationInput[]
+    cursor?: TaskSourceMessageWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: TaskSourceMessageScalarFieldEnum | TaskSourceMessageScalarFieldEnum[]
+  }
+
+  /**
+   * Task without action
+   */
+  export type TaskDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Task
+     */
+    select?: TaskSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Task
+     */
+    omit?: TaskOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskInclude<ExtArgs> | null
+  }
+
+
+  /**
+   * Model TaskSourceMessage
+   */
+
+  export type AggregateTaskSourceMessage = {
+    _count: TaskSourceMessageCountAggregateOutputType | null
+    _min: TaskSourceMessageMinAggregateOutputType | null
+    _max: TaskSourceMessageMaxAggregateOutputType | null
+  }
+
+  export type TaskSourceMessageMinAggregateOutputType = {
+    id: string | null
+    taskId: string | null
+    messageId: string | null
+    role: string | null
+  }
+
+  export type TaskSourceMessageMaxAggregateOutputType = {
+    id: string | null
+    taskId: string | null
+    messageId: string | null
+    role: string | null
+  }
+
+  export type TaskSourceMessageCountAggregateOutputType = {
+    id: number
+    taskId: number
+    messageId: number
+    role: number
+    _all: number
+  }
+
+
+  export type TaskSourceMessageMinAggregateInputType = {
+    id?: true
+    taskId?: true
+    messageId?: true
+    role?: true
+  }
+
+  export type TaskSourceMessageMaxAggregateInputType = {
+    id?: true
+    taskId?: true
+    messageId?: true
+    role?: true
+  }
+
+  export type TaskSourceMessageCountAggregateInputType = {
+    id?: true
+    taskId?: true
+    messageId?: true
+    role?: true
+    _all?: true
+  }
+
+  export type TaskSourceMessageAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which TaskSourceMessage to aggregate.
+     */
+    where?: TaskSourceMessageWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of TaskSourceMessages to fetch.
+     */
+    orderBy?: TaskSourceMessageOrderByWithRelationInput | TaskSourceMessageOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: TaskSourceMessageWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` TaskSourceMessages from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` TaskSourceMessages.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned TaskSourceMessages
+    **/
+    _count?: true | TaskSourceMessageCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: TaskSourceMessageMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: TaskSourceMessageMaxAggregateInputType
+  }
+
+  export type GetTaskSourceMessageAggregateType<T extends TaskSourceMessageAggregateArgs> = {
+        [P in keyof T & keyof AggregateTaskSourceMessage]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateTaskSourceMessage[P]>
+      : GetScalarType<T[P], AggregateTaskSourceMessage[P]>
+  }
+
+
+
+
+  export type TaskSourceMessageGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: TaskSourceMessageWhereInput
+    orderBy?: TaskSourceMessageOrderByWithAggregationInput | TaskSourceMessageOrderByWithAggregationInput[]
+    by: TaskSourceMessageScalarFieldEnum[] | TaskSourceMessageScalarFieldEnum
+    having?: TaskSourceMessageScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: TaskSourceMessageCountAggregateInputType | true
+    _min?: TaskSourceMessageMinAggregateInputType
+    _max?: TaskSourceMessageMaxAggregateInputType
+  }
+
+  export type TaskSourceMessageGroupByOutputType = {
+    id: string
+    taskId: string
+    messageId: string
+    role: string
+    _count: TaskSourceMessageCountAggregateOutputType | null
+    _min: TaskSourceMessageMinAggregateOutputType | null
+    _max: TaskSourceMessageMaxAggregateOutputType | null
+  }
+
+  type GetTaskSourceMessageGroupByPayload<T extends TaskSourceMessageGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<TaskSourceMessageGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof TaskSourceMessageGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], TaskSourceMessageGroupByOutputType[P]>
+            : GetScalarType<T[P], TaskSourceMessageGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type TaskSourceMessageSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    taskId?: boolean
+    messageId?: boolean
+    role?: boolean
+    task?: boolean | TaskDefaultArgs<ExtArgs>
+    message?: boolean | MessageDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["taskSourceMessage"]>
+
+  export type TaskSourceMessageSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    taskId?: boolean
+    messageId?: boolean
+    role?: boolean
+    task?: boolean | TaskDefaultArgs<ExtArgs>
+    message?: boolean | MessageDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["taskSourceMessage"]>
+
+  export type TaskSourceMessageSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    taskId?: boolean
+    messageId?: boolean
+    role?: boolean
+    task?: boolean | TaskDefaultArgs<ExtArgs>
+    message?: boolean | MessageDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["taskSourceMessage"]>
+
+  export type TaskSourceMessageSelectScalar = {
+    id?: boolean
+    taskId?: boolean
+    messageId?: boolean
+    role?: boolean
+  }
+
+  export type TaskSourceMessageOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "taskId" | "messageId" | "role", ExtArgs["result"]["taskSourceMessage"]>
+  export type TaskSourceMessageInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    task?: boolean | TaskDefaultArgs<ExtArgs>
+    message?: boolean | MessageDefaultArgs<ExtArgs>
+  }
+  export type TaskSourceMessageIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    task?: boolean | TaskDefaultArgs<ExtArgs>
+    message?: boolean | MessageDefaultArgs<ExtArgs>
+  }
+  export type TaskSourceMessageIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    task?: boolean | TaskDefaultArgs<ExtArgs>
+    message?: boolean | MessageDefaultArgs<ExtArgs>
+  }
+
+  export type $TaskSourceMessagePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "TaskSourceMessage"
+    objects: {
+      task: Prisma.$TaskPayload<ExtArgs>
+      message: Prisma.$MessagePayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      taskId: string
+      messageId: string
+      role: string
+    }, ExtArgs["result"]["taskSourceMessage"]>
+    composites: {}
+  }
+
+  type TaskSourceMessageGetPayload<S extends boolean | null | undefined | TaskSourceMessageDefaultArgs> = $Result.GetResult<Prisma.$TaskSourceMessagePayload, S>
+
+  type TaskSourceMessageCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<TaskSourceMessageFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: TaskSourceMessageCountAggregateInputType | true
+    }
+
+  export interface TaskSourceMessageDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['TaskSourceMessage'], meta: { name: 'TaskSourceMessage' } }
+    /**
+     * Find zero or one TaskSourceMessage that matches the filter.
+     * @param {TaskSourceMessageFindUniqueArgs} args - Arguments to find a TaskSourceMessage
+     * @example
+     * // Get one TaskSourceMessage
+     * const taskSourceMessage = await prisma.taskSourceMessage.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends TaskSourceMessageFindUniqueArgs>(args: SelectSubset<T, TaskSourceMessageFindUniqueArgs<ExtArgs>>): Prisma__TaskSourceMessageClient<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one TaskSourceMessage that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {TaskSourceMessageFindUniqueOrThrowArgs} args - Arguments to find a TaskSourceMessage
+     * @example
+     * // Get one TaskSourceMessage
+     * const taskSourceMessage = await prisma.taskSourceMessage.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends TaskSourceMessageFindUniqueOrThrowArgs>(args: SelectSubset<T, TaskSourceMessageFindUniqueOrThrowArgs<ExtArgs>>): Prisma__TaskSourceMessageClient<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first TaskSourceMessage that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskSourceMessageFindFirstArgs} args - Arguments to find a TaskSourceMessage
+     * @example
+     * // Get one TaskSourceMessage
+     * const taskSourceMessage = await prisma.taskSourceMessage.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends TaskSourceMessageFindFirstArgs>(args?: SelectSubset<T, TaskSourceMessageFindFirstArgs<ExtArgs>>): Prisma__TaskSourceMessageClient<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first TaskSourceMessage that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskSourceMessageFindFirstOrThrowArgs} args - Arguments to find a TaskSourceMessage
+     * @example
+     * // Get one TaskSourceMessage
+     * const taskSourceMessage = await prisma.taskSourceMessage.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends TaskSourceMessageFindFirstOrThrowArgs>(args?: SelectSubset<T, TaskSourceMessageFindFirstOrThrowArgs<ExtArgs>>): Prisma__TaskSourceMessageClient<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more TaskSourceMessages that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskSourceMessageFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all TaskSourceMessages
+     * const taskSourceMessages = await prisma.taskSourceMessage.findMany()
+     * 
+     * // Get first 10 TaskSourceMessages
+     * const taskSourceMessages = await prisma.taskSourceMessage.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const taskSourceMessageWithIdOnly = await prisma.taskSourceMessage.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends TaskSourceMessageFindManyArgs>(args?: SelectSubset<T, TaskSourceMessageFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a TaskSourceMessage.
+     * @param {TaskSourceMessageCreateArgs} args - Arguments to create a TaskSourceMessage.
+     * @example
+     * // Create one TaskSourceMessage
+     * const TaskSourceMessage = await prisma.taskSourceMessage.create({
+     *   data: {
+     *     // ... data to create a TaskSourceMessage
+     *   }
+     * })
+     * 
+     */
+    create<T extends TaskSourceMessageCreateArgs>(args: SelectSubset<T, TaskSourceMessageCreateArgs<ExtArgs>>): Prisma__TaskSourceMessageClient<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many TaskSourceMessages.
+     * @param {TaskSourceMessageCreateManyArgs} args - Arguments to create many TaskSourceMessages.
+     * @example
+     * // Create many TaskSourceMessages
+     * const taskSourceMessage = await prisma.taskSourceMessage.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends TaskSourceMessageCreateManyArgs>(args?: SelectSubset<T, TaskSourceMessageCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many TaskSourceMessages and returns the data saved in the database.
+     * @param {TaskSourceMessageCreateManyAndReturnArgs} args - Arguments to create many TaskSourceMessages.
+     * @example
+     * // Create many TaskSourceMessages
+     * const taskSourceMessage = await prisma.taskSourceMessage.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many TaskSourceMessages and only return the `id`
+     * const taskSourceMessageWithIdOnly = await prisma.taskSourceMessage.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends TaskSourceMessageCreateManyAndReturnArgs>(args?: SelectSubset<T, TaskSourceMessageCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a TaskSourceMessage.
+     * @param {TaskSourceMessageDeleteArgs} args - Arguments to delete one TaskSourceMessage.
+     * @example
+     * // Delete one TaskSourceMessage
+     * const TaskSourceMessage = await prisma.taskSourceMessage.delete({
+     *   where: {
+     *     // ... filter to delete one TaskSourceMessage
+     *   }
+     * })
+     * 
+     */
+    delete<T extends TaskSourceMessageDeleteArgs>(args: SelectSubset<T, TaskSourceMessageDeleteArgs<ExtArgs>>): Prisma__TaskSourceMessageClient<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one TaskSourceMessage.
+     * @param {TaskSourceMessageUpdateArgs} args - Arguments to update one TaskSourceMessage.
+     * @example
+     * // Update one TaskSourceMessage
+     * const taskSourceMessage = await prisma.taskSourceMessage.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends TaskSourceMessageUpdateArgs>(args: SelectSubset<T, TaskSourceMessageUpdateArgs<ExtArgs>>): Prisma__TaskSourceMessageClient<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more TaskSourceMessages.
+     * @param {TaskSourceMessageDeleteManyArgs} args - Arguments to filter TaskSourceMessages to delete.
+     * @example
+     * // Delete a few TaskSourceMessages
+     * const { count } = await prisma.taskSourceMessage.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends TaskSourceMessageDeleteManyArgs>(args?: SelectSubset<T, TaskSourceMessageDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more TaskSourceMessages.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskSourceMessageUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many TaskSourceMessages
+     * const taskSourceMessage = await prisma.taskSourceMessage.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends TaskSourceMessageUpdateManyArgs>(args: SelectSubset<T, TaskSourceMessageUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more TaskSourceMessages and returns the data updated in the database.
+     * @param {TaskSourceMessageUpdateManyAndReturnArgs} args - Arguments to update many TaskSourceMessages.
+     * @example
+     * // Update many TaskSourceMessages
+     * const taskSourceMessage = await prisma.taskSourceMessage.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more TaskSourceMessages and only return the `id`
+     * const taskSourceMessageWithIdOnly = await prisma.taskSourceMessage.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends TaskSourceMessageUpdateManyAndReturnArgs>(args: SelectSubset<T, TaskSourceMessageUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one TaskSourceMessage.
+     * @param {TaskSourceMessageUpsertArgs} args - Arguments to update or create a TaskSourceMessage.
+     * @example
+     * // Update or create a TaskSourceMessage
+     * const taskSourceMessage = await prisma.taskSourceMessage.upsert({
+     *   create: {
+     *     // ... data to create a TaskSourceMessage
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the TaskSourceMessage we want to update
+     *   }
+     * })
+     */
+    upsert<T extends TaskSourceMessageUpsertArgs>(args: SelectSubset<T, TaskSourceMessageUpsertArgs<ExtArgs>>): Prisma__TaskSourceMessageClient<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of TaskSourceMessages.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskSourceMessageCountArgs} args - Arguments to filter TaskSourceMessages to count.
+     * @example
+     * // Count the number of TaskSourceMessages
+     * const count = await prisma.taskSourceMessage.count({
+     *   where: {
+     *     // ... the filter for the TaskSourceMessages we want to count
+     *   }
+     * })
+    **/
+    count<T extends TaskSourceMessageCountArgs>(
+      args?: Subset<T, TaskSourceMessageCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], TaskSourceMessageCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a TaskSourceMessage.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskSourceMessageAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends TaskSourceMessageAggregateArgs>(args: Subset<T, TaskSourceMessageAggregateArgs>): Prisma.PrismaPromise<GetTaskSourceMessageAggregateType<T>>
+
+    /**
+     * Group by TaskSourceMessage.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {TaskSourceMessageGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends TaskSourceMessageGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: TaskSourceMessageGroupByArgs['orderBy'] }
+        : { orderBy?: TaskSourceMessageGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, TaskSourceMessageGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetTaskSourceMessageGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the TaskSourceMessage model
+   */
+  readonly fields: TaskSourceMessageFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for TaskSourceMessage.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__TaskSourceMessageClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    task<T extends TaskDefaultArgs<ExtArgs> = {}>(args?: Subset<T, TaskDefaultArgs<ExtArgs>>): Prisma__TaskClient<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    message<T extends MessageDefaultArgs<ExtArgs> = {}>(args?: Subset<T, MessageDefaultArgs<ExtArgs>>): Prisma__MessageClient<$Result.GetResult<Prisma.$MessagePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the TaskSourceMessage model
+   */
+  interface TaskSourceMessageFieldRefs {
+    readonly id: FieldRef<"TaskSourceMessage", 'String'>
+    readonly taskId: FieldRef<"TaskSourceMessage", 'String'>
+    readonly messageId: FieldRef<"TaskSourceMessage", 'String'>
+    readonly role: FieldRef<"TaskSourceMessage", 'String'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * TaskSourceMessage findUnique
+   */
+  export type TaskSourceMessageFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    /**
+     * Filter, which TaskSourceMessage to fetch.
+     */
+    where: TaskSourceMessageWhereUniqueInput
+  }
+
+  /**
+   * TaskSourceMessage findUniqueOrThrow
+   */
+  export type TaskSourceMessageFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    /**
+     * Filter, which TaskSourceMessage to fetch.
+     */
+    where: TaskSourceMessageWhereUniqueInput
+  }
+
+  /**
+   * TaskSourceMessage findFirst
+   */
+  export type TaskSourceMessageFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    /**
+     * Filter, which TaskSourceMessage to fetch.
+     */
+    where?: TaskSourceMessageWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of TaskSourceMessages to fetch.
+     */
+    orderBy?: TaskSourceMessageOrderByWithRelationInput | TaskSourceMessageOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for TaskSourceMessages.
+     */
+    cursor?: TaskSourceMessageWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` TaskSourceMessages from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` TaskSourceMessages.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of TaskSourceMessages.
+     */
+    distinct?: TaskSourceMessageScalarFieldEnum | TaskSourceMessageScalarFieldEnum[]
+  }
+
+  /**
+   * TaskSourceMessage findFirstOrThrow
+   */
+  export type TaskSourceMessageFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    /**
+     * Filter, which TaskSourceMessage to fetch.
+     */
+    where?: TaskSourceMessageWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of TaskSourceMessages to fetch.
+     */
+    orderBy?: TaskSourceMessageOrderByWithRelationInput | TaskSourceMessageOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for TaskSourceMessages.
+     */
+    cursor?: TaskSourceMessageWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` TaskSourceMessages from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` TaskSourceMessages.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of TaskSourceMessages.
+     */
+    distinct?: TaskSourceMessageScalarFieldEnum | TaskSourceMessageScalarFieldEnum[]
+  }
+
+  /**
+   * TaskSourceMessage findMany
+   */
+  export type TaskSourceMessageFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    /**
+     * Filter, which TaskSourceMessages to fetch.
+     */
+    where?: TaskSourceMessageWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of TaskSourceMessages to fetch.
+     */
+    orderBy?: TaskSourceMessageOrderByWithRelationInput | TaskSourceMessageOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing TaskSourceMessages.
+     */
+    cursor?: TaskSourceMessageWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` TaskSourceMessages from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` TaskSourceMessages.
+     */
+    skip?: number
+    distinct?: TaskSourceMessageScalarFieldEnum | TaskSourceMessageScalarFieldEnum[]
+  }
+
+  /**
+   * TaskSourceMessage create
+   */
+  export type TaskSourceMessageCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    /**
+     * The data needed to create a TaskSourceMessage.
+     */
+    data: XOR<TaskSourceMessageCreateInput, TaskSourceMessageUncheckedCreateInput>
+  }
+
+  /**
+   * TaskSourceMessage createMany
+   */
+  export type TaskSourceMessageCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many TaskSourceMessages.
+     */
+    data: TaskSourceMessageCreateManyInput | TaskSourceMessageCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * TaskSourceMessage createManyAndReturn
+   */
+  export type TaskSourceMessageCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * The data used to create many TaskSourceMessages.
+     */
+    data: TaskSourceMessageCreateManyInput | TaskSourceMessageCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * TaskSourceMessage update
+   */
+  export type TaskSourceMessageUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    /**
+     * The data needed to update a TaskSourceMessage.
+     */
+    data: XOR<TaskSourceMessageUpdateInput, TaskSourceMessageUncheckedUpdateInput>
+    /**
+     * Choose, which TaskSourceMessage to update.
+     */
+    where: TaskSourceMessageWhereUniqueInput
+  }
+
+  /**
+   * TaskSourceMessage updateMany
+   */
+  export type TaskSourceMessageUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update TaskSourceMessages.
+     */
+    data: XOR<TaskSourceMessageUpdateManyMutationInput, TaskSourceMessageUncheckedUpdateManyInput>
+    /**
+     * Filter which TaskSourceMessages to update
+     */
+    where?: TaskSourceMessageWhereInput
+    /**
+     * Limit how many TaskSourceMessages to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * TaskSourceMessage updateManyAndReturn
+   */
+  export type TaskSourceMessageUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * The data used to update TaskSourceMessages.
+     */
+    data: XOR<TaskSourceMessageUpdateManyMutationInput, TaskSourceMessageUncheckedUpdateManyInput>
+    /**
+     * Filter which TaskSourceMessages to update
+     */
+    where?: TaskSourceMessageWhereInput
+    /**
+     * Limit how many TaskSourceMessages to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * TaskSourceMessage upsert
+   */
+  export type TaskSourceMessageUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    /**
+     * The filter to search for the TaskSourceMessage to update in case it exists.
+     */
+    where: TaskSourceMessageWhereUniqueInput
+    /**
+     * In case the TaskSourceMessage found by the `where` argument doesn't exist, create a new TaskSourceMessage with this data.
+     */
+    create: XOR<TaskSourceMessageCreateInput, TaskSourceMessageUncheckedCreateInput>
+    /**
+     * In case the TaskSourceMessage was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<TaskSourceMessageUpdateInput, TaskSourceMessageUncheckedUpdateInput>
+  }
+
+  /**
+   * TaskSourceMessage delete
+   */
+  export type TaskSourceMessageDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+    /**
+     * Filter which TaskSourceMessage to delete.
+     */
+    where: TaskSourceMessageWhereUniqueInput
+  }
+
+  /**
+   * TaskSourceMessage deleteMany
+   */
+  export type TaskSourceMessageDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which TaskSourceMessages to delete
+     */
+    where?: TaskSourceMessageWhereInput
+    /**
+     * Limit how many TaskSourceMessages to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * TaskSourceMessage without action
+   */
+  export type TaskSourceMessageDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the TaskSourceMessage
+     */
+    select?: TaskSourceMessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the TaskSourceMessage
+     */
+    omit?: TaskSourceMessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: TaskSourceMessageInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -5698,6 +8359,8 @@ export namespace Prisma {
     title: 'title',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
+    lastExtractedMessageId: 'lastExtractedMessageId',
+    lastExtractedAt: 'lastExtractedAt',
     contactId: 'contactId'
   };
 
@@ -5730,6 +8393,35 @@ export namespace Prisma {
   };
 
   export type HistoryScalarFieldEnum = (typeof HistoryScalarFieldEnum)[keyof typeof HistoryScalarFieldEnum]
+
+
+  export const TaskScalarFieldEnum: {
+    id: 'id',
+    title: 'title',
+    description: 'description',
+    status: 'status',
+    priority: 'priority',
+    dueDate: 'dueDate',
+    confidence: 'confidence',
+    source: 'source',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt',
+    completedAt: 'completedAt',
+    conversationId: 'conversationId',
+    contactId: 'contactId'
+  };
+
+  export type TaskScalarFieldEnum = (typeof TaskScalarFieldEnum)[keyof typeof TaskScalarFieldEnum]
+
+
+  export const TaskSourceMessageScalarFieldEnum: {
+    id: 'id',
+    taskId: 'taskId',
+    messageId: 'messageId',
+    role: 'role'
+  };
+
+  export type TaskSourceMessageScalarFieldEnum = (typeof TaskSourceMessageScalarFieldEnum)[keyof typeof TaskSourceMessageScalarFieldEnum]
 
 
   export const SortOrder: {
@@ -5797,6 +8489,20 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'Float'
+   */
+  export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
+    
+
+
+  /**
+   * Reference to a field of type 'Float[]'
+   */
+  export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
+    
+
+
+  /**
    * Reference to a field of type 'Int'
    */
   export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
@@ -5829,6 +8535,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Contact"> | Date | string
     updatedAt?: DateTimeFilter<"Contact"> | Date | string
     conversations?: ConversationListRelationFilter
+    tasks?: TaskListRelationFilter
   }
 
   export type ContactOrderByWithRelationInput = {
@@ -5844,6 +8551,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversations?: ConversationOrderByRelationAggregateInput
+    tasks?: TaskOrderByRelationAggregateInput
   }
 
   export type ContactWhereUniqueInput = Prisma.AtLeast<{
@@ -5862,6 +8570,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Contact"> | Date | string
     updatedAt?: DateTimeFilter<"Contact"> | Date | string
     conversations?: ConversationListRelationFilter
+    tasks?: TaskListRelationFilter
   }, "id">
 
   export type ContactOrderByWithAggregationInput = {
@@ -5906,9 +8615,12 @@ export namespace Prisma {
     title?: StringNullableFilter<"Conversation"> | string | null
     createdAt?: DateTimeFilter<"Conversation"> | Date | string
     updatedAt?: DateTimeFilter<"Conversation"> | Date | string
+    lastExtractedMessageId?: StringNullableFilter<"Conversation"> | string | null
+    lastExtractedAt?: DateTimeNullableFilter<"Conversation"> | Date | string | null
     contactId?: StringFilter<"Conversation"> | string
     messages?: MessageListRelationFilter
     history?: HistoryListRelationFilter
+    tasks?: TaskListRelationFilter
     contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
   }
 
@@ -5917,9 +8629,12 @@ export namespace Prisma {
     title?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    lastExtractedMessageId?: SortOrderInput | SortOrder
+    lastExtractedAt?: SortOrderInput | SortOrder
     contactId?: SortOrder
     messages?: MessageOrderByRelationAggregateInput
     history?: HistoryOrderByRelationAggregateInput
+    tasks?: TaskOrderByRelationAggregateInput
     contact?: ContactOrderByWithRelationInput
   }
 
@@ -5931,9 +8646,12 @@ export namespace Prisma {
     title?: StringNullableFilter<"Conversation"> | string | null
     createdAt?: DateTimeFilter<"Conversation"> | Date | string
     updatedAt?: DateTimeFilter<"Conversation"> | Date | string
+    lastExtractedMessageId?: StringNullableFilter<"Conversation"> | string | null
+    lastExtractedAt?: DateTimeNullableFilter<"Conversation"> | Date | string | null
     contactId?: StringFilter<"Conversation"> | string
     messages?: MessageListRelationFilter
     history?: HistoryListRelationFilter
+    tasks?: TaskListRelationFilter
     contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
   }, "id">
 
@@ -5942,6 +8660,8 @@ export namespace Prisma {
     title?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    lastExtractedMessageId?: SortOrderInput | SortOrder
+    lastExtractedAt?: SortOrderInput | SortOrder
     contactId?: SortOrder
     _count?: ConversationCountOrderByAggregateInput
     _max?: ConversationMaxOrderByAggregateInput
@@ -5956,6 +8676,8 @@ export namespace Prisma {
     title?: StringNullableWithAggregatesFilter<"Conversation"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Conversation"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Conversation"> | Date | string
+    lastExtractedMessageId?: StringNullableWithAggregatesFilter<"Conversation"> | string | null
+    lastExtractedAt?: DateTimeNullableWithAggregatesFilter<"Conversation"> | Date | string | null
     contactId?: StringWithAggregatesFilter<"Conversation"> | string
   }
 
@@ -5972,6 +8694,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"Message"> | Date | string
     conversationId?: StringFilter<"Message"> | string
     conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
+    taskSources?: TaskSourceMessageListRelationFilter
   }
 
   export type MessageOrderByWithRelationInput = {
@@ -5984,6 +8707,7 @@ export namespace Prisma {
     updatedAt?: SortOrder
     conversationId?: SortOrder
     conversation?: ConversationOrderByWithRelationInput
+    taskSources?: TaskSourceMessageOrderByRelationAggregateInput
   }
 
   export type MessageWhereUniqueInput = Prisma.AtLeast<{
@@ -5999,6 +8723,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"Message"> | Date | string
     conversationId?: StringFilter<"Message"> | string
     conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
+    taskSources?: TaskSourceMessageListRelationFilter
   }, "id">
 
   export type MessageOrderByWithAggregationInput = {
@@ -6099,6 +8824,163 @@ export namespace Prisma {
     conversationId?: StringWithAggregatesFilter<"History"> | string
   }
 
+  export type TaskWhereInput = {
+    AND?: TaskWhereInput | TaskWhereInput[]
+    OR?: TaskWhereInput[]
+    NOT?: TaskWhereInput | TaskWhereInput[]
+    id?: StringFilter<"Task"> | string
+    title?: StringFilter<"Task"> | string
+    description?: StringNullableFilter<"Task"> | string | null
+    status?: StringFilter<"Task"> | string
+    priority?: StringFilter<"Task"> | string
+    dueDate?: DateTimeNullableFilter<"Task"> | Date | string | null
+    confidence?: FloatFilter<"Task"> | number
+    source?: StringFilter<"Task"> | string
+    createdAt?: DateTimeFilter<"Task"> | Date | string
+    updatedAt?: DateTimeFilter<"Task"> | Date | string
+    completedAt?: DateTimeNullableFilter<"Task"> | Date | string | null
+    conversationId?: StringFilter<"Task"> | string
+    contactId?: StringFilter<"Task"> | string
+    conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
+    contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
+    sources?: TaskSourceMessageListRelationFilter
+  }
+
+  export type TaskOrderByWithRelationInput = {
+    id?: SortOrder
+    title?: SortOrder
+    description?: SortOrderInput | SortOrder
+    status?: SortOrder
+    priority?: SortOrder
+    dueDate?: SortOrderInput | SortOrder
+    confidence?: SortOrder
+    source?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    completedAt?: SortOrderInput | SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+    conversation?: ConversationOrderByWithRelationInput
+    contact?: ContactOrderByWithRelationInput
+    sources?: TaskSourceMessageOrderByRelationAggregateInput
+  }
+
+  export type TaskWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: TaskWhereInput | TaskWhereInput[]
+    OR?: TaskWhereInput[]
+    NOT?: TaskWhereInput | TaskWhereInput[]
+    title?: StringFilter<"Task"> | string
+    description?: StringNullableFilter<"Task"> | string | null
+    status?: StringFilter<"Task"> | string
+    priority?: StringFilter<"Task"> | string
+    dueDate?: DateTimeNullableFilter<"Task"> | Date | string | null
+    confidence?: FloatFilter<"Task"> | number
+    source?: StringFilter<"Task"> | string
+    createdAt?: DateTimeFilter<"Task"> | Date | string
+    updatedAt?: DateTimeFilter<"Task"> | Date | string
+    completedAt?: DateTimeNullableFilter<"Task"> | Date | string | null
+    conversationId?: StringFilter<"Task"> | string
+    contactId?: StringFilter<"Task"> | string
+    conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
+    contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
+    sources?: TaskSourceMessageListRelationFilter
+  }, "id">
+
+  export type TaskOrderByWithAggregationInput = {
+    id?: SortOrder
+    title?: SortOrder
+    description?: SortOrderInput | SortOrder
+    status?: SortOrder
+    priority?: SortOrder
+    dueDate?: SortOrderInput | SortOrder
+    confidence?: SortOrder
+    source?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    completedAt?: SortOrderInput | SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+    _count?: TaskCountOrderByAggregateInput
+    _avg?: TaskAvgOrderByAggregateInput
+    _max?: TaskMaxOrderByAggregateInput
+    _min?: TaskMinOrderByAggregateInput
+    _sum?: TaskSumOrderByAggregateInput
+  }
+
+  export type TaskScalarWhereWithAggregatesInput = {
+    AND?: TaskScalarWhereWithAggregatesInput | TaskScalarWhereWithAggregatesInput[]
+    OR?: TaskScalarWhereWithAggregatesInput[]
+    NOT?: TaskScalarWhereWithAggregatesInput | TaskScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"Task"> | string
+    title?: StringWithAggregatesFilter<"Task"> | string
+    description?: StringNullableWithAggregatesFilter<"Task"> | string | null
+    status?: StringWithAggregatesFilter<"Task"> | string
+    priority?: StringWithAggregatesFilter<"Task"> | string
+    dueDate?: DateTimeNullableWithAggregatesFilter<"Task"> | Date | string | null
+    confidence?: FloatWithAggregatesFilter<"Task"> | number
+    source?: StringWithAggregatesFilter<"Task"> | string
+    createdAt?: DateTimeWithAggregatesFilter<"Task"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"Task"> | Date | string
+    completedAt?: DateTimeNullableWithAggregatesFilter<"Task"> | Date | string | null
+    conversationId?: StringWithAggregatesFilter<"Task"> | string
+    contactId?: StringWithAggregatesFilter<"Task"> | string
+  }
+
+  export type TaskSourceMessageWhereInput = {
+    AND?: TaskSourceMessageWhereInput | TaskSourceMessageWhereInput[]
+    OR?: TaskSourceMessageWhereInput[]
+    NOT?: TaskSourceMessageWhereInput | TaskSourceMessageWhereInput[]
+    id?: StringFilter<"TaskSourceMessage"> | string
+    taskId?: StringFilter<"TaskSourceMessage"> | string
+    messageId?: StringFilter<"TaskSourceMessage"> | string
+    role?: StringFilter<"TaskSourceMessage"> | string
+    task?: XOR<TaskScalarRelationFilter, TaskWhereInput>
+    message?: XOR<MessageScalarRelationFilter, MessageWhereInput>
+  }
+
+  export type TaskSourceMessageOrderByWithRelationInput = {
+    id?: SortOrder
+    taskId?: SortOrder
+    messageId?: SortOrder
+    role?: SortOrder
+    task?: TaskOrderByWithRelationInput
+    message?: MessageOrderByWithRelationInput
+  }
+
+  export type TaskSourceMessageWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    taskId_messageId_role?: TaskSourceMessageTaskIdMessageIdRoleCompoundUniqueInput
+    AND?: TaskSourceMessageWhereInput | TaskSourceMessageWhereInput[]
+    OR?: TaskSourceMessageWhereInput[]
+    NOT?: TaskSourceMessageWhereInput | TaskSourceMessageWhereInput[]
+    taskId?: StringFilter<"TaskSourceMessage"> | string
+    messageId?: StringFilter<"TaskSourceMessage"> | string
+    role?: StringFilter<"TaskSourceMessage"> | string
+    task?: XOR<TaskScalarRelationFilter, TaskWhereInput>
+    message?: XOR<MessageScalarRelationFilter, MessageWhereInput>
+  }, "id" | "taskId_messageId_role">
+
+  export type TaskSourceMessageOrderByWithAggregationInput = {
+    id?: SortOrder
+    taskId?: SortOrder
+    messageId?: SortOrder
+    role?: SortOrder
+    _count?: TaskSourceMessageCountOrderByAggregateInput
+    _max?: TaskSourceMessageMaxOrderByAggregateInput
+    _min?: TaskSourceMessageMinOrderByAggregateInput
+  }
+
+  export type TaskSourceMessageScalarWhereWithAggregatesInput = {
+    AND?: TaskSourceMessageScalarWhereWithAggregatesInput | TaskSourceMessageScalarWhereWithAggregatesInput[]
+    OR?: TaskSourceMessageScalarWhereWithAggregatesInput[]
+    NOT?: TaskSourceMessageScalarWhereWithAggregatesInput | TaskSourceMessageScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"TaskSourceMessage"> | string
+    taskId?: StringWithAggregatesFilter<"TaskSourceMessage"> | string
+    messageId?: StringWithAggregatesFilter<"TaskSourceMessage"> | string
+    role?: StringWithAggregatesFilter<"TaskSourceMessage"> | string
+  }
+
   export type ContactCreateInput = {
     id?: string
     name: string
@@ -6112,6 +8994,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationCreateNestedManyWithoutContactInput
+    tasks?: TaskCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateInput = {
@@ -6127,6 +9010,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversations?: ConversationUncheckedCreateNestedManyWithoutContactInput
+    tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactUpdateInput = {
@@ -6142,6 +9026,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUpdateManyWithoutContactNestedInput
+    tasks?: TaskUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateInput = {
@@ -6157,6 +9042,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversations?: ConversationUncheckedUpdateManyWithoutContactNestedInput
+    tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type ContactCreateManyInput = {
@@ -6206,8 +9092,11 @@ export namespace Prisma {
     title?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
     messages?: MessageCreateNestedManyWithoutConversationInput
     history?: HistoryCreateNestedManyWithoutConversationInput
+    tasks?: TaskCreateNestedManyWithoutConversationInput
     contact: ContactCreateNestedOneWithoutConversationsInput
   }
 
@@ -6216,9 +9105,12 @@ export namespace Prisma {
     title?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
     contactId: string
     messages?: MessageUncheckedCreateNestedManyWithoutConversationInput
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
+    tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUpdateInput = {
@@ -6226,8 +9118,11 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     messages?: MessageUpdateManyWithoutConversationNestedInput
     history?: HistoryUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUpdateManyWithoutConversationNestedInput
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
   }
 
@@ -6236,9 +9131,12 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     contactId?: StringFieldUpdateOperationsInput | string
     messages?: MessageUncheckedUpdateManyWithoutConversationNestedInput
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationCreateManyInput = {
@@ -6246,6 +9144,8 @@ export namespace Prisma {
     title?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
     contactId: string
   }
 
@@ -6254,6 +9154,8 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
   export type ConversationUncheckedUpdateManyInput = {
@@ -6261,6 +9163,8 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     contactId?: StringFieldUpdateOperationsInput | string
   }
 
@@ -6273,6 +9177,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutMessagesInput
+    taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
   }
 
   export type MessageUncheckedCreateInput = {
@@ -6284,6 +9189,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
+    taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
   }
 
   export type MessageUpdateInput = {
@@ -6295,6 +9201,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
+    taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
   }
 
   export type MessageUncheckedUpdateInput = {
@@ -6306,6 +9213,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
+    taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
   }
 
   export type MessageCreateManyInput = {
@@ -6416,6 +9324,167 @@ export namespace Prisma {
     conversationId?: StringFieldUpdateOperationsInput | string
   }
 
+  export type TaskCreateInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    conversation: ConversationCreateNestedOneWithoutTasksInput
+    contact: ContactCreateNestedOneWithoutTasksInput
+    sources?: TaskSourceMessageCreateNestedManyWithoutTaskInput
+  }
+
+  export type TaskUncheckedCreateInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    conversationId: string
+    contactId: string
+    sources?: TaskSourceMessageUncheckedCreateNestedManyWithoutTaskInput
+  }
+
+  export type TaskUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    conversation?: ConversationUpdateOneRequiredWithoutTasksNestedInput
+    contact?: ContactUpdateOneRequiredWithoutTasksNestedInput
+    sources?: TaskSourceMessageUpdateManyWithoutTaskNestedInput
+  }
+
+  export type TaskUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    conversationId?: StringFieldUpdateOperationsInput | string
+    contactId?: StringFieldUpdateOperationsInput | string
+    sources?: TaskSourceMessageUncheckedUpdateManyWithoutTaskNestedInput
+  }
+
+  export type TaskCreateManyInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    conversationId: string
+    contactId: string
+  }
+
+  export type TaskUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  }
+
+  export type TaskUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    conversationId?: StringFieldUpdateOperationsInput | string
+    contactId?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type TaskSourceMessageCreateInput = {
+    id?: string
+    role: string
+    task: TaskCreateNestedOneWithoutSourcesInput
+    message: MessageCreateNestedOneWithoutTaskSourcesInput
+  }
+
+  export type TaskSourceMessageUncheckedCreateInput = {
+    id?: string
+    taskId: string
+    messageId: string
+    role: string
+  }
+
+  export type TaskSourceMessageUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    task?: TaskUpdateOneRequiredWithoutSourcesNestedInput
+    message?: MessageUpdateOneRequiredWithoutTaskSourcesNestedInput
+  }
+
+  export type TaskSourceMessageUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    taskId?: StringFieldUpdateOperationsInput | string
+    messageId?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type TaskSourceMessageCreateManyInput = {
+    id?: string
+    taskId: string
+    messageId: string
+    role: string
+  }
+
+  export type TaskSourceMessageUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type TaskSourceMessageUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    taskId?: StringFieldUpdateOperationsInput | string
+    messageId?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -6468,12 +9537,22 @@ export namespace Prisma {
     none?: ConversationWhereInput
   }
 
+  export type TaskListRelationFilter = {
+    every?: TaskWhereInput
+    some?: TaskWhereInput
+    none?: TaskWhereInput
+  }
+
   export type SortOrderInput = {
     sort: SortOrder
     nulls?: NullsOrder
   }
 
   export type ConversationOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type TaskOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -6577,6 +9656,17 @@ export namespace Prisma {
     _max?: NestedDateTimeFilter<$PrismaModel>
   }
 
+  export type DateTimeNullableFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
+  }
+
   export type MessageListRelationFilter = {
     every?: MessageWhereInput
     some?: MessageWhereInput
@@ -6607,6 +9697,8 @@ export namespace Prisma {
     title?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    lastExtractedMessageId?: SortOrder
+    lastExtractedAt?: SortOrder
     contactId?: SortOrder
   }
 
@@ -6615,6 +9707,8 @@ export namespace Prisma {
     title?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    lastExtractedMessageId?: SortOrder
+    lastExtractedAt?: SortOrder
     contactId?: SortOrder
   }
 
@@ -6623,12 +9717,38 @@ export namespace Prisma {
     title?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+    lastExtractedMessageId?: SortOrder
+    lastExtractedAt?: SortOrder
     contactId?: SortOrder
+  }
+
+  export type DateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableWithAggregatesFilter<$PrismaModel> | Date | string | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedDateTimeNullableFilter<$PrismaModel>
+    _max?: NestedDateTimeNullableFilter<$PrismaModel>
   }
 
   export type ConversationScalarRelationFilter = {
     is?: ConversationWhereInput
     isNot?: ConversationWhereInput
+  }
+
+  export type TaskSourceMessageListRelationFilter = {
+    every?: TaskSourceMessageWhereInput
+    some?: TaskSourceMessageWhereInput
+    none?: TaskSourceMessageWhereInput
+  }
+
+  export type TaskSourceMessageOrderByRelationAggregateInput = {
+    _count?: SortOrder
   }
 
   export type MessageCountOrderByAggregateInput = {
@@ -6697,6 +9817,126 @@ export namespace Prisma {
     conversationId?: SortOrder
   }
 
+  export type FloatFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatFilter<$PrismaModel> | number
+  }
+
+  export type TaskCountOrderByAggregateInput = {
+    id?: SortOrder
+    title?: SortOrder
+    description?: SortOrder
+    status?: SortOrder
+    priority?: SortOrder
+    dueDate?: SortOrder
+    confidence?: SortOrder
+    source?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    completedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+  }
+
+  export type TaskAvgOrderByAggregateInput = {
+    confidence?: SortOrder
+  }
+
+  export type TaskMaxOrderByAggregateInput = {
+    id?: SortOrder
+    title?: SortOrder
+    description?: SortOrder
+    status?: SortOrder
+    priority?: SortOrder
+    dueDate?: SortOrder
+    confidence?: SortOrder
+    source?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    completedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+  }
+
+  export type TaskMinOrderByAggregateInput = {
+    id?: SortOrder
+    title?: SortOrder
+    description?: SortOrder
+    status?: SortOrder
+    priority?: SortOrder
+    dueDate?: SortOrder
+    confidence?: SortOrder
+    source?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    completedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+  }
+
+  export type TaskSumOrderByAggregateInput = {
+    confidence?: SortOrder
+  }
+
+  export type FloatWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatWithAggregatesFilter<$PrismaModel> | number
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedFloatFilter<$PrismaModel>
+    _sum?: NestedFloatFilter<$PrismaModel>
+    _min?: NestedFloatFilter<$PrismaModel>
+    _max?: NestedFloatFilter<$PrismaModel>
+  }
+
+  export type TaskScalarRelationFilter = {
+    is?: TaskWhereInput
+    isNot?: TaskWhereInput
+  }
+
+  export type MessageScalarRelationFilter = {
+    is?: MessageWhereInput
+    isNot?: MessageWhereInput
+  }
+
+  export type TaskSourceMessageTaskIdMessageIdRoleCompoundUniqueInput = {
+    taskId: string
+    messageId: string
+    role: string
+  }
+
+  export type TaskSourceMessageCountOrderByAggregateInput = {
+    id?: SortOrder
+    taskId?: SortOrder
+    messageId?: SortOrder
+    role?: SortOrder
+  }
+
+  export type TaskSourceMessageMaxOrderByAggregateInput = {
+    id?: SortOrder
+    taskId?: SortOrder
+    messageId?: SortOrder
+    role?: SortOrder
+  }
+
+  export type TaskSourceMessageMinOrderByAggregateInput = {
+    id?: SortOrder
+    taskId?: SortOrder
+    messageId?: SortOrder
+    role?: SortOrder
+  }
+
   export type ConversationCreateNestedManyWithoutContactInput = {
     create?: XOR<ConversationCreateWithoutContactInput, ConversationUncheckedCreateWithoutContactInput> | ConversationCreateWithoutContactInput[] | ConversationUncheckedCreateWithoutContactInput[]
     connectOrCreate?: ConversationCreateOrConnectWithoutContactInput | ConversationCreateOrConnectWithoutContactInput[]
@@ -6704,11 +9944,25 @@ export namespace Prisma {
     connect?: ConversationWhereUniqueInput | ConversationWhereUniqueInput[]
   }
 
+  export type TaskCreateNestedManyWithoutContactInput = {
+    create?: XOR<TaskCreateWithoutContactInput, TaskUncheckedCreateWithoutContactInput> | TaskCreateWithoutContactInput[] | TaskUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: TaskCreateOrConnectWithoutContactInput | TaskCreateOrConnectWithoutContactInput[]
+    createMany?: TaskCreateManyContactInputEnvelope
+    connect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+  }
+
   export type ConversationUncheckedCreateNestedManyWithoutContactInput = {
     create?: XOR<ConversationCreateWithoutContactInput, ConversationUncheckedCreateWithoutContactInput> | ConversationCreateWithoutContactInput[] | ConversationUncheckedCreateWithoutContactInput[]
     connectOrCreate?: ConversationCreateOrConnectWithoutContactInput | ConversationCreateOrConnectWithoutContactInput[]
     createMany?: ConversationCreateManyContactInputEnvelope
     connect?: ConversationWhereUniqueInput | ConversationWhereUniqueInput[]
+  }
+
+  export type TaskUncheckedCreateNestedManyWithoutContactInput = {
+    create?: XOR<TaskCreateWithoutContactInput, TaskUncheckedCreateWithoutContactInput> | TaskCreateWithoutContactInput[] | TaskUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: TaskCreateOrConnectWithoutContactInput | TaskCreateOrConnectWithoutContactInput[]
+    createMany?: TaskCreateManyContactInputEnvelope
+    connect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
   }
 
   export type StringFieldUpdateOperationsInput = {
@@ -6741,6 +9995,20 @@ export namespace Prisma {
     deleteMany?: ConversationScalarWhereInput | ConversationScalarWhereInput[]
   }
 
+  export type TaskUpdateManyWithoutContactNestedInput = {
+    create?: XOR<TaskCreateWithoutContactInput, TaskUncheckedCreateWithoutContactInput> | TaskCreateWithoutContactInput[] | TaskUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: TaskCreateOrConnectWithoutContactInput | TaskCreateOrConnectWithoutContactInput[]
+    upsert?: TaskUpsertWithWhereUniqueWithoutContactInput | TaskUpsertWithWhereUniqueWithoutContactInput[]
+    createMany?: TaskCreateManyContactInputEnvelope
+    set?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    disconnect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    delete?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    connect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    update?: TaskUpdateWithWhereUniqueWithoutContactInput | TaskUpdateWithWhereUniqueWithoutContactInput[]
+    updateMany?: TaskUpdateManyWithWhereWithoutContactInput | TaskUpdateManyWithWhereWithoutContactInput[]
+    deleteMany?: TaskScalarWhereInput | TaskScalarWhereInput[]
+  }
+
   export type ConversationUncheckedUpdateManyWithoutContactNestedInput = {
     create?: XOR<ConversationCreateWithoutContactInput, ConversationUncheckedCreateWithoutContactInput> | ConversationCreateWithoutContactInput[] | ConversationUncheckedCreateWithoutContactInput[]
     connectOrCreate?: ConversationCreateOrConnectWithoutContactInput | ConversationCreateOrConnectWithoutContactInput[]
@@ -6755,6 +10023,20 @@ export namespace Prisma {
     deleteMany?: ConversationScalarWhereInput | ConversationScalarWhereInput[]
   }
 
+  export type TaskUncheckedUpdateManyWithoutContactNestedInput = {
+    create?: XOR<TaskCreateWithoutContactInput, TaskUncheckedCreateWithoutContactInput> | TaskCreateWithoutContactInput[] | TaskUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: TaskCreateOrConnectWithoutContactInput | TaskCreateOrConnectWithoutContactInput[]
+    upsert?: TaskUpsertWithWhereUniqueWithoutContactInput | TaskUpsertWithWhereUniqueWithoutContactInput[]
+    createMany?: TaskCreateManyContactInputEnvelope
+    set?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    disconnect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    delete?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    connect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    update?: TaskUpdateWithWhereUniqueWithoutContactInput | TaskUpdateWithWhereUniqueWithoutContactInput[]
+    updateMany?: TaskUpdateManyWithWhereWithoutContactInput | TaskUpdateManyWithWhereWithoutContactInput[]
+    deleteMany?: TaskScalarWhereInput | TaskScalarWhereInput[]
+  }
+
   export type MessageCreateNestedManyWithoutConversationInput = {
     create?: XOR<MessageCreateWithoutConversationInput, MessageUncheckedCreateWithoutConversationInput> | MessageCreateWithoutConversationInput[] | MessageUncheckedCreateWithoutConversationInput[]
     connectOrCreate?: MessageCreateOrConnectWithoutConversationInput | MessageCreateOrConnectWithoutConversationInput[]
@@ -6767,6 +10049,13 @@ export namespace Prisma {
     connectOrCreate?: HistoryCreateOrConnectWithoutConversationInput | HistoryCreateOrConnectWithoutConversationInput[]
     createMany?: HistoryCreateManyConversationInputEnvelope
     connect?: HistoryWhereUniqueInput | HistoryWhereUniqueInput[]
+  }
+
+  export type TaskCreateNestedManyWithoutConversationInput = {
+    create?: XOR<TaskCreateWithoutConversationInput, TaskUncheckedCreateWithoutConversationInput> | TaskCreateWithoutConversationInput[] | TaskUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: TaskCreateOrConnectWithoutConversationInput | TaskCreateOrConnectWithoutConversationInput[]
+    createMany?: TaskCreateManyConversationInputEnvelope
+    connect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
   }
 
   export type ContactCreateNestedOneWithoutConversationsInput = {
@@ -6787,6 +10076,17 @@ export namespace Prisma {
     connectOrCreate?: HistoryCreateOrConnectWithoutConversationInput | HistoryCreateOrConnectWithoutConversationInput[]
     createMany?: HistoryCreateManyConversationInputEnvelope
     connect?: HistoryWhereUniqueInput | HistoryWhereUniqueInput[]
+  }
+
+  export type TaskUncheckedCreateNestedManyWithoutConversationInput = {
+    create?: XOR<TaskCreateWithoutConversationInput, TaskUncheckedCreateWithoutConversationInput> | TaskCreateWithoutConversationInput[] | TaskUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: TaskCreateOrConnectWithoutConversationInput | TaskCreateOrConnectWithoutConversationInput[]
+    createMany?: TaskCreateManyConversationInputEnvelope
+    connect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+  }
+
+  export type NullableDateTimeFieldUpdateOperationsInput = {
+    set?: Date | string | null
   }
 
   export type MessageUpdateManyWithoutConversationNestedInput = {
@@ -6815,6 +10115,20 @@ export namespace Prisma {
     update?: HistoryUpdateWithWhereUniqueWithoutConversationInput | HistoryUpdateWithWhereUniqueWithoutConversationInput[]
     updateMany?: HistoryUpdateManyWithWhereWithoutConversationInput | HistoryUpdateManyWithWhereWithoutConversationInput[]
     deleteMany?: HistoryScalarWhereInput | HistoryScalarWhereInput[]
+  }
+
+  export type TaskUpdateManyWithoutConversationNestedInput = {
+    create?: XOR<TaskCreateWithoutConversationInput, TaskUncheckedCreateWithoutConversationInput> | TaskCreateWithoutConversationInput[] | TaskUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: TaskCreateOrConnectWithoutConversationInput | TaskCreateOrConnectWithoutConversationInput[]
+    upsert?: TaskUpsertWithWhereUniqueWithoutConversationInput | TaskUpsertWithWhereUniqueWithoutConversationInput[]
+    createMany?: TaskCreateManyConversationInputEnvelope
+    set?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    disconnect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    delete?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    connect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    update?: TaskUpdateWithWhereUniqueWithoutConversationInput | TaskUpdateWithWhereUniqueWithoutConversationInput[]
+    updateMany?: TaskUpdateManyWithWhereWithoutConversationInput | TaskUpdateManyWithWhereWithoutConversationInput[]
+    deleteMany?: TaskScalarWhereInput | TaskScalarWhereInput[]
   }
 
   export type ContactUpdateOneRequiredWithoutConversationsNestedInput = {
@@ -6853,10 +10167,38 @@ export namespace Prisma {
     deleteMany?: HistoryScalarWhereInput | HistoryScalarWhereInput[]
   }
 
+  export type TaskUncheckedUpdateManyWithoutConversationNestedInput = {
+    create?: XOR<TaskCreateWithoutConversationInput, TaskUncheckedCreateWithoutConversationInput> | TaskCreateWithoutConversationInput[] | TaskUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: TaskCreateOrConnectWithoutConversationInput | TaskCreateOrConnectWithoutConversationInput[]
+    upsert?: TaskUpsertWithWhereUniqueWithoutConversationInput | TaskUpsertWithWhereUniqueWithoutConversationInput[]
+    createMany?: TaskCreateManyConversationInputEnvelope
+    set?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    disconnect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    delete?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    connect?: TaskWhereUniqueInput | TaskWhereUniqueInput[]
+    update?: TaskUpdateWithWhereUniqueWithoutConversationInput | TaskUpdateWithWhereUniqueWithoutConversationInput[]
+    updateMany?: TaskUpdateManyWithWhereWithoutConversationInput | TaskUpdateManyWithWhereWithoutConversationInput[]
+    deleteMany?: TaskScalarWhereInput | TaskScalarWhereInput[]
+  }
+
   export type ConversationCreateNestedOneWithoutMessagesInput = {
     create?: XOR<ConversationCreateWithoutMessagesInput, ConversationUncheckedCreateWithoutMessagesInput>
     connectOrCreate?: ConversationCreateOrConnectWithoutMessagesInput
     connect?: ConversationWhereUniqueInput
+  }
+
+  export type TaskSourceMessageCreateNestedManyWithoutMessageInput = {
+    create?: XOR<TaskSourceMessageCreateWithoutMessageInput, TaskSourceMessageUncheckedCreateWithoutMessageInput> | TaskSourceMessageCreateWithoutMessageInput[] | TaskSourceMessageUncheckedCreateWithoutMessageInput[]
+    connectOrCreate?: TaskSourceMessageCreateOrConnectWithoutMessageInput | TaskSourceMessageCreateOrConnectWithoutMessageInput[]
+    createMany?: TaskSourceMessageCreateManyMessageInputEnvelope
+    connect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+  }
+
+  export type TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput = {
+    create?: XOR<TaskSourceMessageCreateWithoutMessageInput, TaskSourceMessageUncheckedCreateWithoutMessageInput> | TaskSourceMessageCreateWithoutMessageInput[] | TaskSourceMessageUncheckedCreateWithoutMessageInput[]
+    connectOrCreate?: TaskSourceMessageCreateOrConnectWithoutMessageInput | TaskSourceMessageCreateOrConnectWithoutMessageInput[]
+    createMany?: TaskSourceMessageCreateManyMessageInputEnvelope
+    connect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
   }
 
   export type ConversationUpdateOneRequiredWithoutMessagesNestedInput = {
@@ -6865,6 +10207,34 @@ export namespace Prisma {
     upsert?: ConversationUpsertWithoutMessagesInput
     connect?: ConversationWhereUniqueInput
     update?: XOR<XOR<ConversationUpdateToOneWithWhereWithoutMessagesInput, ConversationUpdateWithoutMessagesInput>, ConversationUncheckedUpdateWithoutMessagesInput>
+  }
+
+  export type TaskSourceMessageUpdateManyWithoutMessageNestedInput = {
+    create?: XOR<TaskSourceMessageCreateWithoutMessageInput, TaskSourceMessageUncheckedCreateWithoutMessageInput> | TaskSourceMessageCreateWithoutMessageInput[] | TaskSourceMessageUncheckedCreateWithoutMessageInput[]
+    connectOrCreate?: TaskSourceMessageCreateOrConnectWithoutMessageInput | TaskSourceMessageCreateOrConnectWithoutMessageInput[]
+    upsert?: TaskSourceMessageUpsertWithWhereUniqueWithoutMessageInput | TaskSourceMessageUpsertWithWhereUniqueWithoutMessageInput[]
+    createMany?: TaskSourceMessageCreateManyMessageInputEnvelope
+    set?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    disconnect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    delete?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    connect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    update?: TaskSourceMessageUpdateWithWhereUniqueWithoutMessageInput | TaskSourceMessageUpdateWithWhereUniqueWithoutMessageInput[]
+    updateMany?: TaskSourceMessageUpdateManyWithWhereWithoutMessageInput | TaskSourceMessageUpdateManyWithWhereWithoutMessageInput[]
+    deleteMany?: TaskSourceMessageScalarWhereInput | TaskSourceMessageScalarWhereInput[]
+  }
+
+  export type TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput = {
+    create?: XOR<TaskSourceMessageCreateWithoutMessageInput, TaskSourceMessageUncheckedCreateWithoutMessageInput> | TaskSourceMessageCreateWithoutMessageInput[] | TaskSourceMessageUncheckedCreateWithoutMessageInput[]
+    connectOrCreate?: TaskSourceMessageCreateOrConnectWithoutMessageInput | TaskSourceMessageCreateOrConnectWithoutMessageInput[]
+    upsert?: TaskSourceMessageUpsertWithWhereUniqueWithoutMessageInput | TaskSourceMessageUpsertWithWhereUniqueWithoutMessageInput[]
+    createMany?: TaskSourceMessageCreateManyMessageInputEnvelope
+    set?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    disconnect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    delete?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    connect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    update?: TaskSourceMessageUpdateWithWhereUniqueWithoutMessageInput | TaskSourceMessageUpdateWithWhereUniqueWithoutMessageInput[]
+    updateMany?: TaskSourceMessageUpdateManyWithWhereWithoutMessageInput | TaskSourceMessageUpdateManyWithWhereWithoutMessageInput[]
+    deleteMany?: TaskSourceMessageScalarWhereInput | TaskSourceMessageScalarWhereInput[]
   }
 
   export type ConversationCreateNestedOneWithoutHistoryInput = {
@@ -6879,6 +10249,112 @@ export namespace Prisma {
     upsert?: ConversationUpsertWithoutHistoryInput
     connect?: ConversationWhereUniqueInput
     update?: XOR<XOR<ConversationUpdateToOneWithWhereWithoutHistoryInput, ConversationUpdateWithoutHistoryInput>, ConversationUncheckedUpdateWithoutHistoryInput>
+  }
+
+  export type ConversationCreateNestedOneWithoutTasksInput = {
+    create?: XOR<ConversationCreateWithoutTasksInput, ConversationUncheckedCreateWithoutTasksInput>
+    connectOrCreate?: ConversationCreateOrConnectWithoutTasksInput
+    connect?: ConversationWhereUniqueInput
+  }
+
+  export type ContactCreateNestedOneWithoutTasksInput = {
+    create?: XOR<ContactCreateWithoutTasksInput, ContactUncheckedCreateWithoutTasksInput>
+    connectOrCreate?: ContactCreateOrConnectWithoutTasksInput
+    connect?: ContactWhereUniqueInput
+  }
+
+  export type TaskSourceMessageCreateNestedManyWithoutTaskInput = {
+    create?: XOR<TaskSourceMessageCreateWithoutTaskInput, TaskSourceMessageUncheckedCreateWithoutTaskInput> | TaskSourceMessageCreateWithoutTaskInput[] | TaskSourceMessageUncheckedCreateWithoutTaskInput[]
+    connectOrCreate?: TaskSourceMessageCreateOrConnectWithoutTaskInput | TaskSourceMessageCreateOrConnectWithoutTaskInput[]
+    createMany?: TaskSourceMessageCreateManyTaskInputEnvelope
+    connect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+  }
+
+  export type TaskSourceMessageUncheckedCreateNestedManyWithoutTaskInput = {
+    create?: XOR<TaskSourceMessageCreateWithoutTaskInput, TaskSourceMessageUncheckedCreateWithoutTaskInput> | TaskSourceMessageCreateWithoutTaskInput[] | TaskSourceMessageUncheckedCreateWithoutTaskInput[]
+    connectOrCreate?: TaskSourceMessageCreateOrConnectWithoutTaskInput | TaskSourceMessageCreateOrConnectWithoutTaskInput[]
+    createMany?: TaskSourceMessageCreateManyTaskInputEnvelope
+    connect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+  }
+
+  export type FloatFieldUpdateOperationsInput = {
+    set?: number
+    increment?: number
+    decrement?: number
+    multiply?: number
+    divide?: number
+  }
+
+  export type ConversationUpdateOneRequiredWithoutTasksNestedInput = {
+    create?: XOR<ConversationCreateWithoutTasksInput, ConversationUncheckedCreateWithoutTasksInput>
+    connectOrCreate?: ConversationCreateOrConnectWithoutTasksInput
+    upsert?: ConversationUpsertWithoutTasksInput
+    connect?: ConversationWhereUniqueInput
+    update?: XOR<XOR<ConversationUpdateToOneWithWhereWithoutTasksInput, ConversationUpdateWithoutTasksInput>, ConversationUncheckedUpdateWithoutTasksInput>
+  }
+
+  export type ContactUpdateOneRequiredWithoutTasksNestedInput = {
+    create?: XOR<ContactCreateWithoutTasksInput, ContactUncheckedCreateWithoutTasksInput>
+    connectOrCreate?: ContactCreateOrConnectWithoutTasksInput
+    upsert?: ContactUpsertWithoutTasksInput
+    connect?: ContactWhereUniqueInput
+    update?: XOR<XOR<ContactUpdateToOneWithWhereWithoutTasksInput, ContactUpdateWithoutTasksInput>, ContactUncheckedUpdateWithoutTasksInput>
+  }
+
+  export type TaskSourceMessageUpdateManyWithoutTaskNestedInput = {
+    create?: XOR<TaskSourceMessageCreateWithoutTaskInput, TaskSourceMessageUncheckedCreateWithoutTaskInput> | TaskSourceMessageCreateWithoutTaskInput[] | TaskSourceMessageUncheckedCreateWithoutTaskInput[]
+    connectOrCreate?: TaskSourceMessageCreateOrConnectWithoutTaskInput | TaskSourceMessageCreateOrConnectWithoutTaskInput[]
+    upsert?: TaskSourceMessageUpsertWithWhereUniqueWithoutTaskInput | TaskSourceMessageUpsertWithWhereUniqueWithoutTaskInput[]
+    createMany?: TaskSourceMessageCreateManyTaskInputEnvelope
+    set?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    disconnect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    delete?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    connect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    update?: TaskSourceMessageUpdateWithWhereUniqueWithoutTaskInput | TaskSourceMessageUpdateWithWhereUniqueWithoutTaskInput[]
+    updateMany?: TaskSourceMessageUpdateManyWithWhereWithoutTaskInput | TaskSourceMessageUpdateManyWithWhereWithoutTaskInput[]
+    deleteMany?: TaskSourceMessageScalarWhereInput | TaskSourceMessageScalarWhereInput[]
+  }
+
+  export type TaskSourceMessageUncheckedUpdateManyWithoutTaskNestedInput = {
+    create?: XOR<TaskSourceMessageCreateWithoutTaskInput, TaskSourceMessageUncheckedCreateWithoutTaskInput> | TaskSourceMessageCreateWithoutTaskInput[] | TaskSourceMessageUncheckedCreateWithoutTaskInput[]
+    connectOrCreate?: TaskSourceMessageCreateOrConnectWithoutTaskInput | TaskSourceMessageCreateOrConnectWithoutTaskInput[]
+    upsert?: TaskSourceMessageUpsertWithWhereUniqueWithoutTaskInput | TaskSourceMessageUpsertWithWhereUniqueWithoutTaskInput[]
+    createMany?: TaskSourceMessageCreateManyTaskInputEnvelope
+    set?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    disconnect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    delete?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    connect?: TaskSourceMessageWhereUniqueInput | TaskSourceMessageWhereUniqueInput[]
+    update?: TaskSourceMessageUpdateWithWhereUniqueWithoutTaskInput | TaskSourceMessageUpdateWithWhereUniqueWithoutTaskInput[]
+    updateMany?: TaskSourceMessageUpdateManyWithWhereWithoutTaskInput | TaskSourceMessageUpdateManyWithWhereWithoutTaskInput[]
+    deleteMany?: TaskSourceMessageScalarWhereInput | TaskSourceMessageScalarWhereInput[]
+  }
+
+  export type TaskCreateNestedOneWithoutSourcesInput = {
+    create?: XOR<TaskCreateWithoutSourcesInput, TaskUncheckedCreateWithoutSourcesInput>
+    connectOrCreate?: TaskCreateOrConnectWithoutSourcesInput
+    connect?: TaskWhereUniqueInput
+  }
+
+  export type MessageCreateNestedOneWithoutTaskSourcesInput = {
+    create?: XOR<MessageCreateWithoutTaskSourcesInput, MessageUncheckedCreateWithoutTaskSourcesInput>
+    connectOrCreate?: MessageCreateOrConnectWithoutTaskSourcesInput
+    connect?: MessageWhereUniqueInput
+  }
+
+  export type TaskUpdateOneRequiredWithoutSourcesNestedInput = {
+    create?: XOR<TaskCreateWithoutSourcesInput, TaskUncheckedCreateWithoutSourcesInput>
+    connectOrCreate?: TaskCreateOrConnectWithoutSourcesInput
+    upsert?: TaskUpsertWithoutSourcesInput
+    connect?: TaskWhereUniqueInput
+    update?: XOR<XOR<TaskUpdateToOneWithWhereWithoutSourcesInput, TaskUpdateWithoutSourcesInput>, TaskUncheckedUpdateWithoutSourcesInput>
+  }
+
+  export type MessageUpdateOneRequiredWithoutTaskSourcesNestedInput = {
+    create?: XOR<MessageCreateWithoutTaskSourcesInput, MessageUncheckedCreateWithoutTaskSourcesInput>
+    connectOrCreate?: MessageCreateOrConnectWithoutTaskSourcesInput
+    upsert?: MessageUpsertWithoutTaskSourcesInput
+    connect?: MessageWhereUniqueInput
+    update?: XOR<XOR<MessageUpdateToOneWithWhereWithoutTaskSourcesInput, MessageUpdateWithoutTaskSourcesInput>, MessageUncheckedUpdateWithoutTaskSourcesInput>
   }
 
   export type NestedStringFilter<$PrismaModel = never> = {
@@ -7003,13 +10479,68 @@ export namespace Prisma {
     _max?: NestedDateTimeFilter<$PrismaModel>
   }
 
+  export type NestedDateTimeNullableFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
+  }
+
+  export type NestedDateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableWithAggregatesFilter<$PrismaModel> | Date | string | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedDateTimeNullableFilter<$PrismaModel>
+    _max?: NestedDateTimeNullableFilter<$PrismaModel>
+  }
+
+  export type NestedFloatFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatFilter<$PrismaModel> | number
+  }
+
+  export type NestedFloatWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel>
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel>
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatWithAggregatesFilter<$PrismaModel> | number
+    _count?: NestedIntFilter<$PrismaModel>
+    _avg?: NestedFloatFilter<$PrismaModel>
+    _sum?: NestedFloatFilter<$PrismaModel>
+    _min?: NestedFloatFilter<$PrismaModel>
+    _max?: NestedFloatFilter<$PrismaModel>
+  }
+
   export type ConversationCreateWithoutContactInput = {
     id?: string
     title?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
     messages?: MessageCreateNestedManyWithoutConversationInput
     history?: HistoryCreateNestedManyWithoutConversationInput
+    tasks?: TaskCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutContactInput = {
@@ -7017,8 +10548,11 @@ export namespace Prisma {
     title?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
     messages?: MessageUncheckedCreateNestedManyWithoutConversationInput
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
+    tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutContactInput = {
@@ -7028,6 +10562,48 @@ export namespace Prisma {
 
   export type ConversationCreateManyContactInputEnvelope = {
     data: ConversationCreateManyContactInput | ConversationCreateManyContactInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type TaskCreateWithoutContactInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    conversation: ConversationCreateNestedOneWithoutTasksInput
+    sources?: TaskSourceMessageCreateNestedManyWithoutTaskInput
+  }
+
+  export type TaskUncheckedCreateWithoutContactInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    conversationId: string
+    sources?: TaskSourceMessageUncheckedCreateNestedManyWithoutTaskInput
+  }
+
+  export type TaskCreateOrConnectWithoutContactInput = {
+    where: TaskWhereUniqueInput
+    create: XOR<TaskCreateWithoutContactInput, TaskUncheckedCreateWithoutContactInput>
+  }
+
+  export type TaskCreateManyContactInputEnvelope = {
+    data: TaskCreateManyContactInput | TaskCreateManyContactInput[]
     skipDuplicates?: boolean
   }
 
@@ -7055,7 +10631,44 @@ export namespace Prisma {
     title?: StringNullableFilter<"Conversation"> | string | null
     createdAt?: DateTimeFilter<"Conversation"> | Date | string
     updatedAt?: DateTimeFilter<"Conversation"> | Date | string
+    lastExtractedMessageId?: StringNullableFilter<"Conversation"> | string | null
+    lastExtractedAt?: DateTimeNullableFilter<"Conversation"> | Date | string | null
     contactId?: StringFilter<"Conversation"> | string
+  }
+
+  export type TaskUpsertWithWhereUniqueWithoutContactInput = {
+    where: TaskWhereUniqueInput
+    update: XOR<TaskUpdateWithoutContactInput, TaskUncheckedUpdateWithoutContactInput>
+    create: XOR<TaskCreateWithoutContactInput, TaskUncheckedCreateWithoutContactInput>
+  }
+
+  export type TaskUpdateWithWhereUniqueWithoutContactInput = {
+    where: TaskWhereUniqueInput
+    data: XOR<TaskUpdateWithoutContactInput, TaskUncheckedUpdateWithoutContactInput>
+  }
+
+  export type TaskUpdateManyWithWhereWithoutContactInput = {
+    where: TaskScalarWhereInput
+    data: XOR<TaskUpdateManyMutationInput, TaskUncheckedUpdateManyWithoutContactInput>
+  }
+
+  export type TaskScalarWhereInput = {
+    AND?: TaskScalarWhereInput | TaskScalarWhereInput[]
+    OR?: TaskScalarWhereInput[]
+    NOT?: TaskScalarWhereInput | TaskScalarWhereInput[]
+    id?: StringFilter<"Task"> | string
+    title?: StringFilter<"Task"> | string
+    description?: StringNullableFilter<"Task"> | string | null
+    status?: StringFilter<"Task"> | string
+    priority?: StringFilter<"Task"> | string
+    dueDate?: DateTimeNullableFilter<"Task"> | Date | string | null
+    confidence?: FloatFilter<"Task"> | number
+    source?: StringFilter<"Task"> | string
+    createdAt?: DateTimeFilter<"Task"> | Date | string
+    updatedAt?: DateTimeFilter<"Task"> | Date | string
+    completedAt?: DateTimeNullableFilter<"Task"> | Date | string | null
+    conversationId?: StringFilter<"Task"> | string
+    contactId?: StringFilter<"Task"> | string
   }
 
   export type MessageCreateWithoutConversationInput = {
@@ -7066,6 +10679,7 @@ export namespace Prisma {
     pending?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
   }
 
   export type MessageUncheckedCreateWithoutConversationInput = {
@@ -7076,6 +10690,7 @@ export namespace Prisma {
     pending?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
   }
 
   export type MessageCreateOrConnectWithoutConversationInput = {
@@ -7118,6 +10733,48 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type TaskCreateWithoutConversationInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    contact: ContactCreateNestedOneWithoutTasksInput
+    sources?: TaskSourceMessageCreateNestedManyWithoutTaskInput
+  }
+
+  export type TaskUncheckedCreateWithoutConversationInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    contactId: string
+    sources?: TaskSourceMessageUncheckedCreateNestedManyWithoutTaskInput
+  }
+
+  export type TaskCreateOrConnectWithoutConversationInput = {
+    where: TaskWhereUniqueInput
+    create: XOR<TaskCreateWithoutConversationInput, TaskUncheckedCreateWithoutConversationInput>
+  }
+
+  export type TaskCreateManyConversationInputEnvelope = {
+    data: TaskCreateManyConversationInput | TaskCreateManyConversationInput[]
+    skipDuplicates?: boolean
+  }
+
   export type ContactCreateWithoutConversationsInput = {
     id?: string
     name: string
@@ -7130,6 +10787,7 @@ export namespace Prisma {
     online?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    tasks?: TaskCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateWithoutConversationsInput = {
@@ -7144,6 +10802,7 @@ export namespace Prisma {
     online?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactCreateOrConnectWithoutConversationsInput = {
@@ -7211,6 +10870,22 @@ export namespace Prisma {
     conversationId?: StringFilter<"History"> | string
   }
 
+  export type TaskUpsertWithWhereUniqueWithoutConversationInput = {
+    where: TaskWhereUniqueInput
+    update: XOR<TaskUpdateWithoutConversationInput, TaskUncheckedUpdateWithoutConversationInput>
+    create: XOR<TaskCreateWithoutConversationInput, TaskUncheckedCreateWithoutConversationInput>
+  }
+
+  export type TaskUpdateWithWhereUniqueWithoutConversationInput = {
+    where: TaskWhereUniqueInput
+    data: XOR<TaskUpdateWithoutConversationInput, TaskUncheckedUpdateWithoutConversationInput>
+  }
+
+  export type TaskUpdateManyWithWhereWithoutConversationInput = {
+    where: TaskScalarWhereInput
+    data: XOR<TaskUpdateManyMutationInput, TaskUncheckedUpdateManyWithoutConversationInput>
+  }
+
   export type ContactUpsertWithoutConversationsInput = {
     update: XOR<ContactUpdateWithoutConversationsInput, ContactUncheckedUpdateWithoutConversationsInput>
     create: XOR<ContactCreateWithoutConversationsInput, ContactUncheckedCreateWithoutConversationsInput>
@@ -7234,6 +10909,7 @@ export namespace Prisma {
     online?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tasks?: TaskUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateWithoutConversationsInput = {
@@ -7248,6 +10924,7 @@ export namespace Prisma {
     online?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type ConversationCreateWithoutMessagesInput = {
@@ -7255,7 +10932,10 @@ export namespace Prisma {
     title?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
     history?: HistoryCreateNestedManyWithoutConversationInput
+    tasks?: TaskCreateNestedManyWithoutConversationInput
     contact: ContactCreateNestedOneWithoutConversationsInput
   }
 
@@ -7264,13 +10944,38 @@ export namespace Prisma {
     title?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
     contactId: string
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
+    tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutMessagesInput = {
     where: ConversationWhereUniqueInput
     create: XOR<ConversationCreateWithoutMessagesInput, ConversationUncheckedCreateWithoutMessagesInput>
+  }
+
+  export type TaskSourceMessageCreateWithoutMessageInput = {
+    id?: string
+    role: string
+    task: TaskCreateNestedOneWithoutSourcesInput
+  }
+
+  export type TaskSourceMessageUncheckedCreateWithoutMessageInput = {
+    id?: string
+    taskId: string
+    role: string
+  }
+
+  export type TaskSourceMessageCreateOrConnectWithoutMessageInput = {
+    where: TaskSourceMessageWhereUniqueInput
+    create: XOR<TaskSourceMessageCreateWithoutMessageInput, TaskSourceMessageUncheckedCreateWithoutMessageInput>
+  }
+
+  export type TaskSourceMessageCreateManyMessageInputEnvelope = {
+    data: TaskSourceMessageCreateManyMessageInput | TaskSourceMessageCreateManyMessageInput[]
+    skipDuplicates?: boolean
   }
 
   export type ConversationUpsertWithoutMessagesInput = {
@@ -7289,7 +10994,10 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     history?: HistoryUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUpdateManyWithoutConversationNestedInput
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
   }
 
@@ -7298,8 +11006,37 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     contactId?: StringFieldUpdateOperationsInput | string
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
+  }
+
+  export type TaskSourceMessageUpsertWithWhereUniqueWithoutMessageInput = {
+    where: TaskSourceMessageWhereUniqueInput
+    update: XOR<TaskSourceMessageUpdateWithoutMessageInput, TaskSourceMessageUncheckedUpdateWithoutMessageInput>
+    create: XOR<TaskSourceMessageCreateWithoutMessageInput, TaskSourceMessageUncheckedCreateWithoutMessageInput>
+  }
+
+  export type TaskSourceMessageUpdateWithWhereUniqueWithoutMessageInput = {
+    where: TaskSourceMessageWhereUniqueInput
+    data: XOR<TaskSourceMessageUpdateWithoutMessageInput, TaskSourceMessageUncheckedUpdateWithoutMessageInput>
+  }
+
+  export type TaskSourceMessageUpdateManyWithWhereWithoutMessageInput = {
+    where: TaskSourceMessageScalarWhereInput
+    data: XOR<TaskSourceMessageUpdateManyMutationInput, TaskSourceMessageUncheckedUpdateManyWithoutMessageInput>
+  }
+
+  export type TaskSourceMessageScalarWhereInput = {
+    AND?: TaskSourceMessageScalarWhereInput | TaskSourceMessageScalarWhereInput[]
+    OR?: TaskSourceMessageScalarWhereInput[]
+    NOT?: TaskSourceMessageScalarWhereInput | TaskSourceMessageScalarWhereInput[]
+    id?: StringFilter<"TaskSourceMessage"> | string
+    taskId?: StringFilter<"TaskSourceMessage"> | string
+    messageId?: StringFilter<"TaskSourceMessage"> | string
+    role?: StringFilter<"TaskSourceMessage"> | string
   }
 
   export type ConversationCreateWithoutHistoryInput = {
@@ -7307,7 +11044,10 @@ export namespace Prisma {
     title?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
     messages?: MessageCreateNestedManyWithoutConversationInput
+    tasks?: TaskCreateNestedManyWithoutConversationInput
     contact: ContactCreateNestedOneWithoutConversationsInput
   }
 
@@ -7316,8 +11056,11 @@ export namespace Prisma {
     title?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
     contactId: string
     messages?: MessageUncheckedCreateNestedManyWithoutConversationInput
+    tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutHistoryInput = {
@@ -7341,7 +11084,10 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     messages?: MessageUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUpdateManyWithoutConversationNestedInput
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
   }
 
@@ -7350,8 +11096,329 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     contactId?: StringFieldUpdateOperationsInput | string
     messages?: MessageUncheckedUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
+  }
+
+  export type ConversationCreateWithoutTasksInput = {
+    id?: string
+    title?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
+    messages?: MessageCreateNestedManyWithoutConversationInput
+    history?: HistoryCreateNestedManyWithoutConversationInput
+    contact: ContactCreateNestedOneWithoutConversationsInput
+  }
+
+  export type ConversationUncheckedCreateWithoutTasksInput = {
+    id?: string
+    title?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
+    contactId: string
+    messages?: MessageUncheckedCreateNestedManyWithoutConversationInput
+    history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
+  }
+
+  export type ConversationCreateOrConnectWithoutTasksInput = {
+    where: ConversationWhereUniqueInput
+    create: XOR<ConversationCreateWithoutTasksInput, ConversationUncheckedCreateWithoutTasksInput>
+  }
+
+  export type ContactCreateWithoutTasksInput = {
+    id?: string
+    name: string
+    business: string
+    category: string
+    phone: string
+    initials: string
+    color: string
+    note?: string | null
+    online?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversations?: ConversationCreateNestedManyWithoutContactInput
+  }
+
+  export type ContactUncheckedCreateWithoutTasksInput = {
+    id?: string
+    name: string
+    business: string
+    category: string
+    phone: string
+    initials: string
+    color: string
+    note?: string | null
+    online?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversations?: ConversationUncheckedCreateNestedManyWithoutContactInput
+  }
+
+  export type ContactCreateOrConnectWithoutTasksInput = {
+    where: ContactWhereUniqueInput
+    create: XOR<ContactCreateWithoutTasksInput, ContactUncheckedCreateWithoutTasksInput>
+  }
+
+  export type TaskSourceMessageCreateWithoutTaskInput = {
+    id?: string
+    role: string
+    message: MessageCreateNestedOneWithoutTaskSourcesInput
+  }
+
+  export type TaskSourceMessageUncheckedCreateWithoutTaskInput = {
+    id?: string
+    messageId: string
+    role: string
+  }
+
+  export type TaskSourceMessageCreateOrConnectWithoutTaskInput = {
+    where: TaskSourceMessageWhereUniqueInput
+    create: XOR<TaskSourceMessageCreateWithoutTaskInput, TaskSourceMessageUncheckedCreateWithoutTaskInput>
+  }
+
+  export type TaskSourceMessageCreateManyTaskInputEnvelope = {
+    data: TaskSourceMessageCreateManyTaskInput | TaskSourceMessageCreateManyTaskInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type ConversationUpsertWithoutTasksInput = {
+    update: XOR<ConversationUpdateWithoutTasksInput, ConversationUncheckedUpdateWithoutTasksInput>
+    create: XOR<ConversationCreateWithoutTasksInput, ConversationUncheckedCreateWithoutTasksInput>
+    where?: ConversationWhereInput
+  }
+
+  export type ConversationUpdateToOneWithWhereWithoutTasksInput = {
+    where?: ConversationWhereInput
+    data: XOR<ConversationUpdateWithoutTasksInput, ConversationUncheckedUpdateWithoutTasksInput>
+  }
+
+  export type ConversationUpdateWithoutTasksInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    messages?: MessageUpdateManyWithoutConversationNestedInput
+    history?: HistoryUpdateManyWithoutConversationNestedInput
+    contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
+  }
+
+  export type ConversationUncheckedUpdateWithoutTasksInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    contactId?: StringFieldUpdateOperationsInput | string
+    messages?: MessageUncheckedUpdateManyWithoutConversationNestedInput
+    history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
+  }
+
+  export type ContactUpsertWithoutTasksInput = {
+    update: XOR<ContactUpdateWithoutTasksInput, ContactUncheckedUpdateWithoutTasksInput>
+    create: XOR<ContactCreateWithoutTasksInput, ContactUncheckedCreateWithoutTasksInput>
+    where?: ContactWhereInput
+  }
+
+  export type ContactUpdateToOneWithWhereWithoutTasksInput = {
+    where?: ContactWhereInput
+    data: XOR<ContactUpdateWithoutTasksInput, ContactUncheckedUpdateWithoutTasksInput>
+  }
+
+  export type ContactUpdateWithoutTasksInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    business?: StringFieldUpdateOperationsInput | string
+    category?: StringFieldUpdateOperationsInput | string
+    phone?: StringFieldUpdateOperationsInput | string
+    initials?: StringFieldUpdateOperationsInput | string
+    color?: StringFieldUpdateOperationsInput | string
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    online?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversations?: ConversationUpdateManyWithoutContactNestedInput
+  }
+
+  export type ContactUncheckedUpdateWithoutTasksInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    business?: StringFieldUpdateOperationsInput | string
+    category?: StringFieldUpdateOperationsInput | string
+    phone?: StringFieldUpdateOperationsInput | string
+    initials?: StringFieldUpdateOperationsInput | string
+    color?: StringFieldUpdateOperationsInput | string
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    online?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversations?: ConversationUncheckedUpdateManyWithoutContactNestedInput
+  }
+
+  export type TaskSourceMessageUpsertWithWhereUniqueWithoutTaskInput = {
+    where: TaskSourceMessageWhereUniqueInput
+    update: XOR<TaskSourceMessageUpdateWithoutTaskInput, TaskSourceMessageUncheckedUpdateWithoutTaskInput>
+    create: XOR<TaskSourceMessageCreateWithoutTaskInput, TaskSourceMessageUncheckedCreateWithoutTaskInput>
+  }
+
+  export type TaskSourceMessageUpdateWithWhereUniqueWithoutTaskInput = {
+    where: TaskSourceMessageWhereUniqueInput
+    data: XOR<TaskSourceMessageUpdateWithoutTaskInput, TaskSourceMessageUncheckedUpdateWithoutTaskInput>
+  }
+
+  export type TaskSourceMessageUpdateManyWithWhereWithoutTaskInput = {
+    where: TaskSourceMessageScalarWhereInput
+    data: XOR<TaskSourceMessageUpdateManyMutationInput, TaskSourceMessageUncheckedUpdateManyWithoutTaskInput>
+  }
+
+  export type TaskCreateWithoutSourcesInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    conversation: ConversationCreateNestedOneWithoutTasksInput
+    contact: ContactCreateNestedOneWithoutTasksInput
+  }
+
+  export type TaskUncheckedCreateWithoutSourcesInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    conversationId: string
+    contactId: string
+  }
+
+  export type TaskCreateOrConnectWithoutSourcesInput = {
+    where: TaskWhereUniqueInput
+    create: XOR<TaskCreateWithoutSourcesInput, TaskUncheckedCreateWithoutSourcesInput>
+  }
+
+  export type MessageCreateWithoutTaskSourcesInput = {
+    id?: string
+    role: string
+    content: string
+    time: string
+    pending?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversation: ConversationCreateNestedOneWithoutMessagesInput
+  }
+
+  export type MessageUncheckedCreateWithoutTaskSourcesInput = {
+    id?: string
+    role: string
+    content: string
+    time: string
+    pending?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+  }
+
+  export type MessageCreateOrConnectWithoutTaskSourcesInput = {
+    where: MessageWhereUniqueInput
+    create: XOR<MessageCreateWithoutTaskSourcesInput, MessageUncheckedCreateWithoutTaskSourcesInput>
+  }
+
+  export type TaskUpsertWithoutSourcesInput = {
+    update: XOR<TaskUpdateWithoutSourcesInput, TaskUncheckedUpdateWithoutSourcesInput>
+    create: XOR<TaskCreateWithoutSourcesInput, TaskUncheckedCreateWithoutSourcesInput>
+    where?: TaskWhereInput
+  }
+
+  export type TaskUpdateToOneWithWhereWithoutSourcesInput = {
+    where?: TaskWhereInput
+    data: XOR<TaskUpdateWithoutSourcesInput, TaskUncheckedUpdateWithoutSourcesInput>
+  }
+
+  export type TaskUpdateWithoutSourcesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    conversation?: ConversationUpdateOneRequiredWithoutTasksNestedInput
+    contact?: ContactUpdateOneRequiredWithoutTasksNestedInput
+  }
+
+  export type TaskUncheckedUpdateWithoutSourcesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    conversationId?: StringFieldUpdateOperationsInput | string
+    contactId?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type MessageUpsertWithoutTaskSourcesInput = {
+    update: XOR<MessageUpdateWithoutTaskSourcesInput, MessageUncheckedUpdateWithoutTaskSourcesInput>
+    create: XOR<MessageCreateWithoutTaskSourcesInput, MessageUncheckedCreateWithoutTaskSourcesInput>
+    where?: MessageWhereInput
+  }
+
+  export type MessageUpdateToOneWithWhereWithoutTaskSourcesInput = {
+    where?: MessageWhereInput
+    data: XOR<MessageUpdateWithoutTaskSourcesInput, MessageUncheckedUpdateWithoutTaskSourcesInput>
+  }
+
+  export type MessageUpdateWithoutTaskSourcesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    content?: StringFieldUpdateOperationsInput | string
+    time?: StringFieldUpdateOperationsInput | string
+    pending?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
+  }
+
+  export type MessageUncheckedUpdateWithoutTaskSourcesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    content?: StringFieldUpdateOperationsInput | string
+    time?: StringFieldUpdateOperationsInput | string
+    pending?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
   }
 
   export type ConversationCreateManyContactInput = {
@@ -7359,6 +11426,23 @@ export namespace Prisma {
     title?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
+  }
+
+  export type TaskCreateManyContactInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    conversationId: string
   }
 
   export type ConversationUpdateWithoutContactInput = {
@@ -7366,8 +11450,11 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     messages?: MessageUpdateManyWithoutConversationNestedInput
     history?: HistoryUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutContactInput = {
@@ -7375,8 +11462,11 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     messages?: MessageUncheckedUpdateManyWithoutConversationNestedInput
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateManyWithoutContactInput = {
@@ -7384,6 +11474,55 @@ export namespace Prisma {
     title?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  }
+
+  export type TaskUpdateWithoutContactInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    conversation?: ConversationUpdateOneRequiredWithoutTasksNestedInput
+    sources?: TaskSourceMessageUpdateManyWithoutTaskNestedInput
+  }
+
+  export type TaskUncheckedUpdateWithoutContactInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    conversationId?: StringFieldUpdateOperationsInput | string
+    sources?: TaskSourceMessageUncheckedUpdateManyWithoutTaskNestedInput
+  }
+
+  export type TaskUncheckedUpdateManyWithoutContactInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    conversationId?: StringFieldUpdateOperationsInput | string
   }
 
   export type MessageCreateManyConversationInput = {
@@ -7406,6 +11545,21 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type TaskCreateManyConversationInput = {
+    id?: string
+    title: string
+    description?: string | null
+    status?: string
+    priority?: string
+    dueDate?: Date | string | null
+    confidence?: number
+    source?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    completedAt?: Date | string | null
+    contactId: string
+  }
+
   export type MessageUpdateWithoutConversationInput = {
     id?: StringFieldUpdateOperationsInput | string
     role?: StringFieldUpdateOperationsInput | string
@@ -7414,6 +11568,7 @@ export namespace Prisma {
     pending?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
   }
 
   export type MessageUncheckedUpdateWithoutConversationInput = {
@@ -7424,6 +11579,7 @@ export namespace Prisma {
     pending?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
   }
 
   export type MessageUncheckedUpdateManyWithoutConversationInput = {
@@ -7464,6 +11620,101 @@ export namespace Prisma {
     time?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type TaskUpdateWithoutConversationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    contact?: ContactUpdateOneRequiredWithoutTasksNestedInput
+    sources?: TaskSourceMessageUpdateManyWithoutTaskNestedInput
+  }
+
+  export type TaskUncheckedUpdateWithoutConversationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    contactId?: StringFieldUpdateOperationsInput | string
+    sources?: TaskSourceMessageUncheckedUpdateManyWithoutTaskNestedInput
+  }
+
+  export type TaskUncheckedUpdateManyWithoutConversationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: StringFieldUpdateOperationsInput | string
+    description?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    priority?: StringFieldUpdateOperationsInput | string
+    dueDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    confidence?: FloatFieldUpdateOperationsInput | number
+    source?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    completedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    contactId?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type TaskSourceMessageCreateManyMessageInput = {
+    id?: string
+    taskId: string
+    role: string
+  }
+
+  export type TaskSourceMessageUpdateWithoutMessageInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    task?: TaskUpdateOneRequiredWithoutSourcesNestedInput
+  }
+
+  export type TaskSourceMessageUncheckedUpdateWithoutMessageInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    taskId?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type TaskSourceMessageUncheckedUpdateManyWithoutMessageInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    taskId?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type TaskSourceMessageCreateManyTaskInput = {
+    id?: string
+    messageId: string
+    role: string
+  }
+
+  export type TaskSourceMessageUpdateWithoutTaskInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    message?: MessageUpdateOneRequiredWithoutTaskSourcesNestedInput
+  }
+
+  export type TaskSourceMessageUncheckedUpdateWithoutTaskInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    messageId?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type TaskSourceMessageUncheckedUpdateManyWithoutTaskInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    messageId?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
   }
 
 

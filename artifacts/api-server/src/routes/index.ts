@@ -5,6 +5,7 @@ import contactsRouter from "./contacts";
 import conversationsRouter from "./conversations";
 import messagesRouter from "./messages";
 import historyRouter from "./history";
+import tasksRouter from "./tasks";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(contactsRouter);
 router.use(conversationsRouter);
 router.use(messagesRouter);
 router.use(historyRouter);
+router.use(tasksRouter);
 
 export default router;
