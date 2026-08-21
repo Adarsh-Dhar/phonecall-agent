@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { sweepStaleConversations } from "./services/taskExtraction";
 
 const rawPort = process.env["PORT"];
 
@@ -29,4 +30,8 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // On every boot, pick up any conversations that missed extraction due to
+  // a restart killing their in-flight debounce timers.
+  void sweepStaleConversations();
 });

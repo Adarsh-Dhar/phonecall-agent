@@ -27,7 +27,7 @@ import { logger } from "../lib/logger";
 // ---------------------------------------------------------------------------
 
 /** Milliseconds of silence before extraction fires. */
-const DEBOUNCE_MS = 8_000;
+const DEBOUNCE_MS = parseInt(process.env.EXTRACTION_DEBOUNCE_MS ?? "5000", 10);
 
 /** If this many new messages pile up before the timer fires, run immediately. */
 const HARD_CAP_MESSAGES = 6;
@@ -83,6 +83,33 @@ export function scheduleExtraction(conversationId: string): void {
   };
 
   pending.set(conversationId, entry);
+}
+
+/**
+ * On server startup, find conversations that have messages newer than their
+ * extraction cursor and schedule extraction for them. This recovers from
+ * restarts that killed in-flight debounce timers.
+ */
+export async function sweepStaleConversations(): Promise<void> {
+  try {
+    // Find conversations where a message exists that is newer than the cursor
+    const stale = await prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT DISTINCT c.id
+      FROM "Conversation" c
+      JOIN "Message" m ON m."conversationId" = c.id
+      LEFT JOIN "Message" cursor_msg ON cursor_msg.id = c."lastExtractedMessageId"
+      WHERE cursor_msg.id IS NULL
+         OR m."createdAt" > cursor_msg."createdAt"
+    `;
+    if (stale.length > 0) {
+      logger.info({ count: stale.length }, "startup sweep: scheduling extraction for stale conversations");
+      for (const { id } of stale) {
+        scheduleExtraction(id);
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "startup sweep: failed");
+  }
 }
 
 /**
@@ -218,8 +245,7 @@ export async function runExtraction(conversationId: string): Promise<{
     // ------------------------------------------------------------------
     // 5. Reconcile inside a single transaction
     // ------------------------------------------------------------------
-    await prisma.$transaction(async (tx) => {
-      // ---- Task actions ------------------------------------------------
+    await prisma.$transaction(async (tx) => {      // ---- Task actions ------------------------------------------------
       for (const action of taskActions) {
         const sourceIds: string[] = action.sourceMessageIds ?? [];
 
@@ -458,14 +484,15 @@ export async function runExtraction(conversationId: string): Promise<{
       }
 
       // Advance cursor inside the same transaction
-      const latest = deltaMessages[deltaMessages.length - 1];      await tx.conversation.update({
+      const latest = deltaMessages[deltaMessages.length - 1];
+      await tx.conversation.update({
         where: { id: conversationId },
         data: {
           lastExtractedMessageId: latest.id,
           lastExtractedAt: new Date(),
         },
       });
-    });
+    }, { timeout: 30_000 });
 
     logger.info(
       {
