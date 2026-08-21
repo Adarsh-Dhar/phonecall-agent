@@ -27,6 +27,7 @@ model Contact {
   conversations Conversation[]
   tasks         Task[]
   queries       Query[]
+  knowledge     ContactKnowledge[]
 }
 
 model Conversation {
@@ -65,6 +66,7 @@ model Message {
 
   taskSources    TaskSourceMessage[]
   querySources   QuerySourceMessage[]
+  knowledgeSources KnowledgeSourceMessage[]
 }
 
 model History {
@@ -160,4 +162,39 @@ model QuerySourceMessage {
   role      String  // "asked" | "dismissed"
 
   @@unique([queryId, messageId, role])
+}
+
+// ---------------------------------------------------------------------------
+// ContactKnowledge — durable facts about a contact, persisted across
+// conversation threads so the agent has memory beyond one chat.
+// ---------------------------------------------------------------------------
+model ContactKnowledge {
+  id          String   @id @default(cuid())
+  contactId   String
+  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  category    String   // "preference" | "fact" | "history" | "constraint" | "contact_info"
+  key         String   // stable snake_case label, e.g. "preferred_callback_time"
+  value       String   // the fact itself, one sentence
+  confidence  Float    @default(1.0)
+  status      String   @default("active") // active | superseded | stale
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sources     KnowledgeSourceMessage[]
+
+  @@unique([contactId, key])
+  @@index([contactId, status])
+}
+
+model KnowledgeSourceMessage {
+  id          String           @id @default(cuid())
+  knowledgeId String
+  knowledge   ContactKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  messageId   String
+  message     Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  role        String           // "created" | "updated"
+
+  @@unique([knowledgeId, messageId, role])
 }

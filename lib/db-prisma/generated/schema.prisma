@@ -26,6 +26,8 @@ model Contact {
 
   conversations Conversation[]
   tasks         Task[]
+  queries       Query[]
+  knowledge     ContactKnowledge[]
 }
 
 model Conversation {
@@ -45,6 +47,8 @@ model Conversation {
   contactId String
   contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
+  queries Query[]
+
   @@index([contactId])
 }
 
@@ -60,7 +64,9 @@ model Message {
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  taskSources TaskSourceMessage[]
+  taskSources      TaskSourceMessage[]
+  querySources     QuerySourceMessage[]
+  knowledgeSources KnowledgeSourceMessage[]
 }
 
 model History {
@@ -113,4 +119,82 @@ model TaskSourceMessage {
   role      String // "created" | "updated" | "completed" — why this message is linked
 
   @@unique([taskId, messageId, role])
+}
+
+// ---------------------------------------------------------------------------
+// Query — an unanswered question surfaced from the conversation that needs
+// the user's input before the agent can proceed.
+// ---------------------------------------------------------------------------
+model Query {
+  id         String    @id @default(cuid())
+  question   String
+  answer     String?
+  status     String    @default("pending")
+  // pending -> answered | dismissed
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  answeredAt DateTime?
+
+  // The message that was synthetically created when the user answered,
+  // so it appears in the conversation transcript.
+  answerMessageId String?
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  sources QuerySourceMessage[]
+
+  @@index([conversationId])
+  @@index([contactId])
+  @@index([status])
+}
+
+// Join table: which message(s) a query was mined from / dismissed by.
+model QuerySourceMessage {
+  id        String  @id @default(cuid())
+  queryId   String
+  query     Query   @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  role      String // "asked" | "dismissed"
+
+  @@unique([queryId, messageId, role])
+}
+
+// ---------------------------------------------------------------------------
+// ContactKnowledge — durable facts about a contact, persisted across
+// conversation threads so the agent has memory beyond one chat.
+// ---------------------------------------------------------------------------
+model ContactKnowledge {
+  id        String  @id @default(cuid())
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  category   String // "preference" | "fact" | "history" | "constraint" | "contact_info"
+  key        String // stable snake_case label, e.g. "preferred_callback_time"
+  value      String // the fact itself, one sentence
+  confidence Float  @default(1.0)
+  status     String @default("active") // active | superseded | stale
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sources KnowledgeSourceMessage[]
+
+  @@unique([contactId, key])
+  @@index([contactId, status])
+}
+
+model KnowledgeSourceMessage {
+  id          String           @id @default(cuid())
+  knowledgeId String
+  knowledge   ContactKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  messageId   String
+  message     Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  role        String // "created" | "updated"
+
+  @@unique([knowledgeId, messageId, role])
 }

@@ -313,7 +313,8 @@ function InboxPage() {
 
     try {
       const payload = await api.sendGeminiMessage(
-        conversation.messages.map(({ role, content: v }) => ({ role, content: v }))
+        conversation.messages.map(({ role, content: v }) => ({ role, content: v })),
+        activeContact?.id,
       );
       const assistantMsg: api.Message = {
         id: `assistant-${Date.now()}`, role: 'assistant',

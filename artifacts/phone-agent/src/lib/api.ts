@@ -385,14 +385,37 @@ export const dismissQuery = async (
   return response.json();
 };
 
+// ─── Knowledge types ──────────────────────────────────────────────────────
+
+export type KnowledgeFact = {
+  id: string;
+  contactId: string;
+  category: string;
+  key: string;
+  value: string;
+  confidence: number;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const fetchContactKnowledge = async (contactId: string): Promise<KnowledgeFact[]> => {
+  const response = await fetch(`${API_BASE_URL}/contacts/${contactId}/knowledge`);
+  if (!response.ok) throw new Error('Failed to fetch contact knowledge');
+  return response.json();
+};
+
 // ─── Gemini Chat API ─────────────────────────────────────────────────────────
 
 // Gemini Chat API
-export const sendGeminiMessage = async (messages: Array<{ role: string; content: string }>) => {
+export const sendGeminiMessage = async (
+  messages: Array<{ role: string; content: string }>,
+  contactId?: string,
+) => {
   const response = await fetch('/api/gemini/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, contactId }),
   });
   if (!response.ok) {
     try {

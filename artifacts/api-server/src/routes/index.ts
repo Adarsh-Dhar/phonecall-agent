@@ -7,6 +7,7 @@ import messagesRouter from "./messages";
 import historyRouter from "./history";
 import tasksRouter from "./tasks";
 import queriesRouter from "./queries";
+import knowledgeRouter from "./knowledge";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(messagesRouter);
 router.use(historyRouter);
 router.use(tasksRouter);
 router.use(queriesRouter);
+router.use(knowledgeRouter);
 
 export default router;

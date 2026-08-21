@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { prisma } from "@workspace/db-prisma";
 
 const router: IRouter = Router();
 
@@ -17,6 +18,7 @@ function modelUrl(model: string) {
 router.post("/gemini/chat", async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const messages = req.body?.messages as ChatMessage[] | undefined;
+  const contactId = req.body?.contactId as string | undefined;
 
   if (!apiKey) {
     res.status(503).json({ error: "Gemini is not configured yet." });
@@ -50,6 +52,20 @@ router.post("/gemini/chat", async (req, res) => {
     return;
   }
 
+  // Build knowledge block from durable facts about this contact
+  let knowledgeBlock = "";
+  if (contactId) {
+    const facts = await prisma.contactKnowledge.findMany({
+      where: { contactId, status: "active" },
+      orderBy: { category: "asc" },
+    });
+    if (facts.length > 0) {
+      knowledgeBlock =
+        "\n\nWhat you already know about this contact:\n" +
+        facts.map((f) => `- (${f.category}) ${f.key}: ${f.value}`).join("\n");
+    }
+  }
+
   const contents = messages.map((message) => ({
     role: message.role === "assistant" ? "model" : "user",
     parts: [{ text: message.content }],
@@ -61,7 +77,8 @@ router.post("/gemini/chat", async (req, res) => {
           "You are Phone Agent, a concise and thoughtful personal admin assistant. " +
           "Help the user turn everyday tasks into clear next steps. Ask one useful question " +
           "when you need missing information. Never claim you sent a message, booked something, " +
-          "or contacted a business unless the user explicitly asks for a simulation.",
+          "or contacted a business unless the user explicitly asks for a simulation." +
+          knowledgeBlock,
       },
     ],
   };

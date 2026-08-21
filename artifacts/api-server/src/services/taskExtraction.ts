@@ -99,6 +99,8 @@ export async function runExtraction(conversationId: string): Promise<{
   cancelled: string[];
   queriesCreated: string[];
   queriesDismissed: string[];
+  knowledgeUpserted: string[];
+  knowledgeInvalidated: string[];
 }> {
   const result = {
     created: [] as string[],
@@ -107,6 +109,8 @@ export async function runExtraction(conversationId: string): Promise<{
     cancelled: [] as string[],
     queriesCreated: [] as string[],
     queriesDismissed: [] as string[],
+    knowledgeUpserted: [] as string[],
+    knowledgeInvalidated: [] as string[],
   };
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -182,7 +186,7 @@ export async function runExtraction(conversationId: string): Promise<{
     // ------------------------------------------------------------------
     // 4. Build prompt and call Gemini
     // ------------------------------------------------------------------
-    const { taskActions, queryActions } = await callGeminiExtraction(apiKey, {
+    const { taskActions, queryActions, knowledgeActions } = await callGeminiExtraction(apiKey, {
       contactName: conversation.contact.name,
       contactBusiness: conversation.contact.business,
       existingTasks: openTasks.map((t) => ({
@@ -206,7 +210,7 @@ export async function runExtraction(conversationId: string): Promise<{
       })),
     });
 
-    if (taskActions.length === 0 && queryActions.length === 0) {
+    if (taskActions.length === 0 && queryActions.length === 0 && knowledgeActions.length === 0) {
       await advanceCursor(conversationId, deltaMessages);
       return result;
     }
@@ -407,9 +411,54 @@ export async function runExtraction(conversationId: string): Promise<{
         }
       }
 
+      // ---- Knowledge actions ---------------------------------------------
+      for (const action of knowledgeActions) {
+        const sourceIds: string[] = action.sourceMessageIds ?? [];
+
+        if (action.type === "upsert" && action.value) {
+          const fact = await tx.contactKnowledge.upsert({
+            where: { contactId_key: { contactId: conversation.contactId, key: action.key } },
+            create: {
+              contactId: conversation.contactId,
+              category: action.category,
+              key: action.key,
+              value: action.value,
+              confidence: action.confidence,
+            },
+            update: {
+              value: action.value,
+              confidence: action.confidence,
+              status: "active",
+            },
+          });
+          result.knowledgeUpserted.push(fact.id);
+
+          for (const msgId of sourceIds) {
+            if (deltaMessages.find((m) => m.id === msgId)) {
+              await tx.knowledgeSourceMessage.upsert({
+                where: {
+                  knowledgeId_messageId_role: {
+                    knowledgeId: fact.id,
+                    messageId: msgId,
+                    role: "updated",
+                  },
+                },
+                create: { knowledgeId: fact.id, messageId: msgId, role: "updated" },
+                update: {},
+              });
+            }
+          }
+        } else if (action.type === "invalidate") {
+          await tx.contactKnowledge.updateMany({
+            where: { contactId: conversation.contactId, key: action.key },
+            data: { status: "stale" },
+          });
+          result.knowledgeInvalidated.push(action.key);
+        }
+      }
+
       // Advance cursor inside the same transaction
-      const latest = deltaMessages[deltaMessages.length - 1];
-      await tx.conversation.update({
+      const latest = deltaMessages[deltaMessages.length - 1];      await tx.conversation.update({
         where: { id: conversationId },
         data: {
           lastExtractedMessageId: latest.id,
@@ -427,6 +476,8 @@ export async function runExtraction(conversationId: string): Promise<{
         cancelled: result.cancelled.length,
         queriesCreated: result.queriesCreated.length,
         queriesDismissed: result.queriesDismissed.length,
+        knowledgeUpserted: result.knowledgeUpserted.length,
+        knowledgeInvalidated: result.knowledgeInvalidated.length,
       },
       "extraction: complete"
     );
@@ -501,6 +552,15 @@ type QueryAction = {
   sourceMessageIds: string[];
 };
 
+type KnowledgeAction = {
+  type: "upsert" | "invalidate";
+  category: "preference" | "fact" | "history" | "constraint" | "contact_info";
+  key: string;
+  value?: string;          // required for upsert
+  confidence: number;
+  sourceMessageIds: string[];
+};
+
 async function callGeminiExtraction(
   apiKey: string,
   context: {
@@ -510,16 +570,17 @@ async function callGeminiExtraction(
     existingOpenQueries: ExistingQuery[];
     newMessages: NewMessage[];
   }
-): Promise<{ taskActions: TaskAction[]; queryActions: QueryAction[] }> {
-  const empty = { taskActions: [], queryActions: [] };
+): Promise<{ taskActions: TaskAction[]; queryActions: QueryAction[]; knowledgeActions: KnowledgeAction[] }> {
+  const empty = { taskActions: [], queryActions: [], knowledgeActions: [] };
 
   const systemPrompt = `You review a conversation between a user and their Phone Agent assistant about a call to an external contact.
-Your job: identify two types of things from the new messages:
+Your job: identify three types of things from the new messages:
 
 1. TASKS — actionable items the assistant needs to do, follow up on, or that the user is waiting on.
 2. QUERIES — questions that have been raised in the conversation (typically by the external contact or the assistant relaying them) that the USER still needs to answer before the agent can proceed.
+3. KNOWLEDGE — durable facts about this contact/business worth remembering for FUTURE conversations (not just this one): hours, preferred contact method, account/reference numbers, past issues, stated preferences, constraints. Do NOT extract one-off task details here — those belong in taskActions.
 
-Given the new messages and the existing open tasks/queries, return a JSON object with two keys: "taskActions" and "queryActions".
+Given the new messages and the existing open tasks/queries, return a JSON object with three keys: "taskActions", "queryActions", and "knowledgeActions".
 
 TASK action types:
   - "create":   a new task not covered by an existing one
@@ -531,16 +592,29 @@ QUERY action types:
   - "create":   a new question the user needs to answer (not already in existingOpenQueries)
   - "dismiss":  an existing open query that has now been resolved or is no longer relevant
 
-Rules:
+KNOWLEDGE action types:
+  - "upsert":     a new or updated durable fact
+  - "invalidate": an existing fact (matched by key) that is no longer true
+
+Rules for tasks:
 - For task "update", "complete", "cancel" — include taskId of the existing task.
-- For query "dismiss" — include queryId of the existing query.
 - confidence is a float 0.0–1.0 reflecting certainty.
 - sourceMessageIds is the array of message IDs from new_messages that support this action.
+
+Rules for queries:
 - Only create a query when the contact or assistant is clearly waiting on input from the user.
 - Do NOT create a query for anything already in existingOpenQueries.
 - Do NOT create a query for questions the user has already answered.
-- If nothing actionable, return empty arrays.
-- Return ONLY valid JSON — no markdown fences, no explanation.
+- For query "dismiss" — include queryId of the existing query.
+
+Rules for knowledge:
+- key must be a short, stable snake_case label (e.g. "preferred_callback_time").
+  Reuse the same key when updating a fact you already know, so it overwrites rather than duplicates.
+- category is one of: preference | fact | history | constraint | contact_info
+- Only extract facts likely to matter in a future, unrelated conversation.
+
+If nothing actionable, return empty arrays.
+Return ONLY valid JSON — no markdown fences, no explanation.
 
 JSON schema:
 {
@@ -564,6 +638,16 @@ JSON schema:
       "confidence": <number 0-1>,
       "sourceMessageIds": ["<messageId>", ...]
     }
+  ],
+  "knowledgeActions": [
+    {
+      "type": "upsert" | "invalidate",
+      "category": "preference" | "fact" | "history" | "constraint" | "contact_info",
+      "key": "<stable snake_case label>",
+      "value": "<string, required for upsert>",
+      "confidence": <number 0-1>,
+      "sourceMessageIds": ["<messageId>", ...]
+    }
   ]
 }`;
 
@@ -578,7 +662,7 @@ ${context.existingOpenQueries.length === 0 ? "(none)" : JSON.stringify(context.e
 New messages to analyse:
 ${JSON.stringify(context.newMessages, null, 2)}
 
-Return the JSON object with taskActions and queryActions now.`;
+Return the JSON object with taskActions, queryActions, and knowledgeActions now.`;
 
   const body = {
     contents: [{ role: "user", parts: [{ text: userContent }] }],
@@ -644,5 +728,17 @@ Return the JSON object with taskActions and queryActions now.`;
       )
     : [];
 
-  return { taskActions, queryActions };
+  const knowledgeActions = Array.isArray(parsed.knowledgeActions)
+    ? (parsed.knowledgeActions as unknown[]).filter(
+        (a): a is KnowledgeAction =>
+          typeof a === "object" &&
+          a !== null &&
+          ["upsert", "invalidate"].includes((a as KnowledgeAction).type) &&
+          typeof (a as KnowledgeAction).key === "string" &&
+          typeof (a as KnowledgeAction).confidence === "number" &&
+          Array.isArray((a as KnowledgeAction).sourceMessageIds)
+      )
+    : [];
+
+  return { taskActions, queryActions, knowledgeActions };
 }
