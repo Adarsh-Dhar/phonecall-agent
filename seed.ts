@@ -19,6 +19,15 @@ const CATEGORY = {
 
 type Status = 'Completed' | 'Needs you' | 'In Progress';
 
+// Mirrors the ContactKnowledge Prisma model's shape (minus id/contactId,
+// which are filled in at seed time).
+type KnowledgeSeed = {
+  category: 'preference' | 'fact' | 'history' | 'constraint' | 'contact_info';
+  key: string;
+  value: string;
+  confidence?: number; // defaults to 1.0 — seed data is treated as ground truth
+};
+
 type ContactSeed = {
   name: string;
   business: string;
@@ -36,6 +45,10 @@ type ContactSeed = {
   };
   // Seed queries that should appear as pending in the Queries panel.
   queries?: { question: string }[];
+  // Fully custom knowledge base for this contact (flagship contacts). If
+  // omitted, a template for the category is used instead (see
+  // buildTemplateKnowledge). Pass an empty array to seed no knowledge at all.
+  knowledge?: KnowledgeSeed[];
 };
 
 // One reusable conversation "shape" per category: an opening line the
@@ -99,6 +112,44 @@ const CATEGORY_TEMPLATE: Record<string, {
   },
 };
 
+// Generic durable facts per category, used for every contact that doesn't
+// define its own `knowledge` array. {name} is replaced with the contact name.
+// This is what lets the agent skip asking things it should already know.
+const CATEGORY_KNOWLEDGE_TEMPLATE: Record<string, KnowledgeSeed[]> = {
+  [CATEGORY.HEALTHCARE]: [
+    { category: 'constraint', key: 'preferred_time_window', value: 'Prefers late-morning appointments, roughly 10am to 12pm, when available.' },
+    { category: 'fact', key: 'insurance_provider', value: 'Covered under Horizon Insurance PPO — mention this when asked about coverage.' },
+    { category: 'history', key: 'last_visit', value: 'Last visit was about 6 months ago with no follow-up issues noted.' },
+    { category: 'preference', key: 'reminder_preference', value: 'Wants a reminder text the day before any appointment, not a phone call.' },
+  ],
+  [CATEGORY.PERSONAL_CARE]: [
+    { category: 'preference', key: 'preferred_staff', value: 'Prefers being booked with a specific stylist/technician when one has worked with them before, rather than whoever is next available.' },
+    { category: 'fact', key: 'service_frequency', value: 'Typically books this type of appointment every 4 to 6 weeks.' },
+    { category: 'constraint', key: 'preferred_days', value: 'Weekday evenings after 5pm or Saturday mornings work best.' },
+  ],
+  [CATEGORY.HOME_AUTO]: [
+    { category: 'fact', key: 'property_type', value: 'Owns a single-family home; someone is usually home to grant access on weekday afternoons.' },
+    { category: 'preference', key: 'quote_before_work', value: 'Always wants a written or texted quote before any work begins — never authorize on the spot.' },
+    { category: 'constraint', key: 'access_window', value: 'Best reachable for scheduling calls between 9am and 6pm on weekdays.' },
+  ],
+  [CATEGORY.FINANCIAL]: [
+    { category: 'fact', key: 'account_standing', value: 'Standard account tier, no outstanding balances or disputes on file.' },
+    { category: 'preference', key: 'notification_threshold', value: 'Wants to be notified before any charge or change over $100 is processed.' },
+    { category: 'constraint', key: 'verification_method', value: 'Prefers identity verification via security questions rather than SMS codes when both are offered.' },
+  ],
+  [CATEGORY.GOVERNMENT]: [
+    { category: 'preference', key: 'channel_preference', value: 'Prefers online scheduling or self-service portals over calling and waiting on hold.' },
+    { category: 'history', key: 'past_interactions', value: 'Previous interactions with this office were resolved without complications.' },
+  ],
+  [CATEGORY.RETAIL]: [
+    { category: 'preference', key: 'resolution_preference', value: 'Prefers store credit or a replacement over a refund when something goes wrong with an order.' },
+    { category: 'fact', key: 'account_tier', value: 'Standard, non-premium membership tier with this business.' },
+  ],
+  [CATEGORY.OTHER]: [
+    { category: 'preference', key: 'communication_preference', value: 'Prefers a short written summary after each call rather than a live readout.' },
+  ],
+};
+
 const CONTACTS: ContactSeed[] = [
   // --- Assistant (flagship, fully custom) ---
   {
@@ -117,6 +168,9 @@ const CONTACTS: ContactSeed[] = [
         { role: 'assistant', content: 'Absolutely. I can help with that. Do you have a preferred day or time window, or should I look for the first opening?', time: '9:42 AM' },
       ],
     },
+    // No per-contact facts for the meta "assistant" thread — it isn't a
+    // real-world business, so there's nothing durable to remember about it.
+    knowledge: [],
   },
 
   // --- 1. Healthcare & Medical ---
@@ -135,6 +189,13 @@ const CONTACTS: ContactSeed[] = [
     queries: [
       { question: 'Do you want fluoride treatment added to the cleaning?' },
       { question: 'Would you like a copy of your X-rays emailed to you?' },
+    ],
+    knowledge: [
+      { category: 'constraint', key: 'preferred_time_window', value: 'Prefers late-morning appointments, ideally between 10am and 12pm.' },
+      { category: 'fact', key: 'insurance_provider', value: 'Covered under Horizon Insurance dental PPO.' },
+      { category: 'history', key: 'last_cleaning', value: 'Last cleaning was about 6 months ago; no cavities found, no follow-up needed.' },
+      { category: 'preference', key: 'preferred_hygienist', value: 'Prefers being seen by hygienist Dana when she is available.' },
+      { category: 'contact_info', key: 'office_hours', value: 'Open Monday to Friday, 8am to 5pm; closed weekends.' },
     ],
   },
   { name: 'Dr. Patel — Family Practice', business: 'Doctor / GP', category: CATEGORY.HEALTHCARE, initials: 'DP', color: '#8fc9b0', note: 'Annual physical is due' },
@@ -156,6 +217,11 @@ const CONTACTS: ContactSeed[] = [
       ],
       history: { title: 'Reschedule haircut', detail: 'Chat · Waiting on a reply', status: 'Needs you', time: 'Jun 12' },
     },
+    knowledge: [
+      { category: 'preference', key: 'preferred_stylist', value: 'Prefers Mei or Alex; would rather wait a few extra days than book with anyone else.' },
+      { category: 'fact', key: 'usual_service', value: 'Usually books a men\'s haircut with a fade, no beard trim.' },
+      { category: 'constraint', key: 'preferred_days', value: 'Saturday afternoons work best; avoid Mondays entirely.' },
+    ],
   },
   { name: 'Gloss Nail Studio', business: 'Nail salon / spa', category: CATEGORY.PERSONAL_CARE, initials: 'GN', color: '#e8a5c4', note: 'Gel manicure, book with Priya' },
   { name: 'Radiance Dermatology', business: 'Beauty clinic / dermatologist', category: CATEGORY.PERSONAL_CARE, initials: 'RD', color: '#dab894', note: 'Annual skin check' },
@@ -174,6 +240,11 @@ const CONTACTS: ContactSeed[] = [
       ],
       history: { title: 'Oil change + brake check', detail: 'Chat · Booked for Tuesday', status: 'Completed', time: 'Jun 09' },
     },
+    knowledge: [
+      { category: 'fact', key: 'vehicle', value: 'Drives a 2018 Honda Civic, silver, plate not on file.' },
+      { category: 'history', key: 'last_service', value: 'Oil change and brake inspection completed in June, no issues flagged.' },
+      { category: 'preference', key: 'quote_before_work', value: 'Always wants a quote texted before any repair work begins.' },
+    ],
   },
   { name: 'Ace Plumbing & Electric', business: 'Plumber / electrician / HVAC', category: CATEGORY.HOME_AUTO, initials: 'AP', color: '#7fa8c9', note: 'Kitchen faucet leak' },
   { name: 'Sparkle Home Cleaning', business: 'Cleaner / housekeeping', category: CATEGORY.HOME_AUTO, initials: 'SH', color: '#a8d4c9', note: 'Biweekly cleaning schedule' },
@@ -196,6 +267,11 @@ const CONTACTS: ContactSeed[] = [
     queries: [
       { question: 'Would you like to add roadside assistance to the policy while we have the agent on the line?' },
     ],
+    knowledge: [
+      { category: 'fact', key: 'policy_type', value: 'Auto and home bundled policy, annual renewal in June.' },
+      { category: 'preference', key: 'callback_preference', value: 'Prefers a scheduled callback over waiting on hold for account questions.' },
+      { category: 'contact_info', key: 'policy_number', value: 'Policy reference on file: HI-48213-B (mention if asked to verify).' },
+    ],
   },
   { name: 'Meridian Bank', business: 'Bank / credit card company', category: CATEGORY.FINANCIAL, initials: 'MB', color: '#7fa8dd', note: 'Dispute a charge' },
   { name: 'CityLine Utilities', business: 'Utility company (electric/gas)', category: CATEGORY.FINANCIAL, initials: 'CU', color: '#e8c268', note: 'Billing looks off this month' },
@@ -215,6 +291,10 @@ const CONTACTS: ContactSeed[] = [
       ],
       history: { title: 'License renewal', detail: 'Chat · Appointment booked', status: 'Completed', time: 'Jun 07' },
     },
+    knowledge: [
+      { category: 'history', key: 'last_appointment', value: 'Renewed driver\'s license in person previously with no complications.' },
+      { category: 'preference', key: 'channel_preference', value: 'Prefers booking online over calling, due to long hold times on their phone line.' },
+    ],
   },
   { name: 'Fairview City Hall', business: 'Local council / city hall', category: CATEGORY.GOVERNMENT, initials: 'FC', color: '#a8b0c9', note: 'Fence permit question' },
   { name: 'Passport & Immigration Office', business: 'Passport / immigration office', category: CATEGORY.GOVERNMENT, initials: 'PI', color: '#9ea8c9', note: 'Check application status' },
@@ -230,6 +310,10 @@ const CONTACTS: ContactSeed[] = [
       ],
       history: { title: 'Package delivery update', detail: 'Chat · Summary saved', status: 'Completed', time: 'Jun 08' },
     },
+    knowledge: [
+      { category: 'history', key: 'missing_package_case', value: 'Filed a missing-package trace for tracking PLX-48290; case was opened and resolved.' },
+      { category: 'fact', key: 'delivery_instructions', value: 'Deliveries go to the front porch; signature is not required.' },
+    ],
   },
 
   // --- 6. Customer Service & Retail ---
@@ -266,6 +350,14 @@ function buildTemplateThread(c: ContactSeed) {
   };
 }
 
+// Falls back to the category's generic knowledge template when a contact
+// doesn't define its own `knowledge` array.
+function buildTemplateKnowledge(c: ContactSeed): KnowledgeSeed[] {
+  const template = CATEGORY_KNOWLEDGE_TEMPLATE[c.category];
+  if (!template) return [];
+  return template.map((k) => ({ ...k, value: k.value.replace('{name}', c.name) }));
+}
+
 async function main() {
   console.log('Starting seed...');
 
@@ -278,8 +370,11 @@ async function main() {
 
   console.log('Empty database, seeding contacts...');
 
+  let totalKnowledge = 0;
+
   for (const c of CONTACTS) {
     const thread = c.custom ?? buildTemplateThread(c);
+    const knowledge = c.knowledge ?? buildTemplateKnowledge(c);
 
     const contact = await prisma.contact.create({
       data: {
@@ -315,11 +410,29 @@ async function main() {
       }
     }
 
+    // Seed durable knowledge facts for this contact — this is what lets the
+    // agent skip asking things it should already know (office hours,
+    // insurance, preferred time windows, past visit history, etc).
+    if (knowledge.length > 0) {
+      for (const k of knowledge) {
+        await prisma.contactKnowledge.create({
+          data: {
+            contactId: contact.id,
+            category: k.category,
+            key: k.key,
+            value: k.value,
+            confidence: k.confidence ?? 1.0,
+          },
+        });
+      }
+      totalKnowledge += knowledge.length;
+    }
+
     // No seed messages or history — conversations start fresh
   }
 
   const totalQueries = CONTACTS.reduce((n, c) => n + (c.queries?.length ?? 0), 0);
-  console.log(`Seeded ${CONTACTS.length} contacts, each with their own conversation (${totalQueries} seed queries).`);
+  console.log(`Seeded ${CONTACTS.length} contacts, each with their own conversation (${totalQueries} seed queries, ${totalKnowledge} knowledge facts).`);
   console.log('Seed completed successfully!');
 }
 

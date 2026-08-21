@@ -313,7 +313,7 @@ function InboxPage() {
 
     try {
       const payload = await api.sendGeminiMessage(
-        conversation.messages.map(({ role, content: v }) => ({ role, content: v })),
+        [...conversation.messages, userMsg].map(({ role, content: v }) => ({ role, content: v })),
         activeContact?.id,
       );
       const assistantMsg: api.Message = {
@@ -356,7 +356,9 @@ function InboxPage() {
   const activeContact =
     conversation?.contact as Contact | undefined
     ?? contacts.find((c) => c.id === resolvedContactId);
-  const chatMessages = conversation?.messages ?? [];
+  const chatMessages = (conversation?.messages ?? []).filter(
+    (m) => !m.content.startsWith('Answering: "')
+  );
 
   if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
 
@@ -525,57 +527,130 @@ function InboxPage() {
 
 function HistoryPage() {
   const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();
-  const [history, setHistory] = useState<api.History[]>([]);
+  const [tasks, setTasks] = useState<api.Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'active' | 'all'>('active');
 
-  useEffect(() => {
-    api.fetchHistory().then(setHistory).catch(console.error).finally(() => setLoading(false));
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.fetchTasks();
+      setTasks(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => { void loadTasks(); }, [loadTasks]);
+
+  const handleStatusChange = async (taskId: string, status: api.TaskStatus) => {
+    try {
+      const updated = await api.updateTask(taskId, { status });
+      setTasks((prev) => prev.map((t) => t.id === taskId ? updated : t));
+    } catch { /* no-op */ }
+  };
+
+  const visible = filter === 'active'
+    ? tasks.filter((t) => ACTIVE_STATUSES.includes(t.status as api.TaskStatus))
+    : tasks;
+
+  const suggestedCount = tasks.filter((t) => t.status === 'suggested').length;
+
   return (
-    <AppLayout title="Task history" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
+    <AppLayout title="Tasks" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
       <div className="mx-auto max-w-[980px] px-5 py-8 md:px-10 md:py-12">
         <Link href="/messages" className="mb-8 block text-xs font-bold text-[#3159c4] hover:underline">← Back to messages</Link>
         <div className="mb-8">
-          <p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">The paper trail</p>
-          <h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Task history</h1>
+          <p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">All contacts</p>
+          <h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Tasks</h1>
         </div>
-        {loading ? (
-          <div className="flex items-center justify-center py-20">Loading history…</div>
-        ) : history.length === 0 ? (
+
+        {/* Header row: filter tabs + refresh */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            {(['active', 'all'] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[.08em] transition-colors ${
+                  filter === f ? 'bg-[#2854cc] text-white' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]'
+                }`}
+              >
+                {f === 'active' ? 'Active' : 'All'}
+              </button>
+            ))}
+            {suggestedCount > 0 && (
+              <span className="ml-1 text-[10px] text-[#995500]">{suggestedCount} suggested</span>
+            )}
+          </div>
+          <button
+            type="button"
+            aria-label="Refresh tasks"
+            onClick={() => void loadTasks()}
+            className="grid h-7 w-7 place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {loading && tasks.length === 0 ? (
+          <div className="flex items-center justify-center py-20">
+            <LoaderCircle size={16} className="animate-spin text-[hsl(var(--muted-foreground))]" />
+          </div>
+        ) : visible.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#eef4f0] text-[#4a8978]">
-              <History size={24} />
+              <ListTodo size={24} />
             </div>
-            <p className="mt-4 font-bold text-[#203039]">No task history yet</p>
-            <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">Tasks will appear here after your first conversation.</p>
+            <p className="mt-4 font-bold text-[#203039]">
+              {filter === 'active' ? 'No active tasks' : 'No tasks yet'}
+            </p>
+            <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+              {filter === 'active' ? 'Switch to All to see completed tasks.' : 'Tasks will appear here after your first conversation.'}
+            </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {history.map((item) => (
-              <div
-                key={item.id}
-                data-testid={`card-history-${item.id}`}
-                className="flex flex-col gap-4 rounded-2xl border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] p-5 transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center"
-              >
-                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${item.status === 'Needs you' ? 'bg-[#ffe5dd] text-[#bd5d47]' : 'bg-[#e1efe9] text-[#4a8978]'}`}>
-                  {item.status === 'Needs you' ? <CircleHelp size={17} /> : <Check size={17} />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold">{item.title}</h3>
-                  <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{item.detail}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className={`text-[10px] font-bold uppercase tracking-[.1em] ${item.status === 'Needs you' ? 'text-[#bd5d47]' : 'text-[#4b8a78]'}`}>{item.status}</span>
-                  <span className="text-xs text-[hsl(var(--muted-foreground))]">{item.time}</span>
-                  <MoreHorizontal size={16} className="text-[hsl(var(--muted-foreground))]" />
-                </div>
-              </div>
+          <div className="space-y-2">
+            {visible.map((task) => (
+              <TaskRowWithContact key={task.id} task={task} onStatusChange={handleStatusChange} />
             ))}
           </div>
         )}
       </div>
     </AppLayout>
+  );
+}
+
+function TaskRowWithContact({
+  task,
+  onStatusChange,
+}: {
+  task: api.Task;
+  onStatusChange: (id: string, status: api.TaskStatus) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-0">
+      {task.contact && (
+        <div className="mb-0.5 flex items-center gap-1.5 px-1">
+          <Link
+            href={`/messages/${task.contact.id}`}
+            className="flex items-center gap-1.5 text-[10px] font-bold text-[#3159c4] hover:underline"
+          >
+            <span
+              className="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[8px] font-bold"
+              style={{ background: task.contact.color }}
+            >
+              {task.contact.initials.slice(0, 1)}
+            </span>
+            {task.contact.name}
+          </Link>
+        </div>
+      )}
+      <TaskRow task={task} onStatusChange={onStatusChange} />
+    </div>
   );
 }
 
