@@ -59,6 +59,11 @@ export type QuerySourceMessage = $Result.DefaultSelection<Prisma.$QuerySourceMes
  */
 export type Call = $Result.DefaultSelection<Prisma.$CallPayload>
 /**
+ * Model Email
+ * 
+ */
+export type Email = $Result.DefaultSelection<Prisma.$EmailPayload>
+/**
  * Model ContactKnowledge
  * 
  */
@@ -276,6 +281,16 @@ export class PrismaClient<
     * ```
     */
   get call(): Prisma.CallDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.email`: Exposes CRUD operations for the **Email** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Emails
+    * const emails = await prisma.email.findMany()
+    * ```
+    */
+  get email(): Prisma.EmailDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.contactKnowledge`: Exposes CRUD operations for the **ContactKnowledge** model.
@@ -746,6 +761,7 @@ export namespace Prisma {
     Query: 'Query',
     QuerySourceMessage: 'QuerySourceMessage',
     Call: 'Call',
+    Email: 'Email',
     ContactKnowledge: 'ContactKnowledge',
     KnowledgeSourceMessage: 'KnowledgeSourceMessage'
   };
@@ -766,7 +782,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "contact" | "conversation" | "message" | "history" | "task" | "taskSourceMessage" | "query" | "querySourceMessage" | "call" | "contactKnowledge" | "knowledgeSourceMessage"
+      modelProps: "contact" | "conversation" | "message" | "history" | "task" | "taskSourceMessage" | "query" | "querySourceMessage" | "call" | "email" | "contactKnowledge" | "knowledgeSourceMessage"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1436,6 +1452,80 @@ export namespace Prisma {
           }
         }
       }
+      Email: {
+        payload: Prisma.$EmailPayload<ExtArgs>
+        fields: Prisma.EmailFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.EmailFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.EmailFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload>
+          }
+          findFirst: {
+            args: Prisma.EmailFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.EmailFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload>
+          }
+          findMany: {
+            args: Prisma.EmailFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload>[]
+          }
+          create: {
+            args: Prisma.EmailCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload>
+          }
+          createMany: {
+            args: Prisma.EmailCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.EmailCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload>[]
+          }
+          delete: {
+            args: Prisma.EmailDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload>
+          }
+          update: {
+            args: Prisma.EmailUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload>
+          }
+          deleteMany: {
+            args: Prisma.EmailDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.EmailUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.EmailUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload>[]
+          }
+          upsert: {
+            args: Prisma.EmailUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$EmailPayload>
+          }
+          aggregate: {
+            args: Prisma.EmailAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateEmail>
+          }
+          groupBy: {
+            args: Prisma.EmailGroupByArgs<ExtArgs>
+            result: $Utils.Optional<EmailGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.EmailCountArgs<ExtArgs>
+            result: $Utils.Optional<EmailCountAggregateOutputType> | number
+          }
+        }
+      }
       ContactKnowledge: {
         payload: Prisma.$ContactKnowledgePayload<ExtArgs>
         fields: Prisma.ContactKnowledgeFieldRefs
@@ -1689,6 +1779,7 @@ export namespace Prisma {
     query?: QueryOmit
     querySourceMessage?: QuerySourceMessageOmit
     call?: CallOmit
+    email?: EmailOmit
     contactKnowledge?: ContactKnowledgeOmit
     knowledgeSourceMessage?: KnowledgeSourceMessageOmit
   }
@@ -1776,6 +1867,7 @@ export namespace Prisma {
     queries: number
     knowledge: number
     calls: number
+    emails: number
   }
 
   export type ContactCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -1784,6 +1876,7 @@ export namespace Prisma {
     queries?: boolean | ContactCountOutputTypeCountQueriesArgs
     knowledge?: boolean | ContactCountOutputTypeCountKnowledgeArgs
     calls?: boolean | ContactCountOutputTypeCountCallsArgs
+    emails?: boolean | ContactCountOutputTypeCountEmailsArgs
   }
 
   // Custom InputTypes
@@ -1832,6 +1925,13 @@ export namespace Prisma {
     where?: CallWhereInput
   }
 
+  /**
+   * ContactCountOutputType without action
+   */
+  export type ContactCountOutputTypeCountEmailsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: EmailWhereInput
+  }
+
 
   /**
    * Count Type ConversationCountOutputType
@@ -1843,6 +1943,7 @@ export namespace Prisma {
     tasks: number
     queries: number
     calls: number
+    emails: number
   }
 
   export type ConversationCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -1851,6 +1952,7 @@ export namespace Prisma {
     tasks?: boolean | ConversationCountOutputTypeCountTasksArgs
     queries?: boolean | ConversationCountOutputTypeCountQueriesArgs
     calls?: boolean | ConversationCountOutputTypeCountCallsArgs
+    emails?: boolean | ConversationCountOutputTypeCountEmailsArgs
   }
 
   // Custom InputTypes
@@ -1897,6 +1999,13 @@ export namespace Prisma {
    */
   export type ConversationCountOutputTypeCountCallsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: CallWhereInput
+  }
+
+  /**
+   * ConversationCountOutputType without action
+   */
+  export type ConversationCountOutputTypeCountEmailsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: EmailWhereInput
   }
 
 
@@ -2093,6 +2202,7 @@ export namespace Prisma {
     business: string | null
     category: string | null
     phone: string | null
+    email: string | null
     initials: string | null
     color: string | null
     note: string | null
@@ -2107,6 +2217,7 @@ export namespace Prisma {
     business: string | null
     category: string | null
     phone: string | null
+    email: string | null
     initials: string | null
     color: string | null
     note: string | null
@@ -2121,6 +2232,7 @@ export namespace Prisma {
     business: number
     category: number
     phone: number
+    email: number
     initials: number
     color: number
     note: number
@@ -2137,6 +2249,7 @@ export namespace Prisma {
     business?: true
     category?: true
     phone?: true
+    email?: true
     initials?: true
     color?: true
     note?: true
@@ -2151,6 +2264,7 @@ export namespace Prisma {
     business?: true
     category?: true
     phone?: true
+    email?: true
     initials?: true
     color?: true
     note?: true
@@ -2165,6 +2279,7 @@ export namespace Prisma {
     business?: true
     category?: true
     phone?: true
+    email?: true
     initials?: true
     color?: true
     note?: true
@@ -2252,6 +2367,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email: string | null
     initials: string
     color: string
     note: string | null
@@ -2283,6 +2399,7 @@ export namespace Prisma {
     business?: boolean
     category?: boolean
     phone?: boolean
+    email?: boolean
     initials?: boolean
     color?: boolean
     note?: boolean
@@ -2294,6 +2411,7 @@ export namespace Prisma {
     queries?: boolean | Contact$queriesArgs<ExtArgs>
     knowledge?: boolean | Contact$knowledgeArgs<ExtArgs>
     calls?: boolean | Contact$callsArgs<ExtArgs>
+    emails?: boolean | Contact$emailsArgs<ExtArgs>
     _count?: boolean | ContactCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["contact"]>
 
@@ -2303,6 +2421,7 @@ export namespace Prisma {
     business?: boolean
     category?: boolean
     phone?: boolean
+    email?: boolean
     initials?: boolean
     color?: boolean
     note?: boolean
@@ -2317,6 +2436,7 @@ export namespace Prisma {
     business?: boolean
     category?: boolean
     phone?: boolean
+    email?: boolean
     initials?: boolean
     color?: boolean
     note?: boolean
@@ -2331,6 +2451,7 @@ export namespace Prisma {
     business?: boolean
     category?: boolean
     phone?: boolean
+    email?: boolean
     initials?: boolean
     color?: boolean
     note?: boolean
@@ -2339,13 +2460,14 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type ContactOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "business" | "category" | "phone" | "initials" | "color" | "note" | "online" | "createdAt" | "updatedAt", ExtArgs["result"]["contact"]>
+  export type ContactOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "business" | "category" | "phone" | "email" | "initials" | "color" | "note" | "online" | "createdAt" | "updatedAt", ExtArgs["result"]["contact"]>
   export type ContactInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversations?: boolean | Contact$conversationsArgs<ExtArgs>
     tasks?: boolean | Contact$tasksArgs<ExtArgs>
     queries?: boolean | Contact$queriesArgs<ExtArgs>
     knowledge?: boolean | Contact$knowledgeArgs<ExtArgs>
     calls?: boolean | Contact$callsArgs<ExtArgs>
+    emails?: boolean | Contact$emailsArgs<ExtArgs>
     _count?: boolean | ContactCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type ContactIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
@@ -2359,6 +2481,7 @@ export namespace Prisma {
       queries: Prisma.$QueryPayload<ExtArgs>[]
       knowledge: Prisma.$ContactKnowledgePayload<ExtArgs>[]
       calls: Prisma.$CallPayload<ExtArgs>[]
+      emails: Prisma.$EmailPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -2366,6 +2489,7 @@ export namespace Prisma {
       business: string
       category: string
       phone: string
+      email: string | null
       initials: string
       color: string
       note: string | null
@@ -2771,6 +2895,7 @@ export namespace Prisma {
     queries<T extends Contact$queriesArgs<ExtArgs> = {}>(args?: Subset<T, Contact$queriesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$QueryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     knowledge<T extends Contact$knowledgeArgs<ExtArgs> = {}>(args?: Subset<T, Contact$knowledgeArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ContactKnowledgePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     calls<T extends Contact$callsArgs<ExtArgs> = {}>(args?: Subset<T, Contact$callsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    emails<T extends Contact$emailsArgs<ExtArgs> = {}>(args?: Subset<T, Contact$emailsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2805,6 +2930,7 @@ export namespace Prisma {
     readonly business: FieldRef<"Contact", 'String'>
     readonly category: FieldRef<"Contact", 'String'>
     readonly phone: FieldRef<"Contact", 'String'>
+    readonly email: FieldRef<"Contact", 'String'>
     readonly initials: FieldRef<"Contact", 'String'>
     readonly color: FieldRef<"Contact", 'String'>
     readonly note: FieldRef<"Contact", 'String'>
@@ -3319,6 +3445,30 @@ export namespace Prisma {
   }
 
   /**
+   * Contact.emails
+   */
+  export type Contact$emailsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    where?: EmailWhereInput
+    orderBy?: EmailOrderByWithRelationInput | EmailOrderByWithRelationInput[]
+    cursor?: EmailWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: EmailScalarFieldEnum | EmailScalarFieldEnum[]
+  }
+
+  /**
    * Contact without action
    */
   export type ContactDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -3523,6 +3673,7 @@ export namespace Prisma {
     contact?: boolean | ContactDefaultArgs<ExtArgs>
     queries?: boolean | Conversation$queriesArgs<ExtArgs>
     calls?: boolean | Conversation$callsArgs<ExtArgs>
+    emails?: boolean | Conversation$emailsArgs<ExtArgs>
     _count?: boolean | ConversationCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["conversation"]>
 
@@ -3566,6 +3717,7 @@ export namespace Prisma {
     contact?: boolean | ContactDefaultArgs<ExtArgs>
     queries?: boolean | Conversation$queriesArgs<ExtArgs>
     calls?: boolean | Conversation$callsArgs<ExtArgs>
+    emails?: boolean | Conversation$emailsArgs<ExtArgs>
     _count?: boolean | ConversationCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type ConversationIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -3584,6 +3736,7 @@ export namespace Prisma {
       contact: Prisma.$ContactPayload<ExtArgs>
       queries: Prisma.$QueryPayload<ExtArgs>[]
       calls: Prisma.$CallPayload<ExtArgs>[]
+      emails: Prisma.$EmailPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -3993,6 +4146,7 @@ export namespace Prisma {
     contact<T extends ContactDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ContactDefaultArgs<ExtArgs>>): Prisma__ContactClient<$Result.GetResult<Prisma.$ContactPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     queries<T extends Conversation$queriesArgs<ExtArgs> = {}>(args?: Subset<T, Conversation$queriesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$QueryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     calls<T extends Conversation$callsArgs<ExtArgs> = {}>(args?: Subset<T, Conversation$callsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    emails<T extends Conversation$emailsArgs<ExtArgs> = {}>(args?: Subset<T, Conversation$emailsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4542,6 +4696,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: CallScalarFieldEnum | CallScalarFieldEnum[]
+  }
+
+  /**
+   * Conversation.emails
+   */
+  export type Conversation$emailsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    where?: EmailWhereInput
+    orderBy?: EmailOrderByWithRelationInput | EmailOrderByWithRelationInput[]
+    cursor?: EmailWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: EmailScalarFieldEnum | EmailScalarFieldEnum[]
   }
 
   /**
@@ -12593,6 +12771,1202 @@ export namespace Prisma {
 
 
   /**
+   * Model Email
+   */
+
+  export type AggregateEmail = {
+    _count: EmailCountAggregateOutputType | null
+    _min: EmailMinAggregateOutputType | null
+    _max: EmailMaxAggregateOutputType | null
+  }
+
+  export type EmailMinAggregateOutputType = {
+    id: string | null
+    twilioSid: string | null
+    status: string | null
+    direction: string | null
+    subject: string | null
+    from: string | null
+    to: string | null
+    body: string | null
+    html: string | null
+    sentAt: Date | null
+    deliveredAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+    conversationId: string | null
+    contactId: string | null
+  }
+
+  export type EmailMaxAggregateOutputType = {
+    id: string | null
+    twilioSid: string | null
+    status: string | null
+    direction: string | null
+    subject: string | null
+    from: string | null
+    to: string | null
+    body: string | null
+    html: string | null
+    sentAt: Date | null
+    deliveredAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+    conversationId: string | null
+    contactId: string | null
+  }
+
+  export type EmailCountAggregateOutputType = {
+    id: number
+    twilioSid: number
+    status: number
+    direction: number
+    subject: number
+    from: number
+    to: number
+    body: number
+    html: number
+    sentAt: number
+    deliveredAt: number
+    createdAt: number
+    updatedAt: number
+    conversationId: number
+    contactId: number
+    _all: number
+  }
+
+
+  export type EmailMinAggregateInputType = {
+    id?: true
+    twilioSid?: true
+    status?: true
+    direction?: true
+    subject?: true
+    from?: true
+    to?: true
+    body?: true
+    html?: true
+    sentAt?: true
+    deliveredAt?: true
+    createdAt?: true
+    updatedAt?: true
+    conversationId?: true
+    contactId?: true
+  }
+
+  export type EmailMaxAggregateInputType = {
+    id?: true
+    twilioSid?: true
+    status?: true
+    direction?: true
+    subject?: true
+    from?: true
+    to?: true
+    body?: true
+    html?: true
+    sentAt?: true
+    deliveredAt?: true
+    createdAt?: true
+    updatedAt?: true
+    conversationId?: true
+    contactId?: true
+  }
+
+  export type EmailCountAggregateInputType = {
+    id?: true
+    twilioSid?: true
+    status?: true
+    direction?: true
+    subject?: true
+    from?: true
+    to?: true
+    body?: true
+    html?: true
+    sentAt?: true
+    deliveredAt?: true
+    createdAt?: true
+    updatedAt?: true
+    conversationId?: true
+    contactId?: true
+    _all?: true
+  }
+
+  export type EmailAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which Email to aggregate.
+     */
+    where?: EmailWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Emails to fetch.
+     */
+    orderBy?: EmailOrderByWithRelationInput | EmailOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: EmailWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Emails from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Emails.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned Emails
+    **/
+    _count?: true | EmailCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: EmailMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: EmailMaxAggregateInputType
+  }
+
+  export type GetEmailAggregateType<T extends EmailAggregateArgs> = {
+        [P in keyof T & keyof AggregateEmail]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateEmail[P]>
+      : GetScalarType<T[P], AggregateEmail[P]>
+  }
+
+
+
+
+  export type EmailGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: EmailWhereInput
+    orderBy?: EmailOrderByWithAggregationInput | EmailOrderByWithAggregationInput[]
+    by: EmailScalarFieldEnum[] | EmailScalarFieldEnum
+    having?: EmailScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: EmailCountAggregateInputType | true
+    _min?: EmailMinAggregateInputType
+    _max?: EmailMaxAggregateInputType
+  }
+
+  export type EmailGroupByOutputType = {
+    id: string
+    twilioSid: string | null
+    status: string
+    direction: string
+    subject: string
+    from: string
+    to: string
+    body: string | null
+    html: string | null
+    sentAt: Date | null
+    deliveredAt: Date | null
+    createdAt: Date
+    updatedAt: Date
+    conversationId: string
+    contactId: string
+    _count: EmailCountAggregateOutputType | null
+    _min: EmailMinAggregateOutputType | null
+    _max: EmailMaxAggregateOutputType | null
+  }
+
+  type GetEmailGroupByPayload<T extends EmailGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<EmailGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof EmailGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], EmailGroupByOutputType[P]>
+            : GetScalarType<T[P], EmailGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type EmailSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    twilioSid?: boolean
+    status?: boolean
+    direction?: boolean
+    subject?: boolean
+    from?: boolean
+    to?: boolean
+    body?: boolean
+    html?: boolean
+    sentAt?: boolean
+    deliveredAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["email"]>
+
+  export type EmailSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    twilioSid?: boolean
+    status?: boolean
+    direction?: boolean
+    subject?: boolean
+    from?: boolean
+    to?: boolean
+    body?: boolean
+    html?: boolean
+    sentAt?: boolean
+    deliveredAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["email"]>
+
+  export type EmailSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    twilioSid?: boolean
+    status?: boolean
+    direction?: boolean
+    subject?: boolean
+    from?: boolean
+    to?: boolean
+    body?: boolean
+    html?: boolean
+    sentAt?: boolean
+    deliveredAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["email"]>
+
+  export type EmailSelectScalar = {
+    id?: boolean
+    twilioSid?: boolean
+    status?: boolean
+    direction?: boolean
+    subject?: boolean
+    from?: boolean
+    to?: boolean
+    body?: boolean
+    html?: boolean
+    sentAt?: boolean
+    deliveredAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+  }
+
+  export type EmailOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "twilioSid" | "status" | "direction" | "subject" | "from" | "to" | "body" | "html" | "sentAt" | "deliveredAt" | "createdAt" | "updatedAt" | "conversationId" | "contactId", ExtArgs["result"]["email"]>
+  export type EmailInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }
+  export type EmailIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }
+  export type EmailIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }
+
+  export type $EmailPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "Email"
+    objects: {
+      conversation: Prisma.$ConversationPayload<ExtArgs>
+      contact: Prisma.$ContactPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      twilioSid: string | null
+      status: string
+      direction: string
+      subject: string
+      from: string
+      to: string
+      body: string | null
+      html: string | null
+      sentAt: Date | null
+      deliveredAt: Date | null
+      createdAt: Date
+      updatedAt: Date
+      conversationId: string
+      contactId: string
+    }, ExtArgs["result"]["email"]>
+    composites: {}
+  }
+
+  type EmailGetPayload<S extends boolean | null | undefined | EmailDefaultArgs> = $Result.GetResult<Prisma.$EmailPayload, S>
+
+  type EmailCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<EmailFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: EmailCountAggregateInputType | true
+    }
+
+  export interface EmailDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['Email'], meta: { name: 'Email' } }
+    /**
+     * Find zero or one Email that matches the filter.
+     * @param {EmailFindUniqueArgs} args - Arguments to find a Email
+     * @example
+     * // Get one Email
+     * const email = await prisma.email.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends EmailFindUniqueArgs>(args: SelectSubset<T, EmailFindUniqueArgs<ExtArgs>>): Prisma__EmailClient<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one Email that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {EmailFindUniqueOrThrowArgs} args - Arguments to find a Email
+     * @example
+     * // Get one Email
+     * const email = await prisma.email.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends EmailFindUniqueOrThrowArgs>(args: SelectSubset<T, EmailFindUniqueOrThrowArgs<ExtArgs>>): Prisma__EmailClient<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first Email that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {EmailFindFirstArgs} args - Arguments to find a Email
+     * @example
+     * // Get one Email
+     * const email = await prisma.email.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends EmailFindFirstArgs>(args?: SelectSubset<T, EmailFindFirstArgs<ExtArgs>>): Prisma__EmailClient<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first Email that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {EmailFindFirstOrThrowArgs} args - Arguments to find a Email
+     * @example
+     * // Get one Email
+     * const email = await prisma.email.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends EmailFindFirstOrThrowArgs>(args?: SelectSubset<T, EmailFindFirstOrThrowArgs<ExtArgs>>): Prisma__EmailClient<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more Emails that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {EmailFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all Emails
+     * const emails = await prisma.email.findMany()
+     * 
+     * // Get first 10 Emails
+     * const emails = await prisma.email.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const emailWithIdOnly = await prisma.email.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends EmailFindManyArgs>(args?: SelectSubset<T, EmailFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a Email.
+     * @param {EmailCreateArgs} args - Arguments to create a Email.
+     * @example
+     * // Create one Email
+     * const Email = await prisma.email.create({
+     *   data: {
+     *     // ... data to create a Email
+     *   }
+     * })
+     * 
+     */
+    create<T extends EmailCreateArgs>(args: SelectSubset<T, EmailCreateArgs<ExtArgs>>): Prisma__EmailClient<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many Emails.
+     * @param {EmailCreateManyArgs} args - Arguments to create many Emails.
+     * @example
+     * // Create many Emails
+     * const email = await prisma.email.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends EmailCreateManyArgs>(args?: SelectSubset<T, EmailCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many Emails and returns the data saved in the database.
+     * @param {EmailCreateManyAndReturnArgs} args - Arguments to create many Emails.
+     * @example
+     * // Create many Emails
+     * const email = await prisma.email.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many Emails and only return the `id`
+     * const emailWithIdOnly = await prisma.email.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends EmailCreateManyAndReturnArgs>(args?: SelectSubset<T, EmailCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a Email.
+     * @param {EmailDeleteArgs} args - Arguments to delete one Email.
+     * @example
+     * // Delete one Email
+     * const Email = await prisma.email.delete({
+     *   where: {
+     *     // ... filter to delete one Email
+     *   }
+     * })
+     * 
+     */
+    delete<T extends EmailDeleteArgs>(args: SelectSubset<T, EmailDeleteArgs<ExtArgs>>): Prisma__EmailClient<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one Email.
+     * @param {EmailUpdateArgs} args - Arguments to update one Email.
+     * @example
+     * // Update one Email
+     * const email = await prisma.email.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends EmailUpdateArgs>(args: SelectSubset<T, EmailUpdateArgs<ExtArgs>>): Prisma__EmailClient<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more Emails.
+     * @param {EmailDeleteManyArgs} args - Arguments to filter Emails to delete.
+     * @example
+     * // Delete a few Emails
+     * const { count } = await prisma.email.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends EmailDeleteManyArgs>(args?: SelectSubset<T, EmailDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Emails.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {EmailUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many Emails
+     * const email = await prisma.email.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends EmailUpdateManyArgs>(args: SelectSubset<T, EmailUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Emails and returns the data updated in the database.
+     * @param {EmailUpdateManyAndReturnArgs} args - Arguments to update many Emails.
+     * @example
+     * // Update many Emails
+     * const email = await prisma.email.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more Emails and only return the `id`
+     * const emailWithIdOnly = await prisma.email.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends EmailUpdateManyAndReturnArgs>(args: SelectSubset<T, EmailUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one Email.
+     * @param {EmailUpsertArgs} args - Arguments to update or create a Email.
+     * @example
+     * // Update or create a Email
+     * const email = await prisma.email.upsert({
+     *   create: {
+     *     // ... data to create a Email
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the Email we want to update
+     *   }
+     * })
+     */
+    upsert<T extends EmailUpsertArgs>(args: SelectSubset<T, EmailUpsertArgs<ExtArgs>>): Prisma__EmailClient<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of Emails.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {EmailCountArgs} args - Arguments to filter Emails to count.
+     * @example
+     * // Count the number of Emails
+     * const count = await prisma.email.count({
+     *   where: {
+     *     // ... the filter for the Emails we want to count
+     *   }
+     * })
+    **/
+    count<T extends EmailCountArgs>(
+      args?: Subset<T, EmailCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], EmailCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a Email.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {EmailAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends EmailAggregateArgs>(args: Subset<T, EmailAggregateArgs>): Prisma.PrismaPromise<GetEmailAggregateType<T>>
+
+    /**
+     * Group by Email.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {EmailGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends EmailGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: EmailGroupByArgs['orderBy'] }
+        : { orderBy?: EmailGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, EmailGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetEmailGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the Email model
+   */
+  readonly fields: EmailFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for Email.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__EmailClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    conversation<T extends ConversationDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ConversationDefaultArgs<ExtArgs>>): Prisma__ConversationClient<$Result.GetResult<Prisma.$ConversationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    contact<T extends ContactDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ContactDefaultArgs<ExtArgs>>): Prisma__ContactClient<$Result.GetResult<Prisma.$ContactPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the Email model
+   */
+  interface EmailFieldRefs {
+    readonly id: FieldRef<"Email", 'String'>
+    readonly twilioSid: FieldRef<"Email", 'String'>
+    readonly status: FieldRef<"Email", 'String'>
+    readonly direction: FieldRef<"Email", 'String'>
+    readonly subject: FieldRef<"Email", 'String'>
+    readonly from: FieldRef<"Email", 'String'>
+    readonly to: FieldRef<"Email", 'String'>
+    readonly body: FieldRef<"Email", 'String'>
+    readonly html: FieldRef<"Email", 'String'>
+    readonly sentAt: FieldRef<"Email", 'DateTime'>
+    readonly deliveredAt: FieldRef<"Email", 'DateTime'>
+    readonly createdAt: FieldRef<"Email", 'DateTime'>
+    readonly updatedAt: FieldRef<"Email", 'DateTime'>
+    readonly conversationId: FieldRef<"Email", 'String'>
+    readonly contactId: FieldRef<"Email", 'String'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * Email findUnique
+   */
+  export type EmailFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    /**
+     * Filter, which Email to fetch.
+     */
+    where: EmailWhereUniqueInput
+  }
+
+  /**
+   * Email findUniqueOrThrow
+   */
+  export type EmailFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    /**
+     * Filter, which Email to fetch.
+     */
+    where: EmailWhereUniqueInput
+  }
+
+  /**
+   * Email findFirst
+   */
+  export type EmailFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    /**
+     * Filter, which Email to fetch.
+     */
+    where?: EmailWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Emails to fetch.
+     */
+    orderBy?: EmailOrderByWithRelationInput | EmailOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for Emails.
+     */
+    cursor?: EmailWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Emails from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Emails.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Emails.
+     */
+    distinct?: EmailScalarFieldEnum | EmailScalarFieldEnum[]
+  }
+
+  /**
+   * Email findFirstOrThrow
+   */
+  export type EmailFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    /**
+     * Filter, which Email to fetch.
+     */
+    where?: EmailWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Emails to fetch.
+     */
+    orderBy?: EmailOrderByWithRelationInput | EmailOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for Emails.
+     */
+    cursor?: EmailWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Emails from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Emails.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Emails.
+     */
+    distinct?: EmailScalarFieldEnum | EmailScalarFieldEnum[]
+  }
+
+  /**
+   * Email findMany
+   */
+  export type EmailFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    /**
+     * Filter, which Emails to fetch.
+     */
+    where?: EmailWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Emails to fetch.
+     */
+    orderBy?: EmailOrderByWithRelationInput | EmailOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing Emails.
+     */
+    cursor?: EmailWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Emails from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Emails.
+     */
+    skip?: number
+    distinct?: EmailScalarFieldEnum | EmailScalarFieldEnum[]
+  }
+
+  /**
+   * Email create
+   */
+  export type EmailCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    /**
+     * The data needed to create a Email.
+     */
+    data: XOR<EmailCreateInput, EmailUncheckedCreateInput>
+  }
+
+  /**
+   * Email createMany
+   */
+  export type EmailCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many Emails.
+     */
+    data: EmailCreateManyInput | EmailCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * Email createManyAndReturn
+   */
+  export type EmailCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * The data used to create many Emails.
+     */
+    data: EmailCreateManyInput | EmailCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * Email update
+   */
+  export type EmailUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    /**
+     * The data needed to update a Email.
+     */
+    data: XOR<EmailUpdateInput, EmailUncheckedUpdateInput>
+    /**
+     * Choose, which Email to update.
+     */
+    where: EmailWhereUniqueInput
+  }
+
+  /**
+   * Email updateMany
+   */
+  export type EmailUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update Emails.
+     */
+    data: XOR<EmailUpdateManyMutationInput, EmailUncheckedUpdateManyInput>
+    /**
+     * Filter which Emails to update
+     */
+    where?: EmailWhereInput
+    /**
+     * Limit how many Emails to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * Email updateManyAndReturn
+   */
+  export type EmailUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * The data used to update Emails.
+     */
+    data: XOR<EmailUpdateManyMutationInput, EmailUncheckedUpdateManyInput>
+    /**
+     * Filter which Emails to update
+     */
+    where?: EmailWhereInput
+    /**
+     * Limit how many Emails to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * Email upsert
+   */
+  export type EmailUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    /**
+     * The filter to search for the Email to update in case it exists.
+     */
+    where: EmailWhereUniqueInput
+    /**
+     * In case the Email found by the `where` argument doesn't exist, create a new Email with this data.
+     */
+    create: XOR<EmailCreateInput, EmailUncheckedCreateInput>
+    /**
+     * In case the Email was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<EmailUpdateInput, EmailUncheckedUpdateInput>
+  }
+
+  /**
+   * Email delete
+   */
+  export type EmailDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    /**
+     * Filter which Email to delete.
+     */
+    where: EmailWhereUniqueInput
+  }
+
+  /**
+   * Email deleteMany
+   */
+  export type EmailDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which Emails to delete
+     */
+    where?: EmailWhereInput
+    /**
+     * Limit how many Emails to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * Email without action
+   */
+  export type EmailDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Model ContactKnowledge
    */
 
@@ -14839,6 +16213,7 @@ export namespace Prisma {
     business: 'business',
     category: 'category',
     phone: 'phone',
+    email: 'email',
     initials: 'initials',
     color: 'color',
     note: 'note',
@@ -14962,6 +16337,27 @@ export namespace Prisma {
   };
 
   export type CallScalarFieldEnum = (typeof CallScalarFieldEnum)[keyof typeof CallScalarFieldEnum]
+
+
+  export const EmailScalarFieldEnum: {
+    id: 'id',
+    twilioSid: 'twilioSid',
+    status: 'status',
+    direction: 'direction',
+    subject: 'subject',
+    from: 'from',
+    to: 'to',
+    body: 'body',
+    html: 'html',
+    sentAt: 'sentAt',
+    deliveredAt: 'deliveredAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt',
+    conversationId: 'conversationId',
+    contactId: 'contactId'
+  };
+
+  export type EmailScalarFieldEnum = (typeof EmailScalarFieldEnum)[keyof typeof EmailScalarFieldEnum]
 
 
   export const ContactKnowledgeScalarFieldEnum: {
@@ -15093,6 +16489,7 @@ export namespace Prisma {
     business?: StringFilter<"Contact"> | string
     category?: StringFilter<"Contact"> | string
     phone?: StringFilter<"Contact"> | string
+    email?: StringNullableFilter<"Contact"> | string | null
     initials?: StringFilter<"Contact"> | string
     color?: StringFilter<"Contact"> | string
     note?: StringNullableFilter<"Contact"> | string | null
@@ -15104,6 +16501,7 @@ export namespace Prisma {
     queries?: QueryListRelationFilter
     knowledge?: ContactKnowledgeListRelationFilter
     calls?: CallListRelationFilter
+    emails?: EmailListRelationFilter
   }
 
   export type ContactOrderByWithRelationInput = {
@@ -15112,6 +16510,7 @@ export namespace Prisma {
     business?: SortOrder
     category?: SortOrder
     phone?: SortOrder
+    email?: SortOrderInput | SortOrder
     initials?: SortOrder
     color?: SortOrder
     note?: SortOrderInput | SortOrder
@@ -15123,6 +16522,7 @@ export namespace Prisma {
     queries?: QueryOrderByRelationAggregateInput
     knowledge?: ContactKnowledgeOrderByRelationAggregateInput
     calls?: CallOrderByRelationAggregateInput
+    emails?: EmailOrderByRelationAggregateInput
   }
 
   export type ContactWhereUniqueInput = Prisma.AtLeast<{
@@ -15134,6 +16534,7 @@ export namespace Prisma {
     business?: StringFilter<"Contact"> | string
     category?: StringFilter<"Contact"> | string
     phone?: StringFilter<"Contact"> | string
+    email?: StringNullableFilter<"Contact"> | string | null
     initials?: StringFilter<"Contact"> | string
     color?: StringFilter<"Contact"> | string
     note?: StringNullableFilter<"Contact"> | string | null
@@ -15145,6 +16546,7 @@ export namespace Prisma {
     queries?: QueryListRelationFilter
     knowledge?: ContactKnowledgeListRelationFilter
     calls?: CallListRelationFilter
+    emails?: EmailListRelationFilter
   }, "id">
 
   export type ContactOrderByWithAggregationInput = {
@@ -15153,6 +16555,7 @@ export namespace Prisma {
     business?: SortOrder
     category?: SortOrder
     phone?: SortOrder
+    email?: SortOrderInput | SortOrder
     initials?: SortOrder
     color?: SortOrder
     note?: SortOrderInput | SortOrder
@@ -15173,6 +16576,7 @@ export namespace Prisma {
     business?: StringWithAggregatesFilter<"Contact"> | string
     category?: StringWithAggregatesFilter<"Contact"> | string
     phone?: StringWithAggregatesFilter<"Contact"> | string
+    email?: StringNullableWithAggregatesFilter<"Contact"> | string | null
     initials?: StringWithAggregatesFilter<"Contact"> | string
     color?: StringWithAggregatesFilter<"Contact"> | string
     note?: StringNullableWithAggregatesFilter<"Contact"> | string | null
@@ -15198,6 +16602,7 @@ export namespace Prisma {
     contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
     queries?: QueryListRelationFilter
     calls?: CallListRelationFilter
+    emails?: EmailListRelationFilter
   }
 
   export type ConversationOrderByWithRelationInput = {
@@ -15214,6 +16619,7 @@ export namespace Prisma {
     contact?: ContactOrderByWithRelationInput
     queries?: QueryOrderByRelationAggregateInput
     calls?: CallOrderByRelationAggregateInput
+    emails?: EmailOrderByRelationAggregateInput
   }
 
   export type ConversationWhereUniqueInput = Prisma.AtLeast<{
@@ -15233,6 +16639,7 @@ export namespace Prisma {
     contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
     queries?: QueryListRelationFilter
     calls?: CallListRelationFilter
+    emails?: EmailListRelationFilter
   }, "id">
 
   export type ConversationOrderByWithAggregationInput = {
@@ -15808,6 +17215,114 @@ export namespace Prisma {
     contactId?: StringWithAggregatesFilter<"Call"> | string
   }
 
+  export type EmailWhereInput = {
+    AND?: EmailWhereInput | EmailWhereInput[]
+    OR?: EmailWhereInput[]
+    NOT?: EmailWhereInput | EmailWhereInput[]
+    id?: StringFilter<"Email"> | string
+    twilioSid?: StringNullableFilter<"Email"> | string | null
+    status?: StringFilter<"Email"> | string
+    direction?: StringFilter<"Email"> | string
+    subject?: StringFilter<"Email"> | string
+    from?: StringFilter<"Email"> | string
+    to?: StringFilter<"Email"> | string
+    body?: StringNullableFilter<"Email"> | string | null
+    html?: StringNullableFilter<"Email"> | string | null
+    sentAt?: DateTimeNullableFilter<"Email"> | Date | string | null
+    deliveredAt?: DateTimeNullableFilter<"Email"> | Date | string | null
+    createdAt?: DateTimeFilter<"Email"> | Date | string
+    updatedAt?: DateTimeFilter<"Email"> | Date | string
+    conversationId?: StringFilter<"Email"> | string
+    contactId?: StringFilter<"Email"> | string
+    conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
+    contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
+  }
+
+  export type EmailOrderByWithRelationInput = {
+    id?: SortOrder
+    twilioSid?: SortOrderInput | SortOrder
+    status?: SortOrder
+    direction?: SortOrder
+    subject?: SortOrder
+    from?: SortOrder
+    to?: SortOrder
+    body?: SortOrderInput | SortOrder
+    html?: SortOrderInput | SortOrder
+    sentAt?: SortOrderInput | SortOrder
+    deliveredAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+    conversation?: ConversationOrderByWithRelationInput
+    contact?: ContactOrderByWithRelationInput
+  }
+
+  export type EmailWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    twilioSid?: string
+    AND?: EmailWhereInput | EmailWhereInput[]
+    OR?: EmailWhereInput[]
+    NOT?: EmailWhereInput | EmailWhereInput[]
+    status?: StringFilter<"Email"> | string
+    direction?: StringFilter<"Email"> | string
+    subject?: StringFilter<"Email"> | string
+    from?: StringFilter<"Email"> | string
+    to?: StringFilter<"Email"> | string
+    body?: StringNullableFilter<"Email"> | string | null
+    html?: StringNullableFilter<"Email"> | string | null
+    sentAt?: DateTimeNullableFilter<"Email"> | Date | string | null
+    deliveredAt?: DateTimeNullableFilter<"Email"> | Date | string | null
+    createdAt?: DateTimeFilter<"Email"> | Date | string
+    updatedAt?: DateTimeFilter<"Email"> | Date | string
+    conversationId?: StringFilter<"Email"> | string
+    contactId?: StringFilter<"Email"> | string
+    conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
+    contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
+  }, "id" | "twilioSid">
+
+  export type EmailOrderByWithAggregationInput = {
+    id?: SortOrder
+    twilioSid?: SortOrderInput | SortOrder
+    status?: SortOrder
+    direction?: SortOrder
+    subject?: SortOrder
+    from?: SortOrder
+    to?: SortOrder
+    body?: SortOrderInput | SortOrder
+    html?: SortOrderInput | SortOrder
+    sentAt?: SortOrderInput | SortOrder
+    deliveredAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+    _count?: EmailCountOrderByAggregateInput
+    _max?: EmailMaxOrderByAggregateInput
+    _min?: EmailMinOrderByAggregateInput
+  }
+
+  export type EmailScalarWhereWithAggregatesInput = {
+    AND?: EmailScalarWhereWithAggregatesInput | EmailScalarWhereWithAggregatesInput[]
+    OR?: EmailScalarWhereWithAggregatesInput[]
+    NOT?: EmailScalarWhereWithAggregatesInput | EmailScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"Email"> | string
+    twilioSid?: StringNullableWithAggregatesFilter<"Email"> | string | null
+    status?: StringWithAggregatesFilter<"Email"> | string
+    direction?: StringWithAggregatesFilter<"Email"> | string
+    subject?: StringWithAggregatesFilter<"Email"> | string
+    from?: StringWithAggregatesFilter<"Email"> | string
+    to?: StringWithAggregatesFilter<"Email"> | string
+    body?: StringNullableWithAggregatesFilter<"Email"> | string | null
+    html?: StringNullableWithAggregatesFilter<"Email"> | string | null
+    sentAt?: DateTimeNullableWithAggregatesFilter<"Email"> | Date | string | null
+    deliveredAt?: DateTimeNullableWithAggregatesFilter<"Email"> | Date | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"Email"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"Email"> | Date | string
+    conversationId?: StringWithAggregatesFilter<"Email"> | string
+    contactId?: StringWithAggregatesFilter<"Email"> | string
+  }
+
   export type ContactKnowledgeWhereInput = {
     AND?: ContactKnowledgeWhereInput | ContactKnowledgeWhereInput[]
     OR?: ContactKnowledgeWhereInput[]
@@ -15949,6 +17464,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -15960,6 +17476,7 @@ export namespace Prisma {
     queries?: QueryCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
     calls?: CallCreateNestedManyWithoutContactInput
+    emails?: EmailCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateInput = {
@@ -15968,6 +17485,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -15979,6 +17497,7 @@ export namespace Prisma {
     queries?: QueryUncheckedCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
     calls?: CallUncheckedCreateNestedManyWithoutContactInput
+    emails?: EmailUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactUpdateInput = {
@@ -15987,6 +17506,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15998,6 +17518,7 @@ export namespace Prisma {
     queries?: QueryUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
     calls?: CallUpdateManyWithoutContactNestedInput
+    emails?: EmailUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateInput = {
@@ -16006,6 +17527,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -16017,6 +17539,7 @@ export namespace Prisma {
     queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
     calls?: CallUncheckedUpdateManyWithoutContactNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type ContactCreateManyInput = {
@@ -16025,6 +17548,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -16039,6 +17563,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -16053,6 +17578,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -16074,6 +17600,7 @@ export namespace Prisma {
     contact: ContactCreateNestedOneWithoutConversationsInput
     queries?: QueryCreateNestedManyWithoutConversationInput
     calls?: CallCreateNestedManyWithoutConversationInput
+    emails?: EmailCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateInput = {
@@ -16089,6 +17616,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
     calls?: CallUncheckedCreateNestedManyWithoutConversationInput
+    emails?: EmailUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUpdateInput = {
@@ -16104,6 +17632,7 @@ export namespace Prisma {
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
     calls?: CallUpdateManyWithoutConversationNestedInput
+    emails?: EmailUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateInput = {
@@ -16119,6 +17648,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
     calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationCreateManyInput = {
@@ -16721,6 +18251,130 @@ export namespace Prisma {
     contactId?: StringFieldUpdateOperationsInput | string
   }
 
+  export type EmailCreateInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversation: ConversationCreateNestedOneWithoutEmailsInput
+    contact: ContactCreateNestedOneWithoutEmailsInput
+  }
+
+  export type EmailUncheckedCreateInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+    contactId: string
+  }
+
+  export type EmailUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversation?: ConversationUpdateOneRequiredWithoutEmailsNestedInput
+    contact?: ContactUpdateOneRequiredWithoutEmailsNestedInput
+  }
+
+  export type EmailUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+    contactId?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type EmailCreateManyInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+    contactId: string
+  }
+
+  export type EmailUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type EmailUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+    contactId?: StringFieldUpdateOperationsInput | string
+  }
+
   export type ContactKnowledgeCreateInput = {
     id?: string
     category: string
@@ -16931,6 +18585,12 @@ export namespace Prisma {
     none?: CallWhereInput
   }
 
+  export type EmailListRelationFilter = {
+    every?: EmailWhereInput
+    some?: EmailWhereInput
+    none?: EmailWhereInput
+  }
+
   export type SortOrderInput = {
     sort: SortOrder
     nulls?: NullsOrder
@@ -16956,12 +18616,17 @@ export namespace Prisma {
     _count?: SortOrder
   }
 
+  export type EmailOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
   export type ContactCountOrderByAggregateInput = {
     id?: SortOrder
     name?: SortOrder
     business?: SortOrder
     category?: SortOrder
     phone?: SortOrder
+    email?: SortOrder
     initials?: SortOrder
     color?: SortOrder
     note?: SortOrder
@@ -16976,6 +18641,7 @@ export namespace Prisma {
     business?: SortOrder
     category?: SortOrder
     phone?: SortOrder
+    email?: SortOrder
     initials?: SortOrder
     color?: SortOrder
     note?: SortOrder
@@ -16990,6 +18656,7 @@ export namespace Prisma {
     business?: SortOrder
     category?: SortOrder
     phone?: SortOrder
+    email?: SortOrder
     initials?: SortOrder
     color?: SortOrder
     note?: SortOrder
@@ -17513,6 +19180,60 @@ export namespace Prisma {
     _max?: NestedIntNullableFilter<$PrismaModel>
   }
 
+  export type EmailCountOrderByAggregateInput = {
+    id?: SortOrder
+    twilioSid?: SortOrder
+    status?: SortOrder
+    direction?: SortOrder
+    subject?: SortOrder
+    from?: SortOrder
+    to?: SortOrder
+    body?: SortOrder
+    html?: SortOrder
+    sentAt?: SortOrder
+    deliveredAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+  }
+
+  export type EmailMaxOrderByAggregateInput = {
+    id?: SortOrder
+    twilioSid?: SortOrder
+    status?: SortOrder
+    direction?: SortOrder
+    subject?: SortOrder
+    from?: SortOrder
+    to?: SortOrder
+    body?: SortOrder
+    html?: SortOrder
+    sentAt?: SortOrder
+    deliveredAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+  }
+
+  export type EmailMinOrderByAggregateInput = {
+    id?: SortOrder
+    twilioSid?: SortOrder
+    status?: SortOrder
+    direction?: SortOrder
+    subject?: SortOrder
+    from?: SortOrder
+    to?: SortOrder
+    body?: SortOrder
+    html?: SortOrder
+    sentAt?: SortOrder
+    deliveredAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+  }
+
   export type ContactKnowledgeContactIdKeyCompoundUniqueInput = {
     contactId: string
     key: string
@@ -17629,6 +19350,13 @@ export namespace Prisma {
     connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
   }
 
+  export type EmailCreateNestedManyWithoutContactInput = {
+    create?: XOR<EmailCreateWithoutContactInput, EmailUncheckedCreateWithoutContactInput> | EmailCreateWithoutContactInput[] | EmailUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: EmailCreateOrConnectWithoutContactInput | EmailCreateOrConnectWithoutContactInput[]
+    createMany?: EmailCreateManyContactInputEnvelope
+    connect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+  }
+
   export type ConversationUncheckedCreateNestedManyWithoutContactInput = {
     create?: XOR<ConversationCreateWithoutContactInput, ConversationUncheckedCreateWithoutContactInput> | ConversationCreateWithoutContactInput[] | ConversationUncheckedCreateWithoutContactInput[]
     connectOrCreate?: ConversationCreateOrConnectWithoutContactInput | ConversationCreateOrConnectWithoutContactInput[]
@@ -17662,6 +19390,13 @@ export namespace Prisma {
     connectOrCreate?: CallCreateOrConnectWithoutContactInput | CallCreateOrConnectWithoutContactInput[]
     createMany?: CallCreateManyContactInputEnvelope
     connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+  }
+
+  export type EmailUncheckedCreateNestedManyWithoutContactInput = {
+    create?: XOR<EmailCreateWithoutContactInput, EmailUncheckedCreateWithoutContactInput> | EmailCreateWithoutContactInput[] | EmailUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: EmailCreateOrConnectWithoutContactInput | EmailCreateOrConnectWithoutContactInput[]
+    createMany?: EmailCreateManyContactInputEnvelope
+    connect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
   }
 
   export type StringFieldUpdateOperationsInput = {
@@ -17750,6 +19485,20 @@ export namespace Prisma {
     deleteMany?: CallScalarWhereInput | CallScalarWhereInput[]
   }
 
+  export type EmailUpdateManyWithoutContactNestedInput = {
+    create?: XOR<EmailCreateWithoutContactInput, EmailUncheckedCreateWithoutContactInput> | EmailCreateWithoutContactInput[] | EmailUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: EmailCreateOrConnectWithoutContactInput | EmailCreateOrConnectWithoutContactInput[]
+    upsert?: EmailUpsertWithWhereUniqueWithoutContactInput | EmailUpsertWithWhereUniqueWithoutContactInput[]
+    createMany?: EmailCreateManyContactInputEnvelope
+    set?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    disconnect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    delete?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    connect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    update?: EmailUpdateWithWhereUniqueWithoutContactInput | EmailUpdateWithWhereUniqueWithoutContactInput[]
+    updateMany?: EmailUpdateManyWithWhereWithoutContactInput | EmailUpdateManyWithWhereWithoutContactInput[]
+    deleteMany?: EmailScalarWhereInput | EmailScalarWhereInput[]
+  }
+
   export type ConversationUncheckedUpdateManyWithoutContactNestedInput = {
     create?: XOR<ConversationCreateWithoutContactInput, ConversationUncheckedCreateWithoutContactInput> | ConversationCreateWithoutContactInput[] | ConversationUncheckedCreateWithoutContactInput[]
     connectOrCreate?: ConversationCreateOrConnectWithoutContactInput | ConversationCreateOrConnectWithoutContactInput[]
@@ -17820,6 +19569,20 @@ export namespace Prisma {
     deleteMany?: CallScalarWhereInput | CallScalarWhereInput[]
   }
 
+  export type EmailUncheckedUpdateManyWithoutContactNestedInput = {
+    create?: XOR<EmailCreateWithoutContactInput, EmailUncheckedCreateWithoutContactInput> | EmailCreateWithoutContactInput[] | EmailUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: EmailCreateOrConnectWithoutContactInput | EmailCreateOrConnectWithoutContactInput[]
+    upsert?: EmailUpsertWithWhereUniqueWithoutContactInput | EmailUpsertWithWhereUniqueWithoutContactInput[]
+    createMany?: EmailCreateManyContactInputEnvelope
+    set?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    disconnect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    delete?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    connect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    update?: EmailUpdateWithWhereUniqueWithoutContactInput | EmailUpdateWithWhereUniqueWithoutContactInput[]
+    updateMany?: EmailUpdateManyWithWhereWithoutContactInput | EmailUpdateManyWithWhereWithoutContactInput[]
+    deleteMany?: EmailScalarWhereInput | EmailScalarWhereInput[]
+  }
+
   export type MessageCreateNestedManyWithoutConversationInput = {
     create?: XOR<MessageCreateWithoutConversationInput, MessageUncheckedCreateWithoutConversationInput> | MessageCreateWithoutConversationInput[] | MessageUncheckedCreateWithoutConversationInput[]
     connectOrCreate?: MessageCreateOrConnectWithoutConversationInput | MessageCreateOrConnectWithoutConversationInput[]
@@ -17861,6 +19624,13 @@ export namespace Prisma {
     connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
   }
 
+  export type EmailCreateNestedManyWithoutConversationInput = {
+    create?: XOR<EmailCreateWithoutConversationInput, EmailUncheckedCreateWithoutConversationInput> | EmailCreateWithoutConversationInput[] | EmailUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: EmailCreateOrConnectWithoutConversationInput | EmailCreateOrConnectWithoutConversationInput[]
+    createMany?: EmailCreateManyConversationInputEnvelope
+    connect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+  }
+
   export type MessageUncheckedCreateNestedManyWithoutConversationInput = {
     create?: XOR<MessageCreateWithoutConversationInput, MessageUncheckedCreateWithoutConversationInput> | MessageCreateWithoutConversationInput[] | MessageUncheckedCreateWithoutConversationInput[]
     connectOrCreate?: MessageCreateOrConnectWithoutConversationInput | MessageCreateOrConnectWithoutConversationInput[]
@@ -17894,6 +19664,13 @@ export namespace Prisma {
     connectOrCreate?: CallCreateOrConnectWithoutConversationInput | CallCreateOrConnectWithoutConversationInput[]
     createMany?: CallCreateManyConversationInputEnvelope
     connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+  }
+
+  export type EmailUncheckedCreateNestedManyWithoutConversationInput = {
+    create?: XOR<EmailCreateWithoutConversationInput, EmailUncheckedCreateWithoutConversationInput> | EmailCreateWithoutConversationInput[] | EmailUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: EmailCreateOrConnectWithoutConversationInput | EmailCreateOrConnectWithoutConversationInput[]
+    createMany?: EmailCreateManyConversationInputEnvelope
+    connect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
   }
 
   export type NullableDateTimeFieldUpdateOperationsInput = {
@@ -17978,6 +19755,20 @@ export namespace Prisma {
     deleteMany?: CallScalarWhereInput | CallScalarWhereInput[]
   }
 
+  export type EmailUpdateManyWithoutConversationNestedInput = {
+    create?: XOR<EmailCreateWithoutConversationInput, EmailUncheckedCreateWithoutConversationInput> | EmailCreateWithoutConversationInput[] | EmailUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: EmailCreateOrConnectWithoutConversationInput | EmailCreateOrConnectWithoutConversationInput[]
+    upsert?: EmailUpsertWithWhereUniqueWithoutConversationInput | EmailUpsertWithWhereUniqueWithoutConversationInput[]
+    createMany?: EmailCreateManyConversationInputEnvelope
+    set?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    disconnect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    delete?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    connect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    update?: EmailUpdateWithWhereUniqueWithoutConversationInput | EmailUpdateWithWhereUniqueWithoutConversationInput[]
+    updateMany?: EmailUpdateManyWithWhereWithoutConversationInput | EmailUpdateManyWithWhereWithoutConversationInput[]
+    deleteMany?: EmailScalarWhereInput | EmailScalarWhereInput[]
+  }
+
   export type MessageUncheckedUpdateManyWithoutConversationNestedInput = {
     create?: XOR<MessageCreateWithoutConversationInput, MessageUncheckedCreateWithoutConversationInput> | MessageCreateWithoutConversationInput[] | MessageUncheckedCreateWithoutConversationInput[]
     connectOrCreate?: MessageCreateOrConnectWithoutConversationInput | MessageCreateOrConnectWithoutConversationInput[]
@@ -18046,6 +19837,20 @@ export namespace Prisma {
     update?: CallUpdateWithWhereUniqueWithoutConversationInput | CallUpdateWithWhereUniqueWithoutConversationInput[]
     updateMany?: CallUpdateManyWithWhereWithoutConversationInput | CallUpdateManyWithWhereWithoutConversationInput[]
     deleteMany?: CallScalarWhereInput | CallScalarWhereInput[]
+  }
+
+  export type EmailUncheckedUpdateManyWithoutConversationNestedInput = {
+    create?: XOR<EmailCreateWithoutConversationInput, EmailUncheckedCreateWithoutConversationInput> | EmailCreateWithoutConversationInput[] | EmailUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: EmailCreateOrConnectWithoutConversationInput | EmailCreateOrConnectWithoutConversationInput[]
+    upsert?: EmailUpsertWithWhereUniqueWithoutConversationInput | EmailUpsertWithWhereUniqueWithoutConversationInput[]
+    createMany?: EmailCreateManyConversationInputEnvelope
+    set?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    disconnect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    delete?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    connect?: EmailWhereUniqueInput | EmailWhereUniqueInput[]
+    update?: EmailUpdateWithWhereUniqueWithoutConversationInput | EmailUpdateWithWhereUniqueWithoutConversationInput[]
+    updateMany?: EmailUpdateManyWithWhereWithoutConversationInput | EmailUpdateManyWithWhereWithoutConversationInput[]
+    deleteMany?: EmailScalarWhereInput | EmailScalarWhereInput[]
   }
 
   export type ConversationCreateNestedOneWithoutMessagesInput = {
@@ -18500,6 +20305,34 @@ export namespace Prisma {
     deleteMany?: MessageScalarWhereInput | MessageScalarWhereInput[]
   }
 
+  export type ConversationCreateNestedOneWithoutEmailsInput = {
+    create?: XOR<ConversationCreateWithoutEmailsInput, ConversationUncheckedCreateWithoutEmailsInput>
+    connectOrCreate?: ConversationCreateOrConnectWithoutEmailsInput
+    connect?: ConversationWhereUniqueInput
+  }
+
+  export type ContactCreateNestedOneWithoutEmailsInput = {
+    create?: XOR<ContactCreateWithoutEmailsInput, ContactUncheckedCreateWithoutEmailsInput>
+    connectOrCreate?: ContactCreateOrConnectWithoutEmailsInput
+    connect?: ContactWhereUniqueInput
+  }
+
+  export type ConversationUpdateOneRequiredWithoutEmailsNestedInput = {
+    create?: XOR<ConversationCreateWithoutEmailsInput, ConversationUncheckedCreateWithoutEmailsInput>
+    connectOrCreate?: ConversationCreateOrConnectWithoutEmailsInput
+    upsert?: ConversationUpsertWithoutEmailsInput
+    connect?: ConversationWhereUniqueInput
+    update?: XOR<XOR<ConversationUpdateToOneWithWhereWithoutEmailsInput, ConversationUpdateWithoutEmailsInput>, ConversationUncheckedUpdateWithoutEmailsInput>
+  }
+
+  export type ContactUpdateOneRequiredWithoutEmailsNestedInput = {
+    create?: XOR<ContactCreateWithoutEmailsInput, ContactUncheckedCreateWithoutEmailsInput>
+    connectOrCreate?: ContactCreateOrConnectWithoutEmailsInput
+    upsert?: ContactUpsertWithoutEmailsInput
+    connect?: ContactWhereUniqueInput
+    update?: XOR<XOR<ContactUpdateToOneWithWhereWithoutEmailsInput, ContactUpdateWithoutEmailsInput>, ContactUncheckedUpdateWithoutEmailsInput>
+  }
+
   export type ContactCreateNestedOneWithoutKnowledgeInput = {
     create?: XOR<ContactCreateWithoutKnowledgeInput, ContactUncheckedCreateWithoutKnowledgeInput>
     connectOrCreate?: ContactCreateOrConnectWithoutKnowledgeInput
@@ -18797,6 +20630,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutConversationInput
     queries?: QueryCreateNestedManyWithoutConversationInput
     calls?: CallCreateNestedManyWithoutConversationInput
+    emails?: EmailCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutContactInput = {
@@ -18811,6 +20645,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
     calls?: CallUncheckedCreateNestedManyWithoutConversationInput
+    emails?: EmailUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutContactInput = {
@@ -18970,6 +20805,50 @@ export namespace Prisma {
 
   export type CallCreateManyContactInputEnvelope = {
     data: CallCreateManyContactInput | CallCreateManyContactInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type EmailCreateWithoutContactInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversation: ConversationCreateNestedOneWithoutEmailsInput
+  }
+
+  export type EmailUncheckedCreateWithoutContactInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+  }
+
+  export type EmailCreateOrConnectWithoutContactInput = {
+    where: EmailWhereUniqueInput
+    create: XOR<EmailCreateWithoutContactInput, EmailUncheckedCreateWithoutContactInput>
+  }
+
+  export type EmailCreateManyContactInputEnvelope = {
+    data: EmailCreateManyContactInput | EmailCreateManyContactInput[]
     skipDuplicates?: boolean
   }
 
@@ -19133,6 +21012,43 @@ export namespace Prisma {
     contactId?: StringFilter<"Call"> | string
   }
 
+  export type EmailUpsertWithWhereUniqueWithoutContactInput = {
+    where: EmailWhereUniqueInput
+    update: XOR<EmailUpdateWithoutContactInput, EmailUncheckedUpdateWithoutContactInput>
+    create: XOR<EmailCreateWithoutContactInput, EmailUncheckedCreateWithoutContactInput>
+  }
+
+  export type EmailUpdateWithWhereUniqueWithoutContactInput = {
+    where: EmailWhereUniqueInput
+    data: XOR<EmailUpdateWithoutContactInput, EmailUncheckedUpdateWithoutContactInput>
+  }
+
+  export type EmailUpdateManyWithWhereWithoutContactInput = {
+    where: EmailScalarWhereInput
+    data: XOR<EmailUpdateManyMutationInput, EmailUncheckedUpdateManyWithoutContactInput>
+  }
+
+  export type EmailScalarWhereInput = {
+    AND?: EmailScalarWhereInput | EmailScalarWhereInput[]
+    OR?: EmailScalarWhereInput[]
+    NOT?: EmailScalarWhereInput | EmailScalarWhereInput[]
+    id?: StringFilter<"Email"> | string
+    twilioSid?: StringNullableFilter<"Email"> | string | null
+    status?: StringFilter<"Email"> | string
+    direction?: StringFilter<"Email"> | string
+    subject?: StringFilter<"Email"> | string
+    from?: StringFilter<"Email"> | string
+    to?: StringFilter<"Email"> | string
+    body?: StringNullableFilter<"Email"> | string | null
+    html?: StringNullableFilter<"Email"> | string | null
+    sentAt?: DateTimeNullableFilter<"Email"> | Date | string | null
+    deliveredAt?: DateTimeNullableFilter<"Email"> | Date | string | null
+    createdAt?: DateTimeFilter<"Email"> | Date | string
+    updatedAt?: DateTimeFilter<"Email"> | Date | string
+    conversationId?: StringFilter<"Email"> | string
+    contactId?: StringFilter<"Email"> | string
+  }
+
   export type MessageCreateWithoutConversationInput = {
     id?: string
     role: string
@@ -19249,6 +21165,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -19259,6 +21176,7 @@ export namespace Prisma {
     queries?: QueryCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
     calls?: CallCreateNestedManyWithoutContactInput
+    emails?: EmailCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateWithoutConversationsInput = {
@@ -19267,6 +21185,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -19277,6 +21196,7 @@ export namespace Prisma {
     queries?: QueryUncheckedCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
     calls?: CallUncheckedCreateNestedManyWithoutContactInput
+    emails?: EmailUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactCreateOrConnectWithoutConversationsInput = {
@@ -19355,6 +21275,50 @@ export namespace Prisma {
 
   export type CallCreateManyConversationInputEnvelope = {
     data: CallCreateManyConversationInput | CallCreateManyConversationInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type EmailCreateWithoutConversationInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contact: ContactCreateNestedOneWithoutEmailsInput
+  }
+
+  export type EmailUncheckedCreateWithoutConversationInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contactId: string
+  }
+
+  export type EmailCreateOrConnectWithoutConversationInput = {
+    where: EmailWhereUniqueInput
+    create: XOR<EmailCreateWithoutConversationInput, EmailUncheckedCreateWithoutConversationInput>
+  }
+
+  export type EmailCreateManyConversationInputEnvelope = {
+    data: EmailCreateManyConversationInput | EmailCreateManyConversationInput[]
     skipDuplicates?: boolean
   }
 
@@ -19452,6 +21416,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -19462,6 +21427,7 @@ export namespace Prisma {
     queries?: QueryUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
     calls?: CallUpdateManyWithoutContactNestedInput
+    emails?: EmailUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateWithoutConversationsInput = {
@@ -19470,6 +21436,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -19480,6 +21447,7 @@ export namespace Prisma {
     queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
     calls?: CallUncheckedUpdateManyWithoutContactNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type QueryUpsertWithWhereUniqueWithoutConversationInput = {
@@ -19514,6 +21482,22 @@ export namespace Prisma {
     data: XOR<CallUpdateManyMutationInput, CallUncheckedUpdateManyWithoutConversationInput>
   }
 
+  export type EmailUpsertWithWhereUniqueWithoutConversationInput = {
+    where: EmailWhereUniqueInput
+    update: XOR<EmailUpdateWithoutConversationInput, EmailUncheckedUpdateWithoutConversationInput>
+    create: XOR<EmailCreateWithoutConversationInput, EmailUncheckedCreateWithoutConversationInput>
+  }
+
+  export type EmailUpdateWithWhereUniqueWithoutConversationInput = {
+    where: EmailWhereUniqueInput
+    data: XOR<EmailUpdateWithoutConversationInput, EmailUncheckedUpdateWithoutConversationInput>
+  }
+
+  export type EmailUpdateManyWithWhereWithoutConversationInput = {
+    where: EmailScalarWhereInput
+    data: XOR<EmailUpdateManyMutationInput, EmailUncheckedUpdateManyWithoutConversationInput>
+  }
+
   export type ConversationCreateWithoutMessagesInput = {
     id?: string
     title?: string | null
@@ -19526,6 +21510,7 @@ export namespace Prisma {
     contact: ContactCreateNestedOneWithoutConversationsInput
     queries?: QueryCreateNestedManyWithoutConversationInput
     calls?: CallCreateNestedManyWithoutConversationInput
+    emails?: EmailCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutMessagesInput = {
@@ -19540,6 +21525,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
     calls?: CallUncheckedCreateNestedManyWithoutConversationInput
+    emails?: EmailUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutMessagesInput = {
@@ -19669,6 +21655,7 @@ export namespace Prisma {
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
     calls?: CallUpdateManyWithoutConversationNestedInput
+    emails?: EmailUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutMessagesInput = {
@@ -19683,6 +21670,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
     calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type CallUpsertWithoutMessagesInput = {
@@ -19814,6 +21802,7 @@ export namespace Prisma {
     contact: ContactCreateNestedOneWithoutConversationsInput
     queries?: QueryCreateNestedManyWithoutConversationInput
     calls?: CallCreateNestedManyWithoutConversationInput
+    emails?: EmailCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutHistoryInput = {
@@ -19828,6 +21817,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
     calls?: CallUncheckedCreateNestedManyWithoutConversationInput
+    emails?: EmailUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutHistoryInput = {
@@ -19858,6 +21848,7 @@ export namespace Prisma {
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
     calls?: CallUpdateManyWithoutConversationNestedInput
+    emails?: EmailUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutHistoryInput = {
@@ -19872,6 +21863,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
     calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationCreateWithoutTasksInput = {
@@ -19886,6 +21878,7 @@ export namespace Prisma {
     contact: ContactCreateNestedOneWithoutConversationsInput
     queries?: QueryCreateNestedManyWithoutConversationInput
     calls?: CallCreateNestedManyWithoutConversationInput
+    emails?: EmailCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutTasksInput = {
@@ -19900,6 +21893,7 @@ export namespace Prisma {
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
     calls?: CallUncheckedCreateNestedManyWithoutConversationInput
+    emails?: EmailUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutTasksInput = {
@@ -19913,6 +21907,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -19923,6 +21918,7 @@ export namespace Prisma {
     queries?: QueryCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
     calls?: CallCreateNestedManyWithoutContactInput
+    emails?: EmailCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateWithoutTasksInput = {
@@ -19931,6 +21927,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -19941,6 +21938,7 @@ export namespace Prisma {
     queries?: QueryUncheckedCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
     calls?: CallUncheckedCreateNestedManyWithoutContactInput
+    emails?: EmailUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactCreateOrConnectWithoutTasksInput = {
@@ -19993,6 +21991,7 @@ export namespace Prisma {
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
     calls?: CallUpdateManyWithoutConversationNestedInput
+    emails?: EmailUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutTasksInput = {
@@ -20007,6 +22006,7 @@ export namespace Prisma {
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
     calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ContactUpsertWithoutTasksInput = {
@@ -20026,6 +22026,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -20036,6 +22037,7 @@ export namespace Prisma {
     queries?: QueryUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
     calls?: CallUpdateManyWithoutContactNestedInput
+    emails?: EmailUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateWithoutTasksInput = {
@@ -20044,6 +22046,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -20054,6 +22057,7 @@ export namespace Prisma {
     queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
     calls?: CallUncheckedUpdateManyWithoutContactNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type TaskSourceMessageUpsertWithWhereUniqueWithoutTaskInput = {
@@ -20236,6 +22240,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutConversationInput
     contact: ContactCreateNestedOneWithoutConversationsInput
     calls?: CallCreateNestedManyWithoutConversationInput
+    emails?: EmailCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutQueriesInput = {
@@ -20250,6 +22255,7 @@ export namespace Prisma {
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
     calls?: CallUncheckedCreateNestedManyWithoutConversationInput
+    emails?: EmailUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutQueriesInput = {
@@ -20263,6 +22269,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -20273,6 +22280,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
     calls?: CallCreateNestedManyWithoutContactInput
+    emails?: EmailCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateWithoutQueriesInput = {
@@ -20281,6 +22289,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -20291,6 +22300,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
     calls?: CallUncheckedCreateNestedManyWithoutContactInput
+    emails?: EmailUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactCreateOrConnectWithoutQueriesInput = {
@@ -20343,6 +22353,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutConversationNestedInput
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
     calls?: CallUpdateManyWithoutConversationNestedInput
+    emails?: EmailUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutQueriesInput = {
@@ -20357,6 +22368,7 @@ export namespace Prisma {
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
     calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ContactUpsertWithoutQueriesInput = {
@@ -20376,6 +22388,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -20386,6 +22399,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
     calls?: CallUpdateManyWithoutContactNestedInput
+    emails?: EmailUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateWithoutQueriesInput = {
@@ -20394,6 +22408,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -20404,6 +22419,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
     calls?: CallUncheckedUpdateManyWithoutContactNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type QuerySourceMessageUpsertWithWhereUniqueWithoutQueryInput = {
@@ -20574,6 +22590,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutConversationInput
     contact: ContactCreateNestedOneWithoutConversationsInput
     queries?: QueryCreateNestedManyWithoutConversationInput
+    emails?: EmailCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutCallsInput = {
@@ -20588,6 +22605,7 @@ export namespace Prisma {
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
+    emails?: EmailUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutCallsInput = {
@@ -20601,6 +22619,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -20611,6 +22630,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutContactInput
     queries?: QueryCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
+    emails?: EmailCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateWithoutCallsInput = {
@@ -20619,6 +22639,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -20629,6 +22650,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
     queries?: QueryUncheckedCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
+    emails?: EmailUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactCreateOrConnectWithoutCallsInput = {
@@ -20697,6 +22719,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutConversationNestedInput
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
+    emails?: EmailUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutCallsInput = {
@@ -20711,6 +22734,7 @@ export namespace Prisma {
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ContactUpsertWithoutCallsInput = {
@@ -20730,6 +22754,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -20740,6 +22765,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutContactNestedInput
     queries?: QueryUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
+    emails?: EmailUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateWithoutCallsInput = {
@@ -20748,6 +22774,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -20758,6 +22785,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
     queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type MessageUpsertWithWhereUniqueWithoutCallInput = {
@@ -20776,12 +22804,185 @@ export namespace Prisma {
     data: XOR<MessageUpdateManyMutationInput, MessageUncheckedUpdateManyWithoutCallInput>
   }
 
+  export type ConversationCreateWithoutEmailsInput = {
+    id?: string
+    title?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
+    messages?: MessageCreateNestedManyWithoutConversationInput
+    history?: HistoryCreateNestedManyWithoutConversationInput
+    tasks?: TaskCreateNestedManyWithoutConversationInput
+    contact: ContactCreateNestedOneWithoutConversationsInput
+    queries?: QueryCreateNestedManyWithoutConversationInput
+    calls?: CallCreateNestedManyWithoutConversationInput
+  }
+
+  export type ConversationUncheckedCreateWithoutEmailsInput = {
+    id?: string
+    title?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
+    contactId: string
+    messages?: MessageUncheckedCreateNestedManyWithoutConversationInput
+    history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
+    tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
+    queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
+    calls?: CallUncheckedCreateNestedManyWithoutConversationInput
+  }
+
+  export type ConversationCreateOrConnectWithoutEmailsInput = {
+    where: ConversationWhereUniqueInput
+    create: XOR<ConversationCreateWithoutEmailsInput, ConversationUncheckedCreateWithoutEmailsInput>
+  }
+
+  export type ContactCreateWithoutEmailsInput = {
+    id?: string
+    name: string
+    business: string
+    category: string
+    phone: string
+    email?: string | null
+    initials: string
+    color: string
+    note?: string | null
+    online?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversations?: ConversationCreateNestedManyWithoutContactInput
+    tasks?: TaskCreateNestedManyWithoutContactInput
+    queries?: QueryCreateNestedManyWithoutContactInput
+    knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
+    calls?: CallCreateNestedManyWithoutContactInput
+  }
+
+  export type ContactUncheckedCreateWithoutEmailsInput = {
+    id?: string
+    name: string
+    business: string
+    category: string
+    phone: string
+    email?: string | null
+    initials: string
+    color: string
+    note?: string | null
+    online?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversations?: ConversationUncheckedCreateNestedManyWithoutContactInput
+    tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
+    queries?: QueryUncheckedCreateNestedManyWithoutContactInput
+    knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
+    calls?: CallUncheckedCreateNestedManyWithoutContactInput
+  }
+
+  export type ContactCreateOrConnectWithoutEmailsInput = {
+    where: ContactWhereUniqueInput
+    create: XOR<ContactCreateWithoutEmailsInput, ContactUncheckedCreateWithoutEmailsInput>
+  }
+
+  export type ConversationUpsertWithoutEmailsInput = {
+    update: XOR<ConversationUpdateWithoutEmailsInput, ConversationUncheckedUpdateWithoutEmailsInput>
+    create: XOR<ConversationCreateWithoutEmailsInput, ConversationUncheckedCreateWithoutEmailsInput>
+    where?: ConversationWhereInput
+  }
+
+  export type ConversationUpdateToOneWithWhereWithoutEmailsInput = {
+    where?: ConversationWhereInput
+    data: XOR<ConversationUpdateWithoutEmailsInput, ConversationUncheckedUpdateWithoutEmailsInput>
+  }
+
+  export type ConversationUpdateWithoutEmailsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    messages?: MessageUpdateManyWithoutConversationNestedInput
+    history?: HistoryUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUpdateManyWithoutConversationNestedInput
+    contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
+    queries?: QueryUpdateManyWithoutConversationNestedInput
+    calls?: CallUpdateManyWithoutConversationNestedInput
+  }
+
+  export type ConversationUncheckedUpdateWithoutEmailsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    contactId?: StringFieldUpdateOperationsInput | string
+    messages?: MessageUncheckedUpdateManyWithoutConversationNestedInput
+    history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
+    queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
+    calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
+  }
+
+  export type ContactUpsertWithoutEmailsInput = {
+    update: XOR<ContactUpdateWithoutEmailsInput, ContactUncheckedUpdateWithoutEmailsInput>
+    create: XOR<ContactCreateWithoutEmailsInput, ContactUncheckedCreateWithoutEmailsInput>
+    where?: ContactWhereInput
+  }
+
+  export type ContactUpdateToOneWithWhereWithoutEmailsInput = {
+    where?: ContactWhereInput
+    data: XOR<ContactUpdateWithoutEmailsInput, ContactUncheckedUpdateWithoutEmailsInput>
+  }
+
+  export type ContactUpdateWithoutEmailsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    business?: StringFieldUpdateOperationsInput | string
+    category?: StringFieldUpdateOperationsInput | string
+    phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    initials?: StringFieldUpdateOperationsInput | string
+    color?: StringFieldUpdateOperationsInput | string
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    online?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversations?: ConversationUpdateManyWithoutContactNestedInput
+    tasks?: TaskUpdateManyWithoutContactNestedInput
+    queries?: QueryUpdateManyWithoutContactNestedInput
+    knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
+    calls?: CallUpdateManyWithoutContactNestedInput
+  }
+
+  export type ContactUncheckedUpdateWithoutEmailsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    business?: StringFieldUpdateOperationsInput | string
+    category?: StringFieldUpdateOperationsInput | string
+    phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    initials?: StringFieldUpdateOperationsInput | string
+    color?: StringFieldUpdateOperationsInput | string
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    online?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversations?: ConversationUncheckedUpdateManyWithoutContactNestedInput
+    tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
+    queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
+    knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
+    calls?: CallUncheckedUpdateManyWithoutContactNestedInput
+  }
+
   export type ContactCreateWithoutKnowledgeInput = {
     id?: string
     name: string
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -20792,6 +22993,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutContactInput
     queries?: QueryCreateNestedManyWithoutContactInput
     calls?: CallCreateNestedManyWithoutContactInput
+    emails?: EmailCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateWithoutKnowledgeInput = {
@@ -20800,6 +23002,7 @@ export namespace Prisma {
     business: string
     category: string
     phone: string
+    email?: string | null
     initials: string
     color: string
     note?: string | null
@@ -20810,6 +23013,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
     queries?: QueryUncheckedCreateNestedManyWithoutContactInput
     calls?: CallUncheckedCreateNestedManyWithoutContactInput
+    emails?: EmailUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactCreateOrConnectWithoutKnowledgeInput = {
@@ -20856,6 +23060,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -20866,6 +23071,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutContactNestedInput
     queries?: QueryUpdateManyWithoutContactNestedInput
     calls?: CallUpdateManyWithoutContactNestedInput
+    emails?: EmailUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateWithoutKnowledgeInput = {
@@ -20874,6 +23080,7 @@ export namespace Prisma {
     business?: StringFieldUpdateOperationsInput | string
     category?: StringFieldUpdateOperationsInput | string
     phone?: StringFieldUpdateOperationsInput | string
+    email?: NullableStringFieldUpdateOperationsInput | string | null
     initials?: StringFieldUpdateOperationsInput | string
     color?: StringFieldUpdateOperationsInput | string
     note?: NullableStringFieldUpdateOperationsInput | string | null
@@ -20884,6 +23091,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
     queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
     calls?: CallUncheckedUpdateManyWithoutContactNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type KnowledgeSourceMessageUpsertWithWhereUniqueWithoutKnowledgeInput = {
@@ -21098,6 +23306,23 @@ export namespace Prisma {
     conversationId: string
   }
 
+  export type EmailCreateManyContactInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+  }
+
   export type ConversationUpdateWithoutContactInput = {
     id?: StringFieldUpdateOperationsInput | string
     title?: NullableStringFieldUpdateOperationsInput | string | null
@@ -21110,6 +23335,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutConversationNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
     calls?: CallUpdateManyWithoutConversationNestedInput
+    emails?: EmailUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutContactInput = {
@@ -21124,6 +23350,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
     calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
+    emails?: EmailUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateManyWithoutContactInput = {
@@ -21296,6 +23523,57 @@ export namespace Prisma {
     conversationId?: StringFieldUpdateOperationsInput | string
   }
 
+  export type EmailUpdateWithoutContactInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversation?: ConversationUpdateOneRequiredWithoutEmailsNestedInput
+  }
+
+  export type EmailUncheckedUpdateWithoutContactInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type EmailUncheckedUpdateManyWithoutContactInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+  }
+
   export type MessageCreateManyConversationInput = {
     id?: string
     role: string
@@ -21352,6 +23630,23 @@ export namespace Prisma {
     duration?: number | null
     startedAt?: Date | string | null
     endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contactId: string
+  }
+
+  export type EmailCreateManyConversationInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     contactId: string
@@ -21547,6 +23842,57 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contactId?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type EmailUpdateWithoutConversationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contact?: ContactUpdateOneRequiredWithoutEmailsNestedInput
+  }
+
+  export type EmailUncheckedUpdateWithoutConversationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contactId?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type EmailUncheckedUpdateManyWithoutConversationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     contactId?: StringFieldUpdateOperationsInput | string

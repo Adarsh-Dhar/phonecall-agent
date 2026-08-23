@@ -27,13 +27,14 @@ router.get("/contacts", async (req, res) => {
 // that contact's first (empty) chat thread in the same call.
 router.post("/contacts", async (req, res) => {
   try {
-    const { name, business, category, phone, initials, color, note, online, withConversation } = req.body;
+    const { name, business, category, phone, email, initials, color, note, online, withConversation } = req.body;
     const contact = await prisma.contact.create({
       data: {
         name,
         business,
         category,
         phone,
+        email,
         initials,
         color,
         note,
@@ -54,7 +55,7 @@ router.post("/contacts", async (req, res) => {
 router.put("/contacts/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, business, category, phone, initials, color, note, online } = req.body;
+    const { name, business, category, phone, email, initials, color, note, online } = req.body;
     const contact = await prisma.contact.update({
       where: { id },
       data: {
@@ -62,6 +63,7 @@ router.put("/contacts/:id", async (req, res) => {
         business,
         category,
         phone,
+        email,
         initials,
         color,
         note,

@@ -9,6 +9,7 @@ import tasksRouter from "./tasks";
 import queriesRouter from "./queries";
 import knowledgeRouter from "./knowledge";
 import callsRouter from "./calls";
+import emailsRouter from "./emails";
 import twilioVoiceRouter from "./twilioVoice";
 import { verifyTwilioSignature } from "../middlewares/verifyTwilioSignature";
 
@@ -27,6 +28,9 @@ router.use(knowledgeRouter);
 
 // ── Calls REST API (no signature check — called by our own frontend) ───────
 router.use(callsRouter);
+
+// ── Emails REST API (no signature check — called by our own frontend) ──────
+router.use(emailsRouter);
 
 // ── Twilio webhook routes (signature-verified) ─────────────────────────────
 // verifyTwilioSignature is applied only to the /twilio/* routes, not the

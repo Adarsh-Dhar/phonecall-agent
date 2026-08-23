@@ -20,11 +20,19 @@ import { logger } from "../lib/logger";
 const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const FROM_NUMBER = process.env.TWILIO_PHONE_NUMBER;
+const FROM_EMAIL = process.env.TWILIO_EMAIL_ADDRESS;
 
 if (!ACCOUNT_SID || !AUTH_TOKEN || !FROM_NUMBER) {
   logger.warn(
     "Twilio env vars (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER) " +
       "are not fully set — outbound calls will fail at runtime."
+  );
+}
+
+if (!ACCOUNT_SID || !AUTH_TOKEN || !FROM_EMAIL) {
+  logger.warn(
+    "Twilio env vars (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_EMAIL_ADDRESS) " +
+      "are not fully set — outbound emails will fail at runtime."
   );
 }
 
@@ -126,4 +134,106 @@ export async function placeOutboundCall(
     to: call.to,
     from: call.from,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Outbound email helper
+// ---------------------------------------------------------------------------
+
+export interface OutboundEmailOptions {
+  /** Email address of the recipient */
+  to: string;
+  /** Email subject line */
+  subject: string;
+  /** Plain text email body */
+  body?: string;
+  /** HTML email body */
+  html?: string;
+  /** Optional sender name (defaults to "Trial with Twilio" if not provided) */
+  fromName?: string;
+}
+
+export interface TwilioEmailResult {
+  sid: string;
+  status: string;
+  to: string;
+  from: string;
+}
+
+interface TwilioEmailApiResponse {
+  sid: string;
+  status: string;
+}
+
+/**
+ * Sends an outbound email via Twilio Email API.
+ *
+ * @returns The Twilio email SID and initial status.
+ * @throws  If Twilio env vars are missing or the API call fails.
+ */
+export async function sendOutboundEmail(
+  opts: OutboundEmailOptions
+): Promise<TwilioEmailResult> {
+  if (!ACCOUNT_SID || !AUTH_TOKEN || !FROM_EMAIL) {
+    throw new Error(
+      "Cannot send email: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and " +
+        "TWILIO_EMAIL_ADDRESS must all be set."
+    );
+  }
+
+  if (!opts.body && !opts.html) {
+    throw new Error("Either body (plain text) or html (HTML) must be provided.");
+  }
+
+  const fromName = opts.fromName || "Trial with Twilio";
+
+  const emailData = {
+    from: {
+      address: FROM_EMAIL,
+      name: fromName,
+    },
+    to: [
+      {
+        address: opts.to,
+      },
+    ],
+    content: {
+      subject: opts.subject,
+      ...(opts.body && { text: opts.body }),
+      ...(opts.html && { html: opts.html }),
+    },
+  };
+
+  try {
+    const response = await fetch("https://comms.twilio.com/v1/Emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${Buffer.from(`${ACCOUNT_SID}:${AUTH_TOKEN}`).toString("base64")}`,
+      },
+      body: JSON.stringify(emailData),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Twilio Email API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const result = await response.json() as TwilioEmailApiResponse;
+
+    logger.info(
+      { sid: result.sid, to: opts.to, status: result.status },
+      "twilio: outbound email sent"
+    );
+
+    return {
+      sid: result.sid,
+      status: result.status,
+      to: opts.to,
+      from: FROM_EMAIL,
+    };
+  } catch (err) {
+    logger.error({ err, to: opts.to }, "twilio: sendOutboundEmail failed");
+    throw err;
+  }
 }

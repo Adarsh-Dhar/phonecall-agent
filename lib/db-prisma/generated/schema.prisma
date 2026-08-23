@@ -17,6 +17,7 @@ model Contact {
   business  String
   category  String // e.g. "Healthcare", "Personal Care", "Home & Auto", "Financial & Insurance", "Government", "Retail & Customer Service", "Other"
   phone     String // E.164 phone number for the contact, e.g. +14155551234
+  email     String? // Email address for the contact
   initials  String
   color     String
   note      String?
@@ -29,6 +30,7 @@ model Contact {
   queries       Query[]
   knowledge     ContactKnowledge[]
   calls         Call[]
+  emails        Email[]
 }
 
 model Conversation {
@@ -50,6 +52,7 @@ model Conversation {
 
   queries Query[]
   calls   Call[]
+  emails  Email[]
 
   @@index([contactId])
 }
@@ -193,6 +196,36 @@ model Call {
   contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   messages Message[]
+
+  @@index([conversationId])
+  @@index([contactId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Email — tracks each outbound email sent via Twilio Email API.
+// ---------------------------------------------------------------------------
+model Email {
+  id          String    @id @default(cuid())
+  twilioSid   String?   @unique // Twilio Email SID, set once Twilio responds
+  status      String    @default("initiated")
+  // initiated | queued | sent | delivered | failed | bounced
+  direction   String    @default("outbound") // outbound | inbound
+  subject     String
+  from        String
+  to          String
+  body        String? // plain text body
+  html        String? // HTML body
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@index([contactId])
