@@ -19,7 +19,7 @@
  *           → advance cursor to latest message
  */
 
-import { prisma } from "@workspace/db-prisma";
+import { prisma } from "../db-prisma";
 import { logger } from "../lib/logger";
 
 // ---------------------------------------------------------------------------
