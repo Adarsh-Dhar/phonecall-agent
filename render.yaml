@@ -3,7 +3,7 @@ services:
     name: phone-agent-api
     env: node
     plan: free
-    buildCommand: npm install -g pnpm && pnpm install && cd artifacts/api-server && pnpm run build
+    buildCommand: npm install -g pnpm && cd artifacts/api-server && pnpm install && pnpm run build
     startCommand: cd artifacts/api-server && pnpm run start
     envVars:
       - key: DATABASE_URL
