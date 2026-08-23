@@ -32,7 +32,7 @@ const DEFAULT_PROVIDER_EMAILS = [
 const PROVIDER_EMAILS =
   process.env.TEST_PROVIDER_EMAILS
     ?.split(',')
-    .map((s) => s.trim())
+    .map((s: string) => s.trim())
     .filter(Boolean)
   ?? DEFAULT_PROVIDER_EMAILS;
 
