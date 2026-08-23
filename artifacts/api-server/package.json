@@ -1,13 +1,12 @@
 {
-  "name": "@workspace/api-server",
-  "version": "0.0.0",
+  "name": "phone-agent-api",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "dev": "export NODE_ENV=development && npm run build && npm run start",
     "build": "npx prisma generate && node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "install": "pnpm install",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
