@@ -4,7 +4,7 @@
  * email is one full message at a time rather than streaming audio.
  */
 
-import { prisma } from "../db-prisma";
+import { prisma } from "@workspace/db-prisma";
 import { generateGeminiText, type GeminiTextTurn } from "./geminiText";
 
 export async function generateEmailReply(params: {

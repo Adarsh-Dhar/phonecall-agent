@@ -7,7 +7,7 @@
  */
 
 import { Router, type IRouter } from "express";
-import { prisma } from "../db-prisma";
+import { prisma } from "@workspace/db-prisma";
 import { placeOutboundCall } from "../services/twilioClient";
 import { logger } from "../lib/logger";
 

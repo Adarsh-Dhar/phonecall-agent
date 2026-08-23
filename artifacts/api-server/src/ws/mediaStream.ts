@@ -40,7 +40,7 @@
 import type { IncomingMessage } from "node:http";
 import { WebSocket } from "ws";
 import { GoogleGenAI, Modality, type Session, type LiveServerMessage } from "@google/genai";
-import { prisma } from "../db-prisma";
+import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
 import { twilioPayloadToPcm16, pcm16ToTwilioPayload } from "../lib/audioCodec";
 

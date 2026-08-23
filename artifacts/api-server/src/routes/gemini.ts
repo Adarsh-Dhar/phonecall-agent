@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { prisma } from "../db-prisma";
+import { prisma } from "@workspace/db-prisma";
 
 const router: IRouter = Router();
 
