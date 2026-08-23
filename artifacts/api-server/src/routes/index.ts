@@ -8,9 +8,13 @@ import historyRouter from "./history";
 import tasksRouter from "./tasks";
 import queriesRouter from "./queries";
 import knowledgeRouter from "./knowledge";
+import callsRouter from "./calls";
+import twilioVoiceRouter from "./twilioVoice";
+import { verifyTwilioSignature } from "../middlewares/verifyTwilioSignature";
 
 const router: IRouter = Router();
 
+// ── Standard API routes ────────────────────────────────────────────────────
 router.use(healthRouter);
 router.use(geminiRouter);
 router.use(contactsRouter);
@@ -20,5 +24,13 @@ router.use(historyRouter);
 router.use(tasksRouter);
 router.use(queriesRouter);
 router.use(knowledgeRouter);
+
+// ── Calls REST API (no signature check — called by our own frontend) ───────
+router.use(callsRouter);
+
+// ── Twilio webhook routes (signature-verified) ─────────────────────────────
+// verifyTwilioSignature is applied only to the /twilio/* routes, not the
+// public /calls endpoint, so the frontend can trigger calls freely.
+router.use(verifyTwilioSignature, twilioVoiceRouter);
 
 export default router;

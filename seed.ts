@@ -4,7 +4,9 @@ const prisma = new PrismaClient();
 
 // Every contact in this seed uses the same dummy number — swap this for
 // real numbers (or leave as-is for demos) when you're ready.
-const DUMMY_PHONE = '0123456789';
+// Set TEST_PHONE_NUMBER in your environment (e.g. in .env) to inject a real
+// E.164 number (+14155551234) without editing this file.
+const DUMMY_PHONE = process.env.TEST_PHONE_NUMBER ?? '0123456789';
 
 const CATEGORY = {
   ASSISTANT: 'Assistant',

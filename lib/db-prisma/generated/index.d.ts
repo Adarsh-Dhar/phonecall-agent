@@ -54,6 +54,11 @@ export type Query = $Result.DefaultSelection<Prisma.$QueryPayload>
  */
 export type QuerySourceMessage = $Result.DefaultSelection<Prisma.$QuerySourceMessagePayload>
 /**
+ * Model Call
+ * 
+ */
+export type Call = $Result.DefaultSelection<Prisma.$CallPayload>
+/**
  * Model ContactKnowledge
  * 
  */
@@ -261,6 +266,16 @@ export class PrismaClient<
     * ```
     */
   get querySourceMessage(): Prisma.QuerySourceMessageDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.call`: Exposes CRUD operations for the **Call** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Calls
+    * const calls = await prisma.call.findMany()
+    * ```
+    */
+  get call(): Prisma.CallDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.contactKnowledge`: Exposes CRUD operations for the **ContactKnowledge** model.
@@ -730,6 +745,7 @@ export namespace Prisma {
     TaskSourceMessage: 'TaskSourceMessage',
     Query: 'Query',
     QuerySourceMessage: 'QuerySourceMessage',
+    Call: 'Call',
     ContactKnowledge: 'ContactKnowledge',
     KnowledgeSourceMessage: 'KnowledgeSourceMessage'
   };
@@ -750,7 +766,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "contact" | "conversation" | "message" | "history" | "task" | "taskSourceMessage" | "query" | "querySourceMessage" | "contactKnowledge" | "knowledgeSourceMessage"
+      modelProps: "contact" | "conversation" | "message" | "history" | "task" | "taskSourceMessage" | "query" | "querySourceMessage" | "call" | "contactKnowledge" | "knowledgeSourceMessage"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1346,6 +1362,80 @@ export namespace Prisma {
           }
         }
       }
+      Call: {
+        payload: Prisma.$CallPayload<ExtArgs>
+        fields: Prisma.CallFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.CallFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.CallFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload>
+          }
+          findFirst: {
+            args: Prisma.CallFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.CallFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload>
+          }
+          findMany: {
+            args: Prisma.CallFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload>[]
+          }
+          create: {
+            args: Prisma.CallCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload>
+          }
+          createMany: {
+            args: Prisma.CallCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.CallCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload>[]
+          }
+          delete: {
+            args: Prisma.CallDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload>
+          }
+          update: {
+            args: Prisma.CallUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload>
+          }
+          deleteMany: {
+            args: Prisma.CallDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.CallUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.CallUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload>[]
+          }
+          upsert: {
+            args: Prisma.CallUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$CallPayload>
+          }
+          aggregate: {
+            args: Prisma.CallAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateCall>
+          }
+          groupBy: {
+            args: Prisma.CallGroupByArgs<ExtArgs>
+            result: $Utils.Optional<CallGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.CallCountArgs<ExtArgs>
+            result: $Utils.Optional<CallCountAggregateOutputType> | number
+          }
+        }
+      }
       ContactKnowledge: {
         payload: Prisma.$ContactKnowledgePayload<ExtArgs>
         fields: Prisma.ContactKnowledgeFieldRefs
@@ -1598,6 +1688,7 @@ export namespace Prisma {
     taskSourceMessage?: TaskSourceMessageOmit
     query?: QueryOmit
     querySourceMessage?: QuerySourceMessageOmit
+    call?: CallOmit
     contactKnowledge?: ContactKnowledgeOmit
     knowledgeSourceMessage?: KnowledgeSourceMessageOmit
   }
@@ -1684,6 +1775,7 @@ export namespace Prisma {
     tasks: number
     queries: number
     knowledge: number
+    calls: number
   }
 
   export type ContactCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -1691,6 +1783,7 @@ export namespace Prisma {
     tasks?: boolean | ContactCountOutputTypeCountTasksArgs
     queries?: boolean | ContactCountOutputTypeCountQueriesArgs
     knowledge?: boolean | ContactCountOutputTypeCountKnowledgeArgs
+    calls?: boolean | ContactCountOutputTypeCountCallsArgs
   }
 
   // Custom InputTypes
@@ -1732,6 +1825,13 @@ export namespace Prisma {
     where?: ContactKnowledgeWhereInput
   }
 
+  /**
+   * ContactCountOutputType without action
+   */
+  export type ContactCountOutputTypeCountCallsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: CallWhereInput
+  }
+
 
   /**
    * Count Type ConversationCountOutputType
@@ -1742,6 +1842,7 @@ export namespace Prisma {
     history: number
     tasks: number
     queries: number
+    calls: number
   }
 
   export type ConversationCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -1749,6 +1850,7 @@ export namespace Prisma {
     history?: boolean | ConversationCountOutputTypeCountHistoryArgs
     tasks?: boolean | ConversationCountOutputTypeCountTasksArgs
     queries?: boolean | ConversationCountOutputTypeCountQueriesArgs
+    calls?: boolean | ConversationCountOutputTypeCountCallsArgs
   }
 
   // Custom InputTypes
@@ -1788,6 +1890,13 @@ export namespace Prisma {
    */
   export type ConversationCountOutputTypeCountQueriesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: QueryWhereInput
+  }
+
+  /**
+   * ConversationCountOutputType without action
+   */
+  export type ConversationCountOutputTypeCountCallsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: CallWhereInput
   }
 
 
@@ -1899,6 +2008,37 @@ export namespace Prisma {
    */
   export type QueryCountOutputTypeCountSourcesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: QuerySourceMessageWhereInput
+  }
+
+
+  /**
+   * Count Type CallCountOutputType
+   */
+
+  export type CallCountOutputType = {
+    messages: number
+  }
+
+  export type CallCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    messages?: boolean | CallCountOutputTypeCountMessagesArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * CallCountOutputType without action
+   */
+  export type CallCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CallCountOutputType
+     */
+    select?: CallCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * CallCountOutputType without action
+   */
+  export type CallCountOutputTypeCountMessagesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: MessageWhereInput
   }
 
 
@@ -2153,6 +2293,7 @@ export namespace Prisma {
     tasks?: boolean | Contact$tasksArgs<ExtArgs>
     queries?: boolean | Contact$queriesArgs<ExtArgs>
     knowledge?: boolean | Contact$knowledgeArgs<ExtArgs>
+    calls?: boolean | Contact$callsArgs<ExtArgs>
     _count?: boolean | ContactCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["contact"]>
 
@@ -2204,6 +2345,7 @@ export namespace Prisma {
     tasks?: boolean | Contact$tasksArgs<ExtArgs>
     queries?: boolean | Contact$queriesArgs<ExtArgs>
     knowledge?: boolean | Contact$knowledgeArgs<ExtArgs>
+    calls?: boolean | Contact$callsArgs<ExtArgs>
     _count?: boolean | ContactCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type ContactIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
@@ -2216,6 +2358,7 @@ export namespace Prisma {
       tasks: Prisma.$TaskPayload<ExtArgs>[]
       queries: Prisma.$QueryPayload<ExtArgs>[]
       knowledge: Prisma.$ContactKnowledgePayload<ExtArgs>[]
+      calls: Prisma.$CallPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -2627,6 +2770,7 @@ export namespace Prisma {
     tasks<T extends Contact$tasksArgs<ExtArgs> = {}>(args?: Subset<T, Contact$tasksArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     queries<T extends Contact$queriesArgs<ExtArgs> = {}>(args?: Subset<T, Contact$queriesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$QueryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     knowledge<T extends Contact$knowledgeArgs<ExtArgs> = {}>(args?: Subset<T, Contact$knowledgeArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ContactKnowledgePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    calls<T extends Contact$callsArgs<ExtArgs> = {}>(args?: Subset<T, Contact$callsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3151,6 +3295,30 @@ export namespace Prisma {
   }
 
   /**
+   * Contact.calls
+   */
+  export type Contact$callsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    where?: CallWhereInput
+    orderBy?: CallOrderByWithRelationInput | CallOrderByWithRelationInput[]
+    cursor?: CallWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: CallScalarFieldEnum | CallScalarFieldEnum[]
+  }
+
+  /**
    * Contact without action
    */
   export type ContactDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -3354,6 +3522,7 @@ export namespace Prisma {
     tasks?: boolean | Conversation$tasksArgs<ExtArgs>
     contact?: boolean | ContactDefaultArgs<ExtArgs>
     queries?: boolean | Conversation$queriesArgs<ExtArgs>
+    calls?: boolean | Conversation$callsArgs<ExtArgs>
     _count?: boolean | ConversationCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["conversation"]>
 
@@ -3396,6 +3565,7 @@ export namespace Prisma {
     tasks?: boolean | Conversation$tasksArgs<ExtArgs>
     contact?: boolean | ContactDefaultArgs<ExtArgs>
     queries?: boolean | Conversation$queriesArgs<ExtArgs>
+    calls?: boolean | Conversation$callsArgs<ExtArgs>
     _count?: boolean | ConversationCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type ConversationIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -3413,6 +3583,7 @@ export namespace Prisma {
       tasks: Prisma.$TaskPayload<ExtArgs>[]
       contact: Prisma.$ContactPayload<ExtArgs>
       queries: Prisma.$QueryPayload<ExtArgs>[]
+      calls: Prisma.$CallPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -3821,6 +3992,7 @@ export namespace Prisma {
     tasks<T extends Conversation$tasksArgs<ExtArgs> = {}>(args?: Subset<T, Conversation$tasksArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     contact<T extends ContactDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ContactDefaultArgs<ExtArgs>>): Prisma__ContactClient<$Result.GetResult<Prisma.$ContactPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     queries<T extends Conversation$queriesArgs<ExtArgs> = {}>(args?: Subset<T, Conversation$queriesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$QueryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    calls<T extends Conversation$callsArgs<ExtArgs> = {}>(args?: Subset<T, Conversation$callsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4349,6 +4521,30 @@ export namespace Prisma {
   }
 
   /**
+   * Conversation.calls
+   */
+  export type Conversation$callsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    where?: CallWhereInput
+    orderBy?: CallOrderByWithRelationInput | CallOrderByWithRelationInput[]
+    cursor?: CallWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: CallScalarFieldEnum | CallScalarFieldEnum[]
+  }
+
+  /**
    * Conversation without action
    */
   export type ConversationDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -4386,6 +4582,7 @@ export namespace Prisma {
     createdAt: Date | null
     updatedAt: Date | null
     conversationId: string | null
+    callId: string | null
   }
 
   export type MessageMaxAggregateOutputType = {
@@ -4397,6 +4594,7 @@ export namespace Prisma {
     createdAt: Date | null
     updatedAt: Date | null
     conversationId: string | null
+    callId: string | null
   }
 
   export type MessageCountAggregateOutputType = {
@@ -4408,6 +4606,7 @@ export namespace Prisma {
     createdAt: number
     updatedAt: number
     conversationId: number
+    callId: number
     _all: number
   }
 
@@ -4421,6 +4620,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     conversationId?: true
+    callId?: true
   }
 
   export type MessageMaxAggregateInputType = {
@@ -4432,6 +4632,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     conversationId?: true
+    callId?: true
   }
 
   export type MessageCountAggregateInputType = {
@@ -4443,6 +4644,7 @@ export namespace Prisma {
     createdAt?: true
     updatedAt?: true
     conversationId?: true
+    callId?: true
     _all?: true
   }
 
@@ -4527,6 +4729,7 @@ export namespace Prisma {
     createdAt: Date
     updatedAt: Date
     conversationId: string
+    callId: string | null
     _count: MessageCountAggregateOutputType | null
     _min: MessageMinAggregateOutputType | null
     _max: MessageMaxAggregateOutputType | null
@@ -4555,7 +4758,9 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     conversationId?: boolean
+    callId?: boolean
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    call?: boolean | Message$callArgs<ExtArgs>
     taskSources?: boolean | Message$taskSourcesArgs<ExtArgs>
     querySources?: boolean | Message$querySourcesArgs<ExtArgs>
     knowledgeSources?: boolean | Message$knowledgeSourcesArgs<ExtArgs>
@@ -4571,7 +4776,9 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     conversationId?: boolean
+    callId?: boolean
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    call?: boolean | Message$callArgs<ExtArgs>
   }, ExtArgs["result"]["message"]>
 
   export type MessageSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -4583,7 +4790,9 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     conversationId?: boolean
+    callId?: boolean
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    call?: boolean | Message$callArgs<ExtArgs>
   }, ExtArgs["result"]["message"]>
 
   export type MessageSelectScalar = {
@@ -4595,11 +4804,13 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     conversationId?: boolean
+    callId?: boolean
   }
 
-  export type MessageOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "role" | "content" | "time" | "pending" | "createdAt" | "updatedAt" | "conversationId", ExtArgs["result"]["message"]>
+  export type MessageOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "role" | "content" | "time" | "pending" | "createdAt" | "updatedAt" | "conversationId" | "callId", ExtArgs["result"]["message"]>
   export type MessageInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    call?: boolean | Message$callArgs<ExtArgs>
     taskSources?: boolean | Message$taskSourcesArgs<ExtArgs>
     querySources?: boolean | Message$querySourcesArgs<ExtArgs>
     knowledgeSources?: boolean | Message$knowledgeSourcesArgs<ExtArgs>
@@ -4607,15 +4818,18 @@ export namespace Prisma {
   }
   export type MessageIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    call?: boolean | Message$callArgs<ExtArgs>
   }
   export type MessageIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    call?: boolean | Message$callArgs<ExtArgs>
   }
 
   export type $MessagePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Message"
     objects: {
       conversation: Prisma.$ConversationPayload<ExtArgs>
+      call: Prisma.$CallPayload<ExtArgs> | null
       taskSources: Prisma.$TaskSourceMessagePayload<ExtArgs>[]
       querySources: Prisma.$QuerySourceMessagePayload<ExtArgs>[]
       knowledgeSources: Prisma.$KnowledgeSourceMessagePayload<ExtArgs>[]
@@ -4629,6 +4843,7 @@ export namespace Prisma {
       createdAt: Date
       updatedAt: Date
       conversationId: string
+      callId: string | null
     }, ExtArgs["result"]["message"]>
     composites: {}
   }
@@ -5024,6 +5239,7 @@ export namespace Prisma {
   export interface Prisma__MessageClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     conversation<T extends ConversationDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ConversationDefaultArgs<ExtArgs>>): Prisma__ConversationClient<$Result.GetResult<Prisma.$ConversationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    call<T extends Message$callArgs<ExtArgs> = {}>(args?: Subset<T, Message$callArgs<ExtArgs>>): Prisma__CallClient<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     taskSources<T extends Message$taskSourcesArgs<ExtArgs> = {}>(args?: Subset<T, Message$taskSourcesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     querySources<T extends Message$querySourcesArgs<ExtArgs> = {}>(args?: Subset<T, Message$querySourcesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$QuerySourceMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     knowledgeSources<T extends Message$knowledgeSourcesArgs<ExtArgs> = {}>(args?: Subset<T, Message$knowledgeSourcesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$KnowledgeSourceMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -5064,6 +5280,7 @@ export namespace Prisma {
     readonly createdAt: FieldRef<"Message", 'DateTime'>
     readonly updatedAt: FieldRef<"Message", 'DateTime'>
     readonly conversationId: FieldRef<"Message", 'String'>
+    readonly callId: FieldRef<"Message", 'String'>
   }
     
 
@@ -5457,6 +5674,25 @@ export namespace Prisma {
      * Limit how many Messages to delete.
      */
     limit?: number
+  }
+
+  /**
+   * Message.call
+   */
+  export type Message$callArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    where?: CallWhereInput
   }
 
   /**
@@ -11149,6 +11385,1214 @@ export namespace Prisma {
 
 
   /**
+   * Model Call
+   */
+
+  export type AggregateCall = {
+    _count: CallCountAggregateOutputType | null
+    _avg: CallAvgAggregateOutputType | null
+    _sum: CallSumAggregateOutputType | null
+    _min: CallMinAggregateOutputType | null
+    _max: CallMaxAggregateOutputType | null
+  }
+
+  export type CallAvgAggregateOutputType = {
+    duration: number | null
+  }
+
+  export type CallSumAggregateOutputType = {
+    duration: number | null
+  }
+
+  export type CallMinAggregateOutputType = {
+    id: string | null
+    twilioSid: string | null
+    status: string | null
+    direction: string | null
+    duration: number | null
+    startedAt: Date | null
+    endedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+    conversationId: string | null
+    contactId: string | null
+  }
+
+  export type CallMaxAggregateOutputType = {
+    id: string | null
+    twilioSid: string | null
+    status: string | null
+    direction: string | null
+    duration: number | null
+    startedAt: Date | null
+    endedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+    conversationId: string | null
+    contactId: string | null
+  }
+
+  export type CallCountAggregateOutputType = {
+    id: number
+    twilioSid: number
+    status: number
+    direction: number
+    duration: number
+    startedAt: number
+    endedAt: number
+    createdAt: number
+    updatedAt: number
+    conversationId: number
+    contactId: number
+    _all: number
+  }
+
+
+  export type CallAvgAggregateInputType = {
+    duration?: true
+  }
+
+  export type CallSumAggregateInputType = {
+    duration?: true
+  }
+
+  export type CallMinAggregateInputType = {
+    id?: true
+    twilioSid?: true
+    status?: true
+    direction?: true
+    duration?: true
+    startedAt?: true
+    endedAt?: true
+    createdAt?: true
+    updatedAt?: true
+    conversationId?: true
+    contactId?: true
+  }
+
+  export type CallMaxAggregateInputType = {
+    id?: true
+    twilioSid?: true
+    status?: true
+    direction?: true
+    duration?: true
+    startedAt?: true
+    endedAt?: true
+    createdAt?: true
+    updatedAt?: true
+    conversationId?: true
+    contactId?: true
+  }
+
+  export type CallCountAggregateInputType = {
+    id?: true
+    twilioSid?: true
+    status?: true
+    direction?: true
+    duration?: true
+    startedAt?: true
+    endedAt?: true
+    createdAt?: true
+    updatedAt?: true
+    conversationId?: true
+    contactId?: true
+    _all?: true
+  }
+
+  export type CallAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which Call to aggregate.
+     */
+    where?: CallWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Calls to fetch.
+     */
+    orderBy?: CallOrderByWithRelationInput | CallOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: CallWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Calls from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Calls.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned Calls
+    **/
+    _count?: true | CallCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: CallAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: CallSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: CallMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: CallMaxAggregateInputType
+  }
+
+  export type GetCallAggregateType<T extends CallAggregateArgs> = {
+        [P in keyof T & keyof AggregateCall]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateCall[P]>
+      : GetScalarType<T[P], AggregateCall[P]>
+  }
+
+
+
+
+  export type CallGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: CallWhereInput
+    orderBy?: CallOrderByWithAggregationInput | CallOrderByWithAggregationInput[]
+    by: CallScalarFieldEnum[] | CallScalarFieldEnum
+    having?: CallScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: CallCountAggregateInputType | true
+    _avg?: CallAvgAggregateInputType
+    _sum?: CallSumAggregateInputType
+    _min?: CallMinAggregateInputType
+    _max?: CallMaxAggregateInputType
+  }
+
+  export type CallGroupByOutputType = {
+    id: string
+    twilioSid: string | null
+    status: string
+    direction: string
+    duration: number | null
+    startedAt: Date | null
+    endedAt: Date | null
+    createdAt: Date
+    updatedAt: Date
+    conversationId: string
+    contactId: string
+    _count: CallCountAggregateOutputType | null
+    _avg: CallAvgAggregateOutputType | null
+    _sum: CallSumAggregateOutputType | null
+    _min: CallMinAggregateOutputType | null
+    _max: CallMaxAggregateOutputType | null
+  }
+
+  type GetCallGroupByPayload<T extends CallGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<CallGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof CallGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], CallGroupByOutputType[P]>
+            : GetScalarType<T[P], CallGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type CallSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    twilioSid?: boolean
+    status?: boolean
+    direction?: boolean
+    duration?: boolean
+    startedAt?: boolean
+    endedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+    messages?: boolean | Call$messagesArgs<ExtArgs>
+    _count?: boolean | CallCountOutputTypeDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["call"]>
+
+  export type CallSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    twilioSid?: boolean
+    status?: boolean
+    direction?: boolean
+    duration?: boolean
+    startedAt?: boolean
+    endedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["call"]>
+
+  export type CallSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    twilioSid?: boolean
+    status?: boolean
+    direction?: boolean
+    duration?: boolean
+    startedAt?: boolean
+    endedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["call"]>
+
+  export type CallSelectScalar = {
+    id?: boolean
+    twilioSid?: boolean
+    status?: boolean
+    direction?: boolean
+    duration?: boolean
+    startedAt?: boolean
+    endedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    conversationId?: boolean
+    contactId?: boolean
+  }
+
+  export type CallOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "twilioSid" | "status" | "direction" | "duration" | "startedAt" | "endedAt" | "createdAt" | "updatedAt" | "conversationId" | "contactId", ExtArgs["result"]["call"]>
+  export type CallInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+    messages?: boolean | Call$messagesArgs<ExtArgs>
+    _count?: boolean | CallCountOutputTypeDefaultArgs<ExtArgs>
+  }
+  export type CallIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }
+  export type CallIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    conversation?: boolean | ConversationDefaultArgs<ExtArgs>
+    contact?: boolean | ContactDefaultArgs<ExtArgs>
+  }
+
+  export type $CallPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "Call"
+    objects: {
+      conversation: Prisma.$ConversationPayload<ExtArgs>
+      contact: Prisma.$ContactPayload<ExtArgs>
+      messages: Prisma.$MessagePayload<ExtArgs>[]
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      twilioSid: string | null
+      status: string
+      direction: string
+      duration: number | null
+      startedAt: Date | null
+      endedAt: Date | null
+      createdAt: Date
+      updatedAt: Date
+      conversationId: string
+      contactId: string
+    }, ExtArgs["result"]["call"]>
+    composites: {}
+  }
+
+  type CallGetPayload<S extends boolean | null | undefined | CallDefaultArgs> = $Result.GetResult<Prisma.$CallPayload, S>
+
+  type CallCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<CallFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: CallCountAggregateInputType | true
+    }
+
+  export interface CallDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['Call'], meta: { name: 'Call' } }
+    /**
+     * Find zero or one Call that matches the filter.
+     * @param {CallFindUniqueArgs} args - Arguments to find a Call
+     * @example
+     * // Get one Call
+     * const call = await prisma.call.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends CallFindUniqueArgs>(args: SelectSubset<T, CallFindUniqueArgs<ExtArgs>>): Prisma__CallClient<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one Call that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {CallFindUniqueOrThrowArgs} args - Arguments to find a Call
+     * @example
+     * // Get one Call
+     * const call = await prisma.call.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends CallFindUniqueOrThrowArgs>(args: SelectSubset<T, CallFindUniqueOrThrowArgs<ExtArgs>>): Prisma__CallClient<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first Call that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CallFindFirstArgs} args - Arguments to find a Call
+     * @example
+     * // Get one Call
+     * const call = await prisma.call.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends CallFindFirstArgs>(args?: SelectSubset<T, CallFindFirstArgs<ExtArgs>>): Prisma__CallClient<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first Call that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CallFindFirstOrThrowArgs} args - Arguments to find a Call
+     * @example
+     * // Get one Call
+     * const call = await prisma.call.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends CallFindFirstOrThrowArgs>(args?: SelectSubset<T, CallFindFirstOrThrowArgs<ExtArgs>>): Prisma__CallClient<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more Calls that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CallFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all Calls
+     * const calls = await prisma.call.findMany()
+     * 
+     * // Get first 10 Calls
+     * const calls = await prisma.call.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const callWithIdOnly = await prisma.call.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends CallFindManyArgs>(args?: SelectSubset<T, CallFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a Call.
+     * @param {CallCreateArgs} args - Arguments to create a Call.
+     * @example
+     * // Create one Call
+     * const Call = await prisma.call.create({
+     *   data: {
+     *     // ... data to create a Call
+     *   }
+     * })
+     * 
+     */
+    create<T extends CallCreateArgs>(args: SelectSubset<T, CallCreateArgs<ExtArgs>>): Prisma__CallClient<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many Calls.
+     * @param {CallCreateManyArgs} args - Arguments to create many Calls.
+     * @example
+     * // Create many Calls
+     * const call = await prisma.call.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends CallCreateManyArgs>(args?: SelectSubset<T, CallCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many Calls and returns the data saved in the database.
+     * @param {CallCreateManyAndReturnArgs} args - Arguments to create many Calls.
+     * @example
+     * // Create many Calls
+     * const call = await prisma.call.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many Calls and only return the `id`
+     * const callWithIdOnly = await prisma.call.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends CallCreateManyAndReturnArgs>(args?: SelectSubset<T, CallCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a Call.
+     * @param {CallDeleteArgs} args - Arguments to delete one Call.
+     * @example
+     * // Delete one Call
+     * const Call = await prisma.call.delete({
+     *   where: {
+     *     // ... filter to delete one Call
+     *   }
+     * })
+     * 
+     */
+    delete<T extends CallDeleteArgs>(args: SelectSubset<T, CallDeleteArgs<ExtArgs>>): Prisma__CallClient<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one Call.
+     * @param {CallUpdateArgs} args - Arguments to update one Call.
+     * @example
+     * // Update one Call
+     * const call = await prisma.call.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends CallUpdateArgs>(args: SelectSubset<T, CallUpdateArgs<ExtArgs>>): Prisma__CallClient<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more Calls.
+     * @param {CallDeleteManyArgs} args - Arguments to filter Calls to delete.
+     * @example
+     * // Delete a few Calls
+     * const { count } = await prisma.call.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends CallDeleteManyArgs>(args?: SelectSubset<T, CallDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Calls.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CallUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many Calls
+     * const call = await prisma.call.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends CallUpdateManyArgs>(args: SelectSubset<T, CallUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Calls and returns the data updated in the database.
+     * @param {CallUpdateManyAndReturnArgs} args - Arguments to update many Calls.
+     * @example
+     * // Update many Calls
+     * const call = await prisma.call.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more Calls and only return the `id`
+     * const callWithIdOnly = await prisma.call.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends CallUpdateManyAndReturnArgs>(args: SelectSubset<T, CallUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one Call.
+     * @param {CallUpsertArgs} args - Arguments to update or create a Call.
+     * @example
+     * // Update or create a Call
+     * const call = await prisma.call.upsert({
+     *   create: {
+     *     // ... data to create a Call
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the Call we want to update
+     *   }
+     * })
+     */
+    upsert<T extends CallUpsertArgs>(args: SelectSubset<T, CallUpsertArgs<ExtArgs>>): Prisma__CallClient<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of Calls.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CallCountArgs} args - Arguments to filter Calls to count.
+     * @example
+     * // Count the number of Calls
+     * const count = await prisma.call.count({
+     *   where: {
+     *     // ... the filter for the Calls we want to count
+     *   }
+     * })
+    **/
+    count<T extends CallCountArgs>(
+      args?: Subset<T, CallCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], CallCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a Call.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CallAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends CallAggregateArgs>(args: Subset<T, CallAggregateArgs>): Prisma.PrismaPromise<GetCallAggregateType<T>>
+
+    /**
+     * Group by Call.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CallGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends CallGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: CallGroupByArgs['orderBy'] }
+        : { orderBy?: CallGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, CallGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetCallGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the Call model
+   */
+  readonly fields: CallFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for Call.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__CallClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    conversation<T extends ConversationDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ConversationDefaultArgs<ExtArgs>>): Prisma__ConversationClient<$Result.GetResult<Prisma.$ConversationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    contact<T extends ContactDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ContactDefaultArgs<ExtArgs>>): Prisma__ContactClient<$Result.GetResult<Prisma.$ContactPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    messages<T extends Call$messagesArgs<ExtArgs> = {}>(args?: Subset<T, Call$messagesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the Call model
+   */
+  interface CallFieldRefs {
+    readonly id: FieldRef<"Call", 'String'>
+    readonly twilioSid: FieldRef<"Call", 'String'>
+    readonly status: FieldRef<"Call", 'String'>
+    readonly direction: FieldRef<"Call", 'String'>
+    readonly duration: FieldRef<"Call", 'Int'>
+    readonly startedAt: FieldRef<"Call", 'DateTime'>
+    readonly endedAt: FieldRef<"Call", 'DateTime'>
+    readonly createdAt: FieldRef<"Call", 'DateTime'>
+    readonly updatedAt: FieldRef<"Call", 'DateTime'>
+    readonly conversationId: FieldRef<"Call", 'String'>
+    readonly contactId: FieldRef<"Call", 'String'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * Call findUnique
+   */
+  export type CallFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    /**
+     * Filter, which Call to fetch.
+     */
+    where: CallWhereUniqueInput
+  }
+
+  /**
+   * Call findUniqueOrThrow
+   */
+  export type CallFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    /**
+     * Filter, which Call to fetch.
+     */
+    where: CallWhereUniqueInput
+  }
+
+  /**
+   * Call findFirst
+   */
+  export type CallFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    /**
+     * Filter, which Call to fetch.
+     */
+    where?: CallWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Calls to fetch.
+     */
+    orderBy?: CallOrderByWithRelationInput | CallOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for Calls.
+     */
+    cursor?: CallWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Calls from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Calls.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Calls.
+     */
+    distinct?: CallScalarFieldEnum | CallScalarFieldEnum[]
+  }
+
+  /**
+   * Call findFirstOrThrow
+   */
+  export type CallFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    /**
+     * Filter, which Call to fetch.
+     */
+    where?: CallWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Calls to fetch.
+     */
+    orderBy?: CallOrderByWithRelationInput | CallOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for Calls.
+     */
+    cursor?: CallWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Calls from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Calls.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of Calls.
+     */
+    distinct?: CallScalarFieldEnum | CallScalarFieldEnum[]
+  }
+
+  /**
+   * Call findMany
+   */
+  export type CallFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    /**
+     * Filter, which Calls to fetch.
+     */
+    where?: CallWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of Calls to fetch.
+     */
+    orderBy?: CallOrderByWithRelationInput | CallOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing Calls.
+     */
+    cursor?: CallWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` Calls from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` Calls.
+     */
+    skip?: number
+    distinct?: CallScalarFieldEnum | CallScalarFieldEnum[]
+  }
+
+  /**
+   * Call create
+   */
+  export type CallCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    /**
+     * The data needed to create a Call.
+     */
+    data: XOR<CallCreateInput, CallUncheckedCreateInput>
+  }
+
+  /**
+   * Call createMany
+   */
+  export type CallCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many Calls.
+     */
+    data: CallCreateManyInput | CallCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * Call createManyAndReturn
+   */
+  export type CallCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * The data used to create many Calls.
+     */
+    data: CallCreateManyInput | CallCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * Call update
+   */
+  export type CallUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    /**
+     * The data needed to update a Call.
+     */
+    data: XOR<CallUpdateInput, CallUncheckedUpdateInput>
+    /**
+     * Choose, which Call to update.
+     */
+    where: CallWhereUniqueInput
+  }
+
+  /**
+   * Call updateMany
+   */
+  export type CallUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update Calls.
+     */
+    data: XOR<CallUpdateManyMutationInput, CallUncheckedUpdateManyInput>
+    /**
+     * Filter which Calls to update
+     */
+    where?: CallWhereInput
+    /**
+     * Limit how many Calls to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * Call updateManyAndReturn
+   */
+  export type CallUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * The data used to update Calls.
+     */
+    data: XOR<CallUpdateManyMutationInput, CallUncheckedUpdateManyInput>
+    /**
+     * Filter which Calls to update
+     */
+    where?: CallWhereInput
+    /**
+     * Limit how many Calls to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * Call upsert
+   */
+  export type CallUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    /**
+     * The filter to search for the Call to update in case it exists.
+     */
+    where: CallWhereUniqueInput
+    /**
+     * In case the Call found by the `where` argument doesn't exist, create a new Call with this data.
+     */
+    create: XOR<CallCreateInput, CallUncheckedCreateInput>
+    /**
+     * In case the Call was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<CallUpdateInput, CallUncheckedUpdateInput>
+  }
+
+  /**
+   * Call delete
+   */
+  export type CallDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+    /**
+     * Filter which Call to delete.
+     */
+    where: CallWhereUniqueInput
+  }
+
+  /**
+   * Call deleteMany
+   */
+  export type CallDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which Calls to delete
+     */
+    where?: CallWhereInput
+    /**
+     * Limit how many Calls to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * Call.messages
+   */
+  export type Call$messagesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Message
+     */
+    select?: MessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Message
+     */
+    omit?: MessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MessageInclude<ExtArgs> | null
+    where?: MessageWhereInput
+    orderBy?: MessageOrderByWithRelationInput | MessageOrderByWithRelationInput[]
+    cursor?: MessageWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: MessageScalarFieldEnum | MessageScalarFieldEnum[]
+  }
+
+  /**
+   * Call without action
+   */
+  export type CallDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Call
+     */
+    select?: CallSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Call
+     */
+    omit?: CallOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CallInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Model ContactKnowledge
    */
 
@@ -13427,7 +14871,8 @@ export namespace Prisma {
     pending: 'pending',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
-    conversationId: 'conversationId'
+    conversationId: 'conversationId',
+    callId: 'callId'
   };
 
   export type MessageScalarFieldEnum = (typeof MessageScalarFieldEnum)[keyof typeof MessageScalarFieldEnum]
@@ -13500,6 +14945,23 @@ export namespace Prisma {
   };
 
   export type QuerySourceMessageScalarFieldEnum = (typeof QuerySourceMessageScalarFieldEnum)[keyof typeof QuerySourceMessageScalarFieldEnum]
+
+
+  export const CallScalarFieldEnum: {
+    id: 'id',
+    twilioSid: 'twilioSid',
+    status: 'status',
+    direction: 'direction',
+    duration: 'duration',
+    startedAt: 'startedAt',
+    endedAt: 'endedAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt',
+    conversationId: 'conversationId',
+    contactId: 'contactId'
+  };
+
+  export type CallScalarFieldEnum = (typeof CallScalarFieldEnum)[keyof typeof CallScalarFieldEnum]
 
 
   export const ContactKnowledgeScalarFieldEnum: {
@@ -13641,6 +15103,7 @@ export namespace Prisma {
     tasks?: TaskListRelationFilter
     queries?: QueryListRelationFilter
     knowledge?: ContactKnowledgeListRelationFilter
+    calls?: CallListRelationFilter
   }
 
   export type ContactOrderByWithRelationInput = {
@@ -13659,6 +15122,7 @@ export namespace Prisma {
     tasks?: TaskOrderByRelationAggregateInput
     queries?: QueryOrderByRelationAggregateInput
     knowledge?: ContactKnowledgeOrderByRelationAggregateInput
+    calls?: CallOrderByRelationAggregateInput
   }
 
   export type ContactWhereUniqueInput = Prisma.AtLeast<{
@@ -13680,6 +15144,7 @@ export namespace Prisma {
     tasks?: TaskListRelationFilter
     queries?: QueryListRelationFilter
     knowledge?: ContactKnowledgeListRelationFilter
+    calls?: CallListRelationFilter
   }, "id">
 
   export type ContactOrderByWithAggregationInput = {
@@ -13732,6 +15197,7 @@ export namespace Prisma {
     tasks?: TaskListRelationFilter
     contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
     queries?: QueryListRelationFilter
+    calls?: CallListRelationFilter
   }
 
   export type ConversationOrderByWithRelationInput = {
@@ -13747,6 +15213,7 @@ export namespace Prisma {
     tasks?: TaskOrderByRelationAggregateInput
     contact?: ContactOrderByWithRelationInput
     queries?: QueryOrderByRelationAggregateInput
+    calls?: CallOrderByRelationAggregateInput
   }
 
   export type ConversationWhereUniqueInput = Prisma.AtLeast<{
@@ -13765,6 +15232,7 @@ export namespace Prisma {
     tasks?: TaskListRelationFilter
     contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
     queries?: QueryListRelationFilter
+    calls?: CallListRelationFilter
   }, "id">
 
   export type ConversationOrderByWithAggregationInput = {
@@ -13805,7 +15273,9 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Message"> | Date | string
     updatedAt?: DateTimeFilter<"Message"> | Date | string
     conversationId?: StringFilter<"Message"> | string
+    callId?: StringNullableFilter<"Message"> | string | null
     conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
+    call?: XOR<CallNullableScalarRelationFilter, CallWhereInput> | null
     taskSources?: TaskSourceMessageListRelationFilter
     querySources?: QuerySourceMessageListRelationFilter
     knowledgeSources?: KnowledgeSourceMessageListRelationFilter
@@ -13820,7 +15290,9 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversationId?: SortOrder
+    callId?: SortOrderInput | SortOrder
     conversation?: ConversationOrderByWithRelationInput
+    call?: CallOrderByWithRelationInput
     taskSources?: TaskSourceMessageOrderByRelationAggregateInput
     querySources?: QuerySourceMessageOrderByRelationAggregateInput
     knowledgeSources?: KnowledgeSourceMessageOrderByRelationAggregateInput
@@ -13838,7 +15310,9 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Message"> | Date | string
     updatedAt?: DateTimeFilter<"Message"> | Date | string
     conversationId?: StringFilter<"Message"> | string
+    callId?: StringNullableFilter<"Message"> | string | null
     conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
+    call?: XOR<CallNullableScalarRelationFilter, CallWhereInput> | null
     taskSources?: TaskSourceMessageListRelationFilter
     querySources?: QuerySourceMessageListRelationFilter
     knowledgeSources?: KnowledgeSourceMessageListRelationFilter
@@ -13853,6 +15327,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversationId?: SortOrder
+    callId?: SortOrderInput | SortOrder
     _count?: MessageCountOrderByAggregateInput
     _max?: MessageMaxOrderByAggregateInput
     _min?: MessageMinOrderByAggregateInput
@@ -13870,6 +15345,7 @@ export namespace Prisma {
     createdAt?: DateTimeWithAggregatesFilter<"Message"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Message"> | Date | string
     conversationId?: StringWithAggregatesFilter<"Message"> | string
+    callId?: StringNullableWithAggregatesFilter<"Message"> | string | null
   }
 
   export type HistoryWhereInput = {
@@ -14239,6 +15715,99 @@ export namespace Prisma {
     role?: StringWithAggregatesFilter<"QuerySourceMessage"> | string
   }
 
+  export type CallWhereInput = {
+    AND?: CallWhereInput | CallWhereInput[]
+    OR?: CallWhereInput[]
+    NOT?: CallWhereInput | CallWhereInput[]
+    id?: StringFilter<"Call"> | string
+    twilioSid?: StringNullableFilter<"Call"> | string | null
+    status?: StringFilter<"Call"> | string
+    direction?: StringFilter<"Call"> | string
+    duration?: IntNullableFilter<"Call"> | number | null
+    startedAt?: DateTimeNullableFilter<"Call"> | Date | string | null
+    endedAt?: DateTimeNullableFilter<"Call"> | Date | string | null
+    createdAt?: DateTimeFilter<"Call"> | Date | string
+    updatedAt?: DateTimeFilter<"Call"> | Date | string
+    conversationId?: StringFilter<"Call"> | string
+    contactId?: StringFilter<"Call"> | string
+    conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
+    contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
+    messages?: MessageListRelationFilter
+  }
+
+  export type CallOrderByWithRelationInput = {
+    id?: SortOrder
+    twilioSid?: SortOrderInput | SortOrder
+    status?: SortOrder
+    direction?: SortOrder
+    duration?: SortOrderInput | SortOrder
+    startedAt?: SortOrderInput | SortOrder
+    endedAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+    conversation?: ConversationOrderByWithRelationInput
+    contact?: ContactOrderByWithRelationInput
+    messages?: MessageOrderByRelationAggregateInput
+  }
+
+  export type CallWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    twilioSid?: string
+    AND?: CallWhereInput | CallWhereInput[]
+    OR?: CallWhereInput[]
+    NOT?: CallWhereInput | CallWhereInput[]
+    status?: StringFilter<"Call"> | string
+    direction?: StringFilter<"Call"> | string
+    duration?: IntNullableFilter<"Call"> | number | null
+    startedAt?: DateTimeNullableFilter<"Call"> | Date | string | null
+    endedAt?: DateTimeNullableFilter<"Call"> | Date | string | null
+    createdAt?: DateTimeFilter<"Call"> | Date | string
+    updatedAt?: DateTimeFilter<"Call"> | Date | string
+    conversationId?: StringFilter<"Call"> | string
+    contactId?: StringFilter<"Call"> | string
+    conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
+    contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
+    messages?: MessageListRelationFilter
+  }, "id" | "twilioSid">
+
+  export type CallOrderByWithAggregationInput = {
+    id?: SortOrder
+    twilioSid?: SortOrderInput | SortOrder
+    status?: SortOrder
+    direction?: SortOrder
+    duration?: SortOrderInput | SortOrder
+    startedAt?: SortOrderInput | SortOrder
+    endedAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+    _count?: CallCountOrderByAggregateInput
+    _avg?: CallAvgOrderByAggregateInput
+    _max?: CallMaxOrderByAggregateInput
+    _min?: CallMinOrderByAggregateInput
+    _sum?: CallSumOrderByAggregateInput
+  }
+
+  export type CallScalarWhereWithAggregatesInput = {
+    AND?: CallScalarWhereWithAggregatesInput | CallScalarWhereWithAggregatesInput[]
+    OR?: CallScalarWhereWithAggregatesInput[]
+    NOT?: CallScalarWhereWithAggregatesInput | CallScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"Call"> | string
+    twilioSid?: StringNullableWithAggregatesFilter<"Call"> | string | null
+    status?: StringWithAggregatesFilter<"Call"> | string
+    direction?: StringWithAggregatesFilter<"Call"> | string
+    duration?: IntNullableWithAggregatesFilter<"Call"> | number | null
+    startedAt?: DateTimeNullableWithAggregatesFilter<"Call"> | Date | string | null
+    endedAt?: DateTimeNullableWithAggregatesFilter<"Call"> | Date | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"Call"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"Call"> | Date | string
+    conversationId?: StringWithAggregatesFilter<"Call"> | string
+    contactId?: StringWithAggregatesFilter<"Call"> | string
+  }
+
   export type ContactKnowledgeWhereInput = {
     AND?: ContactKnowledgeWhereInput | ContactKnowledgeWhereInput[]
     OR?: ContactKnowledgeWhereInput[]
@@ -14390,6 +15959,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutContactInput
     queries?: QueryCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
+    calls?: CallCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateInput = {
@@ -14408,6 +15978,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
     queries?: QueryUncheckedCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
+    calls?: CallUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactUpdateInput = {
@@ -14426,6 +15997,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutContactNestedInput
     queries?: QueryUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
+    calls?: CallUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateInput = {
@@ -14444,6 +16016,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
     queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
+    calls?: CallUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type ContactCreateManyInput = {
@@ -14500,6 +16073,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutConversationInput
     contact: ContactCreateNestedOneWithoutConversationsInput
     queries?: QueryCreateNestedManyWithoutConversationInput
+    calls?: CallCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateInput = {
@@ -14514,6 +16088,7 @@ export namespace Prisma {
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
+    calls?: CallUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUpdateInput = {
@@ -14528,6 +16103,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutConversationNestedInput
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
+    calls?: CallUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateInput = {
@@ -14542,6 +16118,7 @@ export namespace Prisma {
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
+    calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationCreateManyInput = {
@@ -14582,6 +16159,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutMessagesInput
+    call?: CallCreateNestedOneWithoutMessagesInput
     taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
@@ -14596,6 +16174,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
+    callId?: string | null
     taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
@@ -14610,6 +16189,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
+    call?: CallUpdateOneWithoutMessagesNestedInput
     taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
@@ -14624,6 +16204,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
+    callId?: NullableStringFieldUpdateOperationsInput | string | null
     taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
@@ -14638,6 +16219,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
+    callId?: string | null
   }
 
   export type MessageUpdateManyMutationInput = {
@@ -14659,6 +16241,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
+    callId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type HistoryCreateInput = {
@@ -15038,6 +16621,106 @@ export namespace Prisma {
     role?: StringFieldUpdateOperationsInput | string
   }
 
+  export type CallCreateInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversation: ConversationCreateNestedOneWithoutCallsInput
+    contact: ContactCreateNestedOneWithoutCallsInput
+    messages?: MessageCreateNestedManyWithoutCallInput
+  }
+
+  export type CallUncheckedCreateInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+    contactId: string
+    messages?: MessageUncheckedCreateNestedManyWithoutCallInput
+  }
+
+  export type CallUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversation?: ConversationUpdateOneRequiredWithoutCallsNestedInput
+    contact?: ContactUpdateOneRequiredWithoutCallsNestedInput
+    messages?: MessageUpdateManyWithoutCallNestedInput
+  }
+
+  export type CallUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+    contactId?: StringFieldUpdateOperationsInput | string
+    messages?: MessageUncheckedUpdateManyWithoutCallNestedInput
+  }
+
+  export type CallCreateManyInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+    contactId: string
+  }
+
+  export type CallUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type CallUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+    contactId?: StringFieldUpdateOperationsInput | string
+  }
+
   export type ContactKnowledgeCreateInput = {
     id?: string
     category: string
@@ -15242,6 +16925,12 @@ export namespace Prisma {
     none?: ContactKnowledgeWhereInput
   }
 
+  export type CallListRelationFilter = {
+    every?: CallWhereInput
+    some?: CallWhereInput
+    none?: CallWhereInput
+  }
+
   export type SortOrderInput = {
     sort: SortOrder
     nulls?: NullsOrder
@@ -15260,6 +16949,10 @@ export namespace Prisma {
   }
 
   export type ContactKnowledgeOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type CallOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -15448,6 +17141,11 @@ export namespace Prisma {
     isNot?: ConversationWhereInput
   }
 
+  export type CallNullableScalarRelationFilter = {
+    is?: CallWhereInput | null
+    isNot?: CallWhereInput | null
+  }
+
   export type TaskSourceMessageListRelationFilter = {
     every?: TaskSourceMessageWhereInput
     some?: TaskSourceMessageWhereInput
@@ -15487,6 +17185,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversationId?: SortOrder
+    callId?: SortOrder
   }
 
   export type MessageMaxOrderByAggregateInput = {
@@ -15498,6 +17197,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversationId?: SortOrder
+    callId?: SortOrder
   }
 
   export type MessageMinOrderByAggregateInput = {
@@ -15509,6 +17209,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversationId?: SortOrder
+    callId?: SortOrder
   }
 
   export type HistoryCountOrderByAggregateInput = {
@@ -15735,6 +17436,83 @@ export namespace Prisma {
     role?: SortOrder
   }
 
+  export type IntNullableFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableFilter<$PrismaModel> | number | null
+  }
+
+  export type CallCountOrderByAggregateInput = {
+    id?: SortOrder
+    twilioSid?: SortOrder
+    status?: SortOrder
+    direction?: SortOrder
+    duration?: SortOrder
+    startedAt?: SortOrder
+    endedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+  }
+
+  export type CallAvgOrderByAggregateInput = {
+    duration?: SortOrder
+  }
+
+  export type CallMaxOrderByAggregateInput = {
+    id?: SortOrder
+    twilioSid?: SortOrder
+    status?: SortOrder
+    direction?: SortOrder
+    duration?: SortOrder
+    startedAt?: SortOrder
+    endedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+  }
+
+  export type CallMinOrderByAggregateInput = {
+    id?: SortOrder
+    twilioSid?: SortOrder
+    status?: SortOrder
+    direction?: SortOrder
+    duration?: SortOrder
+    startedAt?: SortOrder
+    endedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    conversationId?: SortOrder
+    contactId?: SortOrder
+  }
+
+  export type CallSumOrderByAggregateInput = {
+    duration?: SortOrder
+  }
+
+  export type IntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedIntNullableFilter<$PrismaModel>
+    _max?: NestedIntNullableFilter<$PrismaModel>
+  }
+
   export type ContactKnowledgeContactIdKeyCompoundUniqueInput = {
     contactId: string
     key: string
@@ -15844,6 +17622,13 @@ export namespace Prisma {
     connect?: ContactKnowledgeWhereUniqueInput | ContactKnowledgeWhereUniqueInput[]
   }
 
+  export type CallCreateNestedManyWithoutContactInput = {
+    create?: XOR<CallCreateWithoutContactInput, CallUncheckedCreateWithoutContactInput> | CallCreateWithoutContactInput[] | CallUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: CallCreateOrConnectWithoutContactInput | CallCreateOrConnectWithoutContactInput[]
+    createMany?: CallCreateManyContactInputEnvelope
+    connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+  }
+
   export type ConversationUncheckedCreateNestedManyWithoutContactInput = {
     create?: XOR<ConversationCreateWithoutContactInput, ConversationUncheckedCreateWithoutContactInput> | ConversationCreateWithoutContactInput[] | ConversationUncheckedCreateWithoutContactInput[]
     connectOrCreate?: ConversationCreateOrConnectWithoutContactInput | ConversationCreateOrConnectWithoutContactInput[]
@@ -15870,6 +17655,13 @@ export namespace Prisma {
     connectOrCreate?: ContactKnowledgeCreateOrConnectWithoutContactInput | ContactKnowledgeCreateOrConnectWithoutContactInput[]
     createMany?: ContactKnowledgeCreateManyContactInputEnvelope
     connect?: ContactKnowledgeWhereUniqueInput | ContactKnowledgeWhereUniqueInput[]
+  }
+
+  export type CallUncheckedCreateNestedManyWithoutContactInput = {
+    create?: XOR<CallCreateWithoutContactInput, CallUncheckedCreateWithoutContactInput> | CallCreateWithoutContactInput[] | CallUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: CallCreateOrConnectWithoutContactInput | CallCreateOrConnectWithoutContactInput[]
+    createMany?: CallCreateManyContactInputEnvelope
+    connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
   }
 
   export type StringFieldUpdateOperationsInput = {
@@ -15944,6 +17736,20 @@ export namespace Prisma {
     deleteMany?: ContactKnowledgeScalarWhereInput | ContactKnowledgeScalarWhereInput[]
   }
 
+  export type CallUpdateManyWithoutContactNestedInput = {
+    create?: XOR<CallCreateWithoutContactInput, CallUncheckedCreateWithoutContactInput> | CallCreateWithoutContactInput[] | CallUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: CallCreateOrConnectWithoutContactInput | CallCreateOrConnectWithoutContactInput[]
+    upsert?: CallUpsertWithWhereUniqueWithoutContactInput | CallUpsertWithWhereUniqueWithoutContactInput[]
+    createMany?: CallCreateManyContactInputEnvelope
+    set?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    disconnect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    delete?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    update?: CallUpdateWithWhereUniqueWithoutContactInput | CallUpdateWithWhereUniqueWithoutContactInput[]
+    updateMany?: CallUpdateManyWithWhereWithoutContactInput | CallUpdateManyWithWhereWithoutContactInput[]
+    deleteMany?: CallScalarWhereInput | CallScalarWhereInput[]
+  }
+
   export type ConversationUncheckedUpdateManyWithoutContactNestedInput = {
     create?: XOR<ConversationCreateWithoutContactInput, ConversationUncheckedCreateWithoutContactInput> | ConversationCreateWithoutContactInput[] | ConversationUncheckedCreateWithoutContactInput[]
     connectOrCreate?: ConversationCreateOrConnectWithoutContactInput | ConversationCreateOrConnectWithoutContactInput[]
@@ -16000,6 +17806,20 @@ export namespace Prisma {
     deleteMany?: ContactKnowledgeScalarWhereInput | ContactKnowledgeScalarWhereInput[]
   }
 
+  export type CallUncheckedUpdateManyWithoutContactNestedInput = {
+    create?: XOR<CallCreateWithoutContactInput, CallUncheckedCreateWithoutContactInput> | CallCreateWithoutContactInput[] | CallUncheckedCreateWithoutContactInput[]
+    connectOrCreate?: CallCreateOrConnectWithoutContactInput | CallCreateOrConnectWithoutContactInput[]
+    upsert?: CallUpsertWithWhereUniqueWithoutContactInput | CallUpsertWithWhereUniqueWithoutContactInput[]
+    createMany?: CallCreateManyContactInputEnvelope
+    set?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    disconnect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    delete?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    update?: CallUpdateWithWhereUniqueWithoutContactInput | CallUpdateWithWhereUniqueWithoutContactInput[]
+    updateMany?: CallUpdateManyWithWhereWithoutContactInput | CallUpdateManyWithWhereWithoutContactInput[]
+    deleteMany?: CallScalarWhereInput | CallScalarWhereInput[]
+  }
+
   export type MessageCreateNestedManyWithoutConversationInput = {
     create?: XOR<MessageCreateWithoutConversationInput, MessageUncheckedCreateWithoutConversationInput> | MessageCreateWithoutConversationInput[] | MessageUncheckedCreateWithoutConversationInput[]
     connectOrCreate?: MessageCreateOrConnectWithoutConversationInput | MessageCreateOrConnectWithoutConversationInput[]
@@ -16034,6 +17854,13 @@ export namespace Prisma {
     connect?: QueryWhereUniqueInput | QueryWhereUniqueInput[]
   }
 
+  export type CallCreateNestedManyWithoutConversationInput = {
+    create?: XOR<CallCreateWithoutConversationInput, CallUncheckedCreateWithoutConversationInput> | CallCreateWithoutConversationInput[] | CallUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: CallCreateOrConnectWithoutConversationInput | CallCreateOrConnectWithoutConversationInput[]
+    createMany?: CallCreateManyConversationInputEnvelope
+    connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+  }
+
   export type MessageUncheckedCreateNestedManyWithoutConversationInput = {
     create?: XOR<MessageCreateWithoutConversationInput, MessageUncheckedCreateWithoutConversationInput> | MessageCreateWithoutConversationInput[] | MessageUncheckedCreateWithoutConversationInput[]
     connectOrCreate?: MessageCreateOrConnectWithoutConversationInput | MessageCreateOrConnectWithoutConversationInput[]
@@ -16060,6 +17887,13 @@ export namespace Prisma {
     connectOrCreate?: QueryCreateOrConnectWithoutConversationInput | QueryCreateOrConnectWithoutConversationInput[]
     createMany?: QueryCreateManyConversationInputEnvelope
     connect?: QueryWhereUniqueInput | QueryWhereUniqueInput[]
+  }
+
+  export type CallUncheckedCreateNestedManyWithoutConversationInput = {
+    create?: XOR<CallCreateWithoutConversationInput, CallUncheckedCreateWithoutConversationInput> | CallCreateWithoutConversationInput[] | CallUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: CallCreateOrConnectWithoutConversationInput | CallCreateOrConnectWithoutConversationInput[]
+    createMany?: CallCreateManyConversationInputEnvelope
+    connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
   }
 
   export type NullableDateTimeFieldUpdateOperationsInput = {
@@ -16130,6 +17964,20 @@ export namespace Prisma {
     deleteMany?: QueryScalarWhereInput | QueryScalarWhereInput[]
   }
 
+  export type CallUpdateManyWithoutConversationNestedInput = {
+    create?: XOR<CallCreateWithoutConversationInput, CallUncheckedCreateWithoutConversationInput> | CallCreateWithoutConversationInput[] | CallUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: CallCreateOrConnectWithoutConversationInput | CallCreateOrConnectWithoutConversationInput[]
+    upsert?: CallUpsertWithWhereUniqueWithoutConversationInput | CallUpsertWithWhereUniqueWithoutConversationInput[]
+    createMany?: CallCreateManyConversationInputEnvelope
+    set?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    disconnect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    delete?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    update?: CallUpdateWithWhereUniqueWithoutConversationInput | CallUpdateWithWhereUniqueWithoutConversationInput[]
+    updateMany?: CallUpdateManyWithWhereWithoutConversationInput | CallUpdateManyWithWhereWithoutConversationInput[]
+    deleteMany?: CallScalarWhereInput | CallScalarWhereInput[]
+  }
+
   export type MessageUncheckedUpdateManyWithoutConversationNestedInput = {
     create?: XOR<MessageCreateWithoutConversationInput, MessageUncheckedCreateWithoutConversationInput> | MessageCreateWithoutConversationInput[] | MessageUncheckedCreateWithoutConversationInput[]
     connectOrCreate?: MessageCreateOrConnectWithoutConversationInput | MessageCreateOrConnectWithoutConversationInput[]
@@ -16186,10 +18034,30 @@ export namespace Prisma {
     deleteMany?: QueryScalarWhereInput | QueryScalarWhereInput[]
   }
 
+  export type CallUncheckedUpdateManyWithoutConversationNestedInput = {
+    create?: XOR<CallCreateWithoutConversationInput, CallUncheckedCreateWithoutConversationInput> | CallCreateWithoutConversationInput[] | CallUncheckedCreateWithoutConversationInput[]
+    connectOrCreate?: CallCreateOrConnectWithoutConversationInput | CallCreateOrConnectWithoutConversationInput[]
+    upsert?: CallUpsertWithWhereUniqueWithoutConversationInput | CallUpsertWithWhereUniqueWithoutConversationInput[]
+    createMany?: CallCreateManyConversationInputEnvelope
+    set?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    disconnect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    delete?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    connect?: CallWhereUniqueInput | CallWhereUniqueInput[]
+    update?: CallUpdateWithWhereUniqueWithoutConversationInput | CallUpdateWithWhereUniqueWithoutConversationInput[]
+    updateMany?: CallUpdateManyWithWhereWithoutConversationInput | CallUpdateManyWithWhereWithoutConversationInput[]
+    deleteMany?: CallScalarWhereInput | CallScalarWhereInput[]
+  }
+
   export type ConversationCreateNestedOneWithoutMessagesInput = {
     create?: XOR<ConversationCreateWithoutMessagesInput, ConversationUncheckedCreateWithoutMessagesInput>
     connectOrCreate?: ConversationCreateOrConnectWithoutMessagesInput
     connect?: ConversationWhereUniqueInput
+  }
+
+  export type CallCreateNestedOneWithoutMessagesInput = {
+    create?: XOR<CallCreateWithoutMessagesInput, CallUncheckedCreateWithoutMessagesInput>
+    connectOrCreate?: CallCreateOrConnectWithoutMessagesInput
+    connect?: CallWhereUniqueInput
   }
 
   export type TaskSourceMessageCreateNestedManyWithoutMessageInput = {
@@ -16240,6 +18108,16 @@ export namespace Prisma {
     upsert?: ConversationUpsertWithoutMessagesInput
     connect?: ConversationWhereUniqueInput
     update?: XOR<XOR<ConversationUpdateToOneWithWhereWithoutMessagesInput, ConversationUpdateWithoutMessagesInput>, ConversationUncheckedUpdateWithoutMessagesInput>
+  }
+
+  export type CallUpdateOneWithoutMessagesNestedInput = {
+    create?: XOR<CallCreateWithoutMessagesInput, CallUncheckedCreateWithoutMessagesInput>
+    connectOrCreate?: CallCreateOrConnectWithoutMessagesInput
+    upsert?: CallUpsertWithoutMessagesInput
+    disconnect?: CallWhereInput | boolean
+    delete?: CallWhereInput | boolean
+    connect?: CallWhereUniqueInput
+    update?: XOR<XOR<CallUpdateToOneWithWhereWithoutMessagesInput, CallUpdateWithoutMessagesInput>, CallUncheckedUpdateWithoutMessagesInput>
   }
 
   export type TaskSourceMessageUpdateManyWithoutMessageNestedInput = {
@@ -16544,6 +18422,84 @@ export namespace Prisma {
     update?: XOR<XOR<MessageUpdateToOneWithWhereWithoutQuerySourcesInput, MessageUpdateWithoutQuerySourcesInput>, MessageUncheckedUpdateWithoutQuerySourcesInput>
   }
 
+  export type ConversationCreateNestedOneWithoutCallsInput = {
+    create?: XOR<ConversationCreateWithoutCallsInput, ConversationUncheckedCreateWithoutCallsInput>
+    connectOrCreate?: ConversationCreateOrConnectWithoutCallsInput
+    connect?: ConversationWhereUniqueInput
+  }
+
+  export type ContactCreateNestedOneWithoutCallsInput = {
+    create?: XOR<ContactCreateWithoutCallsInput, ContactUncheckedCreateWithoutCallsInput>
+    connectOrCreate?: ContactCreateOrConnectWithoutCallsInput
+    connect?: ContactWhereUniqueInput
+  }
+
+  export type MessageCreateNestedManyWithoutCallInput = {
+    create?: XOR<MessageCreateWithoutCallInput, MessageUncheckedCreateWithoutCallInput> | MessageCreateWithoutCallInput[] | MessageUncheckedCreateWithoutCallInput[]
+    connectOrCreate?: MessageCreateOrConnectWithoutCallInput | MessageCreateOrConnectWithoutCallInput[]
+    createMany?: MessageCreateManyCallInputEnvelope
+    connect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+  }
+
+  export type MessageUncheckedCreateNestedManyWithoutCallInput = {
+    create?: XOR<MessageCreateWithoutCallInput, MessageUncheckedCreateWithoutCallInput> | MessageCreateWithoutCallInput[] | MessageUncheckedCreateWithoutCallInput[]
+    connectOrCreate?: MessageCreateOrConnectWithoutCallInput | MessageCreateOrConnectWithoutCallInput[]
+    createMany?: MessageCreateManyCallInputEnvelope
+    connect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+  }
+
+  export type NullableIntFieldUpdateOperationsInput = {
+    set?: number | null
+    increment?: number
+    decrement?: number
+    multiply?: number
+    divide?: number
+  }
+
+  export type ConversationUpdateOneRequiredWithoutCallsNestedInput = {
+    create?: XOR<ConversationCreateWithoutCallsInput, ConversationUncheckedCreateWithoutCallsInput>
+    connectOrCreate?: ConversationCreateOrConnectWithoutCallsInput
+    upsert?: ConversationUpsertWithoutCallsInput
+    connect?: ConversationWhereUniqueInput
+    update?: XOR<XOR<ConversationUpdateToOneWithWhereWithoutCallsInput, ConversationUpdateWithoutCallsInput>, ConversationUncheckedUpdateWithoutCallsInput>
+  }
+
+  export type ContactUpdateOneRequiredWithoutCallsNestedInput = {
+    create?: XOR<ContactCreateWithoutCallsInput, ContactUncheckedCreateWithoutCallsInput>
+    connectOrCreate?: ContactCreateOrConnectWithoutCallsInput
+    upsert?: ContactUpsertWithoutCallsInput
+    connect?: ContactWhereUniqueInput
+    update?: XOR<XOR<ContactUpdateToOneWithWhereWithoutCallsInput, ContactUpdateWithoutCallsInput>, ContactUncheckedUpdateWithoutCallsInput>
+  }
+
+  export type MessageUpdateManyWithoutCallNestedInput = {
+    create?: XOR<MessageCreateWithoutCallInput, MessageUncheckedCreateWithoutCallInput> | MessageCreateWithoutCallInput[] | MessageUncheckedCreateWithoutCallInput[]
+    connectOrCreate?: MessageCreateOrConnectWithoutCallInput | MessageCreateOrConnectWithoutCallInput[]
+    upsert?: MessageUpsertWithWhereUniqueWithoutCallInput | MessageUpsertWithWhereUniqueWithoutCallInput[]
+    createMany?: MessageCreateManyCallInputEnvelope
+    set?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    disconnect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    delete?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    connect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    update?: MessageUpdateWithWhereUniqueWithoutCallInput | MessageUpdateWithWhereUniqueWithoutCallInput[]
+    updateMany?: MessageUpdateManyWithWhereWithoutCallInput | MessageUpdateManyWithWhereWithoutCallInput[]
+    deleteMany?: MessageScalarWhereInput | MessageScalarWhereInput[]
+  }
+
+  export type MessageUncheckedUpdateManyWithoutCallNestedInput = {
+    create?: XOR<MessageCreateWithoutCallInput, MessageUncheckedCreateWithoutCallInput> | MessageCreateWithoutCallInput[] | MessageUncheckedCreateWithoutCallInput[]
+    connectOrCreate?: MessageCreateOrConnectWithoutCallInput | MessageCreateOrConnectWithoutCallInput[]
+    upsert?: MessageUpsertWithWhereUniqueWithoutCallInput | MessageUpsertWithWhereUniqueWithoutCallInput[]
+    createMany?: MessageCreateManyCallInputEnvelope
+    set?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    disconnect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    delete?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    connect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    update?: MessageUpdateWithWhereUniqueWithoutCallInput | MessageUpdateWithWhereUniqueWithoutCallInput[]
+    updateMany?: MessageUpdateManyWithWhereWithoutCallInput | MessageUpdateManyWithWhereWithoutCallInput[]
+    deleteMany?: MessageScalarWhereInput | MessageScalarWhereInput[]
+  }
+
   export type ContactCreateNestedOneWithoutKnowledgeInput = {
     create?: XOR<ContactCreateWithoutKnowledgeInput, ContactUncheckedCreateWithoutKnowledgeInput>
     connectOrCreate?: ContactCreateOrConnectWithoutKnowledgeInput
@@ -16802,6 +18758,33 @@ export namespace Prisma {
     _max?: NestedFloatFilter<$PrismaModel>
   }
 
+  export type NestedIntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedIntNullableFilter<$PrismaModel>
+    _max?: NestedIntNullableFilter<$PrismaModel>
+  }
+
+  export type NestedFloatNullableFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatNullableFilter<$PrismaModel> | number | null
+  }
+
   export type ConversationCreateWithoutContactInput = {
     id?: string
     title?: string | null
@@ -16813,6 +18796,7 @@ export namespace Prisma {
     history?: HistoryCreateNestedManyWithoutConversationInput
     tasks?: TaskCreateNestedManyWithoutConversationInput
     queries?: QueryCreateNestedManyWithoutConversationInput
+    calls?: CallCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutContactInput = {
@@ -16826,6 +18810,7 @@ export namespace Prisma {
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
+    calls?: CallUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutContactInput = {
@@ -16947,6 +18932,44 @@ export namespace Prisma {
 
   export type ContactKnowledgeCreateManyContactInputEnvelope = {
     data: ContactKnowledgeCreateManyContactInput | ContactKnowledgeCreateManyContactInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type CallCreateWithoutContactInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversation: ConversationCreateNestedOneWithoutCallsInput
+    messages?: MessageCreateNestedManyWithoutCallInput
+  }
+
+  export type CallUncheckedCreateWithoutContactInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+    messages?: MessageUncheckedCreateNestedManyWithoutCallInput
+  }
+
+  export type CallCreateOrConnectWithoutContactInput = {
+    where: CallWhereUniqueInput
+    create: XOR<CallCreateWithoutContactInput, CallUncheckedCreateWithoutContactInput>
+  }
+
+  export type CallCreateManyContactInputEnvelope = {
+    data: CallCreateManyContactInput | CallCreateManyContactInput[]
     skipDuplicates?: boolean
   }
 
@@ -17077,6 +19100,39 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"ContactKnowledge"> | Date | string
   }
 
+  export type CallUpsertWithWhereUniqueWithoutContactInput = {
+    where: CallWhereUniqueInput
+    update: XOR<CallUpdateWithoutContactInput, CallUncheckedUpdateWithoutContactInput>
+    create: XOR<CallCreateWithoutContactInput, CallUncheckedCreateWithoutContactInput>
+  }
+
+  export type CallUpdateWithWhereUniqueWithoutContactInput = {
+    where: CallWhereUniqueInput
+    data: XOR<CallUpdateWithoutContactInput, CallUncheckedUpdateWithoutContactInput>
+  }
+
+  export type CallUpdateManyWithWhereWithoutContactInput = {
+    where: CallScalarWhereInput
+    data: XOR<CallUpdateManyMutationInput, CallUncheckedUpdateManyWithoutContactInput>
+  }
+
+  export type CallScalarWhereInput = {
+    AND?: CallScalarWhereInput | CallScalarWhereInput[]
+    OR?: CallScalarWhereInput[]
+    NOT?: CallScalarWhereInput | CallScalarWhereInput[]
+    id?: StringFilter<"Call"> | string
+    twilioSid?: StringNullableFilter<"Call"> | string | null
+    status?: StringFilter<"Call"> | string
+    direction?: StringFilter<"Call"> | string
+    duration?: IntNullableFilter<"Call"> | number | null
+    startedAt?: DateTimeNullableFilter<"Call"> | Date | string | null
+    endedAt?: DateTimeNullableFilter<"Call"> | Date | string | null
+    createdAt?: DateTimeFilter<"Call"> | Date | string
+    updatedAt?: DateTimeFilter<"Call"> | Date | string
+    conversationId?: StringFilter<"Call"> | string
+    contactId?: StringFilter<"Call"> | string
+  }
+
   export type MessageCreateWithoutConversationInput = {
     id?: string
     role: string
@@ -17085,6 +19141,7 @@ export namespace Prisma {
     pending?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    call?: CallCreateNestedOneWithoutMessagesInput
     taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
@@ -17098,6 +19155,7 @@ export namespace Prisma {
     pending?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    callId?: string | null
     taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
@@ -17200,6 +19258,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutContactInput
     queries?: QueryCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
+    calls?: CallCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateWithoutConversationsInput = {
@@ -17217,6 +19276,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
     queries?: QueryUncheckedCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
+    calls?: CallUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactCreateOrConnectWithoutConversationsInput = {
@@ -17260,6 +19320,44 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type CallCreateWithoutConversationInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contact: ContactCreateNestedOneWithoutCallsInput
+    messages?: MessageCreateNestedManyWithoutCallInput
+  }
+
+  export type CallUncheckedCreateWithoutConversationInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contactId: string
+    messages?: MessageUncheckedCreateNestedManyWithoutCallInput
+  }
+
+  export type CallCreateOrConnectWithoutConversationInput = {
+    where: CallWhereUniqueInput
+    create: XOR<CallCreateWithoutConversationInput, CallUncheckedCreateWithoutConversationInput>
+  }
+
+  export type CallCreateManyConversationInputEnvelope = {
+    data: CallCreateManyConversationInput | CallCreateManyConversationInput[]
+    skipDuplicates?: boolean
+  }
+
   export type MessageUpsertWithWhereUniqueWithoutConversationInput = {
     where: MessageWhereUniqueInput
     update: XOR<MessageUpdateWithoutConversationInput, MessageUncheckedUpdateWithoutConversationInput>
@@ -17288,6 +19386,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Message"> | Date | string
     updatedAt?: DateTimeFilter<"Message"> | Date | string
     conversationId?: StringFilter<"Message"> | string
+    callId?: StringNullableFilter<"Message"> | string | null
   }
 
   export type HistoryUpsertWithWhereUniqueWithoutConversationInput = {
@@ -17362,6 +19461,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutContactNestedInput
     queries?: QueryUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
+    calls?: CallUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateWithoutConversationsInput = {
@@ -17379,6 +19479,7 @@ export namespace Prisma {
     tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
     queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
+    calls?: CallUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type QueryUpsertWithWhereUniqueWithoutConversationInput = {
@@ -17397,6 +19498,22 @@ export namespace Prisma {
     data: XOR<QueryUpdateManyMutationInput, QueryUncheckedUpdateManyWithoutConversationInput>
   }
 
+  export type CallUpsertWithWhereUniqueWithoutConversationInput = {
+    where: CallWhereUniqueInput
+    update: XOR<CallUpdateWithoutConversationInput, CallUncheckedUpdateWithoutConversationInput>
+    create: XOR<CallCreateWithoutConversationInput, CallUncheckedCreateWithoutConversationInput>
+  }
+
+  export type CallUpdateWithWhereUniqueWithoutConversationInput = {
+    where: CallWhereUniqueInput
+    data: XOR<CallUpdateWithoutConversationInput, CallUncheckedUpdateWithoutConversationInput>
+  }
+
+  export type CallUpdateManyWithWhereWithoutConversationInput = {
+    where: CallScalarWhereInput
+    data: XOR<CallUpdateManyMutationInput, CallUncheckedUpdateManyWithoutConversationInput>
+  }
+
   export type ConversationCreateWithoutMessagesInput = {
     id?: string
     title?: string | null
@@ -17408,6 +19525,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutConversationInput
     contact: ContactCreateNestedOneWithoutConversationsInput
     queries?: QueryCreateNestedManyWithoutConversationInput
+    calls?: CallCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutMessagesInput = {
@@ -17421,11 +19539,45 @@ export namespace Prisma {
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
+    calls?: CallUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutMessagesInput = {
     where: ConversationWhereUniqueInput
     create: XOR<ConversationCreateWithoutMessagesInput, ConversationUncheckedCreateWithoutMessagesInput>
+  }
+
+  export type CallCreateWithoutMessagesInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversation: ConversationCreateNestedOneWithoutCallsInput
+    contact: ContactCreateNestedOneWithoutCallsInput
+  }
+
+  export type CallUncheckedCreateWithoutMessagesInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+    contactId: string
+  }
+
+  export type CallCreateOrConnectWithoutMessagesInput = {
+    where: CallWhereUniqueInput
+    create: XOR<CallCreateWithoutMessagesInput, CallUncheckedCreateWithoutMessagesInput>
   }
 
   export type TaskSourceMessageCreateWithoutMessageInput = {
@@ -17516,6 +19668,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutConversationNestedInput
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
+    calls?: CallUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutMessagesInput = {
@@ -17529,6 +19682,46 @@ export namespace Prisma {
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
+    calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
+  }
+
+  export type CallUpsertWithoutMessagesInput = {
+    update: XOR<CallUpdateWithoutMessagesInput, CallUncheckedUpdateWithoutMessagesInput>
+    create: XOR<CallCreateWithoutMessagesInput, CallUncheckedCreateWithoutMessagesInput>
+    where?: CallWhereInput
+  }
+
+  export type CallUpdateToOneWithWhereWithoutMessagesInput = {
+    where?: CallWhereInput
+    data: XOR<CallUpdateWithoutMessagesInput, CallUncheckedUpdateWithoutMessagesInput>
+  }
+
+  export type CallUpdateWithoutMessagesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversation?: ConversationUpdateOneRequiredWithoutCallsNestedInput
+    contact?: ContactUpdateOneRequiredWithoutCallsNestedInput
+  }
+
+  export type CallUncheckedUpdateWithoutMessagesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+    contactId?: StringFieldUpdateOperationsInput | string
   }
 
   export type TaskSourceMessageUpsertWithWhereUniqueWithoutMessageInput = {
@@ -17620,6 +19813,7 @@ export namespace Prisma {
     tasks?: TaskCreateNestedManyWithoutConversationInput
     contact: ContactCreateNestedOneWithoutConversationsInput
     queries?: QueryCreateNestedManyWithoutConversationInput
+    calls?: CallCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutHistoryInput = {
@@ -17633,6 +19827,7 @@ export namespace Prisma {
     messages?: MessageUncheckedCreateNestedManyWithoutConversationInput
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
+    calls?: CallUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutHistoryInput = {
@@ -17662,6 +19857,7 @@ export namespace Prisma {
     tasks?: TaskUpdateManyWithoutConversationNestedInput
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
+    calls?: CallUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutHistoryInput = {
@@ -17675,6 +19871,7 @@ export namespace Prisma {
     messages?: MessageUncheckedUpdateManyWithoutConversationNestedInput
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
+    calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationCreateWithoutTasksInput = {
@@ -17688,6 +19885,7 @@ export namespace Prisma {
     history?: HistoryCreateNestedManyWithoutConversationInput
     contact: ContactCreateNestedOneWithoutConversationsInput
     queries?: QueryCreateNestedManyWithoutConversationInput
+    calls?: CallCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutTasksInput = {
@@ -17701,6 +19899,7 @@ export namespace Prisma {
     messages?: MessageUncheckedCreateNestedManyWithoutConversationInput
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
     queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
+    calls?: CallUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutTasksInput = {
@@ -17723,6 +19922,7 @@ export namespace Prisma {
     conversations?: ConversationCreateNestedManyWithoutContactInput
     queries?: QueryCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
+    calls?: CallCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateWithoutTasksInput = {
@@ -17740,6 +19940,7 @@ export namespace Prisma {
     conversations?: ConversationUncheckedCreateNestedManyWithoutContactInput
     queries?: QueryUncheckedCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
+    calls?: CallUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactCreateOrConnectWithoutTasksInput = {
@@ -17791,6 +19992,7 @@ export namespace Prisma {
     history?: HistoryUpdateManyWithoutConversationNestedInput
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
+    calls?: CallUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutTasksInput = {
@@ -17804,6 +20006,7 @@ export namespace Prisma {
     messages?: MessageUncheckedUpdateManyWithoutConversationNestedInput
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
+    calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ContactUpsertWithoutTasksInput = {
@@ -17832,6 +20035,7 @@ export namespace Prisma {
     conversations?: ConversationUpdateManyWithoutContactNestedInput
     queries?: QueryUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
+    calls?: CallUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateWithoutTasksInput = {
@@ -17849,6 +20053,7 @@ export namespace Prisma {
     conversations?: ConversationUncheckedUpdateManyWithoutContactNestedInput
     queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
+    calls?: CallUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type TaskSourceMessageUpsertWithWhereUniqueWithoutTaskInput = {
@@ -17913,6 +20118,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutMessagesInput
+    call?: CallCreateNestedOneWithoutMessagesInput
     querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
   }
@@ -17926,6 +20132,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
+    callId?: string | null
     querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
   }
@@ -17998,6 +20205,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
+    call?: CallUpdateOneWithoutMessagesNestedInput
     querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
   }
@@ -18011,6 +20219,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
+    callId?: NullableStringFieldUpdateOperationsInput | string | null
     querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
   }
@@ -18026,6 +20235,7 @@ export namespace Prisma {
     history?: HistoryCreateNestedManyWithoutConversationInput
     tasks?: TaskCreateNestedManyWithoutConversationInput
     contact: ContactCreateNestedOneWithoutConversationsInput
+    calls?: CallCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationUncheckedCreateWithoutQueriesInput = {
@@ -18039,6 +20249,7 @@ export namespace Prisma {
     messages?: MessageUncheckedCreateNestedManyWithoutConversationInput
     history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
     tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
+    calls?: CallUncheckedCreateNestedManyWithoutConversationInput
   }
 
   export type ConversationCreateOrConnectWithoutQueriesInput = {
@@ -18061,6 +20272,7 @@ export namespace Prisma {
     conversations?: ConversationCreateNestedManyWithoutContactInput
     tasks?: TaskCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
+    calls?: CallCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateWithoutQueriesInput = {
@@ -18078,6 +20290,7 @@ export namespace Prisma {
     conversations?: ConversationUncheckedCreateNestedManyWithoutContactInput
     tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
     knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
+    calls?: CallUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactCreateOrConnectWithoutQueriesInput = {
@@ -18129,6 +20342,7 @@ export namespace Prisma {
     history?: HistoryUpdateManyWithoutConversationNestedInput
     tasks?: TaskUpdateManyWithoutConversationNestedInput
     contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
+    calls?: CallUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutQueriesInput = {
@@ -18142,6 +20356,7 @@ export namespace Prisma {
     messages?: MessageUncheckedUpdateManyWithoutConversationNestedInput
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
+    calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ContactUpsertWithoutQueriesInput = {
@@ -18170,6 +20385,7 @@ export namespace Prisma {
     conversations?: ConversationUpdateManyWithoutContactNestedInput
     tasks?: TaskUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
+    calls?: CallUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateWithoutQueriesInput = {
@@ -18187,6 +20403,7 @@ export namespace Prisma {
     conversations?: ConversationUncheckedUpdateManyWithoutContactNestedInput
     tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
+    calls?: CallUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type QuerySourceMessageUpsertWithWhereUniqueWithoutQueryInput = {
@@ -18245,6 +20462,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutMessagesInput
+    call?: CallCreateNestedOneWithoutMessagesInput
     taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
   }
@@ -18258,6 +20476,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
+    callId?: string | null
     taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
   }
@@ -18324,6 +20543,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
+    call?: CallUpdateOneWithoutMessagesNestedInput
     taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
   }
@@ -18337,8 +20557,223 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
+    callId?: NullableStringFieldUpdateOperationsInput | string | null
     taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
+  }
+
+  export type ConversationCreateWithoutCallsInput = {
+    id?: string
+    title?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
+    messages?: MessageCreateNestedManyWithoutConversationInput
+    history?: HistoryCreateNestedManyWithoutConversationInput
+    tasks?: TaskCreateNestedManyWithoutConversationInput
+    contact: ContactCreateNestedOneWithoutConversationsInput
+    queries?: QueryCreateNestedManyWithoutConversationInput
+  }
+
+  export type ConversationUncheckedCreateWithoutCallsInput = {
+    id?: string
+    title?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    lastExtractedMessageId?: string | null
+    lastExtractedAt?: Date | string | null
+    contactId: string
+    messages?: MessageUncheckedCreateNestedManyWithoutConversationInput
+    history?: HistoryUncheckedCreateNestedManyWithoutConversationInput
+    tasks?: TaskUncheckedCreateNestedManyWithoutConversationInput
+    queries?: QueryUncheckedCreateNestedManyWithoutConversationInput
+  }
+
+  export type ConversationCreateOrConnectWithoutCallsInput = {
+    where: ConversationWhereUniqueInput
+    create: XOR<ConversationCreateWithoutCallsInput, ConversationUncheckedCreateWithoutCallsInput>
+  }
+
+  export type ContactCreateWithoutCallsInput = {
+    id?: string
+    name: string
+    business: string
+    category: string
+    phone: string
+    initials: string
+    color: string
+    note?: string | null
+    online?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversations?: ConversationCreateNestedManyWithoutContactInput
+    tasks?: TaskCreateNestedManyWithoutContactInput
+    queries?: QueryCreateNestedManyWithoutContactInput
+    knowledge?: ContactKnowledgeCreateNestedManyWithoutContactInput
+  }
+
+  export type ContactUncheckedCreateWithoutCallsInput = {
+    id?: string
+    name: string
+    business: string
+    category: string
+    phone: string
+    initials: string
+    color: string
+    note?: string | null
+    online?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversations?: ConversationUncheckedCreateNestedManyWithoutContactInput
+    tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
+    queries?: QueryUncheckedCreateNestedManyWithoutContactInput
+    knowledge?: ContactKnowledgeUncheckedCreateNestedManyWithoutContactInput
+  }
+
+  export type ContactCreateOrConnectWithoutCallsInput = {
+    where: ContactWhereUniqueInput
+    create: XOR<ContactCreateWithoutCallsInput, ContactUncheckedCreateWithoutCallsInput>
+  }
+
+  export type MessageCreateWithoutCallInput = {
+    id?: string
+    role: string
+    content: string
+    time: string
+    pending?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversation: ConversationCreateNestedOneWithoutMessagesInput
+    taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
+    querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
+    knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
+  }
+
+  export type MessageUncheckedCreateWithoutCallInput = {
+    id?: string
+    role: string
+    content: string
+    time: string
+    pending?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+    taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
+    querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
+    knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
+  }
+
+  export type MessageCreateOrConnectWithoutCallInput = {
+    where: MessageWhereUniqueInput
+    create: XOR<MessageCreateWithoutCallInput, MessageUncheckedCreateWithoutCallInput>
+  }
+
+  export type MessageCreateManyCallInputEnvelope = {
+    data: MessageCreateManyCallInput | MessageCreateManyCallInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type ConversationUpsertWithoutCallsInput = {
+    update: XOR<ConversationUpdateWithoutCallsInput, ConversationUncheckedUpdateWithoutCallsInput>
+    create: XOR<ConversationCreateWithoutCallsInput, ConversationUncheckedCreateWithoutCallsInput>
+    where?: ConversationWhereInput
+  }
+
+  export type ConversationUpdateToOneWithWhereWithoutCallsInput = {
+    where?: ConversationWhereInput
+    data: XOR<ConversationUpdateWithoutCallsInput, ConversationUncheckedUpdateWithoutCallsInput>
+  }
+
+  export type ConversationUpdateWithoutCallsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    messages?: MessageUpdateManyWithoutConversationNestedInput
+    history?: HistoryUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUpdateManyWithoutConversationNestedInput
+    contact?: ContactUpdateOneRequiredWithoutConversationsNestedInput
+    queries?: QueryUpdateManyWithoutConversationNestedInput
+  }
+
+  export type ConversationUncheckedUpdateWithoutCallsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    title?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    lastExtractedMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastExtractedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    contactId?: StringFieldUpdateOperationsInput | string
+    messages?: MessageUncheckedUpdateManyWithoutConversationNestedInput
+    history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
+    tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
+    queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
+  }
+
+  export type ContactUpsertWithoutCallsInput = {
+    update: XOR<ContactUpdateWithoutCallsInput, ContactUncheckedUpdateWithoutCallsInput>
+    create: XOR<ContactCreateWithoutCallsInput, ContactUncheckedCreateWithoutCallsInput>
+    where?: ContactWhereInput
+  }
+
+  export type ContactUpdateToOneWithWhereWithoutCallsInput = {
+    where?: ContactWhereInput
+    data: XOR<ContactUpdateWithoutCallsInput, ContactUncheckedUpdateWithoutCallsInput>
+  }
+
+  export type ContactUpdateWithoutCallsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    business?: StringFieldUpdateOperationsInput | string
+    category?: StringFieldUpdateOperationsInput | string
+    phone?: StringFieldUpdateOperationsInput | string
+    initials?: StringFieldUpdateOperationsInput | string
+    color?: StringFieldUpdateOperationsInput | string
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    online?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversations?: ConversationUpdateManyWithoutContactNestedInput
+    tasks?: TaskUpdateManyWithoutContactNestedInput
+    queries?: QueryUpdateManyWithoutContactNestedInput
+    knowledge?: ContactKnowledgeUpdateManyWithoutContactNestedInput
+  }
+
+  export type ContactUncheckedUpdateWithoutCallsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    business?: StringFieldUpdateOperationsInput | string
+    category?: StringFieldUpdateOperationsInput | string
+    phone?: StringFieldUpdateOperationsInput | string
+    initials?: StringFieldUpdateOperationsInput | string
+    color?: StringFieldUpdateOperationsInput | string
+    note?: NullableStringFieldUpdateOperationsInput | string | null
+    online?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversations?: ConversationUncheckedUpdateManyWithoutContactNestedInput
+    tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
+    queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
+    knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
+  }
+
+  export type MessageUpsertWithWhereUniqueWithoutCallInput = {
+    where: MessageWhereUniqueInput
+    update: XOR<MessageUpdateWithoutCallInput, MessageUncheckedUpdateWithoutCallInput>
+    create: XOR<MessageCreateWithoutCallInput, MessageUncheckedCreateWithoutCallInput>
+  }
+
+  export type MessageUpdateWithWhereUniqueWithoutCallInput = {
+    where: MessageWhereUniqueInput
+    data: XOR<MessageUpdateWithoutCallInput, MessageUncheckedUpdateWithoutCallInput>
+  }
+
+  export type MessageUpdateManyWithWhereWithoutCallInput = {
+    where: MessageScalarWhereInput
+    data: XOR<MessageUpdateManyMutationInput, MessageUncheckedUpdateManyWithoutCallInput>
   }
 
   export type ContactCreateWithoutKnowledgeInput = {
@@ -18356,6 +20791,7 @@ export namespace Prisma {
     conversations?: ConversationCreateNestedManyWithoutContactInput
     tasks?: TaskCreateNestedManyWithoutContactInput
     queries?: QueryCreateNestedManyWithoutContactInput
+    calls?: CallCreateNestedManyWithoutContactInput
   }
 
   export type ContactUncheckedCreateWithoutKnowledgeInput = {
@@ -18373,6 +20809,7 @@ export namespace Prisma {
     conversations?: ConversationUncheckedCreateNestedManyWithoutContactInput
     tasks?: TaskUncheckedCreateNestedManyWithoutContactInput
     queries?: QueryUncheckedCreateNestedManyWithoutContactInput
+    calls?: CallUncheckedCreateNestedManyWithoutContactInput
   }
 
   export type ContactCreateOrConnectWithoutKnowledgeInput = {
@@ -18428,6 +20865,7 @@ export namespace Prisma {
     conversations?: ConversationUpdateManyWithoutContactNestedInput
     tasks?: TaskUpdateManyWithoutContactNestedInput
     queries?: QueryUpdateManyWithoutContactNestedInput
+    calls?: CallUpdateManyWithoutContactNestedInput
   }
 
   export type ContactUncheckedUpdateWithoutKnowledgeInput = {
@@ -18445,6 +20883,7 @@ export namespace Prisma {
     conversations?: ConversationUncheckedUpdateManyWithoutContactNestedInput
     tasks?: TaskUncheckedUpdateManyWithoutContactNestedInput
     queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
+    calls?: CallUncheckedUpdateManyWithoutContactNestedInput
   }
 
   export type KnowledgeSourceMessageUpsertWithWhereUniqueWithoutKnowledgeInput = {
@@ -18501,6 +20940,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutMessagesInput
+    call?: CallCreateNestedOneWithoutMessagesInput
     taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
   }
@@ -18514,6 +20954,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
+    callId?: string | null
     taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
   }
@@ -18578,6 +21019,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
+    call?: CallUpdateOneWithoutMessagesNestedInput
     taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
   }
@@ -18591,6 +21033,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
+    callId?: NullableStringFieldUpdateOperationsInput | string | null
     taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
   }
@@ -18642,6 +21085,19 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type CallCreateManyContactInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+  }
+
   export type ConversationUpdateWithoutContactInput = {
     id?: StringFieldUpdateOperationsInput | string
     title?: NullableStringFieldUpdateOperationsInput | string | null
@@ -18653,6 +21109,7 @@ export namespace Prisma {
     history?: HistoryUpdateManyWithoutConversationNestedInput
     tasks?: TaskUpdateManyWithoutConversationNestedInput
     queries?: QueryUpdateManyWithoutConversationNestedInput
+    calls?: CallUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateWithoutContactInput = {
@@ -18666,6 +21123,7 @@ export namespace Prisma {
     history?: HistoryUncheckedUpdateManyWithoutConversationNestedInput
     tasks?: TaskUncheckedUpdateManyWithoutConversationNestedInput
     queries?: QueryUncheckedUpdateManyWithoutConversationNestedInput
+    calls?: CallUncheckedUpdateManyWithoutConversationNestedInput
   }
 
   export type ConversationUncheckedUpdateManyWithoutContactInput = {
@@ -18797,6 +21255,47 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type CallUpdateWithoutContactInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversation?: ConversationUpdateOneRequiredWithoutCallsNestedInput
+    messages?: MessageUpdateManyWithoutCallNestedInput
+  }
+
+  export type CallUncheckedUpdateWithoutContactInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+    messages?: MessageUncheckedUpdateManyWithoutCallNestedInput
+  }
+
+  export type CallUncheckedUpdateManyWithoutContactInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+  }
+
   export type MessageCreateManyConversationInput = {
     id?: string
     role: string
@@ -18805,6 +21304,7 @@ export namespace Prisma {
     pending?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    callId?: string | null
   }
 
   export type HistoryCreateManyConversationInput = {
@@ -18844,6 +21344,19 @@ export namespace Prisma {
     contactId: string
   }
 
+  export type CallCreateManyConversationInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    duration?: number | null
+    startedAt?: Date | string | null
+    endedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    contactId: string
+  }
+
   export type MessageUpdateWithoutConversationInput = {
     id?: StringFieldUpdateOperationsInput | string
     role?: StringFieldUpdateOperationsInput | string
@@ -18852,6 +21365,7 @@ export namespace Prisma {
     pending?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    call?: CallUpdateOneWithoutMessagesNestedInput
     taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
@@ -18865,6 +21379,7 @@ export namespace Prisma {
     pending?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    callId?: NullableStringFieldUpdateOperationsInput | string | null
     taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
@@ -18878,6 +21393,7 @@ export namespace Prisma {
     pending?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    callId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type HistoryUpdateWithoutConversationInput = {
@@ -18992,6 +21508,47 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     answeredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     answerMessageId?: NullableStringFieldUpdateOperationsInput | string | null
+    contactId?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type CallUpdateWithoutConversationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contact?: ContactUpdateOneRequiredWithoutCallsNestedInput
+    messages?: MessageUpdateManyWithoutCallNestedInput
+  }
+
+  export type CallUncheckedUpdateWithoutConversationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    contactId?: StringFieldUpdateOperationsInput | string
+    messages?: MessageUncheckedUpdateManyWithoutCallNestedInput
+  }
+
+  export type CallUncheckedUpdateManyWithoutConversationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    duration?: NullableIntFieldUpdateOperationsInput | number | null
+    startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     contactId?: StringFieldUpdateOperationsInput | string
   }
 
@@ -19113,6 +21670,56 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     messageId?: StringFieldUpdateOperationsInput | string
     role?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type MessageCreateManyCallInput = {
+    id?: string
+    role: string
+    content: string
+    time: string
+    pending?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+  }
+
+  export type MessageUpdateWithoutCallInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    content?: StringFieldUpdateOperationsInput | string
+    time?: StringFieldUpdateOperationsInput | string
+    pending?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
+    taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
+    querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
+    knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
+  }
+
+  export type MessageUncheckedUpdateWithoutCallInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    content?: StringFieldUpdateOperationsInput | string
+    time?: StringFieldUpdateOperationsInput | string
+    pending?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+    taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
+    querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
+    knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
+  }
+
+  export type MessageUncheckedUpdateManyWithoutCallInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    content?: StringFieldUpdateOperationsInput | string
+    time?: StringFieldUpdateOperationsInput | string
+    pending?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
   }
 
   export type KnowledgeSourceMessageCreateManyKnowledgeInput = {
