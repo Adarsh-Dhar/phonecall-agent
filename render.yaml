@@ -1,10 +1,10 @@
 services:
   - type: web
     name: phone-agent-api
-    env: node
+    env: docker
     plan: free
-    buildCommand: cd artifacts/api-server && npm install --legacy-peer-deps && npm run build
-    startCommand: cd artifacts/api-server && npm run start
+    dockerContext: ./artifacts/api-server
+    dockerfilePath: ./artifacts/api-server/Dockerfile
     envVars:
       - key: DATABASE_URL
         sync: false
