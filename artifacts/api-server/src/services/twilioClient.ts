@@ -70,17 +70,50 @@ export async function placeOutboundCall(
     );
   }
 
-  const call = await twilioClient.calls.create({
+  // Trial Twilio accounts reject statusCallback and statusCallbackEvent.
+  // We detect trial by checking TWILIO_TRIAL_ACCOUNT env var, or fall back
+  // to attempting with statusCallback and retrying without it on 400.
+  const isTrial = process.env.TWILIO_TRIAL_ACCOUNT === "true";
+
+  const baseParams = {
     to: opts.to,
     from: FROM_NUMBER,
     url: opts.voiceUrl,
+  };
+
+  const fullParams = {
+    ...baseParams,
     statusCallback: opts.statusCallbackUrl,
-    statusCallbackMethod: "POST",
-    statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
-    // record: true,
-    // ↑ Recording is intentionally disabled. If you enable it, add an
-    //   audible disclosure at the start of the call per your jurisdiction's law.
-  });
+    statusCallbackMethod: "POST" as const,
+  };
+
+  let call;
+  if (isTrial) {
+    // Skip statusCallback for trial accounts — they reject it outright
+    logger.info("twilio: trial account mode — skipping statusCallback");
+    call = await twilioClient.calls.create(baseParams);
+  } else {
+    try {
+      call = await twilioClient.calls.create(fullParams);
+    } catch (err: unknown) {
+      // Trial accounts return 400 "Invalid or disallowed parameters" for statusCallback.
+      // Auto-detect and retry without it.
+      const isTrialRestriction =
+        err instanceof Error &&
+        err.message.includes("disallowed parameters") &&
+        (err as { status?: number }).status === 400;
+
+      if (isTrialRestriction) {
+        logger.warn(
+          "twilio: statusCallback rejected (trial account?) — retrying without it. " +
+            "Set TWILIO_TRIAL_ACCOUNT=true in .env to skip this retry."
+        );
+        call = await twilioClient.calls.create(baseParams);
+      } else {
+        throw err;
+      }
+    }
+  }
 
   logger.info(
     { sid: call.sid, to: opts.to, status: call.status },

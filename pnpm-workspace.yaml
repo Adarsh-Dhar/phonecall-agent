@@ -28,11 +28,18 @@ catalog:
   wouter: ^3.3.5
   zod: ^3.25.76
 
+ignoredBuiltDependencies: []
+
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude: []
 
 onlyBuiltDependencies:
+  - '@google/genai'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - prisma
+  - protobufjs
   - '@swc/core'
   - esbuild
   - msw
