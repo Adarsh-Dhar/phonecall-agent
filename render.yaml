@@ -3,8 +3,8 @@ services:
     name: phone-agent-api
     env: docker
     plan: free
-    dockerContext: ./artifacts/api-server
-    dockerfilePath: ./artifacts/api-server/Dockerfile
+    dockerContext: artifacts/api-server
+    dockerfilePath: artifacts/api-server/Dockerfile
     envVars:
       - key: DATABASE_URL
         sync: false
