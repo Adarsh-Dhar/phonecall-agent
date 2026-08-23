@@ -8,9 +8,43 @@ const prisma = new PrismaClient();
 // E.164 number (+14155551234) without editing this file.
 const DUMMY_PHONE = process.env.TEST_PHONE_NUMBER ?? '0123456789';
 
-// Same idea for email — set TEST_EMAIL_ADDRESS to your own real inbox so you
-// can test outbound sends and inbound replies against a seeded contact.
-const TEST_EMAIL = process.env.TEST_EMAIL_ADDRESS ?? null;
+// Pool of real inboxes YOU control, used to test the agent <-> provider
+// email loop realistically: each of these gets assigned to a different
+// contact at seed time, so you can reply "as" that provider from a real inbox.
+// Every other contact is seeded with email: null.
+//
+// Override via TEST_PROVIDER_EMAILS as a comma-separated list, e.g.:
+//   TEST_PROVIDER_EMAILS=a@gmail.com,b@gmail.com,c@gmail.com
+const DEFAULT_PROVIDER_EMAILS = [
+  'dharadarsh0@gmail.com',
+  'adarshdhar010@gmail.com',
+  'adarshdhar001@gmail.com',
+  'adarshdhar002@gmail.com',
+  'adarshdhar003@gmail.com',
+  'adarshdhar004@gmail.com',
+  'adarshdhar005@gmail.com',
+  'adarshdhar006@gmail.com',
+  'adarsh123ce@gmail.com',
+  'adarsh123ce0080@gmail.com',
+  '123ce0080@nitrkl.ac.in',
+];
+
+const PROVIDER_EMAILS =
+  process.env.TEST_PROVIDER_EMAILS
+    ?.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  ?? DEFAULT_PROVIDER_EMAILS;
+
+/** Fisher–Yates shuffle — used to randomly pick which contacts get a real email. */
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 const CATEGORY = {
   ASSISTANT: 'Assistant',
@@ -376,6 +410,19 @@ async function main() {
 
   console.log('Empty database, seeding contacts...');
 
+  // Assign the provider email pool to the first 11 non-Assistant contacts.
+  // Everyone else gets email: null. Logged below so you know which contact
+  // maps to which inbox for this run.
+  const eligibleForEmail = CONTACTS.filter((c) => c.category !== CATEGORY.ASSISTANT);
+  const chosenForEmail = eligibleForEmail.slice(0, PROVIDER_EMAILS.length);
+  const emailByContactName = new Map<string, string>();
+  chosenForEmail.forEach((c, i) => emailByContactName.set(c.name, PROVIDER_EMAILS[i]));
+
+  console.log(`Assigning ${chosenForEmail.length} real test emails to first ${chosenForEmail.length} service providers:`);
+  for (const c of chosenForEmail) {
+    console.log(`  ${c.name}  ->  ${emailByContactName.get(c.name)}`);
+  }
+
   let totalKnowledge = 0;
 
   for (const c of CONTACTS) {
@@ -388,7 +435,7 @@ async function main() {
         business: c.business,
         category: c.category,
         phone: DUMMY_PHONE,
-        email: TEST_EMAIL,
+        email: emailByContactName.get(c.name) ?? null,
         initials: c.initials,
         color: c.color,
         note: c.note,
