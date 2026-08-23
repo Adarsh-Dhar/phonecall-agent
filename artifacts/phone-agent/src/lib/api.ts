@@ -6,6 +6,7 @@ export type Contact = {
   business: string;
   category: string;
   phone: string;
+  email: string | null;
   initials: string;
   color: string;
   note: string | null;
@@ -438,6 +439,7 @@ export type Call = {
     initials: string;
     color: string;
     phone: string;
+    email: string | null;
   };
   messages?: Array<{
     id: string;
@@ -479,6 +481,75 @@ export const fetchCall = async (id: string): Promise<Call> => {
 export const fetchConversationCalls = async (conversationId: string): Promise<Call[]> => {
   const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/calls`);
   if (!response.ok) throw new Error('Failed to fetch conversation calls');
+  return response.json();
+};
+
+// ─── Email API helpers ────────────────────────────────────────────────────────
+
+export type EmailStatus =
+  | 'initiated' | 'queued' | 'sent' | 'delivered' | 'failed' | 'bounced' | 'received';
+export type EmailDirection = 'outbound' | 'inbound';
+
+export type Email = {
+  id: string;
+  twilioSid: string | null;
+  status: EmailStatus;
+  direction: EmailDirection;
+  subject: string;
+  from: string;
+  to: string;
+  body: string | null;
+  html: string | null;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  receivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  conversationId: string;
+  contactId: string;
+  contact?: {
+    id: string;
+    name: string;
+    business: string;
+    initials: string;
+    color: string;
+  };
+};
+
+/** Sends a real outbound email to a contact via Twilio's Email API. */
+export const sendEmail = async (data: {
+  contactId: string;
+  subject: string;
+  body?: string;
+  html?: string;
+  fromName?: string;
+}): Promise<Email> => {
+  const response = await fetch(`${API_BASE_URL}/emails`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    try {
+      const err = await response.json() as { error?: string };
+      throw new Error(err.error ?? 'Failed to send email');
+    } catch {
+      throw new Error('Failed to send email');
+    }
+  }
+  return response.json();
+};
+
+export const fetchEmail = async (id: string): Promise<Email> => {
+  const response = await fetch(`${API_BASE_URL}/emails/${id}`);
+  if (!response.ok) throw new Error('Failed to fetch email');
+  return response.json();
+};
+
+/** List all emails (sent + received) for a conversation. */
+export const fetchConversationEmails = async (conversationId: string): Promise<Email[]> => {
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/emails`);
+  if (!response.ok) throw new Error('Failed to fetch conversation emails');
   return response.json();
 };
 

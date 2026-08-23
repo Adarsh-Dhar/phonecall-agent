@@ -73,6 +73,10 @@ model Message {
   callId         String?
   call           Call?        @relation(fields: [callId], references: [id], onDelete: SetNull)
 
+  // Optional link to the email this transcript turn came from (sent or received)
+  emailId        String?
+  email          Email?       @relation(fields: [emailId], references: [id], onDelete: SetNull)
+
   taskSources    TaskSourceMessage[]
   querySources   QuerySourceMessage[]
   knowledgeSources KnowledgeSourceMessage[]
@@ -209,7 +213,7 @@ model Email {
   id         String    @id @default(cuid())
   twilioSid  String?   @unique    // Twilio Email SID, set once Twilio responds
   status     String    @default("initiated")
-  // initiated | queued | sent | delivered | failed | bounced
+  // initiated | queued | sent | delivered | failed | bounced | received (inbound)
   direction  String    @default("outbound")  // outbound | inbound
   subject    String
   from       String
@@ -218,6 +222,7 @@ model Email {
   html       String?   // HTML body
   sentAt     DateTime?
   deliveredAt DateTime?
+  receivedAt DateTime?  // set for inbound emails, when we received the webhook
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -226,6 +231,8 @@ model Email {
 
   contactId  String
   contact    Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  messages   Message[]
 
   @@index([conversationId])
   @@index([contactId])

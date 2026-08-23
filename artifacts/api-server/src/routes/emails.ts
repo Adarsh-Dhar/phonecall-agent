@@ -7,11 +7,16 @@
  */
 
 import { Router, type IRouter } from "express";
+import multer from "multer";
 import { prisma } from "@workspace/db-prisma";
 import { sendOutboundEmail } from "../services/twilioClient";
+import { generateEmailReply } from "../services/emailReply";
+import { verifyEmailInboundSecret } from "../middlewares/verifyEmailInboundSecret";
+import { scheduleExtraction } from "../services/taskExtraction";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
+const upload = multer(); // Inbound Parse posts multipart/form-data with no file fields we need to keep
 
 // ---------------------------------------------------------------------------
 // POST /api/emails — initiate an outbound email to a contact
@@ -103,6 +108,19 @@ router.post("/emails", async (req, res) => {
       data: { twilioSid: result.sid, status: result.status, sentAt: new Date() },
     });
 
+    // Write this into the conversation transcript, same as a call turn,
+    // so it shows up in the thread and feeds task extraction.
+    await prisma.message.create({
+      data: {
+        role: "assistant",
+        content: body ?? html ?? subject,
+        time: "Now",
+        conversationId: conversation.id,
+        emailId: email.id,
+      },
+    });
+    scheduleExtraction(conversation.id);
+
     res.status(201).json(updated);
   } catch (err) {
     logger.error({ err, emailId: email.id }, "emails: sendOutboundEmail failed");
@@ -118,6 +136,147 @@ router.post("/emails", async (req, res) => {
         err instanceof Error ? err.message : "Failed to send email via Twilio",
       email: failed,
     });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/emails/inbound — SendGrid/Twilio Inbound Parse webhook.
+//
+// Receives a reply from a contact, writes it to the transcript, and — same
+// idea as the call pipeline — generates and sends an AI reply automatically.
+//
+// This is NOT signature-verified via X-Twilio-Signature (Inbound Parse
+// doesn't sign requests that way); see verifyEmailInboundSecret.
+// ---------------------------------------------------------------------------
+
+router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (req, res) => {
+  // SendGrid Inbound Parse posts these as multipart/form-data fields.
+  const fromRaw = req.body?.from as string | undefined; // e.g. "Jane Doe <jane@example.com>"
+  const subject = (req.body?.subject as string | undefined) ?? "(no subject)";
+  const text = req.body?.text as string | undefined;
+  const html = req.body?.html as string | undefined;
+
+  // Always ack quickly so SendGrid doesn't retry/drop us — do the real work
+  // after responding is tempting, but we need the DB writes to succeed
+  // before telling them we're done, so just keep this handler fast instead.
+  if (!fromRaw) {
+    res.status(200).send("ignored: no From address");
+    return;
+  }
+
+  const emailMatch = fromRaw.match(/<([^>]+)>/);
+  const fromAddress = (emailMatch ? emailMatch[1] : fromRaw).trim().toLowerCase();
+
+  try {
+    const contact = await prisma.contact.findFirst({
+      where: { email: { equals: fromAddress, mode: "insensitive" } },
+    });
+
+    if (!contact) {
+      logger.warn({ fromAddress }, "emails/inbound: no contact matches sender, dropping");
+      res.status(200).send("ignored: unknown sender");
+      return;
+    }
+
+    let conversation = await prisma.conversation.findFirst({
+      where: { contactId: contact.id },
+      orderBy: { updatedAt: "desc" },
+    });
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: { contactId: contact.id, title: `Email with ${contact.name}` },
+      });
+    }
+
+    const inboundBody = text || html || "";
+
+    const inboundEmail = await prisma.email.create({
+      data: {
+        status: "received",
+        direction: "inbound",
+        conversationId: conversation.id,
+        contactId: contact.id,
+        subject,
+        from: fromAddress,
+        to: process.env.TWILIO_EMAIL_ADDRESS || "unknown@twilio.email",
+        body: text,
+        html,
+        receivedAt: new Date(),
+      },
+    });
+
+    await prisma.message.create({
+      data: {
+        role: "user",
+        content: inboundBody,
+        time: "Now",
+        conversationId: conversation.id,
+        emailId: inboundEmail.id,
+      },
+    });
+
+    // Ack the webhook now — reply generation/sending happens after, and
+    // failures there shouldn't cause SendGrid to retry delivery of the
+    // original inbound email.
+    res.status(200).send("ok");
+
+    scheduleExtraction(conversation.id);
+
+    // Auto-reply, same pattern as a completed call turn.
+    try {
+      const reply = await generateEmailReply({
+        conversationId: conversation.id,
+        contactId: contact.id,
+        contactName: contact.name,
+        incomingSubject: subject,
+        incomingBody: inboundBody,
+      });
+
+      if (!contact.email) return; // shouldn't happen, we matched on it above
+
+      const outboundEmail = await prisma.email.create({
+        data: {
+          status: "initiated",
+          direction: "outbound",
+          conversationId: conversation.id,
+          contactId: contact.id,
+          subject: reply.subject,
+          from: process.env.TWILIO_EMAIL_ADDRESS || "unknown@twilio.email",
+          to: contact.email,
+          body: reply.body,
+        },
+      });
+
+      const sendResult = await sendOutboundEmail({
+        to: contact.email,
+        subject: reply.subject,
+        body: reply.body,
+      });
+
+      await prisma.email.update({
+        where: { id: outboundEmail.id },
+        data: { twilioSid: sendResult.sid, status: sendResult.status, sentAt: new Date() },
+      });
+
+      await prisma.message.create({
+        data: {
+          role: "assistant",
+          content: reply.body,
+          time: "Now",
+          conversationId: conversation.id,
+          emailId: outboundEmail.id,
+        },
+      });
+
+      scheduleExtraction(conversation.id);
+    } catch (replyErr) {
+      // The inbound email is already safely recorded — a failed auto-reply
+      // just means no reply went out, not data loss. Log and move on.
+      logger.error({ err: replyErr, conversationId: conversation.id }, "emails/inbound: auto-reply failed");
+    }
+  } catch (error) {
+    logger.error({ error }, "emails/inbound: failed to process inbound email");
+    if (!res.headersSent) res.status(500).send("error");
   }
 });
 

@@ -8,6 +8,10 @@ const prisma = new PrismaClient();
 // E.164 number (+14155551234) without editing this file.
 const DUMMY_PHONE = process.env.TEST_PHONE_NUMBER ?? '0123456789';
 
+// Same idea for email — set TEST_EMAIL_ADDRESS to your own real inbox so you
+// can test outbound sends and inbound replies against a seeded contact.
+const TEST_EMAIL = process.env.TEST_EMAIL_ADDRESS ?? null;
+
 const CATEGORY = {
   ASSISTANT: 'Assistant',
   HEALTHCARE: 'Healthcare & Medical',
@@ -384,6 +388,7 @@ async function main() {
         business: c.business,
         category: c.category,
         phone: DUMMY_PHONE,
+        email: TEST_EMAIL,
         initials: c.initials,
         color: c.color,
         note: c.note,

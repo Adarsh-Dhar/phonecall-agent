@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import {
   ArrowUpRight, Check, CheckSquare, CircleHelp, History,
-  ListTodo, LoaderCircle, MessageCircle, MoreHorizontal, Paperclip,
+  ListTodo, LoaderCircle, Mail as MailIcon, MessageCircle, MoreHorizontal, Paperclip,
   Phone, PhoneCall, PhoneOff,
   Plus, RefreshCw, Send, ShieldCheck, Sparkles, Users, X, Zap,
 } from 'lucide-react';
@@ -15,7 +15,7 @@ import * as api from '@/lib/api';
 
 const queryClient = new QueryClient();
 
-type Contact = { id: string; name: string; business: string; category: string; phone: string; initials: string; color: string; note: string | null; online: boolean };
+type Contact = { id: string; name: string; business: string; category: string; phone: string; email: string | null; initials: string; color: string; note: string | null; online: boolean };
 
 const quickPrompts = [
   'Book me a dental cleaning next week, late mornings are best.',
@@ -143,6 +143,129 @@ function CallControls({
       <Phone size={13} />
       Call
     </button>
+  );
+}
+
+// EmailControls — mail button that opens a small compose popover, plus a
+// status pill while the send is in flight (mirrors CallControls above).
+function EmailControls({
+  contactName,
+  contactEmail,
+  sending,
+  sendError,
+  lastSent,
+  onSend,
+  onDismiss,
+}: {
+  contactName: string;
+  contactEmail: string | null;
+  sending: boolean;
+  sendError: string | null;
+  lastSent: boolean;
+  onSend: (subject: string, body: string) => void;
+  onDismiss: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+
+  if (sendError) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className="max-w-[180px] truncate text-[11px] text-[#b44343]" title={sendError}>{sendError}</span>
+        <button
+          type="button"
+          aria-label="Dismiss email error"
+          onClick={onDismiss}
+          className="grid h-6 w-6 place-items-center rounded-full text-[#b44343] hover:bg-[#fde8e8]"
+        >
+          <X size={12} />
+        </button>
+      </div>
+    );
+  }
+
+  if (sending) {
+    return (
+      <div className="flex items-center gap-1.5 rounded-full bg-[#f1f0ea] px-3 py-1.5 text-[11px] font-bold text-[#697a73]">
+        <LoaderCircle size={12} className="animate-spin" />
+        <span>Sending…</span>
+      </div>
+    );
+  }
+
+  if (lastSent) {
+    return (
+      <div className="flex items-center gap-1.5 rounded-full bg-[#e9f3ec] px-3 py-1.5 text-[11px] font-bold text-[#3f8274]">
+        <Check size={12} />
+        <span>Sent</span>
+        <button type="button" aria-label="Dismiss" onClick={onDismiss} className="ml-1 opacity-60 hover:opacity-100">
+          <X size={11} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-label="Compose email"
+        data-testid="button-compose-email"
+        onClick={() => setOpen((v) => !v)}
+        disabled={!contactEmail}
+        title={contactEmail ? undefined : `${contactName} has no email address on file`}
+        className="flex items-center gap-1.5 rounded-full border border-[hsl(var(--border))] bg-[#f6f3ed] px-3 py-1.5 text-[11px] font-bold text-[#3f8274] transition-all hover:-translate-y-0.5 hover:border-[#a7d0c1] hover:bg-[#edf7f1] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <MailIcon size={13} />
+        Email
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-9 z-20 w-80 rounded-xl border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] p-3 shadow-[0_16px_40px_rgba(39,53,58,.12)]">
+          <p className="mb-2 text-[11px] font-bold text-[hsl(var(--muted-foreground))]">
+            Email {contactName} · {contactEmail}
+          </p>
+          <input
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder="Subject"
+            className="mb-2 w-full rounded-lg border border-[hsl(var(--border))] px-2.5 py-1.5 text-xs outline-none focus:border-[#a7d0c1]"
+          />
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Write your message…"
+            rows={4}
+            className="mb-2 w-full resize-none rounded-lg border border-[hsl(var(--border))] px-2.5 py-1.5 text-xs outline-none focus:border-[#a7d0c1]"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-[hsl(var(--muted-foreground))] hover:bg-[#f1f0ea]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              data-testid="button-send-email"
+              disabled={!subject.trim() || !body.trim()}
+              onClick={() => {
+                onSend(subject.trim(), body.trim());
+                setOpen(false);
+                setSubject('');
+                setBody('');
+              }}
+              className="rounded-lg bg-[#3f8274] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#356c61] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -388,6 +511,35 @@ function InboxPage() {
     setCallError(null);
   };
 
+  // Email compose state (mirrors call state above)
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailLastSent, setEmailLastSent] = useState(false);
+
+  const sendEmail = async (subject: string, body: string) => {
+    if (!activeContact) return;
+    setEmailSending(true);
+    setEmailError(null);
+    setEmailLastSent(false);
+    try {
+      await api.sendEmail({ contactId: activeContact.id, subject, body });
+      setEmailLastSent(true);
+      // Refresh the thread so the outbound email shows up as a message.
+      if (conversation) {
+        api.fetchContactConversation(resolvedContactId).then(setConversation).catch(() => {});
+      }
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : 'Could not send email');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  const dismissEmail = () => {
+    setEmailError(null);
+    setEmailLastSent(false);
+  };
+
   // Load contacts + history once
   useEffect(() => {
     const loadData = async () => {
@@ -545,6 +697,18 @@ function InboxPage() {
                     callError={callError}
                     onCall={() => void placeCall()}
                     onDismiss={dismissCall}
+                  />
+                )}
+                {/* Email compose button + send status */}
+                {activeContact && (
+                  <EmailControls
+                    contactName={activeContact.name}
+                    contactEmail={activeContact.email ?? null}
+                    sending={emailSending}
+                    sendError={emailError}
+                    lastSent={emailLastSent}
+                    onSend={(subject, body) => void sendEmail(subject, body)}
+                    onDismiss={dismissEmail}
                   />
                 )}
                 <StatusPill busy={busy} />

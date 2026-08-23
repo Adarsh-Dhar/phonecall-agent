@@ -2152,6 +2152,37 @@ export namespace Prisma {
 
 
   /**
+   * Count Type EmailCountOutputType
+   */
+
+  export type EmailCountOutputType = {
+    messages: number
+  }
+
+  export type EmailCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    messages?: boolean | EmailCountOutputTypeCountMessagesArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * EmailCountOutputType without action
+   */
+  export type EmailCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the EmailCountOutputType
+     */
+    select?: EmailCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * EmailCountOutputType without action
+   */
+  export type EmailCountOutputTypeCountMessagesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: MessageWhereInput
+  }
+
+
+  /**
    * Count Type ContactKnowledgeCountOutputType
    */
 
@@ -4761,6 +4792,7 @@ export namespace Prisma {
     updatedAt: Date | null
     conversationId: string | null
     callId: string | null
+    emailId: string | null
   }
 
   export type MessageMaxAggregateOutputType = {
@@ -4773,6 +4805,7 @@ export namespace Prisma {
     updatedAt: Date | null
     conversationId: string | null
     callId: string | null
+    emailId: string | null
   }
 
   export type MessageCountAggregateOutputType = {
@@ -4785,6 +4818,7 @@ export namespace Prisma {
     updatedAt: number
     conversationId: number
     callId: number
+    emailId: number
     _all: number
   }
 
@@ -4799,6 +4833,7 @@ export namespace Prisma {
     updatedAt?: true
     conversationId?: true
     callId?: true
+    emailId?: true
   }
 
   export type MessageMaxAggregateInputType = {
@@ -4811,6 +4846,7 @@ export namespace Prisma {
     updatedAt?: true
     conversationId?: true
     callId?: true
+    emailId?: true
   }
 
   export type MessageCountAggregateInputType = {
@@ -4823,6 +4859,7 @@ export namespace Prisma {
     updatedAt?: true
     conversationId?: true
     callId?: true
+    emailId?: true
     _all?: true
   }
 
@@ -4908,6 +4945,7 @@ export namespace Prisma {
     updatedAt: Date
     conversationId: string
     callId: string | null
+    emailId: string | null
     _count: MessageCountAggregateOutputType | null
     _min: MessageMinAggregateOutputType | null
     _max: MessageMaxAggregateOutputType | null
@@ -4937,8 +4975,10 @@ export namespace Prisma {
     updatedAt?: boolean
     conversationId?: boolean
     callId?: boolean
+    emailId?: boolean
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
     call?: boolean | Message$callArgs<ExtArgs>
+    email?: boolean | Message$emailArgs<ExtArgs>
     taskSources?: boolean | Message$taskSourcesArgs<ExtArgs>
     querySources?: boolean | Message$querySourcesArgs<ExtArgs>
     knowledgeSources?: boolean | Message$knowledgeSourcesArgs<ExtArgs>
@@ -4955,8 +4995,10 @@ export namespace Prisma {
     updatedAt?: boolean
     conversationId?: boolean
     callId?: boolean
+    emailId?: boolean
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
     call?: boolean | Message$callArgs<ExtArgs>
+    email?: boolean | Message$emailArgs<ExtArgs>
   }, ExtArgs["result"]["message"]>
 
   export type MessageSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -4969,8 +5011,10 @@ export namespace Prisma {
     updatedAt?: boolean
     conversationId?: boolean
     callId?: boolean
+    emailId?: boolean
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
     call?: boolean | Message$callArgs<ExtArgs>
+    email?: boolean | Message$emailArgs<ExtArgs>
   }, ExtArgs["result"]["message"]>
 
   export type MessageSelectScalar = {
@@ -4983,12 +5027,14 @@ export namespace Prisma {
     updatedAt?: boolean
     conversationId?: boolean
     callId?: boolean
+    emailId?: boolean
   }
 
-  export type MessageOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "role" | "content" | "time" | "pending" | "createdAt" | "updatedAt" | "conversationId" | "callId", ExtArgs["result"]["message"]>
+  export type MessageOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "role" | "content" | "time" | "pending" | "createdAt" | "updatedAt" | "conversationId" | "callId" | "emailId", ExtArgs["result"]["message"]>
   export type MessageInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
     call?: boolean | Message$callArgs<ExtArgs>
+    email?: boolean | Message$emailArgs<ExtArgs>
     taskSources?: boolean | Message$taskSourcesArgs<ExtArgs>
     querySources?: boolean | Message$querySourcesArgs<ExtArgs>
     knowledgeSources?: boolean | Message$knowledgeSourcesArgs<ExtArgs>
@@ -4997,10 +5043,12 @@ export namespace Prisma {
   export type MessageIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
     call?: boolean | Message$callArgs<ExtArgs>
+    email?: boolean | Message$emailArgs<ExtArgs>
   }
   export type MessageIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
     call?: boolean | Message$callArgs<ExtArgs>
+    email?: boolean | Message$emailArgs<ExtArgs>
   }
 
   export type $MessagePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -5008,6 +5056,7 @@ export namespace Prisma {
     objects: {
       conversation: Prisma.$ConversationPayload<ExtArgs>
       call: Prisma.$CallPayload<ExtArgs> | null
+      email: Prisma.$EmailPayload<ExtArgs> | null
       taskSources: Prisma.$TaskSourceMessagePayload<ExtArgs>[]
       querySources: Prisma.$QuerySourceMessagePayload<ExtArgs>[]
       knowledgeSources: Prisma.$KnowledgeSourceMessagePayload<ExtArgs>[]
@@ -5022,6 +5071,7 @@ export namespace Prisma {
       updatedAt: Date
       conversationId: string
       callId: string | null
+      emailId: string | null
     }, ExtArgs["result"]["message"]>
     composites: {}
   }
@@ -5418,6 +5468,7 @@ export namespace Prisma {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     conversation<T extends ConversationDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ConversationDefaultArgs<ExtArgs>>): Prisma__ConversationClient<$Result.GetResult<Prisma.$ConversationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     call<T extends Message$callArgs<ExtArgs> = {}>(args?: Subset<T, Message$callArgs<ExtArgs>>): Prisma__CallClient<$Result.GetResult<Prisma.$CallPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    email<T extends Message$emailArgs<ExtArgs> = {}>(args?: Subset<T, Message$emailArgs<ExtArgs>>): Prisma__EmailClient<$Result.GetResult<Prisma.$EmailPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     taskSources<T extends Message$taskSourcesArgs<ExtArgs> = {}>(args?: Subset<T, Message$taskSourcesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$TaskSourceMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     querySources<T extends Message$querySourcesArgs<ExtArgs> = {}>(args?: Subset<T, Message$querySourcesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$QuerySourceMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     knowledgeSources<T extends Message$knowledgeSourcesArgs<ExtArgs> = {}>(args?: Subset<T, Message$knowledgeSourcesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$KnowledgeSourceMessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -5459,6 +5510,7 @@ export namespace Prisma {
     readonly updatedAt: FieldRef<"Message", 'DateTime'>
     readonly conversationId: FieldRef<"Message", 'String'>
     readonly callId: FieldRef<"Message", 'String'>
+    readonly emailId: FieldRef<"Message", 'String'>
   }
     
 
@@ -5871,6 +5923,25 @@ export namespace Prisma {
      */
     include?: CallInclude<ExtArgs> | null
     where?: CallWhereInput
+  }
+
+  /**
+   * Message.email
+   */
+  export type Message$emailArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Email
+     */
+    select?: EmailSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Email
+     */
+    omit?: EmailOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: EmailInclude<ExtArgs> | null
+    where?: EmailWhereInput
   }
 
   /**
@@ -12792,6 +12863,7 @@ export namespace Prisma {
     html: string | null
     sentAt: Date | null
     deliveredAt: Date | null
+    receivedAt: Date | null
     createdAt: Date | null
     updatedAt: Date | null
     conversationId: string | null
@@ -12810,6 +12882,7 @@ export namespace Prisma {
     html: string | null
     sentAt: Date | null
     deliveredAt: Date | null
+    receivedAt: Date | null
     createdAt: Date | null
     updatedAt: Date | null
     conversationId: string | null
@@ -12828,6 +12901,7 @@ export namespace Prisma {
     html: number
     sentAt: number
     deliveredAt: number
+    receivedAt: number
     createdAt: number
     updatedAt: number
     conversationId: number
@@ -12848,6 +12922,7 @@ export namespace Prisma {
     html?: true
     sentAt?: true
     deliveredAt?: true
+    receivedAt?: true
     createdAt?: true
     updatedAt?: true
     conversationId?: true
@@ -12866,6 +12941,7 @@ export namespace Prisma {
     html?: true
     sentAt?: true
     deliveredAt?: true
+    receivedAt?: true
     createdAt?: true
     updatedAt?: true
     conversationId?: true
@@ -12884,6 +12960,7 @@ export namespace Prisma {
     html?: true
     sentAt?: true
     deliveredAt?: true
+    receivedAt?: true
     createdAt?: true
     updatedAt?: true
     conversationId?: true
@@ -12975,6 +13052,7 @@ export namespace Prisma {
     html: string | null
     sentAt: Date | null
     deliveredAt: Date | null
+    receivedAt: Date | null
     createdAt: Date
     updatedAt: Date
     conversationId: string
@@ -13010,12 +13088,15 @@ export namespace Prisma {
     html?: boolean
     sentAt?: boolean
     deliveredAt?: boolean
+    receivedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     conversationId?: boolean
     contactId?: boolean
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
     contact?: boolean | ContactDefaultArgs<ExtArgs>
+    messages?: boolean | Email$messagesArgs<ExtArgs>
+    _count?: boolean | EmailCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["email"]>
 
   export type EmailSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -13030,6 +13111,7 @@ export namespace Prisma {
     html?: boolean
     sentAt?: boolean
     deliveredAt?: boolean
+    receivedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     conversationId?: boolean
@@ -13050,6 +13132,7 @@ export namespace Prisma {
     html?: boolean
     sentAt?: boolean
     deliveredAt?: boolean
+    receivedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     conversationId?: boolean
@@ -13070,16 +13153,19 @@ export namespace Prisma {
     html?: boolean
     sentAt?: boolean
     deliveredAt?: boolean
+    receivedAt?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     conversationId?: boolean
     contactId?: boolean
   }
 
-  export type EmailOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "twilioSid" | "status" | "direction" | "subject" | "from" | "to" | "body" | "html" | "sentAt" | "deliveredAt" | "createdAt" | "updatedAt" | "conversationId" | "contactId", ExtArgs["result"]["email"]>
+  export type EmailOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "twilioSid" | "status" | "direction" | "subject" | "from" | "to" | "body" | "html" | "sentAt" | "deliveredAt" | "receivedAt" | "createdAt" | "updatedAt" | "conversationId" | "contactId", ExtArgs["result"]["email"]>
   export type EmailInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
     contact?: boolean | ContactDefaultArgs<ExtArgs>
+    messages?: boolean | Email$messagesArgs<ExtArgs>
+    _count?: boolean | EmailCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type EmailIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     conversation?: boolean | ConversationDefaultArgs<ExtArgs>
@@ -13095,6 +13181,7 @@ export namespace Prisma {
     objects: {
       conversation: Prisma.$ConversationPayload<ExtArgs>
       contact: Prisma.$ContactPayload<ExtArgs>
+      messages: Prisma.$MessagePayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -13108,6 +13195,7 @@ export namespace Prisma {
       html: string | null
       sentAt: Date | null
       deliveredAt: Date | null
+      receivedAt: Date | null
       createdAt: Date
       updatedAt: Date
       conversationId: string
@@ -13508,6 +13596,7 @@ export namespace Prisma {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     conversation<T extends ConversationDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ConversationDefaultArgs<ExtArgs>>): Prisma__ConversationClient<$Result.GetResult<Prisma.$ConversationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     contact<T extends ContactDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ContactDefaultArgs<ExtArgs>>): Prisma__ContactClient<$Result.GetResult<Prisma.$ContactPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    messages<T extends Email$messagesArgs<ExtArgs> = {}>(args?: Subset<T, Email$messagesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MessagePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -13548,6 +13637,7 @@ export namespace Prisma {
     readonly html: FieldRef<"Email", 'String'>
     readonly sentAt: FieldRef<"Email", 'DateTime'>
     readonly deliveredAt: FieldRef<"Email", 'DateTime'>
+    readonly receivedAt: FieldRef<"Email", 'DateTime'>
     readonly createdAt: FieldRef<"Email", 'DateTime'>
     readonly updatedAt: FieldRef<"Email", 'DateTime'>
     readonly conversationId: FieldRef<"Email", 'String'>
@@ -13945,6 +14035,30 @@ export namespace Prisma {
      * Limit how many Emails to delete.
      */
     limit?: number
+  }
+
+  /**
+   * Email.messages
+   */
+  export type Email$messagesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Message
+     */
+    select?: MessageSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Message
+     */
+    omit?: MessageOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MessageInclude<ExtArgs> | null
+    where?: MessageWhereInput
+    orderBy?: MessageOrderByWithRelationInput | MessageOrderByWithRelationInput[]
+    cursor?: MessageWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: MessageScalarFieldEnum | MessageScalarFieldEnum[]
   }
 
   /**
@@ -16247,7 +16361,8 @@ export namespace Prisma {
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
     conversationId: 'conversationId',
-    callId: 'callId'
+    callId: 'callId',
+    emailId: 'emailId'
   };
 
   export type MessageScalarFieldEnum = (typeof MessageScalarFieldEnum)[keyof typeof MessageScalarFieldEnum]
@@ -16351,6 +16466,7 @@ export namespace Prisma {
     html: 'html',
     sentAt: 'sentAt',
     deliveredAt: 'deliveredAt',
+    receivedAt: 'receivedAt',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
     conversationId: 'conversationId',
@@ -16681,8 +16797,10 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"Message"> | Date | string
     conversationId?: StringFilter<"Message"> | string
     callId?: StringNullableFilter<"Message"> | string | null
+    emailId?: StringNullableFilter<"Message"> | string | null
     conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
     call?: XOR<CallNullableScalarRelationFilter, CallWhereInput> | null
+    email?: XOR<EmailNullableScalarRelationFilter, EmailWhereInput> | null
     taskSources?: TaskSourceMessageListRelationFilter
     querySources?: QuerySourceMessageListRelationFilter
     knowledgeSources?: KnowledgeSourceMessageListRelationFilter
@@ -16698,8 +16816,10 @@ export namespace Prisma {
     updatedAt?: SortOrder
     conversationId?: SortOrder
     callId?: SortOrderInput | SortOrder
+    emailId?: SortOrderInput | SortOrder
     conversation?: ConversationOrderByWithRelationInput
     call?: CallOrderByWithRelationInput
+    email?: EmailOrderByWithRelationInput
     taskSources?: TaskSourceMessageOrderByRelationAggregateInput
     querySources?: QuerySourceMessageOrderByRelationAggregateInput
     knowledgeSources?: KnowledgeSourceMessageOrderByRelationAggregateInput
@@ -16718,8 +16838,10 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"Message"> | Date | string
     conversationId?: StringFilter<"Message"> | string
     callId?: StringNullableFilter<"Message"> | string | null
+    emailId?: StringNullableFilter<"Message"> | string | null
     conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
     call?: XOR<CallNullableScalarRelationFilter, CallWhereInput> | null
+    email?: XOR<EmailNullableScalarRelationFilter, EmailWhereInput> | null
     taskSources?: TaskSourceMessageListRelationFilter
     querySources?: QuerySourceMessageListRelationFilter
     knowledgeSources?: KnowledgeSourceMessageListRelationFilter
@@ -16735,6 +16857,7 @@ export namespace Prisma {
     updatedAt?: SortOrder
     conversationId?: SortOrder
     callId?: SortOrderInput | SortOrder
+    emailId?: SortOrderInput | SortOrder
     _count?: MessageCountOrderByAggregateInput
     _max?: MessageMaxOrderByAggregateInput
     _min?: MessageMinOrderByAggregateInput
@@ -16753,6 +16876,7 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"Message"> | Date | string
     conversationId?: StringWithAggregatesFilter<"Message"> | string
     callId?: StringNullableWithAggregatesFilter<"Message"> | string | null
+    emailId?: StringNullableWithAggregatesFilter<"Message"> | string | null
   }
 
   export type HistoryWhereInput = {
@@ -17230,12 +17354,14 @@ export namespace Prisma {
     html?: StringNullableFilter<"Email"> | string | null
     sentAt?: DateTimeNullableFilter<"Email"> | Date | string | null
     deliveredAt?: DateTimeNullableFilter<"Email"> | Date | string | null
+    receivedAt?: DateTimeNullableFilter<"Email"> | Date | string | null
     createdAt?: DateTimeFilter<"Email"> | Date | string
     updatedAt?: DateTimeFilter<"Email"> | Date | string
     conversationId?: StringFilter<"Email"> | string
     contactId?: StringFilter<"Email"> | string
     conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
     contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
+    messages?: MessageListRelationFilter
   }
 
   export type EmailOrderByWithRelationInput = {
@@ -17250,12 +17376,14 @@ export namespace Prisma {
     html?: SortOrderInput | SortOrder
     sentAt?: SortOrderInput | SortOrder
     deliveredAt?: SortOrderInput | SortOrder
+    receivedAt?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversationId?: SortOrder
     contactId?: SortOrder
     conversation?: ConversationOrderByWithRelationInput
     contact?: ContactOrderByWithRelationInput
+    messages?: MessageOrderByRelationAggregateInput
   }
 
   export type EmailWhereUniqueInput = Prisma.AtLeast<{
@@ -17273,12 +17401,14 @@ export namespace Prisma {
     html?: StringNullableFilter<"Email"> | string | null
     sentAt?: DateTimeNullableFilter<"Email"> | Date | string | null
     deliveredAt?: DateTimeNullableFilter<"Email"> | Date | string | null
+    receivedAt?: DateTimeNullableFilter<"Email"> | Date | string | null
     createdAt?: DateTimeFilter<"Email"> | Date | string
     updatedAt?: DateTimeFilter<"Email"> | Date | string
     conversationId?: StringFilter<"Email"> | string
     contactId?: StringFilter<"Email"> | string
     conversation?: XOR<ConversationScalarRelationFilter, ConversationWhereInput>
     contact?: XOR<ContactScalarRelationFilter, ContactWhereInput>
+    messages?: MessageListRelationFilter
   }, "id" | "twilioSid">
 
   export type EmailOrderByWithAggregationInput = {
@@ -17293,6 +17423,7 @@ export namespace Prisma {
     html?: SortOrderInput | SortOrder
     sentAt?: SortOrderInput | SortOrder
     deliveredAt?: SortOrderInput | SortOrder
+    receivedAt?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversationId?: SortOrder
@@ -17317,6 +17448,7 @@ export namespace Prisma {
     html?: StringNullableWithAggregatesFilter<"Email"> | string | null
     sentAt?: DateTimeNullableWithAggregatesFilter<"Email"> | Date | string | null
     deliveredAt?: DateTimeNullableWithAggregatesFilter<"Email"> | Date | string | null
+    receivedAt?: DateTimeNullableWithAggregatesFilter<"Email"> | Date | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Email"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Email"> | Date | string
     conversationId?: StringWithAggregatesFilter<"Email"> | string
@@ -17690,6 +17822,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutMessagesInput
     call?: CallCreateNestedOneWithoutMessagesInput
+    email?: EmailCreateNestedOneWithoutMessagesInput
     taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
@@ -17705,6 +17838,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     conversationId: string
     callId?: string | null
+    emailId?: string | null
     taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
@@ -17720,6 +17854,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
     call?: CallUpdateOneWithoutMessagesNestedInput
+    email?: EmailUpdateOneWithoutMessagesNestedInput
     taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
@@ -17735,6 +17870,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
     callId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailId?: NullableStringFieldUpdateOperationsInput | string | null
     taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
@@ -17750,6 +17886,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     conversationId: string
     callId?: string | null
+    emailId?: string | null
   }
 
   export type MessageUpdateManyMutationInput = {
@@ -17772,6 +17909,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
     callId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type HistoryCreateInput = {
@@ -18263,10 +18401,12 @@ export namespace Prisma {
     html?: string | null
     sentAt?: Date | string | null
     deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutEmailsInput
     contact: ContactCreateNestedOneWithoutEmailsInput
+    messages?: MessageCreateNestedManyWithoutEmailInput
   }
 
   export type EmailUncheckedCreateInput = {
@@ -18281,10 +18421,12 @@ export namespace Prisma {
     html?: string | null
     sentAt?: Date | string | null
     deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
     contactId: string
+    messages?: MessageUncheckedCreateNestedManyWithoutEmailInput
   }
 
   export type EmailUpdateInput = {
@@ -18299,10 +18441,12 @@ export namespace Prisma {
     html?: NullableStringFieldUpdateOperationsInput | string | null
     sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutEmailsNestedInput
     contact?: ContactUpdateOneRequiredWithoutEmailsNestedInput
+    messages?: MessageUpdateManyWithoutEmailNestedInput
   }
 
   export type EmailUncheckedUpdateInput = {
@@ -18317,10 +18461,12 @@ export namespace Prisma {
     html?: NullableStringFieldUpdateOperationsInput | string | null
     sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
     contactId?: StringFieldUpdateOperationsInput | string
+    messages?: MessageUncheckedUpdateManyWithoutEmailNestedInput
   }
 
   export type EmailCreateManyInput = {
@@ -18335,6 +18481,7 @@ export namespace Prisma {
     html?: string | null
     sentAt?: Date | string | null
     deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
@@ -18353,6 +18500,7 @@ export namespace Prisma {
     html?: NullableStringFieldUpdateOperationsInput | string | null
     sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -18369,6 +18517,7 @@ export namespace Prisma {
     html?: NullableStringFieldUpdateOperationsInput | string | null
     sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
@@ -18813,6 +18962,11 @@ export namespace Prisma {
     isNot?: CallWhereInput | null
   }
 
+  export type EmailNullableScalarRelationFilter = {
+    is?: EmailWhereInput | null
+    isNot?: EmailWhereInput | null
+  }
+
   export type TaskSourceMessageListRelationFilter = {
     every?: TaskSourceMessageWhereInput
     some?: TaskSourceMessageWhereInput
@@ -18853,6 +19007,7 @@ export namespace Prisma {
     updatedAt?: SortOrder
     conversationId?: SortOrder
     callId?: SortOrder
+    emailId?: SortOrder
   }
 
   export type MessageMaxOrderByAggregateInput = {
@@ -18865,6 +19020,7 @@ export namespace Prisma {
     updatedAt?: SortOrder
     conversationId?: SortOrder
     callId?: SortOrder
+    emailId?: SortOrder
   }
 
   export type MessageMinOrderByAggregateInput = {
@@ -18877,6 +19033,7 @@ export namespace Prisma {
     updatedAt?: SortOrder
     conversationId?: SortOrder
     callId?: SortOrder
+    emailId?: SortOrder
   }
 
   export type HistoryCountOrderByAggregateInput = {
@@ -19192,6 +19349,7 @@ export namespace Prisma {
     html?: SortOrder
     sentAt?: SortOrder
     deliveredAt?: SortOrder
+    receivedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversationId?: SortOrder
@@ -19210,6 +19368,7 @@ export namespace Prisma {
     html?: SortOrder
     sentAt?: SortOrder
     deliveredAt?: SortOrder
+    receivedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversationId?: SortOrder
@@ -19228,6 +19387,7 @@ export namespace Prisma {
     html?: SortOrder
     sentAt?: SortOrder
     deliveredAt?: SortOrder
+    receivedAt?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     conversationId?: SortOrder
@@ -19865,6 +20025,12 @@ export namespace Prisma {
     connect?: CallWhereUniqueInput
   }
 
+  export type EmailCreateNestedOneWithoutMessagesInput = {
+    create?: XOR<EmailCreateWithoutMessagesInput, EmailUncheckedCreateWithoutMessagesInput>
+    connectOrCreate?: EmailCreateOrConnectWithoutMessagesInput
+    connect?: EmailWhereUniqueInput
+  }
+
   export type TaskSourceMessageCreateNestedManyWithoutMessageInput = {
     create?: XOR<TaskSourceMessageCreateWithoutMessageInput, TaskSourceMessageUncheckedCreateWithoutMessageInput> | TaskSourceMessageCreateWithoutMessageInput[] | TaskSourceMessageUncheckedCreateWithoutMessageInput[]
     connectOrCreate?: TaskSourceMessageCreateOrConnectWithoutMessageInput | TaskSourceMessageCreateOrConnectWithoutMessageInput[]
@@ -19923,6 +20089,16 @@ export namespace Prisma {
     delete?: CallWhereInput | boolean
     connect?: CallWhereUniqueInput
     update?: XOR<XOR<CallUpdateToOneWithWhereWithoutMessagesInput, CallUpdateWithoutMessagesInput>, CallUncheckedUpdateWithoutMessagesInput>
+  }
+
+  export type EmailUpdateOneWithoutMessagesNestedInput = {
+    create?: XOR<EmailCreateWithoutMessagesInput, EmailUncheckedCreateWithoutMessagesInput>
+    connectOrCreate?: EmailCreateOrConnectWithoutMessagesInput
+    upsert?: EmailUpsertWithoutMessagesInput
+    disconnect?: EmailWhereInput | boolean
+    delete?: EmailWhereInput | boolean
+    connect?: EmailWhereUniqueInput
+    update?: XOR<XOR<EmailUpdateToOneWithWhereWithoutMessagesInput, EmailUpdateWithoutMessagesInput>, EmailUncheckedUpdateWithoutMessagesInput>
   }
 
   export type TaskSourceMessageUpdateManyWithoutMessageNestedInput = {
@@ -20317,6 +20493,20 @@ export namespace Prisma {
     connect?: ContactWhereUniqueInput
   }
 
+  export type MessageCreateNestedManyWithoutEmailInput = {
+    create?: XOR<MessageCreateWithoutEmailInput, MessageUncheckedCreateWithoutEmailInput> | MessageCreateWithoutEmailInput[] | MessageUncheckedCreateWithoutEmailInput[]
+    connectOrCreate?: MessageCreateOrConnectWithoutEmailInput | MessageCreateOrConnectWithoutEmailInput[]
+    createMany?: MessageCreateManyEmailInputEnvelope
+    connect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+  }
+
+  export type MessageUncheckedCreateNestedManyWithoutEmailInput = {
+    create?: XOR<MessageCreateWithoutEmailInput, MessageUncheckedCreateWithoutEmailInput> | MessageCreateWithoutEmailInput[] | MessageUncheckedCreateWithoutEmailInput[]
+    connectOrCreate?: MessageCreateOrConnectWithoutEmailInput | MessageCreateOrConnectWithoutEmailInput[]
+    createMany?: MessageCreateManyEmailInputEnvelope
+    connect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+  }
+
   export type ConversationUpdateOneRequiredWithoutEmailsNestedInput = {
     create?: XOR<ConversationCreateWithoutEmailsInput, ConversationUncheckedCreateWithoutEmailsInput>
     connectOrCreate?: ConversationCreateOrConnectWithoutEmailsInput
@@ -20331,6 +20521,34 @@ export namespace Prisma {
     upsert?: ContactUpsertWithoutEmailsInput
     connect?: ContactWhereUniqueInput
     update?: XOR<XOR<ContactUpdateToOneWithWhereWithoutEmailsInput, ContactUpdateWithoutEmailsInput>, ContactUncheckedUpdateWithoutEmailsInput>
+  }
+
+  export type MessageUpdateManyWithoutEmailNestedInput = {
+    create?: XOR<MessageCreateWithoutEmailInput, MessageUncheckedCreateWithoutEmailInput> | MessageCreateWithoutEmailInput[] | MessageUncheckedCreateWithoutEmailInput[]
+    connectOrCreate?: MessageCreateOrConnectWithoutEmailInput | MessageCreateOrConnectWithoutEmailInput[]
+    upsert?: MessageUpsertWithWhereUniqueWithoutEmailInput | MessageUpsertWithWhereUniqueWithoutEmailInput[]
+    createMany?: MessageCreateManyEmailInputEnvelope
+    set?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    disconnect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    delete?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    connect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    update?: MessageUpdateWithWhereUniqueWithoutEmailInput | MessageUpdateWithWhereUniqueWithoutEmailInput[]
+    updateMany?: MessageUpdateManyWithWhereWithoutEmailInput | MessageUpdateManyWithWhereWithoutEmailInput[]
+    deleteMany?: MessageScalarWhereInput | MessageScalarWhereInput[]
+  }
+
+  export type MessageUncheckedUpdateManyWithoutEmailNestedInput = {
+    create?: XOR<MessageCreateWithoutEmailInput, MessageUncheckedCreateWithoutEmailInput> | MessageCreateWithoutEmailInput[] | MessageUncheckedCreateWithoutEmailInput[]
+    connectOrCreate?: MessageCreateOrConnectWithoutEmailInput | MessageCreateOrConnectWithoutEmailInput[]
+    upsert?: MessageUpsertWithWhereUniqueWithoutEmailInput | MessageUpsertWithWhereUniqueWithoutEmailInput[]
+    createMany?: MessageCreateManyEmailInputEnvelope
+    set?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    disconnect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    delete?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    connect?: MessageWhereUniqueInput | MessageWhereUniqueInput[]
+    update?: MessageUpdateWithWhereUniqueWithoutEmailInput | MessageUpdateWithWhereUniqueWithoutEmailInput[]
+    updateMany?: MessageUpdateManyWithWhereWithoutEmailInput | MessageUpdateManyWithWhereWithoutEmailInput[]
+    deleteMany?: MessageScalarWhereInput | MessageScalarWhereInput[]
   }
 
   export type ContactCreateNestedOneWithoutKnowledgeInput = {
@@ -20820,9 +21038,11 @@ export namespace Prisma {
     html?: string | null
     sentAt?: Date | string | null
     deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutEmailsInput
+    messages?: MessageCreateNestedManyWithoutEmailInput
   }
 
   export type EmailUncheckedCreateWithoutContactInput = {
@@ -20837,9 +21057,11 @@ export namespace Prisma {
     html?: string | null
     sentAt?: Date | string | null
     deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
+    messages?: MessageUncheckedCreateNestedManyWithoutEmailInput
   }
 
   export type EmailCreateOrConnectWithoutContactInput = {
@@ -21043,6 +21265,7 @@ export namespace Prisma {
     html?: StringNullableFilter<"Email"> | string | null
     sentAt?: DateTimeNullableFilter<"Email"> | Date | string | null
     deliveredAt?: DateTimeNullableFilter<"Email"> | Date | string | null
+    receivedAt?: DateTimeNullableFilter<"Email"> | Date | string | null
     createdAt?: DateTimeFilter<"Email"> | Date | string
     updatedAt?: DateTimeFilter<"Email"> | Date | string
     conversationId?: StringFilter<"Email"> | string
@@ -21058,6 +21281,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     call?: CallCreateNestedOneWithoutMessagesInput
+    email?: EmailCreateNestedOneWithoutMessagesInput
     taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
@@ -21072,6 +21296,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     callId?: string | null
+    emailId?: string | null
     taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
@@ -21290,9 +21515,11 @@ export namespace Prisma {
     html?: string | null
     sentAt?: Date | string | null
     deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     contact: ContactCreateNestedOneWithoutEmailsInput
+    messages?: MessageCreateNestedManyWithoutEmailInput
   }
 
   export type EmailUncheckedCreateWithoutConversationInput = {
@@ -21307,9 +21534,11 @@ export namespace Prisma {
     html?: string | null
     sentAt?: Date | string | null
     deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     contactId: string
+    messages?: MessageUncheckedCreateNestedManyWithoutEmailInput
   }
 
   export type EmailCreateOrConnectWithoutConversationInput = {
@@ -21351,6 +21580,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"Message"> | Date | string
     conversationId?: StringFilter<"Message"> | string
     callId?: StringNullableFilter<"Message"> | string | null
+    emailId?: StringNullableFilter<"Message"> | string | null
   }
 
   export type HistoryUpsertWithWhereUniqueWithoutConversationInput = {
@@ -21566,6 +21796,49 @@ export namespace Prisma {
     create: XOR<CallCreateWithoutMessagesInput, CallUncheckedCreateWithoutMessagesInput>
   }
 
+  export type EmailCreateWithoutMessagesInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversation: ConversationCreateNestedOneWithoutEmailsInput
+    contact: ContactCreateNestedOneWithoutEmailsInput
+  }
+
+  export type EmailUncheckedCreateWithoutMessagesInput = {
+    id?: string
+    twilioSid?: string | null
+    status?: string
+    direction?: string
+    subject: string
+    from: string
+    to: string
+    body?: string | null
+    html?: string | null
+    sentAt?: Date | string | null
+    deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+    contactId: string
+  }
+
+  export type EmailCreateOrConnectWithoutMessagesInput = {
+    where: EmailWhereUniqueInput
+    create: XOR<EmailCreateWithoutMessagesInput, EmailUncheckedCreateWithoutMessagesInput>
+  }
+
   export type TaskSourceMessageCreateWithoutMessageInput = {
     id?: string
     role: string
@@ -21706,6 +21979,55 @@ export namespace Prisma {
     duration?: NullableIntFieldUpdateOperationsInput | number | null
     startedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     endedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+    contactId?: StringFieldUpdateOperationsInput | string
+  }
+
+  export type EmailUpsertWithoutMessagesInput = {
+    update: XOR<EmailUpdateWithoutMessagesInput, EmailUncheckedUpdateWithoutMessagesInput>
+    create: XOR<EmailCreateWithoutMessagesInput, EmailUncheckedCreateWithoutMessagesInput>
+    where?: EmailWhereInput
+  }
+
+  export type EmailUpdateToOneWithWhereWithoutMessagesInput = {
+    where?: EmailWhereInput
+    data: XOR<EmailUpdateWithoutMessagesInput, EmailUncheckedUpdateWithoutMessagesInput>
+  }
+
+  export type EmailUpdateWithoutMessagesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversation?: ConversationUpdateOneRequiredWithoutEmailsNestedInput
+    contact?: ContactUpdateOneRequiredWithoutEmailsNestedInput
+  }
+
+  export type EmailUncheckedUpdateWithoutMessagesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    twilioSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    direction?: StringFieldUpdateOperationsInput | string
+    subject?: StringFieldUpdateOperationsInput | string
+    from?: StringFieldUpdateOperationsInput | string
+    to?: StringFieldUpdateOperationsInput | string
+    body?: NullableStringFieldUpdateOperationsInput | string | null
+    html?: NullableStringFieldUpdateOperationsInput | string | null
+    sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
@@ -22123,6 +22445,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutMessagesInput
     call?: CallCreateNestedOneWithoutMessagesInput
+    email?: EmailCreateNestedOneWithoutMessagesInput
     querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
   }
@@ -22137,6 +22460,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     conversationId: string
     callId?: string | null
+    emailId?: string | null
     querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
   }
@@ -22210,6 +22534,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
     call?: CallUpdateOneWithoutMessagesNestedInput
+    email?: EmailUpdateOneWithoutMessagesNestedInput
     querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
   }
@@ -22224,6 +22549,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
     callId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailId?: NullableStringFieldUpdateOperationsInput | string | null
     querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
   }
@@ -22479,6 +22805,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutMessagesInput
     call?: CallCreateNestedOneWithoutMessagesInput
+    email?: EmailCreateNestedOneWithoutMessagesInput
     taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
   }
@@ -22493,6 +22820,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     conversationId: string
     callId?: string | null
+    emailId?: string | null
     taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
   }
@@ -22560,6 +22888,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
     call?: CallUpdateOneWithoutMessagesNestedInput
+    email?: EmailUpdateOneWithoutMessagesNestedInput
     taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
   }
@@ -22574,6 +22903,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
     callId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailId?: NullableStringFieldUpdateOperationsInput | string | null
     taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
   }
@@ -22667,6 +22997,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutMessagesInput
+    email?: EmailCreateNestedOneWithoutMessagesInput
     taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
@@ -22681,6 +23012,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
+    emailId?: string | null
     taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
@@ -22884,6 +23216,46 @@ export namespace Prisma {
     create: XOR<ContactCreateWithoutEmailsInput, ContactUncheckedCreateWithoutEmailsInput>
   }
 
+  export type MessageCreateWithoutEmailInput = {
+    id?: string
+    role: string
+    content: string
+    time: string
+    pending?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversation: ConversationCreateNestedOneWithoutMessagesInput
+    call?: CallCreateNestedOneWithoutMessagesInput
+    taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
+    querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
+    knowledgeSources?: KnowledgeSourceMessageCreateNestedManyWithoutMessageInput
+  }
+
+  export type MessageUncheckedCreateWithoutEmailInput = {
+    id?: string
+    role: string
+    content: string
+    time: string
+    pending?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+    callId?: string | null
+    taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
+    querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
+    knowledgeSources?: KnowledgeSourceMessageUncheckedCreateNestedManyWithoutMessageInput
+  }
+
+  export type MessageCreateOrConnectWithoutEmailInput = {
+    where: MessageWhereUniqueInput
+    create: XOR<MessageCreateWithoutEmailInput, MessageUncheckedCreateWithoutEmailInput>
+  }
+
+  export type MessageCreateManyEmailInputEnvelope = {
+    data: MessageCreateManyEmailInput | MessageCreateManyEmailInput[]
+    skipDuplicates?: boolean
+  }
+
   export type ConversationUpsertWithoutEmailsInput = {
     update: XOR<ConversationUpdateWithoutEmailsInput, ConversationUncheckedUpdateWithoutEmailsInput>
     create: XOR<ConversationCreateWithoutEmailsInput, ConversationUncheckedCreateWithoutEmailsInput>
@@ -22974,6 +23346,22 @@ export namespace Prisma {
     queries?: QueryUncheckedUpdateManyWithoutContactNestedInput
     knowledge?: ContactKnowledgeUncheckedUpdateManyWithoutContactNestedInput
     calls?: CallUncheckedUpdateManyWithoutContactNestedInput
+  }
+
+  export type MessageUpsertWithWhereUniqueWithoutEmailInput = {
+    where: MessageWhereUniqueInput
+    update: XOR<MessageUpdateWithoutEmailInput, MessageUncheckedUpdateWithoutEmailInput>
+    create: XOR<MessageCreateWithoutEmailInput, MessageUncheckedCreateWithoutEmailInput>
+  }
+
+  export type MessageUpdateWithWhereUniqueWithoutEmailInput = {
+    where: MessageWhereUniqueInput
+    data: XOR<MessageUpdateWithoutEmailInput, MessageUncheckedUpdateWithoutEmailInput>
+  }
+
+  export type MessageUpdateManyWithWhereWithoutEmailInput = {
+    where: MessageScalarWhereInput
+    data: XOR<MessageUpdateManyMutationInput, MessageUncheckedUpdateManyWithoutEmailInput>
   }
 
   export type ContactCreateWithoutKnowledgeInput = {
@@ -23149,6 +23537,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     conversation: ConversationCreateNestedOneWithoutMessagesInput
     call?: CallCreateNestedOneWithoutMessagesInput
+    email?: EmailCreateNestedOneWithoutMessagesInput
     taskSources?: TaskSourceMessageCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageCreateNestedManyWithoutMessageInput
   }
@@ -23163,6 +23552,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     conversationId: string
     callId?: string | null
+    emailId?: string | null
     taskSources?: TaskSourceMessageUncheckedCreateNestedManyWithoutMessageInput
     querySources?: QuerySourceMessageUncheckedCreateNestedManyWithoutMessageInput
   }
@@ -23228,6 +23618,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
     call?: CallUpdateOneWithoutMessagesNestedInput
+    email?: EmailUpdateOneWithoutMessagesNestedInput
     taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
   }
@@ -23242,6 +23633,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
     callId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailId?: NullableStringFieldUpdateOperationsInput | string | null
     taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
   }
@@ -23318,6 +23710,7 @@ export namespace Prisma {
     html?: string | null
     sentAt?: Date | string | null
     deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
@@ -23535,9 +23928,11 @@ export namespace Prisma {
     html?: NullableStringFieldUpdateOperationsInput | string | null
     sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutEmailsNestedInput
+    messages?: MessageUpdateManyWithoutEmailNestedInput
   }
 
   export type EmailUncheckedUpdateWithoutContactInput = {
@@ -23552,9 +23947,11 @@ export namespace Prisma {
     html?: NullableStringFieldUpdateOperationsInput | string | null
     sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
+    messages?: MessageUncheckedUpdateManyWithoutEmailNestedInput
   }
 
   export type EmailUncheckedUpdateManyWithoutContactInput = {
@@ -23569,6 +23966,7 @@ export namespace Prisma {
     html?: NullableStringFieldUpdateOperationsInput | string | null
     sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
@@ -23583,6 +23981,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     callId?: string | null
+    emailId?: string | null
   }
 
   export type HistoryCreateManyConversationInput = {
@@ -23647,6 +24046,7 @@ export namespace Prisma {
     html?: string | null
     sentAt?: Date | string | null
     deliveredAt?: Date | string | null
+    receivedAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     contactId: string
@@ -23661,6 +24061,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     call?: CallUpdateOneWithoutMessagesNestedInput
+    email?: EmailUpdateOneWithoutMessagesNestedInput
     taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
@@ -23675,6 +24076,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     callId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailId?: NullableStringFieldUpdateOperationsInput | string | null
     taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
@@ -23689,6 +24091,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     callId?: NullableStringFieldUpdateOperationsInput | string | null
+    emailId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type HistoryUpdateWithoutConversationInput = {
@@ -23859,9 +24262,11 @@ export namespace Prisma {
     html?: NullableStringFieldUpdateOperationsInput | string | null
     sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     contact?: ContactUpdateOneRequiredWithoutEmailsNestedInput
+    messages?: MessageUpdateManyWithoutEmailNestedInput
   }
 
   export type EmailUncheckedUpdateWithoutConversationInput = {
@@ -23876,9 +24281,11 @@ export namespace Prisma {
     html?: NullableStringFieldUpdateOperationsInput | string | null
     sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     contactId?: StringFieldUpdateOperationsInput | string
+    messages?: MessageUncheckedUpdateManyWithoutEmailNestedInput
   }
 
   export type EmailUncheckedUpdateManyWithoutConversationInput = {
@@ -23893,6 +24300,7 @@ export namespace Prisma {
     html?: NullableStringFieldUpdateOperationsInput | string | null
     sentAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     deliveredAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    receivedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     contactId?: StringFieldUpdateOperationsInput | string
@@ -24027,6 +24435,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     conversationId: string
+    emailId?: string | null
   }
 
   export type MessageUpdateWithoutCallInput = {
@@ -24038,6 +24447,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
+    email?: EmailUpdateOneWithoutMessagesNestedInput
     taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
@@ -24052,6 +24462,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
+    emailId?: NullableStringFieldUpdateOperationsInput | string | null
     taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
     knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
@@ -24066,6 +24477,61 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     conversationId?: StringFieldUpdateOperationsInput | string
+    emailId?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type MessageCreateManyEmailInput = {
+    id?: string
+    role: string
+    content: string
+    time: string
+    pending?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    conversationId: string
+    callId?: string | null
+  }
+
+  export type MessageUpdateWithoutEmailInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    content?: StringFieldUpdateOperationsInput | string
+    time?: StringFieldUpdateOperationsInput | string
+    pending?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversation?: ConversationUpdateOneRequiredWithoutMessagesNestedInput
+    call?: CallUpdateOneWithoutMessagesNestedInput
+    taskSources?: TaskSourceMessageUpdateManyWithoutMessageNestedInput
+    querySources?: QuerySourceMessageUpdateManyWithoutMessageNestedInput
+    knowledgeSources?: KnowledgeSourceMessageUpdateManyWithoutMessageNestedInput
+  }
+
+  export type MessageUncheckedUpdateWithoutEmailInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    content?: StringFieldUpdateOperationsInput | string
+    time?: StringFieldUpdateOperationsInput | string
+    pending?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+    callId?: NullableStringFieldUpdateOperationsInput | string | null
+    taskSources?: TaskSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
+    querySources?: QuerySourceMessageUncheckedUpdateManyWithoutMessageNestedInput
+    knowledgeSources?: KnowledgeSourceMessageUncheckedUpdateManyWithoutMessageNestedInput
+  }
+
+  export type MessageUncheckedUpdateManyWithoutEmailInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    role?: StringFieldUpdateOperationsInput | string
+    content?: StringFieldUpdateOperationsInput | string
+    time?: StringFieldUpdateOperationsInput | string
+    pending?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    conversationId?: StringFieldUpdateOperationsInput | string
+    callId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type KnowledgeSourceMessageCreateManyKnowledgeInput = {
