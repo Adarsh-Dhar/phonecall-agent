@@ -29,13 +29,18 @@ kill_port 5176
 kill_port 5177
 echo "Ports cleared."
 
-# Run Prisma migrations
-echo "Running Prisma migrations..."
-npx prisma db push || echo "Migration failed"
-
-# Seed the database
-echo "Seeding database..."
-npx tsx seed.ts || echo "Seed failed (might already exist)"
+# Run Prisma migrations (skip for SQLite local dev)
+if [[ "$DATABASE_URL" == *"render.com"* ]]; then
+  echo "Running Prisma migrations for PostgreSQL..."
+  npx prisma db push || echo "Migration failed"
+  
+  # Seed the database
+  echo "Seeding database..."
+  npx tsx seed.ts || echo "Seed failed (might already exist)"
+else
+  echo "Using SQLite for local development - skipping migrations"
+  echo "Database: prisma/dev.db"
+fi
 
 # Function to handle cleanup on exit
 cleanup() {

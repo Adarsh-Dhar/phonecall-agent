@@ -11,7 +11,6 @@ const DUMMY_PHONE = process.env.TEST_PHONE_NUMBER ?? '0123456789';
 // Pool of real inboxes YOU control, used to test the agent <-> provider
 // email loop realistically: each of these gets assigned to a different
 // contact at seed time, so you can reply "as" that provider from a real inbox.
-// Every other contact is seeded with email: null.
 //
 // Override via TEST_PROVIDER_EMAILS as a comma-separated list, e.g.:
 //   TEST_PROVIDER_EMAILS=a@gmail.com,b@gmail.com,c@gmail.com
@@ -27,6 +26,31 @@ const DEFAULT_PROVIDER_EMAILS = [
   'adarsh123ce@gmail.com',
   'adarsh123ce0080@gmail.com',
   '123ce0080@nitrkl.ac.in',
+  // Additional generated emails for remaining contacts
+  'horizon.claims.adjuster@gmail.com',
+  'hargrove.associates@gmail.com',
+  'olive.vine.trattoria@gmail.com',
+  'swift.courier.services@gmail.com',
+  'parkview.property.management@gmail.com',
+  'lincoln.elementary.school@gmail.com',
+  'homegoods.online.support@gmail.com',
+  'streamplus.support@gmail.com',
+  'connectmobile@gmail.com',
+  'skylines.airlines@gmail.com',
+  'amazon.customer.support@gmail.com',
+  'mara.parcel.desk@gmail.com',
+  'social.security.office@gmail.com',
+  'passport.immigration.office@gmail.com',
+  'fairview.city.hall@gmail.com',
+  'metro.dmv@gmail.com',
+  'patterson.tax.accounting@gmail.com',
+  'summit.mortgage.group@gmail.com',
+  'northwind.water.internet@gmail.com',
+  'cityline.utilities@gmail.com',
+  'meridian.bank@gmail.com',
+  'horizon.insurance@gmail.com',
+  'fixit.appliance.repair@gmail.com',
+  'quickkey.locksmith@gmail.com',
 ];
 
 const PROVIDER_EMAILS =
@@ -410,16 +434,23 @@ async function main() {
 
   console.log('Empty database, seeding contacts...');
 
-  // Assign the provider email pool to the first 11 non-Assistant contacts.
-  // Everyone else gets email: null. Logged below so you know which contact
-  // maps to which inbox for this run.
+  // Assign the provider email pool to all non-Assistant contacts.
+  // Each contact gets a unique email for testing.
   const eligibleForEmail = CONTACTS.filter((c) => c.category !== CATEGORY.ASSISTANT);
-  const chosenForEmail = eligibleForEmail.slice(0, PROVIDER_EMAILS.length);
   const emailByContactName = new Map<string, string>();
-  chosenForEmail.forEach((c, i) => emailByContactName.set(c.name, PROVIDER_EMAILS[i]));
+  eligibleForEmail.forEach((c, i) => {
+    // Use the corresponding email from the expanded list
+    if (i < PROVIDER_EMAILS.length) {
+      emailByContactName.set(c.name, PROVIDER_EMAILS[i]);
+    } else {
+      // Generate email based on contact name for any remaining contacts
+      const sanitizedName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      emailByContactName.set(c.name, `${sanitizedName}@provider-test.com`);
+    }
+  });
 
-  console.log(`Assigning ${chosenForEmail.length} real test emails to first ${chosenForEmail.length} service providers:`);
-  for (const c of chosenForEmail) {
+  console.log(`Assigning ${eligibleForEmail.length} emails to service providers:`);
+  for (const c of eligibleForEmail) {
     console.log(`  ${c.name}  ->  ${emailByContactName.get(c.name)}`);
   }
 

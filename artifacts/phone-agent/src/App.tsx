@@ -1010,7 +1010,8 @@ function ContactsPage() {
                 <Avatar contact={contact} />
                 <div className="min-w-0 flex-1 text-left">
                   <h3 className="font-bold">{contact.name}</h3>
-                  <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">{contact.business}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{contact.business}</p>
+                  {contact.email && <p className="mt-1 text-xs text-muted-foreground">{contact.email}</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${contact.online ? 'bg-[#5bc4a3]' : 'bg-[#879a94]'}`} />
