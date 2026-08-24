@@ -5,6 +5,15 @@ packages:
   - lib/db-prisma
   - scripts
 
+allowBuilds:
+  '@google/genai': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  better-sqlite3: true
+  esbuild: true
+  prisma: true
+  protobufjs: true
+
 autoInstallPeers: false
 
 catalog:
