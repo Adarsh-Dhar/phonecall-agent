@@ -1,5 +1,5 @@
 /**
- * SendGrid/Twilio's Inbound Parse webhook has no X-Twilio-Signature — that
+ * Twilio's Inbound Parse webhook has no X-Twilio-Signature — that
  * header only exists on the voice/SMS webhook surface, not on Inbound Parse
  * POSTs. So instead we verify a shared secret passed as a query param on
  * the Destination URL you configure in the console, e.g.:

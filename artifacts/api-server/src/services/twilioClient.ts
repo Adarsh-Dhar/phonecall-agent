@@ -137,75 +137,6 @@ export async function placeOutboundCall(
 }
 
 // ---------------------------------------------------------------------------
-// SendGrid email helper (alternative to Twilio Email API)
-// ---------------------------------------------------------------------------
-
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-
-export async function sendOutboundEmailSendGrid(
-  opts: OutboundEmailOptions
-): Promise<TwilioEmailResult> {
-  if (!SENDGRID_API_KEY) {
-    throw new Error("Cannot send email: SENDGRID_API_KEY must be set.");
-  }
-
-  if (!opts.body && !opts.html) {
-    throw new Error("Either body (plain text) or html (HTML) must be provided.");
-  }
-
-  const fromName = opts.fromName || "Phone Agent";
-  const fromEmail = FROM_EMAIL || "agent@twillio.adars.me";
-
-  const emailData = {
-    personalizations: [
-      {
-        to: [{ email: opts.to }],
-        subject: opts.subject,
-      },
-    ],
-    from: { email: fromEmail, name: fromName },
-    content: [
-      ...(opts.body ? [{ type: "text/plain", value: opts.body }] : []),
-      ...(opts.html ? [{ type: "text/html", value: opts.html }] : []),
-    ],
-  };
-
-  try {
-    const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SENDGRID_API_KEY}`,
-      },
-      body: JSON.stringify(emailData),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`SendGrid API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    // SendGrid returns 202 Accepted with a message ID in headers
-    const messageId = response.headers.get("X-Message-Id") || "unknown";
-
-    logger.info(
-      { messageId, to: opts.to, status: "queued" },
-      "sendgrid: outbound email sent"
-    );
-
-    return {
-      sid: messageId,
-      status: "queued",
-      to: opts.to,
-      from: fromEmail,
-    };
-  } catch (err) {
-    logger.error({ err, to: opts.to }, "sendgrid: sendOutboundEmail failed");
-    throw err;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Outbound email helper (Twilio Email API)
 // ---------------------------------------------------------------------------
 
@@ -235,7 +166,7 @@ interface TwilioEmailApiResponse {
 }
 
 /**
- * Sends an outbound email via SendGrid API (preferred) or Twilio Email API (fallback).
+ * Sends an outbound email via Twilio Email API.
  *
  * @returns The email SID/message ID and initial status.
  * @throws  If API keys are missing or the API call fails.
@@ -243,13 +174,6 @@ interface TwilioEmailApiResponse {
 export async function sendOutboundEmail(
   opts: OutboundEmailOptions
 ): Promise<TwilioEmailResult> {
-  // Prefer SendGrid if API key is available (better for trial accounts)
-  if (SENDGRID_API_KEY && SENDGRID_API_KEY !== "your_sendgrid_api_key_here") {
-    logger.info("Using SendGrid API for email sending");
-    return sendOutboundEmailSendGrid(opts);
-  }
-
-  // Fallback to Twilio Email API
   if (!ACCOUNT_SID || !AUTH_TOKEN || !FROM_EMAIL) {
     throw new Error(
       "Cannot send email: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and " +

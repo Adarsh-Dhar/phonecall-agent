@@ -32,7 +32,7 @@ EMAIL_INBOUND_SECRET=<generate a long random value>
 TEST_EMAIL_ADDRESS=you@example.com   # your real inbox, for seeding/testing
 ```
 
-## 3. Configure Inbound Parse in the Twilio/SendGrid console
+## 3. Configure Inbound Parse in the Twilio console
 
 This is the one piece that's **console configuration, not code** — and it's
 a different setup path than voice/SMS webhooks:
@@ -50,7 +50,7 @@ a different setup path than voice/SMS webhooks:
    goes to Gmail's servers, not yours. In practice this means: for a real
    two-way test, you send the *first* email from an address on your
    Inbound-Parse-configured domain, or you point a domain you own at Twilio
-   specifically for this. Read `https://www.twilio.com/docs/sendgrid/for-developers/parsing-email/setting-up-the-inbound-parse-webhook` 
+   specifically for this. Read the Twilio documentation on Inbound Parse
    before wiring this into anything real — the MX/DNS step trips people up.
 
 ## 4. How the loop works once configured
@@ -58,7 +58,7 @@ a different setup path than voice/SMS webhooks:
 1. `POST /api/emails` (from the new "Email" button, or curl) sends a real
    outbound email via Twilio and writes it to the conversation as a
    `Message` — same as a call turn.
-2. When the contact replies, Twilio/SendGrid POSTs the parsed email to
+2. When the contact replies, Twilio POSTs the parsed email to
    `/api/emails/inbound`.
 3. That handler: matches the sender to a `Contact` by email, writes the
    inbound `Message`, triggers task extraction, then calls

@@ -140,7 +140,7 @@ router.post("/emails", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/emails/inbound — SendGrid/Twilio Inbound Parse webhook.
+// POST /api/emails/inbound — Twilio Inbound Parse webhook.
 //
 // Receives a reply from a contact, writes it to the transcript, and — same
 // idea as the call pipeline — generates and sends an AI reply automatically.
@@ -150,13 +150,13 @@ router.post("/emails", async (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (req, res) => {
-  // SendGrid Inbound Parse posts these as multipart/form-data fields.
+  // Twilio Inbound Parse posts these as multipart/form-data fields.
   const fromRaw = req.body?.from as string | undefined; // e.g. "Jane Doe <jane@example.com>"
   const subject = (req.body?.subject as string | undefined) ?? "(no subject)";
   const text = req.body?.text as string | undefined;
   const html = req.body?.html as string | undefined;
 
-  // Always ack quickly so SendGrid doesn't retry/drop us — do the real work
+  // Always ack quickly so Twilio doesn't retry/drop us — do the real work
   // after responding is tempting, but we need the DB writes to succeed
   // before telling them we're done, so just keep this handler fast instead.
   if (!fromRaw) {
@@ -216,7 +216,7 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
     });
 
     // Ack the webhook now — reply generation/sending happens after, and
-    // failures there shouldn't cause SendGrid to retry delivery of the
+    // failures there shouldn't cause Twilio to retry delivery of the
     // original inbound email.
     res.status(200).send("ok");
 
