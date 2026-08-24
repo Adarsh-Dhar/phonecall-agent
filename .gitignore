@@ -57,3 +57,11 @@ lib/db-prisma/generated/
 .claude
 
 .env.local
+
+# SQLite databases
+prisma/dev.db
+prisma/dev.db-shm
+prisma/dev.db-wal
+dev.db
+dev.db-shm
+dev.db-wal

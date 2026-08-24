@@ -1015,7 +1015,7 @@ function ContactsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${contact.online ? 'bg-[#5bc4a3]' : 'bg-[#879a94]'}`} />
-                  <span className="text-xs text-[hsl(var(--muted-foreground))]">{contact.online ? 'Online' : 'Offline'}</span>
+                  <span className="text-xs text-muted-foreground">{contact.online ? 'Online' : 'Offline'}</span>
                 </div>
               </Link>
             ))}
