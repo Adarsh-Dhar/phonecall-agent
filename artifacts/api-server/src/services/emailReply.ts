@@ -48,21 +48,11 @@ export async function generateEmailReply(params: {
     content: `[Incoming email — subject: "${params.incomingSubject}"]\n\n${params.incomingBody}`,
   });
 
-  const systemInstructionText =
-    "You are Phone Agent, an intelligent assistant replying by email on behalf of your user. " +
-    `You are corresponding with ${params.contactName}, who is an external business contact. ` +
-    "Your user is the person you represent, and you should ask them questions, not the business.\n\n" +
-    "CRITICAL INSTRUCTIONS:\n" +
-    "1. READ the conversation history carefully to understand the context\n" +
-    "2. If you can confidently answer the incoming email based on conversation history and knowledge, do so directly\n" +
-    "3. If you CANNOT answer confidently because you lack information: send a polite holding reply to the business and formulate a question for YOUR USER (not the business)\n" +
-    "4. NEVER ask the business contact for information that should come from your user\n" +
-    "5. Be conversational and natural, not robotic\n" +
-    "6. Write a complete, professional email reply — a real greeting, a clear body, a sign-off\n" +
-    "7. No markdown, no bullet lists unless the content genuinely needs them" +
-    knowledgeBlock;
-
-  const decision = await generateEmailReplyDecision({ systemInstructionText, turns });
+  const decision = await generateEmailReplyDecision({
+    contactName: params.contactName,
+    knowledgeBlock,
+    turns,
+  });
 
   const subject = params.incomingSubject.toLowerCase().startsWith("re:")
     ? params.incomingSubject
@@ -76,42 +66,83 @@ export async function generateEmailReply(params: {
   };
 }
 
+/**
+ * Two-step decision so the reply text can never disagree with whether we
+ * escalated. Step 1 ONLY decides "can I answer confidently, and if not what
+ * do I need to ask" — it does not write any email copy. Step 2 writes the
+ * actual reply, but is handed step 1's decision as a hard constraint rather
+ * than being asked to invent its own. This avoids the failure mode where a
+ * single call writes a "checking with my user" style reply while separately
+ * reporting needsEscalation: false, which silently drops the escalation.
+ */
 async function generateEmailReplyDecision(params: {
-  systemInstructionText: string;
+  contactName: string;
+  knowledgeBlock: string;
   turns: GeminiTextTurn[];
 }): Promise<EmailReplyDecision> {
-  const promptSystemText =
-    params.systemInstructionText +
-    "\n\nYou must return a JSON object with these exact fields:\n" +
+  const assessmentSystemText =
+    "You are Phone Agent, an intelligent assistant that triages email on behalf of your user, " +
+    `before any reply is written. You are looking at a conversation with ${params.contactName}, ` +
+    "an external business contact, and the email they just sent.\n\n" +
+    "Decide ONE thing: can you confidently and completely answer their latest email using ONLY " +
+    "the conversation history and the knowledge below? Do not guess or assume favorable defaults — " +
+    "if any fact needed for a complete answer is missing, you cannot answer confidently.\n\n" +
+    "Return ONLY a JSON object, no markdown fences, no explanation:\n" +
     '{\n' +
-    '  "needsEscalation": boolean,  // true if you need your user\'s input to answer, false if you can answer confidently\n' +
-    '  "replyBody": string,         // the actual email reply to send to the business contact\n' +
-    '  "escalationQuestion": string | null  // if needsEscalation is true, the specific question to ask your user; null otherwise\n' +
-    '}\n\n' +
-    'Return ONLY valid JSON — no markdown fences, no explanation.';
+    '  "canAnswerConfidently": boolean,\n' +
+    '  "escalationQuestion": string | null  // if canAnswerConfidently is false, the specific question to ask YOUR USER (not the business) to get what\'s missing; null otherwise\n' +
+    '}' +
+    params.knowledgeBlock;
 
-  const { text } = await generateGeminiText({
-    systemInstructionText: promptSystemText,
+  const { text: assessmentText } = await generateGeminiText({
+    systemInstructionText: assessmentSystemText,
     turns: params.turns,
     jsonResponse: true,
   });
 
+  let needsEscalation = false;
+  let escalationQuestion: string | null = null;
   try {
-    const parsed = JSON.parse(text) as EmailReplyDecision;
-    return {
-      needsEscalation: typeof parsed.needsEscalation === "boolean" ? parsed.needsEscalation : false,
-      replyBody: typeof parsed.replyBody === "string" ? parsed.replyBody : text,
-      escalationQuestion: typeof parsed.escalationQuestion === "string" ? parsed.escalationQuestion : null,
+    const parsed = JSON.parse(assessmentText) as {
+      canAnswerConfidently?: boolean;
+      escalationQuestion?: string | null;
     };
+    needsEscalation = parsed.canAnswerConfidently === false;
+    escalationQuestion =
+      needsEscalation && typeof parsed.escalationQuestion === "string" ? parsed.escalationQuestion : null;
+    // Guard against a malformed assessment that says "needs escalation" but
+    // forgot to actually include a question — treat that as answerable
+    // rather than silently dropping it the way the old single-call path did.
+    if (needsEscalation && !escalationQuestion) {
+      needsEscalation = false;
+    }
   } catch {
-    // Fallback if JSON parsing fails
-    logger.warn({ text }, "emailReply: failed to parse JSON decision, using fallback");
-    return {
-      needsEscalation: false,
-      replyBody: text,
-      escalationQuestion: null,
-    };
+    logger.warn({ assessmentText }, "emailReply: failed to parse assessment JSON, defaulting to answerable");
   }
+
+  const replySystemText =
+    "You are Phone Agent, an intelligent assistant replying by email on behalf of your user. " +
+    `You are corresponding with ${params.contactName}, who is an external business contact. ` +
+    "Your user is the person you represent.\n\n" +
+    "Write a complete, professional email reply — a real greeting, a clear body, a sign-off. " +
+    "Be conversational and natural, not robotic. No markdown, no bullet lists unless the content genuinely needs them.\n\n" +
+    (needsEscalation
+      ? "You have ALREADY determined you cannot answer this yet — you are waiting on your user for: " +
+        `"${escalationQuestion}". Write ONLY a brief, polite holding reply to the business contact. ` +
+        "Acknowledge their email and say you're checking on the specific detail and will follow up shortly. " +
+        "Do NOT attempt to answer their question, do NOT guess, and do NOT ask the business contact for " +
+        "the missing information — that question is for your user, handled separately."
+      : "You have ALREADY determined you can answer this confidently. Write the complete, substantive answer " +
+        "directly — do not hedge, do not say you'll check and get back to them, do not imply you need to " +
+        "confirm anything further.") +
+    params.knowledgeBlock;
+
+  const { text: replyBody } = await generateGeminiText({
+    systemInstructionText: replySystemText,
+    turns: params.turns,
+  });
+
+  return { needsEscalation, replyBody, escalationQuestion };
 }
 
 export async function generateFollowUpEmailReply(params: {
