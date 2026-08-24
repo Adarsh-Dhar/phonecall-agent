@@ -52,6 +52,8 @@ export async function generateEmailReply(params: {
     contactName: params.contactName,
     knowledgeBlock,
     turns,
+    incomingSubject: params.incomingSubject,
+    incomingBody: params.incomingBody,
   });
 
   const subject = params.incomingSubject.toLowerCase().startsWith("re:")
@@ -79,6 +81,8 @@ async function generateEmailReplyDecision(params: {
   contactName: string;
   knowledgeBlock: string;
   turns: GeminiTextTurn[];
+  incomingSubject: string;
+  incomingBody: string;
 }): Promise<EmailReplyDecision> {
   const assessmentSystemText =
     "You are Phone Agent, an intelligent assistant that triages email on behalf of your user, " +
@@ -100,6 +104,14 @@ async function generateEmailReplyDecision(params: {
     jsonResponse: true,
   });
 
+  // Fallback question used whenever the model decides it needs to escalate
+  // but doesn't hand back clean text for the question — we NEVER silently
+  // downgrade a decided escalation back to "answerable", since that's what
+  // caused replies to hedge with no Query ever getting created.
+  const fallbackEscalationQuestion =
+    `${params.contactName} emailed about "${params.incomingSubject}" and I don't have enough information ` +
+    `to answer confidently. Can you review and let me know how to respond?\n\nTheir message:\n${params.incomingBody}`;
+
   let needsEscalation = false;
   let escalationQuestion: string | null = null;
   try {
@@ -108,13 +120,11 @@ async function generateEmailReplyDecision(params: {
       escalationQuestion?: string | null;
     };
     needsEscalation = parsed.canAnswerConfidently === false;
-    escalationQuestion =
-      needsEscalation && typeof parsed.escalationQuestion === "string" ? parsed.escalationQuestion : null;
-    // Guard against a malformed assessment that says "needs escalation" but
-    // forgot to actually include a question — treat that as answerable
-    // rather than silently dropping it the way the old single-call path did.
-    if (needsEscalation && !escalationQuestion) {
-      needsEscalation = false;
+    if (needsEscalation) {
+      escalationQuestion =
+        typeof parsed.escalationQuestion === "string" && parsed.escalationQuestion.trim().length > 0
+          ? parsed.escalationQuestion
+          : fallbackEscalationQuestion;
     }
   } catch {
     logger.warn({ assessmentText }, "emailReply: failed to parse assessment JSON, defaulting to answerable");
@@ -142,7 +152,32 @@ async function generateEmailReplyDecision(params: {
     turns: params.turns,
   });
 
+  // Last-resort safety net: if the assessment said "confident" but the reply
+  // it produced still reads like a holding email (ignoring the explicit
+  // instruction not to hedge), treat it as an escalation anyway rather than
+  // sending a "we'll get back to you" email with no Query behind it.
+  if (!needsEscalation && looksLikeHoldingReply(replyBody)) {
+    logger.warn(
+      { replyBody },
+      "emailReply: assessment said confident but reply text hedges — forcing escalation"
+    );
+    return { needsEscalation: true, replyBody, escalationQuestion: fallbackEscalationQuestion };
+  }
+
   return { needsEscalation, replyBody, escalationQuestion };
+}
+
+const HOLDING_REPLY_PATTERNS = [
+  /checking with my user/i,
+  /check(ing)? with my (user|team)/i,
+  /follow up (with you )?(shortly|soon|as soon as)/i,
+  /will (get back to you|follow up)/i,
+  /let me confirm/i,
+  /confirm(ing)? (the )?(specific )?details/i,
+];
+
+function looksLikeHoldingReply(text: string): boolean {
+  return HOLDING_REPLY_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 export async function generateFollowUpEmailReply(params: {
