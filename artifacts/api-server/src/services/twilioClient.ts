@@ -166,6 +166,21 @@ interface TwilioEmailApiResponse {
 }
 
 /**
+ * Converts plain text to basic HTML for email content.
+ * Handles line breaks and basic paragraph structure.
+ */
+function toBasicHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n\n+/g, "</p><p>")
+    .replace(/\n/g, "<br>")
+    .replace(/^/, "<p>")
+    .replace(/$/, "</p>");
+}
+
+/**
  * Sends an outbound email via Twilio Email API.
  *
  * @returns The email SID/message ID and initial status.
@@ -187,6 +202,10 @@ export async function sendOutboundEmail(
 
   const fromName = opts.fromName || "Trial with Twilio";
 
+  // Ensure HTML content is always present (Twilio requires it)
+  const htmlContent = opts.html || (opts.body ? toBasicHtml(opts.body) : "");
+  const textContent = opts.body || htmlContent.replace(/<[^>]*>/g, "");
+
   const emailData = {
     from: {
       address: FROM_EMAIL,
@@ -199,8 +218,8 @@ export async function sendOutboundEmail(
     ],
     content: {
       subject: opts.subject,
-      ...(opts.body && { text: opts.body }),
-      ...(opts.html && { html: opts.html }),
+      text: textContent,
+      html: htmlContent,
     },
   };
 
