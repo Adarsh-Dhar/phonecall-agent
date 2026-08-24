@@ -5,12 +5,15 @@
  * The raw `twilioClient` is also exported for any one-off SDK calls (e.g.
  * updating call status, fetching recordings).
  *
+ * Email sending is handled via SendGrid (`sendOutboundEmail()`).
+ *
  * Fails fast at import time if the required env vars are missing so the
  * server surfaces the misconfiguration immediately on startup rather than at
  * the first real call attempt.
  */
 
 import twilio from "twilio";
+import sgMail from "@sendgrid/mail";
 import { logger } from "../lib/logger";
 
 // ---------------------------------------------------------------------------
@@ -20,7 +23,8 @@ import { logger } from "../lib/logger";
 const ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const FROM_NUMBER = process.env.TWILIO_PHONE_NUMBER;
-const FROM_EMAIL = process.env.TWILIO_EMAIL_ADDRESS;
+const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || process.env.TWILIO_EMAIL_ADDRESS;
+const SENDGRID_API_KEY = process.env.SENDGRID_EMAIL_API_KEY;
 
 if (!ACCOUNT_SID || !AUTH_TOKEN || !FROM_NUMBER) {
   logger.warn(
@@ -29,11 +33,13 @@ if (!ACCOUNT_SID || !AUTH_TOKEN || !FROM_NUMBER) {
   );
 }
 
-if (!ACCOUNT_SID || !AUTH_TOKEN || !FROM_EMAIL) {
+if (!SENDGRID_API_KEY || !FROM_EMAIL) {
   logger.warn(
-    "Twilio env vars (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_EMAIL_ADDRESS) " +
-      "are not fully set — outbound emails will fail at runtime."
+    "SendGrid env vars (SENDGRID_EMAIL_API_KEY, SENDGRID_FROM_EMAIL) are not fully set " +
+      "— outbound emails will fail at runtime."
   );
+} else {
+  sgMail.setApiKey(SENDGRID_API_KEY);
 }
 
 // ---------------------------------------------------------------------------
@@ -137,7 +143,7 @@ export async function placeOutboundCall(
 }
 
 // ---------------------------------------------------------------------------
-// Outbound email helper (Twilio Email API)
+// Outbound email helper (SendGrid)
 // ---------------------------------------------------------------------------
 
 export interface OutboundEmailOptions {
@@ -149,7 +155,7 @@ export interface OutboundEmailOptions {
   body?: string;
   /** HTML email body */
   html?: string;
-  /** Optional sender name (defaults to "Trial with Twilio" if not provided) */
+  /** Optional sender name (defaults to "Daily Agent" if not provided) */
   fromName?: string;
 }
 
@@ -158,11 +164,6 @@ export interface TwilioEmailResult {
   status: string;
   to: string;
   from: string;
-}
-
-interface TwilioEmailApiResponse {
-  sid: string;
-  status: string;
 }
 
 /**
@@ -181,7 +182,7 @@ function toBasicHtml(text: string): string {
 }
 
 /**
- * Sends an outbound email via Twilio Email API.
+ * Sends an outbound email via SendGrid.
  *
  * @returns The email SID/message ID and initial status.
  * @throws  If API keys are missing or the API call fails.
@@ -189,10 +190,9 @@ function toBasicHtml(text: string): string {
 export async function sendOutboundEmail(
   opts: OutboundEmailOptions
 ): Promise<TwilioEmailResult> {
-  if (!ACCOUNT_SID || !AUTH_TOKEN || !FROM_EMAIL) {
+  if (!SENDGRID_API_KEY || !FROM_EMAIL) {
     throw new Error(
-      "Cannot send email: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and " +
-        "TWILIO_EMAIL_ADDRESS must all be set."
+      "Cannot send email: SENDGRID_EMAIL_API_KEY and SENDGRID_FROM_EMAIL must both be set."
     );
   }
 
@@ -200,59 +200,39 @@ export async function sendOutboundEmail(
     throw new Error("Either body (plain text) or html (HTML) must be provided.");
   }
 
-  const fromName = opts.fromName || "Trial with Twilio";
+  const fromName = opts.fromName || "Daily Agent";
 
-  // Ensure HTML content is always present (Twilio requires it)
   const htmlContent = opts.html || (opts.body ? toBasicHtml(opts.body) : "");
   const textContent = opts.body || htmlContent.replace(/<[^>]*>/g, "");
 
-  const emailData = {
-    from: {
-      address: FROM_EMAIL,
-      name: fromName,
-    },
-    to: [
-      {
-        address: opts.to,
-      },
-    ],
-    content: {
-      subject: opts.subject,
-      text: textContent,
-      html: htmlContent,
-    },
+  const msg = {
+    to: opts.to,
+    from: { email: FROM_EMAIL, name: fromName },
+    subject: opts.subject,
+    text: textContent,
+    html: htmlContent,
   };
 
   try {
-    const response = await fetch("https://comms.twilio.com/v1/Emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${Buffer.from(`${ACCOUNT_SID}:${AUTH_TOKEN}`).toString("base64")}`,
-      },
-      body: JSON.stringify(emailData),
-    });
+    const [response] = await sgMail.send(msg);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Twilio Email API error: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    const result = await response.json() as TwilioEmailApiResponse;
+    const sid =
+      (response.headers["x-message-id"] as string | undefined) ??
+      `sg_${Date.now()}`;
 
     logger.info(
-      { sid: result.sid, to: opts.to, status: result.status },
-      "twilio: outbound email sent"
+      { sid, to: opts.to, status: response.statusCode },
+      "sendgrid: outbound email sent"
     );
 
     return {
-      sid: result.sid,
-      status: result.status,
+      sid,
+      status: response.statusCode === 202 ? "sent" : String(response.statusCode),
       to: opts.to,
       from: FROM_EMAIL,
     };
   } catch (err) {
-    logger.error({ err, to: opts.to }, "twilio: sendOutboundEmail failed");
+    logger.error({ err, to: opts.to }, "sendgrid: sendOutboundEmail failed");
     throw err;
   }
 }
