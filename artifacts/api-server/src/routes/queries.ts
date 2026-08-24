@@ -1,6 +1,9 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { scheduleExtraction } from "../services/taskExtraction";
+import { generateFollowUpEmailReply } from "../services/emailReply";
+import { sendOutboundEmail } from "../services/twilioClient";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -185,6 +188,78 @@ router.patch("/queries/:id/answer", async (req, res) => {
 
     // Re-run extraction so the agent sees the user's answer immediately
     scheduleExtraction(query.conversationId);
+
+    // If the contact has an email, send a follow-up email with the answer
+    const contact = await prisma.contact.findUnique({
+      where: { id: query.contactId },
+    });
+
+    if (contact?.email) {
+      try {
+        // Find the original inbound email on this conversation
+        const lastInboundEmail = await prisma.email.findFirst({
+          where: {
+            conversationId: query.conversationId,
+            direction: "inbound",
+          },
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (lastInboundEmail) {
+          const followUp = await generateFollowUpEmailReply({
+            conversationId: query.conversationId,
+            contactId: query.contactId,
+            contactName: contact.name,
+            originalSubject: lastInboundEmail.subject,
+          });
+
+          const outboundEmail = await prisma.email.create({
+            data: {
+              status: "initiated",
+              direction: "outbound",
+              conversationId: query.conversationId,
+              contactId: query.contactId,
+              subject: followUp.subject,
+              from: process.env.SENDGRID_FROM_EMAIL || process.env.TWILIO_EMAIL_ADDRESS || "unknown@twilio.email",
+              to: contact.email,
+              body: followUp.body,
+            },
+          });
+
+          const sendResult = await sendOutboundEmail({
+            to: contact.email,
+            subject: followUp.subject,
+            body: followUp.body,
+          });
+
+          await prisma.email.update({
+            where: { id: outboundEmail.id },
+            data: { twilioSid: sendResult.sid, status: sendResult.status, sentAt: new Date() },
+          });
+
+          await prisma.message.create({
+            data: {
+              role: "assistant",
+              content: followUp.body,
+              time: "Now",
+              conversationId: query.conversationId,
+              emailId: outboundEmail.id,
+            },
+          });
+
+          scheduleExtraction(query.conversationId);
+
+          logger.info(
+            { queryId: id, contactId: query.contactId, emailId: outboundEmail.id },
+            "queries/answer: sent follow-up email"
+          );
+        }
+      } catch (emailErr) {
+        // The answer is already saved — a failed follow-up email just means
+        // no reply went out, not data loss. Log and move on.
+        logger.error({ err: emailErr, queryId: id }, "queries/answer: follow-up email failed");
+      }
+    }
 
     res.json(updated);
   } catch {

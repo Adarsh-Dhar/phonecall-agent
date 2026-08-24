@@ -10,7 +10,7 @@ import { Router, type IRouter } from "express";
 import multer from "multer";
 import { prisma } from "@workspace/db-prisma";
 import { sendOutboundEmail } from "../services/twilioClient";
-import { generateEmailReply } from "../services/emailReply";
+import { generateEmailReply, generateFollowUpEmailReply } from "../services/emailReply";
 import { verifyEmailInboundSecret } from "../middlewares/verifyEmailInboundSecret";
 import { scheduleExtraction } from "../services/taskExtraction";
 import { logger } from "../lib/logger";
@@ -289,6 +289,22 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
       });
 
       scheduleExtraction(conversation.id);
+
+      // If the AI flagged that it needs escalation, create a Query for the user
+      if (reply.needsEscalation && reply.escalationQuestion) {
+        await prisma.query.create({
+          data: {
+            question: reply.escalationQuestion,
+            status: "pending",
+            conversationId: conversation.id,
+            contactId: contact.id,
+          },
+        });
+        logger.info(
+          { conversationId: conversation.id, contactId: contact.id, question: reply.escalationQuestion },
+          "emails/inbound: created escalation query"
+        );
+      }
     } catch (replyErr) {
       // The inbound email is already safely recorded — a failed auto-reply
       // just means no reply went out, not data loss. Log and move on.

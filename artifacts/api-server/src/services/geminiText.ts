@@ -16,6 +16,7 @@ export type GeminiTextTurn = { role: "user" | "assistant"; content: string };
 export async function generateGeminiText(params: {
   systemInstructionText: string;
   turns: GeminiTextTurn[];
+  jsonResponse?: boolean;
 }): Promise<{ text: string; model: string }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -27,7 +28,13 @@ export async function generateGeminiText(params: {
     parts: [{ text: t.content }],
   }));
   const systemInstruction = { parts: [{ text: params.systemInstructionText }] };
-  const generationConfig = { temperature: 0.7, maxOutputTokens: 8192 };
+  const generationConfig: { temperature: number; maxOutputTokens: number; responseMimeType?: string } = {
+    temperature: 0.7,
+    maxOutputTokens: 8192,
+  };
+  if (params.jsonResponse) {
+    generationConfig.responseMimeType = "application/json";
+  }
 
   async function request(model: string) {
     return fetch(`${modelUrl(model)}?key=${encodeURIComponent(apiKey!)}`, {
