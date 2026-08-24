@@ -39,7 +39,8 @@ if [[ "$DATABASE_URL" == *"render.com"* ]]; then
   npx tsx seed.ts || echo "Seed failed (might already exist)"
 else
   echo "Using SQLite for local development"
-  export DATABASE_URL="file:./prisma/dev.db"
+  # Use absolute path for DATABASE_URL to work from any directory
+  export DATABASE_URL="file:$(pwd)/prisma/dev.db"
   echo "Database: $DATABASE_URL"
   
   # Create SQLite database schema
