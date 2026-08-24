@@ -3,6 +3,48 @@ services:
     name: phone-agent-api-v2
     env: node
     plan: free
+    region: oregon
+    buildCommand: npx pnpm@latest install && npx prisma generate && cd artifacts/api-server && npx pnpm@latest run build
+    preDeployCommand: npx prisma migrate deploy
+    startCommand: cd artifacts/api-server && npx pnpm@latest run start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_LIVE_MODEL
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_PHONE_NUMBER
+        sync: false
+      - key: TWILIO_CLIENT_SECRET
+        sync: false
+      - key: TWILIO_TRIAL_ACCOUNT
+        sync: false
+      - key: TWILIO_EMAIL_ADDRESS
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: EMAIL_INBOUND_SECRET
+        sync: false
+      - key: EMAIL_INBOUND_DOMAIN
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: SKIP_TWILIO_SIGNATURE_CHECK
+        sync: false
+      - key: TEST_PHONE_NUMBER
+        sync: false
+      - key: TEST_PROVIDER_EMAILS
+        sync: false
+  - type: web
+    name: phone-agent-api-v3
+    env: node
+    plan: free
+    region: singapore
     buildCommand: npx pnpm@latest install && npx prisma generate && cd artifacts/api-server && npx pnpm@latest run build
     preDeployCommand: npx prisma migrate deploy
     startCommand: cd artifacts/api-server && npx pnpm@latest run start
