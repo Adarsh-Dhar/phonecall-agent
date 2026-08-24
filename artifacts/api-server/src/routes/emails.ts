@@ -168,14 +168,34 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
   const fromAddress = (emailMatch ? emailMatch[1] : fromRaw).trim().toLowerCase();
 
   try {
-    const contact = await prisma.contact.findFirst({
+    let contact = await prisma.contact.findFirst({
       where: { email: { equals: fromAddress, mode: "insensitive" } },
     });
 
+    // Auto-create contact for unknown senders
     if (!contact) {
-      logger.warn({ fromAddress }, "emails/inbound: no contact matches sender, dropping");
-      res.status(200).send("ignored: unknown sender");
-      return;
+      logger.info({ fromAddress }, "emails/inbound: unknown sender, auto-creating contact");
+      
+      // Extract name from email address (part before @) for display
+      const emailName = fromAddress.split('@')[0];
+      const displayName = emailName
+        .replace(/[._]/g, ' ')
+        .replace(/\b\w/g, (l: string) => l.toUpperCase());
+      
+      contact = await prisma.contact.create({
+        data: {
+          name: displayName,
+          business: 'Unknown',
+          category: 'Other',
+          phone: '0123456789',
+          email: fromAddress,
+          initials: displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+          color: '#a8a8a8',
+          online: false,
+        },
+      });
+      
+      logger.info({ contactId: contact.id, fromAddress }, "emails/inbound: auto-created contact");
     }
 
     let conversation = await prisma.conversation.findFirst({
