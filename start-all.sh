@@ -93,9 +93,9 @@ cd ../..
 
 echo ""
 echo "All processes started:"
-echo "  - API server (PID: $API_PID) - http://localhost:5175"
-echo "  - Mockup sandbox (PID: $SANDBOX_PID) - http://localhost:5176"
-echo "  - Phone agent (PID: $AGENT_PID) - http://localhost:5177"
+[ -n "$API_PID" ] && echo "  - API server (PID: $API_PID) - http://localhost:5175"
+[ -n "$SANDBOX_PID" ] && echo "  - Mockup sandbox (PID: $SANDBOX_PID) - http://localhost:5176"
+[ -n "$AGENT_PID" ] && echo "  - Phone agent (PID: $AGENT_PID) - http://localhost:5177"
 echo "  - Database: $DATABASE_URL"
 echo ""
 echo "Press Ctrl+C to stop all processes"
