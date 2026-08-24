@@ -11,7 +11,8 @@
     "db:seed": "npx tsx seed.ts",
     "db:studio": "prisma studio",
     "db:migrate": "npx prisma migrate dev --name init",
-    "db:generate": "npx prisma generate"
+    "db:generate": "npx prisma generate",
+    "db:deploy": "npx prisma migrate deploy"
   },
   "private": true,
   "devDependencies": {
