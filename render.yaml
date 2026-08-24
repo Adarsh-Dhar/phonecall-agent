@@ -26,6 +26,10 @@ services:
         sync: false
       - key: TWILIO_EMAIL_ADDRESS
         sync: false
+      - key: SENDGRID_EMAIL_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        sync: false
       - key: EMAIL_INBOUND_SECRET
         sync: false
       - key: EMAIL_INBOUND_DOMAIN
@@ -64,6 +68,10 @@ services:
       - key: TWILIO_TRIAL_ACCOUNT
         sync: false
       - key: TWILIO_EMAIL_ADDRESS
+        sync: false
+      - key: SENDGRID_EMAIL_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
         sync: false
       - key: EMAIL_INBOUND_SECRET
         sync: false

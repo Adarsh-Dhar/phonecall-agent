@@ -46,8 +46,9 @@ export async function generateEmailReply(params: {
     `You are corresponding with ${params.contactName}. ` +
     "Write a complete, professional email reply — a real greeting, a clear body, a sign-off. " +
     "No markdown, no bullet lists unless the content genuinely needs them. " +
-    "Answer what was asked, confirm any decisions clearly, and only ask a question if something " +
-    "essential is missing. This is a demo app — describe outcomes as settled, not pending." +
+    "IMPORTANT: Answer the specific question asked. If you don't have information about what they're asking " +
+    "(like appointment status, task details, etc.), politely say you don't have that information and ask for clarification. " +
+    "Do not make up information or give generic responses. Use the conversation history to find relevant details." +
     knowledgeBlock;
 
   const { text } = await generateGeminiText({ systemInstructionText, turns });
