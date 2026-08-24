@@ -24,17 +24,7 @@ router.post("/gemini/chat", async (req, res) => {
     res.status(503).json({ error: "Gemini is not configured yet." });
     return;
   }
-  
-  // For testing purposes, return a mock response if using test key
-  if (apiKey === "test_key" || apiKey === "test_key_for_testing") {
-    res.json({ 
-      message: "This is a test response from the Phone Agent. I can help you with your tasks!", 
-      model: "test-mock", 
-      requestedModel: REQUESTED_MODEL 
-    });
-    return;
-  }
-  
+
   const key = apiKey;
 
   if (

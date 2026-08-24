@@ -21,9 +21,6 @@ export async function generateGeminiText(params: {
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not configured.");
   }
-  if (apiKey === "test_key" || apiKey === "test_key_for_testing") {
-    return { text: "This is a test response from the Phone Agent.", model: "test-mock" };
-  }
 
   const contents = params.turns.map((t) => ({
     role: t.role === "assistant" ? "model" : "user",

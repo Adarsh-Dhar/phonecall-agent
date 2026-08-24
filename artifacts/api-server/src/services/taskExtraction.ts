@@ -141,8 +141,8 @@ export async function runExtraction(conversationId: string): Promise<{
   };
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "test_key" || apiKey === "test_key_for_testing") {
-    logger.debug({ conversationId }, "extraction: skipped (no real API key)");
+  if (!apiKey) {
+    logger.debug({ conversationId }, "extraction: skipped (no API key)");
     return result;
   }
 
