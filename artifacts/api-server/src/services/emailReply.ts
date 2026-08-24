@@ -53,9 +53,21 @@ export async function generateEmailReply(params: {
     logger.debug({ conversationId: params.conversationId }, "Using test key - generating contextual response");
     
     const lowerBody = params.incomingBody.toLowerCase();
+    const lowerSubject = params.incomingSubject.toLowerCase();
     let contextualResponse = "";
     
-    if (lowerBody.includes("appointment") || lowerBody.includes("status")) {
+    // Handle empty emails by asking specific questions based on subject
+    if (!params.incomingBody || params.incomingBody.trim() === "") {
+      if (lowerSubject.includes("appointment") || lowerSubject.includes("schedule")) {
+        contextualResponse = "I received your email about scheduling/appointments, but I need more details to help you. Could you please specify:\n\n- What type of appointment do you need?\n- Your preferred date and time\n- Any specific requirements or notes\n\nThis will help me understand exactly what you need and add it to our system.";
+      } else if (lowerSubject.includes("status") || lowerSubject.includes("update")) {
+        contextualResponse = "I see you're asking for a status update, but I need more context to help you. Could you please specify:\n\n- What item or request you're following up on\n- Any reference numbers or dates\n- What specific information you're looking for\n\nI'll add this as a query and make sure we get you the right information.";
+      } else if (lowerSubject.includes("help") || lowerSubject.includes("support")) {
+        contextualResponse = "I'd be happy to help you! To better assist you, could you please tell me:\n\n- What specific issue or question you have\n- Any relevant details or context\n- How urgent this matter is\n\nI'll make sure your request gets properly tracked and addressed.";
+      } else {
+        contextualResponse = "I received your email but it appears to be empty. Could you please let me know what you need help with? I can assist with:\n\n- Scheduling appointments\n- Checking status of requests\n- General questions and support\n- Any other service-related inquiries\n\nJust provide a few details about what you're looking for, and I'll make sure it gets added to our system and properly handled.";
+      }
+    } else if (lowerBody.includes("appointment") || lowerBody.includes("status")) {
       if (hasContext) {
         contextualResponse = "I checked our conversation history but couldn't find specific information about the appointment you mentioned. Could you please provide more details like the date, time, or what the appointment is for? I want to make sure I give you the right information.";
       } else {
@@ -87,6 +99,8 @@ export async function generateEmailReply(params: {
     "5. NEVER make up information or assume things that aren't in the conversation\n" +
     "6. Be conversational and natural, not robotic\n" +
     "7. If the conversation history is empty or irrelevant, ask them to provide more context\n" +
+    "8. ANALYZE what the user needs - if their request is unclear, incomplete, or needs more information, ask specific follow-up questions to clarify their needs\n" +
+    "9. When you ask for clarification, structure your questions to help them provide the exact information needed\n" +
     "Write a complete, professional email reply — a real greeting, a clear body, a sign-off. " +
     "No markdown, no bullet lists unless the content genuinely needs them." +
     knowledgeBlock;
