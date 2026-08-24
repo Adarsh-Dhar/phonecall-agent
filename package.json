@@ -12,7 +12,7 @@
     "db:studio": "prisma studio",
     "db:migrate": "npx prisma migrate dev --name init",
     "db:generate": "npx prisma generate",
-    "db:deploy": "npx prisma migrate deploy"
+    "db:deploy": "npx prisma migrate resolve --rolled-back 20260823090000_add_message_email_link || true && npx prisma migrate deploy"
   },
   "private": true,
   "devDependencies": {
