@@ -1044,20 +1044,28 @@ function QueriesPanel({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
 
+  // Global inbox — questions can come from ANY business contact's
+  // conversation, not just whichever one happens to be open right now, so
+  // this intentionally does not scope by conversationId/contactId.
   const loadQueries = useCallback(async () => {
-    if (!conversationId) return;
     setLoading(true);
     try {
-      const data = await api.fetchConversationQueries(conversationId);
+      const data = await api.fetchQueries();
       setQueries(data);
     } catch {
       // non-critical — panel is best-effort
     } finally {
       setLoading(false);
     }
-  }, [conversationId]);
+  }, []);
 
-  useEffect(() => { void loadQueries(); }, [loadQueries]);
+  useEffect(() => {
+    void loadQueries();
+    // Poll so escalations that arrive while the app is open (e.g. a new
+    // inbound email from a business) show up without a manual refresh.
+    const interval = setInterval(() => void loadQueries(), 15000);
+    return () => clearInterval(interval);
+  }, [loadQueries]);
 
   const handleAnswer = async (query: api.Query) => {
     const answer = (drafts[query.id] ?? '').trim();
@@ -1127,9 +1135,7 @@ function QueriesPanel({
 
       {/* Query list */}
       <div className="mt-3 space-y-3">
-        {!conversationId ? (
-          <p className="py-3 text-center text-xs text-[hsl(var(--muted-foreground))]">Select a conversation to see questions.</p>
-        ) : loading && queries.length === 0 ? (
+        {loading && queries.length === 0 ? (
           <div className="flex items-center justify-center py-6">
             <LoaderCircle size={14} className="animate-spin text-[hsl(var(--muted-foreground))]" />
           </div>
@@ -1176,6 +1182,11 @@ function QueryRow({
     // Collapsed answered/dismissed view
     return (
       <div className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40 px-4 py-3 opacity-60">
+        {query.contact && (
+          <p className="text-[9px] font-bold uppercase tracking-[.08em] text-muted-foreground">
+            {query.contact.name}
+          </p>
+        )}
         <p className="text-xs font-medium text-[hsl(var(--foreground))]">{query.question}</p>
         {query.answer && (
           <p className="mt-1 text-[11px] text-[hsl(var(--muted-foreground))]">↳ {query.answer}</p>
@@ -1189,6 +1200,11 @@ function QueryRow({
 
   return (
     <div className="rounded-xl border border-[#d4c4ff] bg-[#f8f5ff] px-4 py-3">
+      {query.contact && (
+        <p className="text-[9px] font-bold uppercase tracking-[.08em] text-[#8a72c4]">
+          {query.contact.name}
+        </p>
+      )}
       <p className="text-xs font-semibold text-[#3d2a72]">{query.question}</p>
       <div className="mt-2 flex gap-2">
         <input
