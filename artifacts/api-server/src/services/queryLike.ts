@@ -156,19 +156,8 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         return;
       }
 
-      // Verify this matches the expected type (knowledge gap vs regular query)
-      if (query.isKnowledgeGap !== opts.isKnowledgeGap) {
-        const expectedType = opts.isKnowledgeGap ? "knowledge gap question" : "regular query";
-        const alternativePath = opts.isKnowledgeGap ? `/queries/${id}/answer` : `/questions/${id}/answer`;
-        res.status(400).json({
-          error: `This query is not a ${expectedType}. Use ${alternativePath} instead.`,
-          queryId: id,
-        });
-        return;
-      }
-
-      // Run the onAnswered callback (for ContactKnowledge upsert)
-      if (opts.onAnswered) {
+      // Run the onAnswered callback (for ContactKnowledge upsert) - only for knowledge gap questions
+      if (opts.onAnswered && query.isKnowledgeGap) {
         await opts.onAnswered(query, String(answer));
       }
 
@@ -237,17 +226,6 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
       const existing = await prisma.query.findUnique({ where: { id: String(id) } });
       if (!existing) {
         res.status(404).json({ error: `${resourceCapitalized} not found` });
-        return;
-      }
-
-      // Verify this matches the expected type
-      if (existing.isKnowledgeGap !== opts.isKnowledgeGap) {
-        const expectedType = opts.isKnowledgeGap ? "knowledge gap question" : "regular query";
-        const alternativePath = opts.isKnowledgeGap ? `/queries/${id}` : `/questions/${id}`;
-        res.status(400).json({
-          error: `This query is not a ${expectedType}. Use ${alternativePath} instead.`,
-          queryId: id,
-        });
         return;
       }
 
