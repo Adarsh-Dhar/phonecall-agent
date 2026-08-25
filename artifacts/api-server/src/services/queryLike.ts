@@ -206,6 +206,8 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         contactName: contact?.name || "Unknown",
         refId: String(id),
         logLabel: `${opts.basePath}/answer`,
+        questionText: query.question,
+        answerText: String(answer),
       });
 
       res.json(updated);

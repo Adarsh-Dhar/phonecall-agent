@@ -230,6 +230,8 @@ export async function generateFollowUpEmailReply(params: {
   contactId: string;
   contactName: string;
   originalSubject: string;
+  questionText?: string;
+  answerText?: string;
 }): Promise<{ subject: string; body: string; isEnoughKnowledge: boolean }> {
   const facts = await prisma.contactKnowledge.findMany({
     where: { contactId: params.contactId, status: "active" },
@@ -253,6 +255,11 @@ export async function generateFollowUpEmailReply(params: {
     content: m.content,
   }));
 
+  let contextBlock = "";
+  if (params.questionText && params.answerText) {
+    contextBlock = `\n\nSPECIFIC CONTEXT FOR THIS FOLLOW-UP:\nYour user just answered this question: "${params.questionText}"\nTheir answer: "${params.answerText}"\nUse this specific answer to respond to the business contact's inquiry.`;
+  }
+
   const systemInstructionText =
     "You are Phone Agent, an intelligent assistant replying by email on behalf of your user. " +
     `You are corresponding with ${params.contactName}, who is an external business contact. ` +
@@ -263,6 +270,7 @@ export async function generateFollowUpEmailReply(params: {
     "3. Be conversational and natural, not robotic\n" +
     "4. Write a complete, professional email reply — a real greeting, a clear body, a sign-off\n" +
     "5. No markdown, no bullet lists unless the content genuinely needs them" +
+    contextBlock +
     knowledgeBlock;
 
   const { text } = await generateGeminiText({ systemInstructionText, turns });
@@ -286,6 +294,8 @@ export async function sendFollowUpEmailIfPossible(opts: {
   contactName: string;
   refId: string;
   logLabel: string;
+  questionText?: string; // Optional: the specific question that was answered
+  answerText?: string; // Optional: the specific answer that was provided
 }) {
   if (!opts.contactEmail) return;
 
@@ -306,6 +316,8 @@ export async function sendFollowUpEmailIfPossible(opts: {
       contactId: opts.contactId,
       contactName: opts.contactName,
       originalSubject: lastInboundEmail.subject,
+      questionText: opts.questionText,
+      answerText: opts.answerText,
     });
 
     const outboundEmail = await prisma.email.create({
