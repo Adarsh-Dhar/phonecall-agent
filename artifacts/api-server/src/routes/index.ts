@@ -6,6 +6,7 @@ import conversationsRouter from "./conversations";
 import messagesRouter from "./messages";
 import historyRouter from "./history";
 import tasksRouter from "./tasks";
+import queriesRouter from "./queries";
 import questionsRouter from "./questions";
 import knowledgeRouter from "./knowledge";
 import callsRouter from "./calls";
@@ -23,6 +24,7 @@ router.use(conversationsRouter);
 router.use(messagesRouter);
 router.use(historyRouter);
 router.use(tasksRouter);
+router.use(queriesRouter);
 router.use(questionsRouter);
 router.use(knowledgeRouter);
 
