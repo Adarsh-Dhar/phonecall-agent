@@ -39,8 +39,13 @@ const frontendDistPath = path.join(__dirname, "../../phone-agent/dist/public");
 
 app.use(express.static(frontendDistPath));
 
-// Serve index.html for SPA routing
-app.get("*", (req, res) => {
+// Serve index.html for SPA routing (catch-all for non-API routes)
+app.use((req, res, next) => {
+  // Skip API routes and static files
+  if (req.path.startsWith("/api") || req.path.includes(".")) {
+    return next();
+  }
+  // Serve index.html for all other routes (SPA routing)
   res.sendFile(path.join(frontendDistPath, "index.html"));
 });
 
