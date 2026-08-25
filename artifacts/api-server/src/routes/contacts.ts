@@ -44,6 +44,20 @@ router.post("/contacts", asyncHandler(async (req, res) => {
   res.json(contact);
 }, "Failed to create contact"));
 
+// Get the active conversation for a contact
+router.get("/contacts/:id/conversation", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const conversation = await prisma.conversation.findFirst({
+    where: { contactId: String(id) },
+    orderBy: { updatedAt: "desc" },
+  });
+  if (!conversation) {
+    res.status(404).json({ error: "No conversation found for this contact" });
+    return;
+  }
+  res.json(conversation);
+}, "Failed to fetch contact conversation"));
+
 // Update a contact
 router.put("/contacts/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
