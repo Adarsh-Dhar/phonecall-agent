@@ -14,6 +14,8 @@ import { generateEmailReply, generateFollowUpEmailReply } from "../services/emai
 import { verifyEmailInboundSecret } from "../middlewares/verifyEmailInboundSecret";
 import { scheduleExtraction } from "../services/taskExtraction";
 import { logger } from "../lib/logger";
+import { contactCardSelect, contactCardSelectWithEmail } from "../lib/prismaSelects";
+import { getOrCreateActiveConversation } from "../services/conversations";
 
 const router: IRouter = Router();
 const upload = multer(); // Inbound Parse posts multipart/form-data with no file fields we need to keep
@@ -66,16 +68,7 @@ router.post("/emails", async (req, res) => {
   }
 
   // Get or create the active conversation for this contact
-  let conversation = await prisma.conversation.findFirst({
-    where: { contactId },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  if (!conversation) {
-    conversation = await prisma.conversation.create({
-      data: { contactId, title: `Email with ${contact.name}` },
-    });
-  }
+  const conversation = await getOrCreateActiveConversation(contactId, "Email with", contact.name || "Unknown");
 
   // Create an Email row in "initiated" state before we hit Twilio, so the
   // frontend gets a record immediately.
@@ -169,7 +162,7 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
 
   try {
     let contact = await prisma.contact.findFirst({
-      where: { email: { equals: fromAddress, mode: "insensitive" } },
+      where: { email: fromAddress },
     });
 
     // Auto-create contact for unknown senders
@@ -198,15 +191,7 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
       logger.info({ contactId: contact.id, fromAddress }, "emails/inbound: auto-created contact");
     }
 
-    let conversation = await prisma.conversation.findFirst({
-      where: { contactId: contact.id },
-      orderBy: { updatedAt: "desc" },
-    });
-    if (!conversation) {
-      conversation = await prisma.conversation.create({
-        data: { contactId: contact.id, title: `Email with ${contact.name}` },
-      });
-    }
+    const conversation = await getOrCreateActiveConversation(contact.id, "Email with", contact.name || "Unknown");
 
     const inboundBody = text || html || "";
 
@@ -333,10 +318,10 @@ router.get("/emails/:id", async (req, res) => {
   const { id } = req.params;
 
   const email = await prisma.email.findUnique({
-    where: { id },
+    where: { id: String(id) },
     include: {
       contact: {
-        select: { id: true, name: true, business: true, initials: true, color: true, email: true },
+        select: contactCardSelectWithEmail,
       },
     },
   });
@@ -357,11 +342,11 @@ router.get("/conversations/:conversationId/emails", async (req, res) => {
   const { conversationId } = req.params;
 
   const emails = await prisma.email.findMany({
-    where: { conversationId },
+    where: { conversationId: String(conversationId) },
     orderBy: { createdAt: "desc" },
     include: {
       contact: {
-        select: { id: true, name: true, business: true, initials: true, color: true },
+        select: contactCardSelect,
       },
     },
   });

@@ -6,6 +6,8 @@
 
 import { prisma } from "@workspace/db-prisma";
 import { generateGeminiText, type GeminiTextTurn } from "./geminiText";
+import { sendOutboundEmail } from "./twilioClient";
+import { scheduleExtraction } from "./taskExtraction";
 import { logger } from "../lib/logger";
 
 /**
@@ -270,4 +272,89 @@ export async function generateFollowUpEmailReply(params: {
     : `Re: ${params.originalSubject}`;
 
   return { subject, body: text, isEnoughKnowledge: true };
+}
+
+/**
+ * Send a follow-up email after answering a query/question.
+ * Finds the last inbound email, generates a follow-up reply, and sends it.
+ * Used by both queries and questions answer handlers.
+ */
+export async function sendFollowUpEmailIfPossible(opts: {
+  conversationId: string;
+  contactId: string;
+  contactEmail?: string | null;
+  contactName: string;
+  refId: string;
+  logLabel: string;
+}) {
+  if (!opts.contactEmail) return;
+
+  try {
+    // Find the original inbound email on this conversation
+    const lastInboundEmail = await prisma.email.findFirst({
+      where: {
+        conversationId: opts.conversationId,
+        direction: "inbound",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!lastInboundEmail) return;
+
+    const followUp = await generateFollowUpEmailReply({
+      conversationId: opts.conversationId,
+      contactId: opts.contactId,
+      contactName: opts.contactName,
+      originalSubject: lastInboundEmail.subject,
+    });
+
+    const outboundEmail = await prisma.email.create({
+      data: {
+        status: "initiated",
+        direction: "outbound",
+        conversationId: opts.conversationId,
+        contactId: opts.contactId,
+        subject: followUp.subject,
+        from: process.env.SENDGRID_FROM_EMAIL || process.env.TWILIO_EMAIL_ADDRESS || "unknown@twilio.email",
+        to: opts.contactEmail,
+        body: followUp.body,
+        isEnoughKnowledge: followUp.isEnoughKnowledge,
+      },
+    });
+
+    logger.info(
+      { refId: opts.refId, contactId: opts.contactId, emailId: outboundEmail.id, isEnoughKnowledge: followUp.isEnoughKnowledge },
+      `${opts.logLabel}: created follow-up email`
+    );
+
+    const sendResult = await sendOutboundEmail({
+      to: opts.contactEmail,
+      subject: followUp.subject,
+      body: followUp.body,
+    });
+
+    await prisma.email.update({
+      where: { id: outboundEmail.id },
+      data: { twilioSid: sendResult.sid, status: sendResult.status, sentAt: new Date() },
+    });
+
+    await prisma.message.create({
+      data: {
+        role: "assistant",
+        content: followUp.body,
+        time: "Now",
+        conversationId: opts.conversationId,
+        emailId: outboundEmail.id,
+      },
+    });
+
+    scheduleExtraction(opts.conversationId);
+
+    logger.info(
+      { refId: opts.refId, contactId: opts.contactId, emailId: outboundEmail.id, isEnoughKnowledge: followUp.isEnoughKnowledge },
+      `${opts.logLabel}: sent follow-up email`
+    );
+  } catch (err) {
+    logger.error({ err, refId: opts.refId }, `${opts.logLabel}: follow-up email failed`);
+  }
 }

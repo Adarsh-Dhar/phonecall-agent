@@ -10,6 +10,8 @@ import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { placeOutboundCall } from "../services/twilioClient";
 import { logger } from "../lib/logger";
+import { contactCardSelect, contactCardSelectWithPhone } from "../lib/prismaSelects";
+import { getOrCreateActiveConversation } from "../services/conversations";
 
 const router: IRouter = Router();
 
@@ -53,16 +55,7 @@ router.post("/calls", async (req, res) => {
   }
 
   // Get or create the active conversation for this contact
-  let conversation = await prisma.conversation.findFirst({
-    where: { contactId },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  if (!conversation) {
-    conversation = await prisma.conversation.create({
-      data: { contactId, title: `Call with ${contact.name}` },
-    });
-  }
+  const conversation = await getOrCreateActiveConversation(contactId, "Call with", contact.name || "Unknown");
 
   // Create a Call row in "initiated" state before we hit Twilio, so the
   // frontend gets a record immediately.
@@ -118,10 +111,10 @@ router.get("/calls/:id", async (req, res) => {
   const { id } = req.params;
 
   const call = await prisma.call.findUnique({
-    where: { id },
+    where: { id: String(id) },
     include: {
       contact: {
-        select: { id: true, name: true, business: true, initials: true, color: true, phone: true },
+        select: contactCardSelectWithPhone,
       },
       messages: {
         orderBy: { createdAt: "asc" },
@@ -146,11 +139,11 @@ router.get("/conversations/:conversationId/calls", async (req, res) => {
   const { conversationId } = req.params;
 
   const calls = await prisma.call.findMany({
-    where: { conversationId },
+    where: { conversationId: String(conversationId) },
     orderBy: { createdAt: "desc" },
     include: {
       contact: {
-        select: { id: true, name: true, business: true, initials: true, color: true },
+        select: contactCardSelect,
       },
     },
   });

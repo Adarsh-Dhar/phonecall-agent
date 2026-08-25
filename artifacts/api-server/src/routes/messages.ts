@@ -1,83 +1,68 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { scheduleExtraction } from "../services/taskExtraction";
+import { asyncHandler } from "../lib/asyncHandler";
 
 const router: IRouter = Router();
 
 // Get messages for a conversation
-router.get("/conversations/:conversationId/messages", async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const messages = await prisma.message.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: "asc" },
-    });
-    res.json(messages);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch messages" });
-  }
-});
+router.get("/conversations/:conversationId/messages", asyncHandler(async (req, res) => {
+  const { conversationId } = req.params;
+  const messages = await prisma.message.findMany({
+    where: { conversationId: String(conversationId) },
+    orderBy: { createdAt: "asc" },
+  });
+  res.json(messages);
+}, "Failed to fetch messages"));
 
 // Create a new message
-router.post("/conversations/:conversationId/messages", async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const { role, content, time, pending } = req.body;
-    const message = await prisma.message.create({
-      data: {
-        role,
-        content,
-        time,
-        pending: pending || false,
-        conversationId,
-      },
-    });
-    // Update conversation timestamp
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: { updatedAt: new Date() },
-    });
+router.post("/conversations/:conversationId/messages", asyncHandler(async (req, res) => {
+  const { conversationId } = req.params;
+  const { role, content, time, pending } = req.body;
+  const message = await prisma.message.create({
+    data: {
+      role,
+      content,
+      time,
+      pending: pending || false,
+      conversationId: String(conversationId),
+    },
+  });
+  // Update conversation timestamp
+  await prisma.conversation.update({
+    where: { id: String(conversationId) },
+    data: { updatedAt: new Date() },
+  });
 
-    // Schedule background task extraction — fire-and-forget, never blocks the response
-    scheduleExtraction(conversationId);
+  // Schedule background task extraction — fire-and-forget, never blocks the response
+  scheduleExtraction(String(conversationId));
 
-    res.json(message);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to create message" });
-  }
-});
+  res.json(message);
+}, "Failed to create message"));
 
 // Update a message
-router.put("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { role, content, time, pending } = req.body;
-    const message = await prisma.message.update({
-      where: { id },
-      data: {
-        role,
-        content,
-        time,
-        pending,
-      },
-    });
-    res.json(message);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to update message" });
-  }
-});
+router.put("/:id", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { role, content, time, pending } = req.body;
+  const message = await prisma.message.update({
+    where: { id: String(id) },
+    data: {
+      role,
+      content,
+      time,
+      pending,
+    },
+  });
+  res.json(message);
+}, "Failed to update message"));
 
 // Delete a message
-router.delete("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    await prisma.message.delete({
-      where: { id },
-    });
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to delete message" });
-  }
-});
+router.delete("/:id", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  await prisma.message.delete({
+    where: { id: String(id) },
+  });
+  res.json({ success: true });
+}, "Failed to delete message"));
 
 export default router;
