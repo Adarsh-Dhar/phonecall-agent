@@ -3,6 +3,8 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const app: Express = express();
 
@@ -30,5 +32,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+// Serve frontend static files
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const frontendDistPath = path.join(__dirname, "../../phone-agent/dist/public");
+
+app.use(express.static(frontendDistPath));
+
+// Serve index.html for SPA routing
+app.get("*", (req, res) => {
+  res.sendFile(path.join(frontendDistPath, "index.html"));
+});
 
 export default app;
