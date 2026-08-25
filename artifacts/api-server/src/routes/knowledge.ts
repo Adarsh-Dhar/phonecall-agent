@@ -15,6 +15,42 @@ router.get("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
   res.json(facts);
 }, "Failed to fetch contact knowledge"));
 
+// POST /contacts/:id/knowledge — manual creation of knowledge facts
+router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { category, key, value, confidence } = req.body as {
+    category?: string;
+    key?: string;
+    value?: string;
+    confidence?: number;
+  };
+
+  if (!category || !key || !value) {
+    res.status(400).json({ error: "category, key, and value are required" });
+    return;
+  }
+
+  const fact = await prisma.contactKnowledge.upsert({
+    where: { contactId_key: { contactId: String(id), key: String(key) } },
+    create: {
+      contactId: String(id),
+      category: String(category),
+      key: String(key),
+      value: String(value),
+      confidence: typeof confidence === "number" ? confidence : 1.0,
+      status: "active",
+    },
+    update: {
+      category: String(category),
+      value: String(value),
+      confidence: typeof confidence === "number" ? confidence : 1.0,
+      status: "active",
+    },
+  });
+
+  res.status(201).json(fact);
+}, "Failed to create knowledge fact"));
+
 // PATCH /knowledge/:id — user correction or manual invalidation
 router.patch("/knowledge/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;

@@ -6,8 +6,12 @@
  * per-conversation debounce so rapid message exchanges are batched into a
  * single extraction call.
  *
- * Note: Queries (unanswered questions) are no longer extracted here.
- * They are only created via the isEnoughKnowledge escalation flow in emailReply.ts.
+ * NOTE: Query/question generation is NOT part of this pipeline. Queries are
+ * only ever created from the isEnoughKnowledge escalation path in
+ * emailReply.ts / routes/emails.ts — when the agent can't confidently answer
+ * an inbound email, it sends a holding reply and raises exactly one query for
+ * the user. Answering that query upserts the missing fact into
+ * ContactKnowledge so future emails can be answered directly.
  *
  * Flow:
  *   new message saved
@@ -18,7 +22,7 @@
  *           → fetch existing open tasks
  *           → call Gemini with structured prompt
  *           → reconcile: create / update / complete / cancel tasks
- *           → reconcile: upsert / invalidate knowledge
+ *           → reconcile: upsert / invalidate knowledge facts
  *           → advance cursor to latest message
  */
 
@@ -119,7 +123,7 @@ export async function sweepStaleConversations(): Promise<void> {
  * Runs extraction immediately for a conversation, bypassing the debounce.
  * Used by the manual "extract now" API endpoint and by the debounce itself.
  *
- * Returns counts for tasks and queries created/updated so callers can surface
+ * Returns counts for tasks and knowledge created/updated so callers can surface
  * them in API responses.
  */
 export async function runExtraction(conversationId: string): Promise<{
@@ -515,7 +519,7 @@ Your job: identify two types of things from the new messages:
 1. TASKS — actionable items the assistant needs to do, follow up on, or that the user is waiting on.
 2. KNOWLEDGE — durable facts about this contact/business worth remembering for FUTURE conversations (not just this one): hours, preferred contact method, account/reference numbers, past issues, stated preferences, constraints. Do NOT extract one-off task details here — those belong in taskActions.
 
-Note: Do NOT generate queries (unanswered questions) here. Queries are only created via the isEnoughKnowledge escalation flow in emailReply.ts.
+Note: you do NOT generate questions/queries for the user here. Queries are only ever raised separately, when the agent can't confidently answer an inbound email — that is a different, dedicated flow. Do not attempt to replicate it.
 
 Given the new messages and the existing open tasks, return a JSON object with two keys: "taskActions" and "knowledgeActions".
 
