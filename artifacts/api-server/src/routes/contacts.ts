@@ -50,8 +50,15 @@ router.get("/contacts/:id/conversation", asyncHandler(async (req, res) => {
   const conversation = await prisma.conversation.findFirst({
     where: { contactId: String(id) },
     orderBy: { updatedAt: "desc" },
+    include: {
+      contact: true,
+      messages: {
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
   if (!conversation) {
+    // Return 404 but with a clear error message
     res.status(404).json({ error: "No conversation found for this contact" });
     return;
   }

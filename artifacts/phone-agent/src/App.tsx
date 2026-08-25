@@ -574,6 +574,8 @@ function InboxPage() {
       console.log('[InboxPage] matched contact:', matched.name, '|', matched.business);
     } else if (contacts.length > 0) {
       console.warn('[InboxPage] no contact found for id:', urlContactId);
+      // Fall back to the first available contact if URL param is invalid
+      console.log('[InboxPage] falling back to first available contact');
     }
   }, [urlContactId, contacts]);
 
@@ -587,9 +589,21 @@ function InboxPage() {
         console.log('[InboxPage] conversation loaded for:', conv.contact?.name ?? resolvedContactId);
         setConversation(conv);
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error('[InboxPage] Failed to fetch conversation:', err);
+        // If conversation fetch fails, try to get conversation from contact data
+        const matchedContact = contacts.find((c) => c.id === resolvedContactId);
+        if (matchedContact && matchedContact.conversations && matchedContact.conversations.length > 0) {
+          const convFromContact = matchedContact.conversations[0];
+          console.log('[InboxPage] using conversation from contact data:', convFromContact.title);
+          setConversation(convFromContact as any);
+        } else {
+          console.warn('[InboxPage] No conversation available for contact');
+          setConversation(null);
+        }
+      })
       .finally(() => setConvLoading(false));
-  }, [resolvedContactId]);
+  }, [resolvedContactId, contacts]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [conversation?.messages, busy]);
 
@@ -1311,13 +1325,19 @@ function TasksPanel({
 
   const handleAddTask = async () => {
     const title = newTitle.trim();
-    if (!title || !conversationId || !contactId) return;
+    if (!title || !conversationId || !contactId) {
+      console.warn('[TasksPanel] Missing required data:', { title, conversationId, contactId });
+      return;
+    }
     try {
       const task = await api.createTask({ title, conversationId, contactId });
       setTasks((prev) => [...prev, task]);
       setNewTitle('');
       setShowAddForm(false);
-    } catch { /* no-op */ }
+      console.log('[TasksPanel] Task created successfully:', task.title);
+    } catch (err) {
+      console.error('[TasksPanel] Failed to create task:', err);
+    }
   };
 
   const visible = filter === 'active'
