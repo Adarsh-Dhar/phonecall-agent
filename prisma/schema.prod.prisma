@@ -153,6 +153,12 @@ model Query {
   // so it appears in the conversation transcript.
   answerMessageId String?
 
+  // Knowledge gap tracking — marks queries created due to insufficient knowledge
+  // and stores the key/category for upserting into ContactKnowledge when answered.
+  isKnowledgeGap    Boolean  @default(false)
+  knowledgeKey      String?
+  knowledgeCategory String?
+
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
@@ -164,6 +170,7 @@ model Query {
   @@index([conversationId])
   @@index([contactId])
   @@index([status])
+  @@index([isKnowledgeGap])
 }
 
 // Join table: which message(s) a query was mined from / dismissed by.

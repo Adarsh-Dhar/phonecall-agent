@@ -7,6 +7,7 @@ import messagesRouter from "./messages";
 import historyRouter from "./history";
 import tasksRouter from "./tasks";
 import queriesRouter from "./queries";
+import questionsRouter from "./questions";
 import knowledgeRouter from "./knowledge";
 import callsRouter from "./calls";
 import emailsRouter from "./emails";
@@ -24,6 +25,7 @@ router.use(messagesRouter);
 router.use(historyRouter);
 router.use(tasksRouter);
 router.use(queriesRouter);
+router.use(questionsRouter);
 router.use(knowledgeRouter);
 
 // ── Calls REST API (no signature check — called by our own frontend) ───────

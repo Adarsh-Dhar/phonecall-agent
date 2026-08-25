@@ -8,10 +8,25 @@ import { prisma } from "@workspace/db-prisma";
 import { generateGeminiText, type GeminiTextTurn } from "./geminiText";
 import { logger } from "../lib/logger";
 
+/**
+ * Slugify a string to create a stable, URL-safe key.
+ * Converts to lowercase, replaces spaces with underscores, and removes special characters.
+ */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '_')      // Replace spaces with underscores
+    .replace(/-+/g, '_')       // Replace hyphens with underscores
+    .replace(/^_+|_+$/g, '');  // Trim leading/trailing underscores
+}
+
 type EmailReplyDecision = {
   needsEscalation: boolean;
   replyBody: string;
   escalationQuestion: string | null;
+  knowledgeKey: string | null;
+  knowledgeCategory: string | null;
 };
 
 export async function generateEmailReply(params: {
@@ -20,7 +35,7 @@ export async function generateEmailReply(params: {
   contactName: string;
   incomingSubject: string;
   incomingBody: string;
-}): Promise<{ subject: string; body: string; needsEscalation: boolean; escalationQuestion: string | null; isEnoughKnowledge: boolean }> {
+}): Promise<{ subject: string; body: string; needsEscalation: boolean; escalationQuestion: string | null; isEnoughKnowledge: boolean; knowledgeKey: string | null; knowledgeCategory: string | null }> {
   const facts = await prisma.contactKnowledge.findMany({
     where: { contactId: params.contactId, status: "active" },
     orderBy: { category: "asc" },
@@ -66,6 +81,8 @@ export async function generateEmailReply(params: {
     needsEscalation: decision.needsEscalation,
     escalationQuestion: decision.escalationQuestion,
     isEnoughKnowledge: !decision.needsEscalation,
+    knowledgeKey: decision.knowledgeKey,
+    knowledgeCategory: decision.knowledgeCategory,
   };
 }
 
@@ -95,7 +112,9 @@ async function generateEmailReplyDecision(params: {
     "Return ONLY a JSON object, no markdown fences, no explanation:\n" +
     '{\n' +
     '  "canAnswerConfidently": boolean,\n' +
-    '  "escalationQuestion": string | null  // if canAnswerConfidently is false, the specific question to ask YOUR USER (not the business) to get what\'s missing; null otherwise\n' +
+    '  "escalationQuestion": string | null,  // if canAnswerConfidently is false, the specific question to ask YOUR USER (not the business) to get what\'s missing; null otherwise\n' +
+    '  "knowledgeKey": string | null,  // if canAnswerConfidently is false, a stable snake_case key for the missing fact (e.g. "chronic_conditions", "preferred_callback_time"); null otherwise\n' +
+    '  "knowledgeCategory": string | null  // if canAnswerConfidently is false, the category of the missing fact (e.g. "fact", "preference", "history"); null otherwise\n' +
     '}' +
     params.knowledgeBlock;
 
@@ -115,10 +134,14 @@ async function generateEmailReplyDecision(params: {
 
   let needsEscalation = false;
   let escalationQuestion: string | null = null;
+  let knowledgeKey: string | null = null;
+  let knowledgeCategory: string | null = null;
   try {
     const parsed = JSON.parse(assessmentText) as {
       canAnswerConfidently?: boolean;
       escalationQuestion?: string | null;
+      knowledgeKey?: string | null;
+      knowledgeCategory?: string | null;
     };
     needsEscalation = parsed.canAnswerConfidently === false;
     if (needsEscalation) {
@@ -126,6 +149,20 @@ async function generateEmailReplyDecision(params: {
         typeof parsed.escalationQuestion === "string" && parsed.escalationQuestion.trim().length > 0
           ? parsed.escalationQuestion
           : fallbackEscalationQuestion;
+
+      // Parse knowledgeKey with slugify fallback
+      if (typeof parsed.knowledgeKey === "string" && parsed.knowledgeKey.trim().length > 0) {
+        knowledgeKey = slugify(parsed.knowledgeKey);
+      } else {
+        // Generate a fallback key from the escalation question
+        knowledgeKey = slugify(escalationQuestion || "unknown_fact");
+      }
+
+      // Parse knowledgeCategory with fallback
+      knowledgeCategory =
+        typeof parsed.knowledgeCategory === "string" && parsed.knowledgeCategory.trim().length > 0
+          ? parsed.knowledgeCategory
+          : "fact";
     }
   } catch {
     logger.warn({ assessmentText }, "emailReply: failed to parse assessment JSON, defaulting to answerable");
@@ -162,10 +199,16 @@ async function generateEmailReplyDecision(params: {
       { replyBody },
       "emailReply: assessment said confident but reply text hedges — forcing escalation"
     );
-    return { needsEscalation: true, replyBody, escalationQuestion: fallbackEscalationQuestion };
+    return {
+      needsEscalation: true,
+      replyBody,
+      escalationQuestion: fallbackEscalationQuestion,
+      knowledgeKey: slugify(fallbackEscalationQuestion),
+      knowledgeCategory: "fact",
+    };
   }
 
-  return { needsEscalation, replyBody, escalationQuestion };
+  return { needsEscalation, replyBody, escalationQuestion, knowledgeKey, knowledgeCategory };
 }
 
 const HOLDING_REPLY_PATTERNS = [

@@ -304,10 +304,13 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
             status: "pending",
             conversationId: conversation.id,
             contactId: contact.id,
+            isKnowledgeGap: true,
+            knowledgeKey: reply.knowledgeKey,
+            knowledgeCategory: reply.knowledgeCategory,
           },
         });
         logger.info(
-          { conversationId: conversation.id, contactId: contact.id, question: reply.escalationQuestion, isEnoughKnowledge: reply.isEnoughKnowledge },
+          { conversationId: conversation.id, contactId: contact.id, question: reply.escalationQuestion, isEnoughKnowledge: reply.isEnoughKnowledge, knowledgeKey: reply.knowledgeKey, knowledgeCategory: reply.knowledgeCategory },
           "emails/inbound: created escalation query"
         );
       }

@@ -490,6 +490,7 @@ async function main() {
             status: 'pending',
             conversationId: conversation.id,
             contactId: contact.id,
+            isKnowledgeGap: false, // Seed queries are not knowledge gaps by default
           },
         });
       }
