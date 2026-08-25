@@ -1,4 +1,4 @@
-const API_BASE_URL = '/api';
+const API_BASE_URL = 'https://phonecall-agent-1.onrender.com/api';
 
 export type Contact = {
   id: string;
