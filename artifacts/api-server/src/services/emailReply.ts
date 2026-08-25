@@ -22,7 +22,7 @@ function slugify(text: string): string {
 }
 
 type EmailReplyDecision = {
-  needsEscalation: boolean;
+  isEnoughKnowledge: boolean;
   replyBody: string;
   escalationQuestion: string | null;
   knowledgeKey: string | null;
@@ -35,7 +35,7 @@ export async function generateEmailReply(params: {
   contactName: string;
   incomingSubject: string;
   incomingBody: string;
-}): Promise<{ subject: string; body: string; needsEscalation: boolean; escalationQuestion: string | null; isEnoughKnowledge: boolean; knowledgeKey: string | null; knowledgeCategory: string | null }> {
+}): Promise<{ subject: string; body: string; isEnoughKnowledge: boolean; escalationQuestion: string | null; knowledgeKey: string | null; knowledgeCategory: string | null }> {
   const facts = await prisma.contactKnowledge.findMany({
     where: { contactId: params.contactId, status: "active" },
     orderBy: { category: "asc" },
@@ -78,9 +78,8 @@ export async function generateEmailReply(params: {
   return {
     subject,
     body: decision.replyBody,
-    needsEscalation: decision.needsEscalation,
+    isEnoughKnowledge: decision.isEnoughKnowledge,
     escalationQuestion: decision.escalationQuestion,
-    isEnoughKnowledge: !decision.needsEscalation,
     knowledgeKey: decision.knowledgeKey,
     knowledgeCategory: decision.knowledgeCategory,
   };
@@ -93,7 +92,7 @@ export async function generateEmailReply(params: {
  * actual reply, but is handed step 1's decision as a hard constraint rather
  * than being asked to invent its own. This avoids the failure mode where a
  * single call writes a "checking with my user" style reply while separately
- * reporting needsEscalation: false, which silently drops the escalation.
+ * reporting isEnoughKnowledge: true, which silently drops the escalation.
  */
 async function generateEmailReplyDecision(params: {
   contactName: string;
@@ -111,10 +110,10 @@ async function generateEmailReplyDecision(params: {
     "if any fact needed for a complete answer is missing, you cannot answer confidently.\n\n" +
     "Return ONLY a JSON object, no markdown fences, no explanation:\n" +
     '{\n' +
-    '  "canAnswerConfidently": boolean,\n' +
-    '  "escalationQuestion": string | null,  // if canAnswerConfidently is false, the specific question to ask YOUR USER (not the business) to get what\'s missing; null otherwise\n' +
-    '  "knowledgeKey": string | null,  // if canAnswerConfidently is false, a stable snake_case key for the missing fact (e.g. "chronic_conditions", "preferred_callback_time"); null otherwise\n' +
-    '  "knowledgeCategory": string | null  // if canAnswerConfidently is false, the category of the missing fact (e.g. "fact", "preference", "history"); null otherwise\n' +
+    '  "isEnoughKnowledge": boolean,\n' +
+    '  "escalationQuestion": string | null,  // if isEnoughKnowledge is false, the specific question to ask YOUR USER (not the business) to get what\'s missing; null otherwise\n' +
+    '  "knowledgeKey": string | null,  // if isEnoughKnowledge is false, a stable snake_case key for the missing fact (e.g. "chronic_conditions", "preferred_callback_time"); null otherwise\n' +
+    '  "knowledgeCategory": string | null  // if isEnoughKnowledge is false, the category of the missing fact (e.g. "fact", "preference", "history"); null otherwise\n' +
     '}' +
     params.knowledgeBlock;
 
@@ -132,19 +131,19 @@ async function generateEmailReplyDecision(params: {
     `${params.contactName} emailed about "${params.incomingSubject}" and I don't have enough information ` +
     `to answer confidently. Can you review and let me know how to respond?\n\nTheir message:\n${params.incomingBody}`;
 
-  let needsEscalation = false;
+  let isEnoughKnowledge = true; // Fail-open: default to true on parse error
   let escalationQuestion: string | null = null;
   let knowledgeKey: string | null = null;
   let knowledgeCategory: string | null = null;
   try {
     const parsed = JSON.parse(assessmentText) as {
-      canAnswerConfidently?: boolean;
+      isEnoughKnowledge?: boolean;
       escalationQuestion?: string | null;
       knowledgeKey?: string | null;
       knowledgeCategory?: string | null;
     };
-    needsEscalation = parsed.canAnswerConfidently === false;
-    if (needsEscalation) {
+    isEnoughKnowledge = parsed.isEnoughKnowledge !== false;
+    if (!isEnoughKnowledge) {
       escalationQuestion =
         typeof parsed.escalationQuestion === "string" && parsed.escalationQuestion.trim().length > 0
           ? parsed.escalationQuestion
@@ -165,7 +164,7 @@ async function generateEmailReplyDecision(params: {
           : "fact";
     }
   } catch {
-    logger.warn({ assessmentText }, "emailReply: failed to parse assessment JSON, defaulting to answerable");
+    logger.warn({ assessmentText }, "emailReply: failed to parse assessment JSON, defaulting to isEnoughKnowledge=true");
   }
 
   const replySystemText =
@@ -174,7 +173,7 @@ async function generateEmailReplyDecision(params: {
     "Your user is the person you represent.\n\n" +
     "Write a complete, professional email reply — a real greeting, a clear body, a sign-off. " +
     "Be conversational and natural, not robotic. No markdown, no bullet lists unless the content genuinely needs them.\n\n" +
-    (needsEscalation
+    (!isEnoughKnowledge
       ? "You have ALREADY determined you cannot answer this yet — you are waiting on your user for: " +
         `"${escalationQuestion}". Write ONLY a brief, polite holding reply to the business contact. ` +
         "Acknowledge their email and say you're checking on the specific detail and will follow up shortly. " +
@@ -194,13 +193,13 @@ async function generateEmailReplyDecision(params: {
   // it produced still reads like a holding email (ignoring the explicit
   // instruction not to hedge), treat it as an escalation anyway rather than
   // sending a "we'll get back to you" email with no Query behind it.
-  if (!needsEscalation && looksLikeHoldingReply(replyBody)) {
+  if (isEnoughKnowledge && looksLikeHoldingReply(replyBody)) {
     logger.warn(
       { replyBody },
       "emailReply: assessment said confident but reply text hedges — forcing escalation"
     );
     return {
-      needsEscalation: true,
+      isEnoughKnowledge: false,
       replyBody,
       escalationQuestion: fallbackEscalationQuestion,
       knowledgeKey: slugify(fallbackEscalationQuestion),
@@ -208,7 +207,7 @@ async function generateEmailReplyDecision(params: {
     };
   }
 
-  return { needsEscalation, replyBody, escalationQuestion, knowledgeKey, knowledgeCategory };
+  return { isEnoughKnowledge, replyBody, escalationQuestion, knowledgeKey, knowledgeCategory };
 }
 
 const HOLDING_REPLY_PATTERNS = [

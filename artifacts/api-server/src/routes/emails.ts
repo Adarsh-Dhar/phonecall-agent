@@ -297,7 +297,7 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
       scheduleExtraction(conversation.id);
 
       // If the AI flagged that it needs escalation, create a Query for the user
-      if (reply.needsEscalation && reply.escalationQuestion) {
+      if (!reply.isEnoughKnowledge && reply.escalationQuestion) {
         await prisma.query.create({
           data: {
             question: reply.escalationQuestion,
