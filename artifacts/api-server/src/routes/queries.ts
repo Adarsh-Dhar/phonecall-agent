@@ -223,6 +223,7 @@ router.patch("/queries/:id/answer", async (req, res) => {
               from: process.env.SENDGRID_FROM_EMAIL || process.env.TWILIO_EMAIL_ADDRESS || "unknown@twilio.email",
               to: contact.email,
               body: followUp.body,
+              isEnoughKnowledge: followUp.isEnoughKnowledge,
             },
           });
 

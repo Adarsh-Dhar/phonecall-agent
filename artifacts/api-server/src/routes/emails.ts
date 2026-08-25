@@ -264,6 +264,7 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
           from: process.env.SENDGRID_FROM_EMAIL || process.env.TWILIO_EMAIL_ADDRESS || "unknown@twilio.email",
           to: contact.email,
           body: reply.body,
+          isEnoughKnowledge: reply.isEnoughKnowledge,
         },
       });
 

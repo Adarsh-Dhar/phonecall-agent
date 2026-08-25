@@ -20,7 +20,7 @@ export async function generateEmailReply(params: {
   contactName: string;
   incomingSubject: string;
   incomingBody: string;
-}): Promise<{ subject: string; body: string; needsEscalation: boolean; escalationQuestion: string | null }> {
+}): Promise<{ subject: string; body: string; needsEscalation: boolean; escalationQuestion: string | null; isEnoughKnowledge: boolean }> {
   const facts = await prisma.contactKnowledge.findMany({
     where: { contactId: params.contactId, status: "active" },
     orderBy: { category: "asc" },
@@ -65,6 +65,7 @@ export async function generateEmailReply(params: {
     body: decision.replyBody,
     needsEscalation: decision.needsEscalation,
     escalationQuestion: decision.escalationQuestion,
+    isEnoughKnowledge: !decision.needsEscalation,
   };
 }
 
@@ -185,7 +186,7 @@ export async function generateFollowUpEmailReply(params: {
   contactId: string;
   contactName: string;
   originalSubject: string;
-}): Promise<{ subject: string; body: string }> {
+}): Promise<{ subject: string; body: string; isEnoughKnowledge: boolean }> {
   const facts = await prisma.contactKnowledge.findMany({
     where: { contactId: params.contactId, status: "active" },
     orderBy: { category: "asc" },
@@ -226,5 +227,5 @@ export async function generateFollowUpEmailReply(params: {
     ? params.originalSubject
     : `Re: ${params.originalSubject}`;
 
-  return { subject, body: text };
+  return { subject, body: text, isEnoughKnowledge: true };
 }

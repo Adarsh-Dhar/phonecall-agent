@@ -210,21 +210,22 @@ model Call {
 // Email — tracks each outbound email sent via Twilio Email API.
 // ---------------------------------------------------------------------------
 model Email {
-  id         String    @id @default(cuid())
-  twilioSid  String?   @unique    // Twilio Email SID, set once Twilio responds
-  status     String    @default("initiated")
+  id               String    @id @default(cuid())
+  twilioSid        String?   @unique    // Twilio Email SID, set once Twilio responds
+  status           String    @default("initiated")
   // initiated | queued | sent | delivered | failed | bounced | received (inbound)
-  direction  String    @default("outbound")  // outbound | inbound
-  subject    String
-  from       String
-  to         String
-  body       String?   // plain text body
-  html       String?   // HTML body
-  sentAt     DateTime?
-  deliveredAt DateTime?
-  receivedAt DateTime?  // set for inbound emails, when we received the webhook
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  direction        String    @default("outbound")  // outbound | inbound
+  subject          String
+  from             String
+  to               String
+  body             String?   // plain text body
+  html             String?   // HTML body
+  sentAt           DateTime?
+  deliveredAt      DateTime?
+  receivedAt       DateTime?  // set for inbound emails, when we received the webhook
+  isEnoughKnowledge Boolean?  // true if agent had enough knowledge to answer, false if escalated, null for manual/inbound
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

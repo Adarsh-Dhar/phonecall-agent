@@ -4,8 +4,7 @@ services:
     env: node
     plan: free
     region: oregon
-    buildCommand: npx pnpm@latest install && cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma generate && cd artifacts/api-server && npx pnpm@latest run build
-    preDeployCommand: cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma db push
+    buildCommand: npx pnpm@latest install && cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma generate && npx prisma db push --accept-data-loss && cd artifacts/api-server && npx pnpm@latest run build
     startCommand: cp prisma/schema.prod.prisma prisma/schema.prisma && cd artifacts/api-server && npx pnpm@latest run start
     envVars:
       - key: DATABASE_URL
@@ -47,8 +46,7 @@ services:
     env: node
     plan: free
     region: singapore
-    buildCommand: npx pnpm@latest install && cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma generate && cd artifacts/api-server && npx pnpm@latest run build
-    preDeployCommand: cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma db push
+    buildCommand: npx pnpm@latest install && cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma generate && npx prisma db push --accept-data-loss && cd artifacts/api-server && npx pnpm@latest run build
     startCommand: cp prisma/schema.prod.prisma prisma/schema.prisma && cd artifacts/api-server && npx pnpm@latest run start
     envVars:
       - key: DATABASE_URL
