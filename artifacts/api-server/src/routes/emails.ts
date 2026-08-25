@@ -268,6 +268,11 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
         },
       });
 
+      logger.info(
+        { conversationId: conversation.id, contactId: contact.id, isEnoughKnowledge: reply.isEnoughKnowledge, emailId: outboundEmail.id },
+        "emails/inbound: created auto-reply email"
+      );
+
       const sendResult = await sendOutboundEmail({
         to: contact.email,
         subject: reply.subject,
@@ -302,7 +307,7 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
           },
         });
         logger.info(
-          { conversationId: conversation.id, contactId: contact.id, question: reply.escalationQuestion },
+          { conversationId: conversation.id, contactId: contact.id, question: reply.escalationQuestion, isEnoughKnowledge: reply.isEnoughKnowledge },
           "emails/inbound: created escalation query"
         );
       }

@@ -227,6 +227,11 @@ router.patch("/queries/:id/answer", async (req, res) => {
             },
           });
 
+          logger.info(
+            { queryId: id, contactId: query.contactId, emailId: outboundEmail.id, isEnoughKnowledge: followUp.isEnoughKnowledge },
+            "queries/answer: created follow-up email"
+          );
+
           const sendResult = await sendOutboundEmail({
             to: contact.email,
             subject: followUp.subject,
@@ -251,7 +256,7 @@ router.patch("/queries/:id/answer", async (req, res) => {
           scheduleExtraction(query.conversationId);
 
           logger.info(
-            { queryId: id, contactId: query.contactId, emailId: outboundEmail.id },
+            { queryId: id, contactId: query.contactId, emailId: outboundEmail.id, isEnoughKnowledge: followUp.isEnoughKnowledge },
             "queries/answer: sent follow-up email"
           );
         }
