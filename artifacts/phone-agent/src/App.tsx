@@ -557,10 +557,21 @@ function InboxPage() {
   }, []);
 
   // Resolve the active contact id: URL param takes priority, otherwise Phone Agent
-  const resolvedContactId = urlContactId
-    || contacts.find((c) => c.name === 'Phone Agent')?.id
-    || contacts[contacts.length - 1]?.id
-    || '';
+  // If URL param is invalid (contact doesn't exist), fall back to a valid contact
+  const resolvedContactId = (() => {
+    if (urlContactId) {
+      const matched = contacts.find((c) => c.id === urlContactId);
+      if (matched) {
+        return urlContactId;
+      }
+      // URL param exists but contact doesn't - fall back
+      console.warn('[InboxPage] URL contact ID not found, falling back:', urlContactId);
+    }
+    // No URL param or invalid - use fallback logic
+    return contacts.find((c) => c.name === 'Phone Agent')?.id
+      || contacts[contacts.length - 1]?.id
+      || '';
+  })();
 
   // Keep the ref in sync so the polling callback always sees the latest value
   resolvedContactIdRef.current = resolvedContactId;
@@ -572,10 +583,8 @@ function InboxPage() {
     const matched = contacts.find((c) => c.id === urlContactId);
     if (matched) {
       console.log('[InboxPage] matched contact:', matched.name, '|', matched.business);
-    } else if (contacts.length > 0) {
+    } else {
       console.warn('[InboxPage] no contact found for id:', urlContactId);
-      // Fall back to the first available contact if URL param is invalid
-      console.log('[InboxPage] falling back to first available contact');
     }
   }, [urlContactId, contacts]);
 
