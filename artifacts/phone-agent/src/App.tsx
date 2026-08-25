@@ -1037,7 +1037,7 @@ function QueriesPanel({
   conversationId: string | undefined;
   contactId: string | undefined;
 }) {
-  const [queries, setQueries] = useState<api.Query[]>([]);
+  const [queries, setQueries] = useState<api.Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
   // answer drafts keyed by query id
@@ -1050,7 +1050,9 @@ function QueriesPanel({
   const loadQueries = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.fetchQueries();
+      // Fetch questions (knowledge gap questions) instead of general queries
+      // since email escalation creates questions with isKnowledgeGap: true
+      const data = await api.fetchQuestions();
       setQueries(data);
     } catch {
       // non-critical — panel is best-effort
@@ -1067,12 +1069,13 @@ function QueriesPanel({
     return () => clearInterval(interval);
   }, [loadQueries]);
 
-  const handleAnswer = async (query: api.Query) => {
+  const handleAnswer = async (query: api.Question) => {
     const answer = (drafts[query.id] ?? '').trim();
     if (!answer || submitting[query.id]) return;
     setSubmitting((s) => ({ ...s, [query.id]: true }));
     try {
-      const updated = await api.answerQuery(query.id, answer);
+      // Use answerQuestion endpoint for knowledge gap questions
+      const updated = await api.answerQuestion(query.id, answer);
       setQueries((prev) => prev.map((q) => q.id === query.id ? updated : q));
       setDrafts((d) => { const n = { ...d }; delete n[query.id]; return n; });
     } catch { /* no-op */ } finally {
@@ -1082,7 +1085,8 @@ function QueriesPanel({
 
   const handleDismiss = async (id: string) => {
     try {
-      const updated = await api.dismissQuery(id);
+      // Use dismissQuestion endpoint for knowledge gap questions
+      const updated = await api.dismissQuestion(id);
       setQueries((prev) => prev.map((q) => q.id === id ? updated : q));
     } catch { /* no-op */ }
   };
@@ -1169,7 +1173,7 @@ function QueryRow({
   onAnswer,
   onDismiss,
 }: {
-  query: api.Query;
+  query: api.Question;
   draft: string;
   submitting: boolean;
   onDraftChange: (v: string) => void;

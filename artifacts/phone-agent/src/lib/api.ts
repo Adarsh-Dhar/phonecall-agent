@@ -302,6 +302,9 @@ export type Query = {
     color: string;
   };
   sources: QuerySourceMessage[];
+  isKnowledgeGap?: boolean;
+  knowledgeKey?: string;
+  knowledgeCategory?: string;
 };
 
 // ─── Query API helpers ────────────────────────────────────────────────────────
@@ -343,6 +346,78 @@ export const fetchQueries = async (filters?: {
   const qs = params.toString();
   const response = await fetch(`${API_BASE_URL}/queries${qs ? `?${qs}` : ''}`);
   if (!response.ok) throw new Error('Failed to fetch queries');
+  return response.json();
+};
+
+// ─── Question types (Knowledge Gap Questions) ─────────────────────────────────────────────────────────────
+
+// Reuse Query type for questions (they use the same underlying model)
+export type Question = Query;
+
+// ─── Question API helpers ────────────────────────────────────────────────────────
+
+/** Questions for a single conversation thread. */
+export const fetchConversationQuestions = async (
+  conversationId: string,
+  status?: QueryStatus,
+): Promise<Question[]> => {
+  const url = status
+    ? `${API_BASE_URL}/conversations/${conversationId}/questions?status=${status}`
+    : `${API_BASE_URL}/conversations/${conversationId}/questions`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Failed to fetch conversation questions');
+  return response.json();
+};
+
+/** All questions for a contact across all their threads. */
+export const fetchContactQuestions = async (
+  contactId: string,
+  status?: QueryStatus,
+): Promise<Question[]> => {
+  const url = status
+    ? `${API_BASE_URL}/contacts/${contactId}/questions?status=${status}`
+    : `${API_BASE_URL}/contacts/${contactId}/questions`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Failed to fetch contact questions');
+  return response.json();
+};
+
+/** Global question inbox — cross-contact, filterable. */
+export const fetchQuestions = async (filters?: {
+  status?: QueryStatus;
+  contactId?: string;
+}): Promise<Question[]> => {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.contactId) params.set('contactId', filters.contactId);
+  const qs = params.toString();
+  const response = await fetch(`${API_BASE_URL}/questions${qs ? `?${qs}` : ''}`);
+  if (!response.ok) throw new Error('Failed to fetch questions');
+  return response.json();
+};
+
+/** Submit an answer to a pending question (knowledge gap question). */
+export const answerQuestion = async (id: string, answer: string): Promise<Question> => {
+  const response = await fetch(`${API_BASE_URL}/questions/${id}/answer`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answer }),
+  });
+  if (!response.ok) throw new Error('Failed to answer question');
+  return response.json();
+};
+
+/** Dismiss a question (or edit its question text). */
+export const dismissQuestion = async (
+  id: string,
+  data?: { question?: string },
+): Promise<Question> => {
+  const response = await fetch(`${API_BASE_URL}/questions/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'dismissed', ...data }),
+  });
+  if (!response.ok) throw new Error('Failed to dismiss question');
   return response.json();
 };
 
