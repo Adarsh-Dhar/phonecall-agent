@@ -436,6 +436,21 @@ export const createQuery = async (data: {
   return response.json();
 };
 
+/** Create a manual question (knowledge gap question, status: pending). */
+export const createQuestion = async (data: {
+  question: string;
+  conversationId: string;
+  contactId: string;
+}): Promise<Question> => {
+  const response = await fetch(`${API_BASE_URL}/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to create question');
+  return response.json();
+};
+
 /** Submit an answer to a pending query. */
 export const answerQuery = async (id: string, answer: string): Promise<Query> => {
   const response = await fetch(`${API_BASE_URL}/queries/${id}/answer`, {
