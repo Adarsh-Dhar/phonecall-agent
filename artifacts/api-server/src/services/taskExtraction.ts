@@ -1,10 +1,13 @@
 /**
  * Conversation Extraction Service
  *
- * Watches conversations for new messages and mines both actionable tasks and
- * unanswered questions (queries) from them using the Gemini API. Runs on a
+ * Watches conversations for new messages and mines actionable tasks and
+ * durable knowledge facts from them using the Gemini API. Runs on a
  * per-conversation debounce so rapid message exchanges are batched into a
  * single extraction call.
+ *
+ * Note: Queries (unanswered questions) are no longer extracted here.
+ * They are only created via the isEnoughKnowledge escalation flow in emailReply.ts.
  *
  * Flow:
  *   new message saved
@@ -12,10 +15,10 @@
  *       → [N seconds of quiet]
  *         → runExtraction(conversationId)
  *           → fetch delta messages (since cursor)
- *           → fetch existing open tasks + pending queries
+ *           → fetch existing open tasks
  *           → call Gemini with structured prompt
  *           → reconcile: create / update / complete / cancel tasks
- *           → reconcile: create / dismiss queries
+ *           → reconcile: upsert / invalidate knowledge
  *           → advance cursor to latest message
  */
 
@@ -124,8 +127,6 @@ export async function runExtraction(conversationId: string): Promise<{
   updated: string[];
   completed: string[];
   cancelled: string[];
-  queriesCreated: string[];
-  queriesDismissed: string[];
   knowledgeUpserted: string[];
   knowledgeInvalidated: string[];
 }> {
@@ -134,8 +135,6 @@ export async function runExtraction(conversationId: string): Promise<{
     updated: [] as string[],
     completed: [] as string[],
     cancelled: [] as string[],
-    queriesCreated: [] as string[],
-    queriesDismissed: [] as string[],
     knowledgeUpserted: [] as string[],
     knowledgeInvalidated: [] as string[],
   };
@@ -188,7 +187,7 @@ export async function runExtraction(conversationId: string): Promise<{
     }
 
     // ------------------------------------------------------------------
-    // 3. Fetch existing open tasks and pending queries for this conversation
+    // 3. Fetch existing open tasks for this conversation
     // ------------------------------------------------------------------
     const openTasks = await prisma.task.findMany({
       where: {
@@ -205,15 +204,10 @@ export async function runExtraction(conversationId: string): Promise<{
       },
     });
 
-    const openQueries = await prisma.query.findMany({
-      where: { conversationId, status: "pending" },
-      select: { id: true, question: true, status: true },
-    });
-
     // ------------------------------------------------------------------
     // 4. Build prompt and call Gemini
     // ------------------------------------------------------------------
-    const { taskActions, queryActions, knowledgeActions } = await callGeminiExtraction(apiKey, {
+    const { taskActions, knowledgeActions } = await callGeminiExtraction(apiKey, {
       contactName: conversation.contact.name,
       contactBusiness: conversation.contact.business,
       existingTasks: openTasks.map((t) => ({
@@ -224,11 +218,6 @@ export async function runExtraction(conversationId: string): Promise<{
         status: t.status,
         priority: t.priority,
       })),
-      existingOpenQueries: openQueries.map((q) => ({
-        id: q.id,
-        question: q.question,
-        status: q.status,
-      })),
       newMessages: deltaMessages.map((m) => ({
         id: m.id,
         role: m.role,
@@ -237,7 +226,7 @@ export async function runExtraction(conversationId: string): Promise<{
       })),
     });
 
-    if (taskActions.length === 0 && queryActions.length === 0 && knowledgeActions.length === 0) {
+    if (taskActions.length === 0 && knowledgeActions.length === 0) {
       await advanceCursor(conversationId, deltaMessages);
       return result;
     }
@@ -374,69 +363,6 @@ export async function runExtraction(conversationId: string): Promise<{
         }
       }
 
-      // ---- Query actions -----------------------------------------------
-      for (const action of queryActions) {
-        const sourceIds: string[] = action.sourceMessageIds ?? [];
-
-        if (action.type === "create") {
-          const query = await tx.query.create({
-            data: {
-              question: action.question!,
-              status: "pending",
-              conversationId,
-              contactId: conversation.contactId,
-            },
-          });
-          result.queriesCreated.push(query.id);
-
-          for (const msgId of sourceIds) {
-            if (deltaMessages.find((m) => m.id === msgId)) {
-              await tx.querySourceMessage.upsert({
-                where: {
-                  queryId_messageId_role: {
-                    queryId: query.id,
-                    messageId: msgId,
-                    role: "asked",
-                  },
-                },
-                create: {
-                  queryId: query.id,
-                  messageId: msgId,
-                  role: "asked",
-                },
-                update: {},
-              });
-            }
-          }
-        } else if (action.type === "dismiss" && action.queryId) {
-          await tx.query.update({
-            where: { id: action.queryId },
-            data: { status: "dismissed" },
-          });
-          result.queriesDismissed.push(action.queryId);
-
-          for (const msgId of sourceIds) {
-            if (deltaMessages.find((m) => m.id === msgId)) {
-              await tx.querySourceMessage.upsert({
-                where: {
-                  queryId_messageId_role: {
-                    queryId: action.queryId,
-                    messageId: msgId,
-                    role: "dismissed",
-                  },
-                },
-                create: {
-                  queryId: action.queryId,
-                  messageId: msgId,
-                  role: "dismissed",
-                },
-                update: {},
-              });
-            }
-          }
-        }
-      }
-
       // ---- Knowledge actions ---------------------------------------------
       for (const action of knowledgeActions) {
         const sourceIds: string[] = action.sourceMessageIds ?? [];
@@ -501,8 +427,6 @@ export async function runExtraction(conversationId: string): Promise<{
         updated: result.updated.length,
         completed: result.completed.length,
         cancelled: result.cancelled.length,
-        queriesCreated: result.queriesCreated.length,
-        queriesDismissed: result.queriesDismissed.length,
         knowledgeUpserted: result.knowledgeUpserted.length,
         knowledgeInvalidated: result.knowledgeInvalidated.length,
       },
@@ -547,12 +471,6 @@ type ExistingTask = {
   priority: string;
 };
 
-type ExistingQuery = {
-  id: string;
-  question: string;
-  status: string;
-};
-
 type NewMessage = {
   id: string;
   role: string;
@@ -567,14 +485,6 @@ type TaskAction = {
   description?: string;
   dueDate?: string;
   priority?: "low" | "normal" | "high";
-  confidence: number;
-  sourceMessageIds: string[];
-};
-
-type QueryAction = {
-  type: "create" | "dismiss";
-  queryId?: string;      // required for dismiss
-  question?: string;     // required for create
   confidence: number;
   sourceMessageIds: string[];
 };
@@ -594,30 +504,26 @@ async function callGeminiExtraction(
     contactName: string;
     contactBusiness: string;
     existingTasks: ExistingTask[];
-    existingOpenQueries: ExistingQuery[];
     newMessages: NewMessage[];
   }
-): Promise<{ taskActions: TaskAction[]; queryActions: QueryAction[]; knowledgeActions: KnowledgeAction[] }> {
-  const empty = { taskActions: [], queryActions: [], knowledgeActions: [] };
+): Promise<{ taskActions: TaskAction[]; knowledgeActions: KnowledgeAction[] }> {
+  const empty = { taskActions: [], knowledgeActions: [] };
 
   const systemPrompt = `You review a conversation between a user and their Phone Agent assistant about a call to an external contact.
-Your job: identify three types of things from the new messages:
+Your job: identify two types of things from the new messages:
 
 1. TASKS — actionable items the assistant needs to do, follow up on, or that the user is waiting on.
-2. QUERIES — questions that have been raised in the conversation (typically by the external contact or the assistant relaying them) that the USER still needs to answer before the agent can proceed.
-3. KNOWLEDGE — durable facts about this contact/business worth remembering for FUTURE conversations (not just this one): hours, preferred contact method, account/reference numbers, past issues, stated preferences, constraints. Do NOT extract one-off task details here — those belong in taskActions.
+2. KNOWLEDGE — durable facts about this contact/business worth remembering for FUTURE conversations (not just this one): hours, preferred contact method, account/reference numbers, past issues, stated preferences, constraints. Do NOT extract one-off task details here — those belong in taskActions.
 
-Given the new messages and the existing open tasks/queries, return a JSON object with three keys: "taskActions", "queryActions", and "knowledgeActions".
+Note: Do NOT generate queries (unanswered questions) here. Queries are only created via the isEnoughKnowledge escalation flow in emailReply.ts.
+
+Given the new messages and the existing open tasks, return a JSON object with two keys: "taskActions" and "knowledgeActions".
 
 TASK action types:
   - "create":   a new task not covered by an existing one
   - "update":   new info changes an existing task (new due date, clarification, more detail)
   - "complete": the conversation shows an existing task is now resolved
   - "cancel":   the conversation shows an existing task no longer applies
-
-QUERY action types:
-  - "create":   a new question the user needs to answer (not already in existingOpenQueries)
-  - "dismiss":  an existing open query that has now been resolved or is no longer relevant
 
 KNOWLEDGE action types:
   - "upsert":     a new or updated durable fact
@@ -627,12 +533,6 @@ Rules for tasks:
 - For task "update", "complete", "cancel" — include taskId of the existing task.
 - confidence is a float 0.0–1.0 reflecting certainty.
 - sourceMessageIds is the array of message IDs from new_messages that support this action.
-
-Rules for queries:
-- Only create a query when the contact or assistant is clearly waiting on input from the user.
-- Do NOT create a query for anything already in existingOpenQueries.
-- Do NOT create a query for questions the user has already answered.
-- For query "dismiss" — include queryId of the existing query.
 
 Rules for knowledge:
 - key must be a short, stable snake_case label (e.g. "preferred_callback_time").
@@ -657,15 +557,6 @@ JSON schema:
       "sourceMessageIds": ["<messageId>", ...]
     }
   ],
-  "queryActions": [
-    {
-      "type": "create" | "dismiss",
-      "queryId": "<string, required for dismiss>",
-      "question": "<string, required for create — the exact question needing the user's answer>",
-      "confidence": <number 0-1>,
-      "sourceMessageIds": ["<messageId>", ...]
-    }
-  ],
   "knowledgeActions": [
     {
       "type": "upsert" | "invalidate",
@@ -683,13 +574,10 @@ JSON schema:
 Existing open tasks:
 ${context.existingTasks.length === 0 ? "(none)" : JSON.stringify(context.existingTasks, null, 2)}
 
-Existing pending queries (do NOT recreate these):
-${context.existingOpenQueries.length === 0 ? "(none)" : JSON.stringify(context.existingOpenQueries, null, 2)}
-
 New messages to analyse:
 ${JSON.stringify(context.newMessages, null, 2)}
 
-Return the JSON object with taskActions, queryActions, and knowledgeActions now.`;
+Return the JSON object with taskActions and knowledgeActions now.`;
 
   const body = {
     contents: [{ role: "user", parts: [{ text: userContent }] }],
@@ -744,17 +632,6 @@ Return the JSON object with taskActions, queryActions, and knowledgeActions now.
       )
     : [];
 
-  const queryActions = Array.isArray(parsed.queryActions)
-    ? (parsed.queryActions as unknown[]).filter(
-        (a): a is QueryAction =>
-          typeof a === "object" &&
-          a !== null &&
-          ["create", "dismiss"].includes((a as QueryAction).type) &&
-          typeof (a as QueryAction).confidence === "number" &&
-          Array.isArray((a as QueryAction).sourceMessageIds)
-      )
-    : [];
-
   const knowledgeActions = Array.isArray(parsed.knowledgeActions)
     ? (parsed.knowledgeActions as unknown[]).filter(
         (a): a is KnowledgeAction =>
@@ -767,5 +644,5 @@ Return the JSON object with taskActions, queryActions, and knowledgeActions now.
       )
     : [];
 
-  return { taskActions, queryActions, knowledgeActions };
+  return { taskActions, knowledgeActions };
 }

@@ -257,7 +257,7 @@ export const updateTask = async (
 /** Trigger immediate extraction for a conversation, bypassing the debounce. */
 export const extractTasks = async (
   conversationId: string,
-): Promise<{ ok: boolean; created: string[]; updated: string[]; completed: string[]; cancelled: string[]; queriesCreated: string[]; queriesDismissed: string[] }> => {
+): Promise<{ ok: boolean; created: string[]; updated: string[]; completed: string[]; cancelled: string[] }> => {
   const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/extract`, {
     method: 'POST',
   });
