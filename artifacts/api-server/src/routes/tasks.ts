@@ -135,6 +135,23 @@ router.patch("/tasks/:id", asyncHandler(async (req, res) => {
 }, "Failed to update task"));
 
 // ---------------------------------------------------------------------------
+// DELETE /tasks/:id
+// Delete a task completely
+// ---------------------------------------------------------------------------
+router.delete("/tasks/:id", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const existing = await prisma.task.findUnique({ where: { id: String(id) } });
+  if (!existing) {
+    res.status(404).json({ error: "Task not found" });
+    return;
+  }
+
+  await prisma.task.delete({ where: { id: String(id) } });
+  res.json({ success: true });
+}, "Failed to delete task"));
+
+// ---------------------------------------------------------------------------
 // POST /conversations/:id/extract
 // Manual "extract now" — bypasses debounce. Useful for the UI "Check for tasks"
 // button or for backfilling old conversations.
