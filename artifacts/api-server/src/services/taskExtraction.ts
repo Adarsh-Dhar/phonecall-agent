@@ -28,6 +28,7 @@
 
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
+import { endConversation } from "./conversations";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -458,6 +459,7 @@ export async function runExtraction(conversationId: string): Promise<{
  * - All tasks are completed (done or cancelled)
  * - No pending queries exist for this conversation
  * - Conversation is currently active
+ * - At least one task or query was ever created (avoid auto-ending empty conversations)
  */
 async function checkAndAutoEndConversation(conversationId: string): Promise<void> {
   try {
@@ -467,6 +469,25 @@ async function checkAndAutoEndConversation(conversationId: string): Promise<void
 
     if (!conversation || conversation.status !== "active") {
       return; // Only auto-end active conversations
+    }
+
+    // Check total tasks and queries ever created for this conversation
+    const totalTasks = await prisma.task.count({
+      where: { conversationId },
+    });
+
+    const totalQueries = await prisma.query.count({
+      where: { conversationId },
+    });
+
+    // Guard: don't auto-end conversations that never had any tasks or queries
+    // (e.g., simple small talk that didn't mine anything actionable)
+    if (totalTasks === 0 && totalQueries === 0) {
+      logger.debug(
+        { conversationId },
+        "auto-end: skipped (no tasks or queries ever created)"
+      );
+      return;
     }
 
     // Check for any active tasks (not done/cancelled)
@@ -501,64 +522,15 @@ async function checkAndAutoEndConversation(conversationId: string): Promise<void
       return;
     }
 
-    // All conditions met - end the conversation directly to avoid circular dependency
+    // All conditions met - end the conversation using the shared service
     logger.info(
       { conversationId },
       "auto-end: ending conversation (all tasks done, no pending queries)"
     );
     
-    // Generate topic summary
-    const topicSummary = await summarizeConversationTopicInternal(conversationId);
-    
-    // End the conversation
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: {
-        status: "ended",
-        endedAt: new Date(),
-        topicSummary,
-      },
-    });
+    await endConversation(conversationId);
   } catch (err) {
     logger.error({ err, conversationId }, "auto-end: failed to check/end conversation");
-  }
-}
-
-/**
- * Internal topic summarization to avoid circular dependency with conversations.ts
- */
-async function summarizeConversationTopicInternal(conversationId: string): Promise<string> {
-  try {
-    const messages = await prisma.message.findMany({
-      where: { conversationId },
-      orderBy: { createdAt: "asc" },
-      take: 50, // Limit to recent messages to avoid token limits
-    });
-
-    if (messages.length === 0) {
-      return "No messages";
-    }
-
-    const conversationText = messages
-      .map((m) => `${m.role}: ${m.content}`)
-      .join("\n");
-
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const prompt = `Summarize the main topic of this conversation in 1-2 sentences (max 100 characters). Focus on what was discussed or accomplished.
-
-Conversation:
-${conversationText}
-
-Topic summary:`;
-
-    const result = await model.generateContent(prompt);
-    return result.response.text().trim().slice(0, 100);
-  } catch (error) {
-    logger.error({ error, conversationId }, "auto-end: topic summarization failed");
-    return "Conversation ended";
   }
 }
 
