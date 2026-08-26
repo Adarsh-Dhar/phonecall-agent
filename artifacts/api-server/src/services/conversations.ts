@@ -1,5 +1,6 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
+import { generateGeminiText } from "./geminiText";
 
 /**
  * Get or create the active conversation for a contact.
@@ -108,21 +109,21 @@ async function classifyTopicContinuation(
   }
 
   try {
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const prompt = `You are a conversation topic classifier. Determine if the new content is a continuation of the previous topic or a completely different topic.
-
-Previous topic summary: "${previousTopicSummary}"
+    const { text } = await generateGeminiText({
+      systemInstructionText: `You are a conversation topic classifier. Determine if the new content is a continuation of the previous topic or a completely different topic.`,
+      turns: [
+        {
+          role: "user",
+          content: `Previous topic summary: "${previousTopicSummary}"
 
 New content: "${newContent}"
 
-Respond with only "continuation" or "new_topic".`;
+Respond with only "continuation" or "new_topic".`,
+        },
+      ],
+    });
 
-    const result = await model.generateContent(prompt);
-    const response = result.response.text().toLowerCase().trim();
-
+    const response = text.toLowerCase().trim();
     return response === "continuation";
   } catch (error) {
     logger.error({ error }, "conversations: topic classification failed, defaulting to continuation");
@@ -173,19 +174,20 @@ async function summarizeConversationTopic(conversationId: string): Promise<strin
       .map((m) => `${m.role}: ${m.content}`)
       .join("\n");
 
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const prompt = `Summarize the main topic of this conversation in 1-2 sentences (max 100 characters). Focus on what was discussed or accomplished.
-
-Conversation:
+    const { text } = await generateGeminiText({
+      systemInstructionText: `Summarize the main topic of a conversation in 1-2 sentences (max 100 characters). Focus on what was discussed or accomplished.`,
+      turns: [
+        {
+          role: "user",
+          content: `Conversation:
 ${conversationText}
 
-Topic summary:`;
+Topic summary:`,
+        },
+      ],
+    });
 
-    const result = await model.generateContent(prompt);
-    return result.response.text().trim().slice(0, 100);
+    return text.trim().slice(0, 100);
   } catch (error) {
     logger.error({ error, conversationId }, "conversations: topic summarization failed");
     return "Conversation ended";
