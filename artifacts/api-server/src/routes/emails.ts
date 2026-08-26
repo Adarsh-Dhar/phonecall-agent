@@ -191,9 +191,14 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
       logger.info({ contactId: contact.id, fromAddress }, "emails/inbound: auto-created contact");
     }
 
-    const conversation = await getOrCreateActiveConversation(contact.id, "Email with", contact.name || "Unknown");
-
     const inboundBody = text || html || "";
+
+    const conversation = await getOrCreateActiveConversation(
+      contact.id, 
+      "Email with", 
+      contact.name || "Unknown",
+      `[Subject: ${subject}]\n${inboundBody}`
+    );
 
     const inboundEmail = await prisma.email.create({
       data: {
@@ -236,6 +241,39 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
         incomingSubject: subject,
         incomingBody: inboundBody,
       });
+
+      // Check if there's already a pending query for this contact with the same knowledge gap
+      // If so, suppress the holding reply to avoid repetitive emails
+      let shouldSuppressReply = false;
+      
+      // If the reply indicates insufficient knowledge and has a knowledgeKey,
+      // check for existing pending queries
+      if (!reply.isEnoughKnowledge && reply.knowledgeKey) {
+        const existingPendingQuery = await prisma.query.findFirst({
+          where: {
+            knowledgeKey: reply.knowledgeKey,
+            status: "pending",
+            contactId: contact.id,
+          },
+        });
+
+        if (existingPendingQuery) {
+          shouldSuppressReply = true;
+          logger.info(
+            { conversationId: conversation.id, contactId: contact.id, knowledgeKey: reply.knowledgeKey, existingQueryId: existingPendingQuery.id },
+            "emails/inbound: suppressing holding reply (pending query with same knowledgeKey exists)"
+          );
+        }
+      }
+
+      // Skip sending the reply if we determined to suppress it
+      if (shouldSuppressReply) {
+        logger.info(
+          { conversationId: conversation.id, contactId: contact.id },
+          "emails/inbound: holding reply suppressed due to existing pending query"
+        );
+        return; // Exit early, don't send reply
+      }
 
       if (!contact.email) return; // shouldn't happen, we matched on it above
 
@@ -282,22 +320,58 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
       scheduleExtraction(conversation.id);
 
       // If the AI flagged that it needs escalation, create a Query for the user
+      // Deduplicate by knowledgeKey to avoid duplicate queries for the same knowledge gap
       if (!reply.isEnoughKnowledge && reply.escalationQuestion) {
-        await prisma.query.create({
-          data: {
-            question: reply.escalationQuestion,
-            status: "pending",
-            conversationId: conversation.id,
-            contactId: contact.id,
-            isKnowledgeGap: true,
-            knowledgeKey: reply.knowledgeKey,
-            knowledgeCategory: reply.knowledgeCategory,
-          },
-        });
-        logger.info(
-          { conversationId: conversation.id, contactId: contact.id, question: reply.escalationQuestion, isEnoughKnowledge: reply.isEnoughKnowledge, knowledgeKey: reply.knowledgeKey, knowledgeCategory: reply.knowledgeCategory },
-          "emails/inbound: created escalation query"
-        );
+        // Check if a pending query with the same knowledgeKey already exists
+        if (reply.knowledgeKey) {
+          const existingQuery = await prisma.query.findFirst({
+            where: {
+              knowledgeKey: reply.knowledgeKey,
+              status: "pending",
+              contactId: contact.id,
+            },
+          });
+
+          if (existingQuery) {
+            logger.info(
+              { conversationId: conversation.id, contactId: contact.id, knowledgeKey: reply.knowledgeKey, existingQueryId: existingQuery.id },
+              "emails/inbound: skipping duplicate escalation query (pending query with same knowledgeKey exists)"
+            );
+          } else {
+            await prisma.query.create({
+              data: {
+                question: reply.escalationQuestion,
+                status: "pending",
+                conversationId: conversation.id,
+                contactId: contact.id,
+                isKnowledgeGap: true,
+                knowledgeKey: reply.knowledgeKey,
+                knowledgeCategory: reply.knowledgeCategory,
+              },
+            });
+            logger.info(
+              { conversationId: conversation.id, contactId: contact.id, question: reply.escalationQuestion, isEnoughKnowledge: reply.isEnoughKnowledge, knowledgeKey: reply.knowledgeKey, knowledgeCategory: reply.knowledgeCategory },
+              "emails/inbound: created escalation query"
+            );
+          }
+        } else {
+          // No knowledgeKey, create query without dedup check
+          await prisma.query.create({
+            data: {
+              question: reply.escalationQuestion,
+              status: "pending",
+              conversationId: conversation.id,
+              contactId: contact.id,
+              isKnowledgeGap: true,
+              knowledgeKey: reply.knowledgeKey,
+              knowledgeCategory: reply.knowledgeCategory,
+            },
+          });
+          logger.info(
+            { conversationId: conversation.id, contactId: contact.id, question: reply.escalationQuestion, isEnoughKnowledge: reply.isEnoughKnowledge, knowledgeKey: reply.knowledgeKey, knowledgeCategory: reply.knowledgeCategory },
+            "emails/inbound: created escalation query (no knowledgeKey)"
+          );
+        }
       }
     } catch (replyErr) {
       // The inbound email is already safely recorded — a failed auto-reply
@@ -308,6 +382,23 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
     logger.error({ error }, "emails/inbound: failed to process inbound email");
     if (!res.headersSent) res.status(500).send("error");
   }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/emails — list all emails across all conversations
+// ---------------------------------------------------------------------------
+
+router.get("/emails", async (req, res) => {
+  const emails = await prisma.email.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      contact: {
+        select: contactCardSelect,
+      },
+    },
+  });
+
+  res.json(emails);
 });
 
 // ---------------------------------------------------------------------------

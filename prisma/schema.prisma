@@ -47,6 +47,11 @@ model Conversation {
   lastExtractedMessageId String?
   lastExtractedAt        DateTime?
 
+  // Conversation lifecycle fields
+  status       String    @default("active") // "active" | "ended"
+  endedAt      DateTime?
+  topicSummary String?
+
   contactId String
   contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
@@ -55,6 +60,7 @@ model Conversation {
   emails    Email[]
 
   @@index([contactId])
+  @@index([contactId, status])
 }
 
 model Message {

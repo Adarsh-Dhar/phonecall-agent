@@ -53,6 +53,9 @@ export type Conversation = {
   contact?: Contact;
   messages: Message[];
   history: History[];
+  status?: string;
+  endedAt?: string | null;
+  topicSummary?: string | null;
 };
 
 // Contacts API
@@ -92,6 +95,15 @@ export const createConversation = async (data: { title?: string }): Promise<Conv
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to create conversation');
+  return response.json();
+};
+
+export const endConversation = async (conversationId: string): Promise<Conversation> => {
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/end`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) throw new Error('Failed to end conversation');
   return response.json();
 };
 
@@ -674,6 +686,13 @@ export const fetchEmail = async (id: string): Promise<Email> => {
 export const fetchConversationEmails = async (conversationId: string): Promise<Email[]> => {
   const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/emails`);
   if (!response.ok) throw new Error('Failed to fetch conversation emails');
+  return response.json();
+};
+
+/** List all emails across all conversations. */
+export const fetchAllEmails = async (): Promise<Email[]> => {
+  const response = await fetch(`${API_BASE_URL}/emails`);
+  if (!response.ok) throw new Error('Failed to fetch all emails');
   return response.json();
 };
 

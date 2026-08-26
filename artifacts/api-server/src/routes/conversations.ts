@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { asyncHandler } from "../lib/asyncHandler";
+import { endConversation } from "../services/conversations";
 
 const router: IRouter = Router();
 
@@ -106,5 +107,12 @@ router.delete("/conversations/:id", asyncHandler(async (req, res) => {
   });
   res.json({ success: true });
 }, "Failed to delete conversation"));
+
+// End a conversation (mark as ended and generate topic summary)
+router.post("/conversations/:id/end", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const conversation = await endConversation(String(id));
+  res.json(conversation);
+}, "Failed to end conversation"));
 
 export default router;

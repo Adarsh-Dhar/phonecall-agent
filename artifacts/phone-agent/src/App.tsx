@@ -294,6 +294,7 @@ function AppLayout({
 
   const navItems = [
     { path: '/messages', label: 'Messages', icon: <MessageCircle size={16} />, testId: 'nav-inbox' },
+    { path: '/emails', label: 'Emails', icon: <MailIcon size={16} />, testId: 'nav-emails' },
     { path: '/history', label: 'Task history', icon: <History size={16} />, testId: 'nav-history' },
     { path: '/contacts', label: 'Contacts', icon: <Users size={16} />, testId: 'nav-contacts' },
   ] as const;
@@ -515,6 +516,7 @@ function InboxPage() {
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailLastSent, setEmailLastSent] = useState(false);
+  const [endingConversation, setEndingConversation] = useState(false);
 
   const sendEmail = async (subject: string, body: string) => {
     if (!activeContact) return;
@@ -538,6 +540,24 @@ function InboxPage() {
   const dismissEmail = () => {
     setEmailError(null);
     setEmailLastSent(false);
+  };
+
+  const handleEndConversation = async () => {
+    if (!conversation || endingConversation) return;
+    setEndingConversation(true);
+    try {
+      await api.endConversation(conversation.id);
+      // Refresh the conversation to show updated status
+      if (resolvedContactId) {
+        api.fetchContactConversation(resolvedContactId)
+          .then((conv) => setConversation(conv))
+          .catch(() => {});
+      }
+    } catch (err) {
+      console.error('[InboxPage] Failed to end conversation:', err);
+    } finally {
+      setEndingConversation(false);
+    }
   };
 
   // Load contacts + history once
@@ -843,13 +863,29 @@ function InboxPage() {
 
             {/* Active conversation card — click name navigates, Change goes to contacts */}
             {activeContact && (
-              <div className="rounded-[22px] border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] p-5">
+              <div className="rounded-[22px] border border-card-border bg-card p-5">
                 <p className="font-mono text-[9px] uppercase tracking-[.18em] text-[hsl(var(--muted-foreground))]">Active conversation</p>
                 <div className="mt-4 flex items-center gap-3">
                   <Avatar contact={activeContact} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <strong className="block truncate text-xs">{activeContact.name}</strong>
-                    <small className="text-[10px] text-[hsl(var(--muted-foreground))]">{activeContact.business}</small>
+                    <div className="flex items-center gap-2">
+                      <strong className="block truncate text-xs">{activeContact.name}</strong>
+                      {conversation && (
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[.07em] ${
+                          conversation.status === 'active' 
+                            ? 'bg-[#dcefe9] text-[#216457]' 
+                            : 'bg-[#edf1ec] text-[#58645f]'
+                        }`}>
+                          {conversation.status || 'active'}
+                        </span>
+                      )}
+                    </div>
+                    <small className="text-[10px] text-muted-foreground">{activeContact.business}</small>
+                    {conversation?.topicSummary && conversation.status === 'ended' && (
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        Topic: {conversation.topicSummary}
+                      </p>
+                    )}
                   </div>
                   <Link
                     href="/contacts"
@@ -859,6 +895,16 @@ function InboxPage() {
                     Change
                   </Link>
                 </div>
+                {conversation && conversation.status === 'active' && (
+                  <button
+                    type="button"
+                    onClick={() => void handleEndConversation()}
+                    disabled={endingConversation}
+                    className="mt-3 w-full rounded-xl border border-border px-3 py-2 text-[10px] font-bold text-muted-foreground hover:bg-muted disabled:opacity-40"
+                  >
+                    {endingConversation ? 'Marking resolved…' : 'Mark topic resolved'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -997,6 +1043,139 @@ function TaskRowWithContact({
         </div>
       )}
       <TaskRow task={task} onStatusChange={onStatusChange} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// /emails — Emails page
+// ---------------------------------------------------------------------------
+
+function EmailsPage() {
+  const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();
+  const [emails, setEmails] = useState<api.Email[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+
+  const loadEmails = useCallback(async () => {
+    setLoading(true);
+    try {
+      // If a conversation is selected, load emails for that conversation
+      // Otherwise, load all emails across all conversations
+      const data = selectedConversationId
+        ? await api.fetchConversationEmails(selectedConversationId)
+        : await api.fetchAllEmails();
+      setEmails(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedConversationId]);
+
+  useEffect(() => { void loadEmails(); }, [loadEmails]);
+
+  return (
+    <AppLayout title="Emails" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
+      <div className="mx-auto max-w-[980px] px-5 py-8 md:px-10 md:py-12">
+        <Link href="/messages" className="mb-8 block text-xs font-bold text-[#3159c4] hover:underline">← Back to messages</Link>
+        <div className="mb-8">
+          <p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">Communication</p>
+          <h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Emails</h1>
+        </div>
+
+        {/* Header row: conversation filter + refresh */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedConversationId(null)}
+              className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[.08em] transition-colors ${
+                !selectedConversationId ? 'bg-[#2854cc] text-white' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]'
+              }`}
+            >
+              All emails
+            </button>
+          </div>
+          <button
+            type="button"
+            aria-label="Refresh emails"
+            onClick={() => void loadEmails()}
+            className="grid h-7 w-7 place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {loading && emails.length === 0 ? (
+          <div className="flex items-center justify-center py-20">
+            <LoaderCircle size={16} className="animate-spin text-[hsl(var(--muted-foreground))]" />
+          </div>
+        ) : emails.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#eef4f0] text-[#4a8978]">
+              <MailIcon size={24} />
+            </div>
+            <p className="mt-4 font-bold text-[#203039]">No emails yet</p>
+            <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">Emails will appear here after you send or receive them.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {emails.map((email) => (
+              <EmailRow key={email.id} email={email} />
+            ))}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+
+function EmailRow({ email }: { email: api.Email }) {
+  const isInbound = email.direction === 'inbound';
+  const statusColor = email.status === 'sent' || email.status === 'delivered' ? 'text-[#3f8274]' : 
+                     email.status === 'failed' || email.status === 'bounced' ? 'text-[#b44343]' : 
+                     'text-[hsl(var(--muted-foreground))]';
+
+  return (
+    <div className="flex flex-col gap-1 rounded-2xl border border-[hsl(var(--border))] bg-card p-5 transition-transform hover:-translate-y-0.5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className={`text-[9px] font-bold uppercase tracking-[.08em] ${isInbound ? 'text-[#3159c4]' : 'text-[#3f8274]'}`}>
+              {isInbound ? 'Received' : 'Sent'}
+            </span>
+            <span className={`text-[10px] ${statusColor}`}>
+              {email.status}
+            </span>
+          </div>
+          <h3 className="mt-1 font-bold">{email.subject}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {isInbound ? `From: ${email.from}` : `To: ${email.to}`}
+          </p>
+          {email.body && (
+            <p className="mt-2 text-sm text-foreground line-clamp-2">{email.body}</p>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-[10px] text-muted-foreground">
+            {email.receivedAt ? new Date(email.receivedAt).toLocaleDateString() : 
+             email.sentAt ? new Date(email.sentAt).toLocaleDateString() : 
+             new Date(email.createdAt).toLocaleDateString()}
+          </p>
+          {email.contact && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <span
+                className="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[8px] font-bold"
+                style={{ background: email.contact.color }}
+              >
+                {email.contact.initials.slice(0, 1)}
+              </span>
+              <span className="text-[10px] font-bold text-[#3159c4]">{email.contact.name}</span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1895,6 +2074,7 @@ export default function App() {
             <Switch>
               <Route path="/"><Redirect to="/messages" /></Route>
               <Route path="/messages" component={InboxPage} />
+              <Route path="/emails" component={EmailsPage} />
               <Route path="/history" component={HistoryPage} />
               <Route path="/contacts" component={ContactsPage} />
               <Route path="/messages/:contactId" component={InboxPage} />

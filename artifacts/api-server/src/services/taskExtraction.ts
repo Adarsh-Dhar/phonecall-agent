@@ -437,6 +437,9 @@ export async function runExtraction(conversationId: string): Promise<{
       "extraction: complete"
     );
 
+    // Auto-end conversation if all tasks are completed and no pending queries
+    await checkAndAutoEndConversation(conversationId);
+
     return result;
   } catch (err) {
     // Extraction is best-effort — log and leave the cursor unmoved so the
@@ -449,6 +452,115 @@ export async function runExtraction(conversationId: string): Promise<{
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Check if a conversation should be auto-ended:
+ * - All tasks are completed (done or cancelled)
+ * - No pending queries exist for this conversation
+ * - Conversation is currently active
+ */
+async function checkAndAutoEndConversation(conversationId: string): Promise<void> {
+  try {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation || conversation.status !== "active") {
+      return; // Only auto-end active conversations
+    }
+
+    // Check for any active tasks (not done/cancelled)
+    const activeTasks = await prisma.task.count({
+      where: {
+        conversationId,
+        status: { in: ["suggested", "open", "in_progress"] },
+      },
+    });
+
+    if (activeTasks > 0) {
+      logger.debug(
+        { conversationId, activeTasks },
+        "auto-end: skipped (active tasks exist)"
+      );
+      return;
+    }
+
+    // Check for pending queries
+    const pendingQueries = await prisma.query.count({
+      where: {
+        conversationId,
+        status: "pending",
+      },
+    });
+
+    if (pendingQueries > 0) {
+      logger.debug(
+        { conversationId, pendingQueries },
+        "auto-end: skipped (pending queries exist)"
+      );
+      return;
+    }
+
+    // All conditions met - end the conversation directly to avoid circular dependency
+    logger.info(
+      { conversationId },
+      "auto-end: ending conversation (all tasks done, no pending queries)"
+    );
+    
+    // Generate topic summary
+    const topicSummary = await summarizeConversationTopicInternal(conversationId);
+    
+    // End the conversation
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        status: "ended",
+        endedAt: new Date(),
+        topicSummary,
+      },
+    });
+  } catch (err) {
+    logger.error({ err, conversationId }, "auto-end: failed to check/end conversation");
+  }
+}
+
+/**
+ * Internal topic summarization to avoid circular dependency with conversations.ts
+ */
+async function summarizeConversationTopicInternal(conversationId: string): Promise<string> {
+  try {
+    const messages = await prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: "asc" },
+      take: 50, // Limit to recent messages to avoid token limits
+    });
+
+    if (messages.length === 0) {
+      return "No messages";
+    }
+
+    const conversationText = messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
+
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `Summarize the main topic of this conversation in 1-2 sentences (max 100 characters). Focus on what was discussed or accomplished.
+
+Conversation:
+${conversationText}
+
+Topic summary:`;
+
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim().slice(0, 100);
+  } catch (error) {
+    logger.error({ error, conversationId }, "auto-end: topic summarization failed");
+    return "Conversation ended";
+  }
+}
 
 async function advanceCursor(
   conversationId: string,
