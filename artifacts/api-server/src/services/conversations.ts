@@ -75,7 +75,7 @@ export async function getOrCreateActiveConversation(
     return conversation;
   }
 
-  // Latest conversation is ended but no new content supplied (e.g., placing a call)
+  // Latest conversation is ended but no new content supplied
   // Fall back to reusing it
   if (conversation.status === "ended") {
     conversation = await prisma.conversation.update({

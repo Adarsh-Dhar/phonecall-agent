@@ -9,7 +9,7 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
 import { prisma } from "@workspace/db-prisma";
-import { sendOutboundEmail } from "../services/twilioClient";
+import { sendOutboundEmail } from "../services/emailClient";
 import { generateEmailReply, generateFollowUpEmailReply } from "../services/emailReply";
 import { verifyEmailInboundSecret } from "../middlewares/verifyEmailInboundSecret";
 import { scheduleExtraction } from "../services/taskExtraction";

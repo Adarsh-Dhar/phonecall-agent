@@ -1,12 +1,11 @@
 /**
- * Auto-reply generation for inbound email — the email-channel equivalent of
- * what the Gemini Live bridge does turn-by-turn on a phone call, except
- * email is one full message at a time rather than streaming audio.
+ * Auto-reply generation for inbound email — generates AI replies to handle
+ * incoming email messages automatically.
  */
 
 import { prisma } from "@workspace/db-prisma";
 import { generateGeminiText, type GeminiTextTurn } from "./geminiText";
-import { sendOutboundEmail } from "./twilioClient";
+import { sendOutboundEmail } from "./emailClient";
 import { scheduleExtraction } from "./taskExtraction";
 import { logger } from "../lib/logger";
 
@@ -114,7 +113,7 @@ async function generateEmailReplyDecision(params: {
     '{\n' +
     '  "isEnoughKnowledge": boolean,\n' +
     '  "escalationQuestion": string | null,  // if isEnoughKnowledge is false, the specific question to ask YOUR USER (not the business) to get what\'s missing; null otherwise\n' +
-    '  "knowledgeKey": string | null,  // if isEnoughKnowledge is false, a stable snake_case key for the missing fact (e.g. "chronic_conditions", "preferred_callback_time"); null otherwise\n' +
+    '  "knowledgeKey": string | null,  // if isEnoughKnowledge is false, a stable snake_case key for the missing fact (e.g. "health_condition", "preferred_callback_time"); null otherwise\n' +
     '  "knowledgeCategory": string | null  // if isEnoughKnowledge is false, the category of the missing fact (e.g. "fact", "preference", "history"); null otherwise\n' +
     '}' +
     params.knowledgeBlock;

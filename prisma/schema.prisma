@@ -29,7 +29,6 @@ model Contact {
   tasks         Task[]
   queries       Query[]
   knowledge     ContactKnowledge[]
-  calls         Call[]
   emails        Email[]
 }
 
@@ -56,7 +55,6 @@ model Conversation {
   contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   queries   Query[]
-  calls     Call[]
   emails    Email[]
 
   @@index([contactId])
@@ -74,10 +72,6 @@ model Message {
   
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  // Optional link to the call this transcript turn came from
-  callId         String?
-  call           Call?        @relation(fields: [callId], references: [id], onDelete: SetNull)
 
   // Optional link to the email this transcript turn came from (sent or received)
   emailId        String?
@@ -191,35 +185,6 @@ model QuerySourceMessage {
 }
 
 // ---------------------------------------------------------------------------
-// Call — tracks each outbound or inbound phone call placed via Twilio.
-// Transcript turns are stored as Message rows linked via callId.
-// ---------------------------------------------------------------------------
-model Call {
-  id         String    @id @default(cuid())
-  twilioSid  String?   @unique    // Twilio CallSid, set once Twilio responds
-  status     String    @default("initiated")
-  // initiated | ringing | in_progress | completed | failed | no_answer | busy | cancelled
-  direction  String    @default("outbound")  // outbound | inbound
-  duration   Int?      // seconds, set on completion
-  startedAt  DateTime?
-  endedAt    DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  contactId  String
-  contact    Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  messages   Message[]
-
-  @@index([conversationId])
-  @@index([contactId])
-  @@index([status])
-}
-
-// ---------------------------------------------------------------------------
 // Email — tracks each outbound email sent via Twilio Email API.
 // ---------------------------------------------------------------------------
 model Email {
@@ -263,7 +228,7 @@ model ContactKnowledge {
   contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   category    String   // "preference" | "fact" | "history" | "constraint" | "contact_info"
-  key         String   // stable snake_case label, e.g. "preferred_callback_time"
+  key         String   // stable snake_case label, e.g. "preferred_contact_time"
   value       String   // the fact itself, one sentence
   confidence  Float    @default(1.0)
   status      String   @default("active") // active | superseded | stale

@@ -597,7 +597,7 @@ async function callGeminiExtraction(
 ): Promise<{ taskActions: TaskAction[]; knowledgeActions: KnowledgeAction[] }> {
   const empty = { taskActions: [], knowledgeActions: [] };
 
-  const systemPrompt = `You review a conversation between a user and their Phone Agent assistant about a call to an external contact.
+  const systemPrompt = `You review a conversation between a user and their Phone Agent assistant with an external contact.
 Your job: identify two types of things from the new messages:
 
 1. TASKS — actionable items the assistant needs to do, follow up on, or that the user is waiting on.
@@ -623,7 +623,7 @@ Rules for tasks:
 - sourceMessageIds is the array of message IDs from new_messages that support this action.
 
 Rules for knowledge:
-- key must be a short, stable snake_case label (e.g. "preferred_callback_time").
+- key must be a short, stable snake_case label (e.g. "preferred_contact_time").
   Reuse the same key when updating a fact you already know, so it overwrites rather than duplicates.
 - category is one of: preference | fact | history | constraint | contact_info
 - Only extract facts likely to matter in a future, unrelated conversation.
