@@ -101,8 +101,8 @@ router.post("/emails", async (req, res) => {
       data: { twilioSid: result.sid, status: result.status, sentAt: new Date() },
     });
 
-    // Write this into the conversation transcript, same as a call turn,
-    // so it shows up in the thread and feeds task extraction.
+    // Write this into the conversation transcript so it shows up in the
+    // thread and feeds task extraction.
     await prisma.message.create({
       data: {
         role: "assistant",
@@ -135,8 +135,8 @@ router.post("/emails", async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /api/emails/inbound — Twilio Inbound Parse webhook.
 //
-// Receives a reply from a contact, writes it to the transcript, and — same
-// idea as the call pipeline — generates and sends an AI reply automatically.
+// Receives a reply from a contact, writes it to the transcript, and
+// generates and sends an AI reply automatically.
 //
 // This is NOT signature-verified via X-Twilio-Signature (Inbound Parse
 // doesn't sign requests that way); see verifyEmailInboundSecret.
@@ -232,7 +232,7 @@ router.post("/emails/inbound", verifyEmailInboundSecret, upload.none(), async (r
 
     scheduleExtraction(conversation.id);
 
-    // Auto-reply, same pattern as a completed call turn.
+    // Auto-reply once the inbound email is written to the transcript.
     try {
       const reply = await generateEmailReply({
         conversationId: conversation.id,

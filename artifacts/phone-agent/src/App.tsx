@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
 import {
   ArrowUpRight, BookOpen, Check, CircleHelp, History,
   ListTodo, LoaderCircle, Mail as MailIcon, MessageCircle, Paperclip,
-  Phone, PhoneCall, PhoneOff, Pencil,
+  Pencil,
   Plus, RefreshCw, Send, ShieldCheck, Sparkles, Trash2, Users, X, Zap,
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -66,88 +66,8 @@ function StatusPill({ busy }: { busy: boolean }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// CallControls — phone button + live call status badge in the chat header
-// ---------------------------------------------------------------------------
-
-const CALL_STATUS_META: Record<string, { label: string; color: string; icon: ReactNode }> = {
-  initiated:   { label: 'Calling…',   color: 'bg-[#fff0df] text-[#af5c1c]', icon: <LoaderCircle size={13} className="animate-spin" /> },
-  ringing:     { label: 'Ringing…',   color: 'bg-[#fff0df] text-[#af5c1c]', icon: <PhoneCall size={13} className="animate-pulse" /> },
-  in_progress: { label: 'In call',    color: 'bg-[#dcefe9] text-[#216457]', icon: <PhoneCall size={13} /> },
-  completed:   { label: 'Call ended', color: 'bg-[#edf1ec] text-[#58645f]', icon: <PhoneOff size={13} /> },
-  failed:      { label: 'Call failed',color: 'bg-[#fde8e8] text-[#b44343]', icon: <PhoneOff size={13} /> },
-  no_answer:   { label: 'No answer',  color: 'bg-[#fde8e8] text-[#b44343]', icon: <PhoneOff size={13} /> },
-  busy:        { label: 'Busy',       color: 'bg-[#fde8e8] text-[#b44343]', icon: <PhoneOff size={13} /> },
-  cancelled:   { label: 'Cancelled',  color: 'bg-[#edf1ec] text-[#58645f]', icon: <PhoneOff size={13} /> },
-};
-
-const CALL_TERMINAL_SET = new Set(['completed', 'failed', 'no_answer', 'busy', 'cancelled']);
-
-function CallControls({
-  activeCall,
-  callError,
-  onCall,
-  onDismiss,
-}: {
-  activeCall: api.Call | null;
-  callError: string | null;
-  onCall: () => void;
-  onDismiss: () => void;
-}) {
-  if (callError) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <span className="max-w-[180px] truncate text-[11px] text-[#b44343]" title={callError}>{callError}</span>
-        <button
-          type="button"
-          aria-label="Dismiss call error"
-          onClick={onDismiss}
-          className="grid h-6 w-6 place-items-center rounded-full text-[#b44343] hover:bg-[#fde8e8]"
-        >
-          <X size={12} />
-        </button>
-      </div>
-    );
-  }
-
-  if (activeCall) {
-    const meta = CALL_STATUS_META[activeCall.status] ?? CALL_STATUS_META.initiated;
-    const isTerminal = CALL_TERMINAL_SET.has(activeCall.status);
-
-    return (
-      <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold ${meta.color}`}>
-        {meta.icon}
-        <span>{meta.label}</span>
-        {isTerminal && (
-          <button
-            type="button"
-            aria-label="Dismiss call status"
-            onClick={onDismiss}
-            className="ml-1 opacity-60 hover:opacity-100"
-          >
-            <X size={11} />
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      aria-label="Place call"
-      data-testid="button-place-call"
-      onClick={onCall}
-      className="flex items-center gap-1.5 rounded-full border border-[hsl(var(--border))] bg-[#f6f3ed] px-3 py-1.5 text-[11px] font-bold text-[#3159c4] transition-all hover:-translate-y-0.5 hover:border-[#a2b4e8] hover:bg-[#edf1ff]"
-    >
-      <Phone size={13} />
-      Call
-    </button>
-  );
-}
-
 // EmailControls — mail button that opens a small compose popover, plus a
-// status pill while the send is in flight (mirrors CallControls above).
+// status pill while the send is in flight.
 function EmailControls({
   contactName,
   contactEmail,
@@ -449,70 +369,7 @@ function InboxPage() {
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
-  // ── Call state ────────────────────────────────────────────────────────────
-  const [activeCall, setActiveCall] = useState<api.Call | null>(null);
-  const [callError, setCallError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Keep a stable ref to the resolved contact id so the polling callback
-  // can access the latest value without being recreated on every render.
-  const resolvedContactIdRef = useRef<string>('');
-
-  /** Terminal statuses — stop polling once reached */
-  const CALL_TERMINAL: api.CallStatus[] = ['completed', 'failed', 'no_answer', 'busy', 'cancelled'];
-
-  const stopPolling = useCallback(() => {
-    if (pollRef.current !== null) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
-
-  /** Start status-polling loop for a call */
-  const startPolling = useCallback((call: api.Call) => {
-    stopPolling();
-    pollRef.current = setInterval(async () => {
-      try {
-        const updated = await api.fetchCall(call.id);
-        setActiveCall(updated);
-        if (CALL_TERMINAL.includes(updated.status)) {
-          stopPolling();
-          // Reload conversation so new transcript messages appear
-          const cid = resolvedContactIdRef.current;
-          if (cid) {
-            api.fetchContactConversation(cid)
-              .then((conv) => setConversation(conv))
-              .catch(() => null);
-          }
-        }
-      } catch {
-        // non-fatal — keep polling
-      }
-    }, 2000);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopPolling]);
-
-  // Clean up polling on unmount or contact change
-  useEffect(() => () => stopPolling(), [stopPolling]);
-
-  const placeCall = async () => {
-    if (!activeContact || activeCall) return;
-    setCallError(null);
-    try {
-      const call = await api.placeCall(activeContact.id);
-      setActiveCall(call);
-      startPolling(call);
-    } catch (err) {
-      setCallError(err instanceof Error ? err.message : 'Could not place call');
-    }
-  };
-
-  const dismissCall = () => {
-    stopPolling();
-    setActiveCall(null);
-    setCallError(null);
-  };
-
-  // Email compose state (mirrors call state above)
+  // Email compose state
   const [emailSending, setEmailSending] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailLastSent, setEmailLastSent] = useState(false);
@@ -592,9 +449,6 @@ function InboxPage() {
       || contacts[contacts.length - 1]?.id
       || '';
   })();
-
-  // Keep the ref in sync so the polling callback always sees the latest value
-  resolvedContactIdRef.current = resolvedContactId;
 
   // Log on mount and whenever the URL contact id changes
   useEffect(() => {
@@ -733,15 +587,6 @@ function InboxPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {/* Call button + live status */}
-                {activeContact && (
-                  <CallControls
-                    activeCall={activeCall}
-                    callError={callError}
-                    onCall={() => void placeCall()}
-                    onDismiss={dismissCall}
-                  />
-                )}
                 {/* Email compose button + send status */}
                 {activeContact && (
                   <EmailControls

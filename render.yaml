@@ -13,16 +13,6 @@ services:
         sync: false
       - key: GEMINI_LIVE_MODEL
         sync: false
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_PHONE_NUMBER
-        sync: false
-      - key: TWILIO_CLIENT_SECRET
-        sync: false
-      - key: TWILIO_TRIAL_ACCOUNT
-        sync: false
       - key: TWILIO_EMAIL_ADDRESS
         sync: false
       - key: SENDGRID_EMAIL_API_KEY
@@ -32,12 +22,6 @@ services:
       - key: EMAIL_INBOUND_SECRET
         sync: false
       - key: EMAIL_INBOUND_DOMAIN
-        sync: false
-      - key: PUBLIC_BASE_URL
-        sync: false
-      - key: SKIP_TWILIO_SIGNATURE_CHECK
-        sync: false
-      - key: TEST_PHONE_NUMBER
         sync: false
       - key: TEST_PROVIDER_EMAILS
         sync: false
@@ -55,16 +39,6 @@ services:
         sync: false
       - key: GEMINI_LIVE_MODEL
         sync: false
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_PHONE_NUMBER
-        sync: false
-      - key: TWILIO_CLIENT_SECRET
-        sync: false
-      - key: TWILIO_TRIAL_ACCOUNT
-        sync: false
       - key: TWILIO_EMAIL_ADDRESS
         sync: false
       - key: SENDGRID_EMAIL_API_KEY
@@ -74,12 +48,6 @@ services:
       - key: EMAIL_INBOUND_SECRET
         sync: false
       - key: EMAIL_INBOUND_DOMAIN
-        sync: false
-      - key: PUBLIC_BASE_URL
-        sync: false
-      - key: SKIP_TWILIO_SIGNATURE_CHECK
-        sync: false
-      - key: TEST_PHONE_NUMBER
         sync: false
       - key: TEST_PROVIDER_EMAILS
         sync: false

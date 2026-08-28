@@ -29,7 +29,6 @@ export type Message = {
   createdAt: string;
   updatedAt: string;
   conversationId: string;
-  callId?: string | null;
   emailId?: string | null;
 };
 
@@ -540,84 +539,6 @@ export const updateContactKnowledge = async (
 export const deleteContactKnowledge = async (id: string): Promise<void> => {
   const response = await fetch(`${API_BASE_URL}/knowledge/${id}`, { method: 'DELETE' });
   if (!response.ok) throw new Error('Failed to delete knowledge fact');
-};
-
-// ─── Call types ───────────────────────────────────────────────────────────────
-
-export type CallStatus =
-  | 'initiated'
-  | 'ringing'
-  | 'in_progress'
-  | 'completed'
-  | 'failed'
-  | 'no_answer'
-  | 'busy'
-  | 'cancelled';
-
-export type CallDirection = 'outbound' | 'inbound';
-
-export type Call = {
-  id: string;
-  twilioSid: string | null;
-  status: CallStatus;
-  direction: CallDirection;
-  duration: number | null;
-  startedAt: string | null;
-  endedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  conversationId: string;
-  contactId: string;
-  contact?: {
-    id: string;
-    name: string;
-    business: string;
-    initials: string;
-    color: string;
-    phone: string;
-    email: string | null;
-  };
-  messages?: Array<{
-    id: string;
-    role: string;
-    content: string;
-    time: string;
-    createdAt: string;
-  }>;
-};
-
-// ─── Call API helpers ─────────────────────────────────────────────────────────
-
-/** Trigger an outbound call to a contact. Returns immediately with the Call record. */
-export const placeCall = async (contactId: string): Promise<Call> => {
-  const response = await fetch(`${API_BASE_URL}/calls`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contactId }),
-  });
-  if (!response.ok) {
-    try {
-      const err = await response.json() as { error?: string };
-      throw new Error(err.error ?? 'Failed to place call');
-    } catch {
-      throw new Error('Failed to place call');
-    }
-  }
-  return response.json();
-};
-
-/** Poll call status by Call.id. */
-export const fetchCall = async (id: string): Promise<Call> => {
-  const response = await fetch(`${API_BASE_URL}/calls/${id}`);
-  if (!response.ok) throw new Error('Failed to fetch call');
-  return response.json();
-};
-
-/** List all calls for a conversation. */
-export const fetchConversationCalls = async (conversationId: string): Promise<Call[]> => {
-  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/calls`);
-  if (!response.ok) throw new Error('Failed to fetch conversation calls');
-  return response.json();
 };
 
 // ─── Email API helpers ────────────────────────────────────────────────────────

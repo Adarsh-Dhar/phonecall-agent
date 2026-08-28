@@ -116,59 +116,59 @@ type ContactSeed = {
 };
 
 // One reusable conversation "shape" per category: an opening line the
-// agent sends after calling on the user's behalf, a short user reply,
+// agent sends after emailing on the user's behalf, a short user reply,
 // and a matching history entry. {name} is replaced with the contact name.
 const CATEGORY_TEMPLATE: Record<string, {
-  reasonForCalling: string;
+  reasonForContact: string;
   agentOpen: string;
   userReply: string;
   historyStatus: Status;
   historyDetail: string;
 }> = {
   [CATEGORY.HEALTHCARE]: {
-    reasonForCalling: 'Booking an appointment',
-    agentOpen: "I called {name} and found a few available slots — want me to lock one in, or should I ask about a different time window?",
+    reasonForContact: 'Booking an appointment',
+    agentOpen: "I emailed {name} and found a few available slots — want me to lock one in, or should I ask about a different time window?",
     userReply: 'Go ahead and grab the earliest one that works.',
     historyStatus: 'In Progress',
     historyDetail: 'Chat · Awaiting your confirmation',
   },
   [CATEGORY.PERSONAL_CARE]: {
-    reasonForCalling: 'Booking / rescheduling',
-    agentOpen: "I reached {name} about your booking. They have an opening this week — should I confirm it?",
+    reasonForContact: 'Booking / rescheduling',
+    agentOpen: "I emailed {name} about your booking. They have an opening this week — should I confirm it?",
     userReply: 'Yes, confirm it please.',
     historyStatus: 'Completed',
     historyDetail: 'Chat · Booking confirmed',
   },
   [CATEGORY.HOME_AUTO]: {
-    reasonForCalling: 'Service or repair booking',
-    agentOpen: "I called {name} to schedule the service. They can fit you in this week — I asked for a quote too and I'm waiting to hear back.",
+    reasonForContact: 'Service or repair booking',
+    agentOpen: "I emailed {name} to schedule the service. They can fit you in this week — I asked for a quote too and I'm waiting to hear back.",
     userReply: 'Sounds good, let me know the quote when it comes in.',
     historyStatus: 'In Progress',
     historyDetail: 'Chat · Waiting on quote',
   },
   [CATEGORY.FINANCIAL]: {
-    reasonForCalling: 'Account / billing question',
-    agentOpen: "I spoke with {name} about your account. They need to verify a couple of details with you directly before they can proceed.",
+    reasonForContact: 'Account / billing question',
+    agentOpen: "I emailed {name} about your account. They need to verify a couple of details with you directly before they can proceed.",
     userReply: 'Okay, what do they need from me?',
     historyStatus: 'Needs you',
     historyDetail: 'Chat · Needs your verification',
   },
   [CATEGORY.GOVERNMENT]: {
-    reasonForCalling: 'Appointment / status check',
-    agentOpen: "I contacted {name}. The phone line had a long queue, so I booked things through their online appointment system instead.",
-    userReply: 'Perfect, that saves the hold time.',
+    reasonForContact: 'Appointment / status check',
+    agentOpen: "I emailed {name}. They don't offer phone scheduling, so I booked things through their online appointment system instead.",
+    userReply: 'Perfect, that saves the hassle.',
     historyStatus: 'Completed',
     historyDetail: 'Chat · Appointment booked',
   },
   [CATEGORY.RETAIL]: {
-    reasonForCalling: 'Order, billing, or support issue',
-    agentOpen: "I called {name} about the issue and opened a case. They said to expect a follow-up within a couple of business days.",
+    reasonForContact: 'Order, billing, or support issue',
+    agentOpen: "I emailed {name} about the issue and opened a case. They said to expect a follow-up within a couple of business days.",
     userReply: 'Thanks, keep me posted.',
     historyStatus: 'In Progress',
     historyDetail: 'Chat · Case opened, awaiting follow-up',
   },
   [CATEGORY.OTHER]: {
-    reasonForCalling: 'General inquiry',
+    reasonForContact: 'General inquiry',
     agentOpen: "I reached out to {name} on your behalf and got things moving — I'll update you as soon as I hear back.",
     userReply: 'Great, thank you.',
     historyStatus: 'In Progress',
@@ -184,7 +184,7 @@ const CATEGORY_KNOWLEDGE_TEMPLATE: Record<string, KnowledgeSeed[]> = {
     { category: 'constraint', key: 'preferred_time_window', value: 'Prefers late-morning appointments, roughly 10am to 12pm, when available.' },
     { category: 'fact', key: 'insurance_provider', value: 'Covered under Horizon Insurance PPO — mention this when asked about coverage.' },
     { category: 'history', key: 'last_visit', value: 'Last visit was about 6 months ago with no follow-up issues noted.' },
-    { category: 'preference', key: 'reminder_preference', value: 'Wants a reminder text the day before any appointment, not a phone call.' },
+    { category: 'preference', key: 'reminder_preference', value: 'Wants a reminder text the day before any appointment.' },
   ],
   [CATEGORY.PERSONAL_CARE]: [
     { category: 'preference', key: 'preferred_staff', value: 'Prefers being booked with a specific stylist/technician when one has worked with them before, rather than whoever is next available.' },
@@ -194,7 +194,7 @@ const CATEGORY_KNOWLEDGE_TEMPLATE: Record<string, KnowledgeSeed[]> = {
   [CATEGORY.HOME_AUTO]: [
     { category: 'fact', key: 'property_type', value: 'Owns a single-family home; someone is usually home to grant access on weekday afternoons.' },
     { category: 'preference', key: 'quote_before_work', value: 'Always wants a written or texted quote before any work begins — never authorize on the spot.' },
-    { category: 'constraint', key: 'access_window', value: 'Best reachable for scheduling calls between 9am and 6pm on weekdays.' },
+    { category: 'constraint', key: 'access_window', value: 'Best reachable for scheduling between 9am and 6pm on weekdays.' },
   ],
   [CATEGORY.FINANCIAL]: [
     { category: 'fact', key: 'account_standing', value: 'Standard account tier, no outstanding balances or disputes on file.' },
@@ -202,7 +202,7 @@ const CATEGORY_KNOWLEDGE_TEMPLATE: Record<string, KnowledgeSeed[]> = {
     { category: 'constraint', key: 'verification_method', value: 'Prefers identity verification via security questions rather than SMS codes when both are offered.' },
   ],
   [CATEGORY.GOVERNMENT]: [
-    { category: 'preference', key: 'channel_preference', value: 'Prefers online scheduling or self-service portals over calling and waiting on hold.' },
+    { category: 'preference', key: 'channel_preference', value: 'Prefers online scheduling or self-service portals over waiting on hold with support.' },
     { category: 'history', key: 'past_interactions', value: 'Previous interactions with this office were resolved without complications.' },
   ],
   [CATEGORY.RETAIL]: [
@@ -210,7 +210,7 @@ const CATEGORY_KNOWLEDGE_TEMPLATE: Record<string, KnowledgeSeed[]> = {
     { category: 'fact', key: 'account_tier', value: 'Standard, non-premium membership tier with this business.' },
   ],
   [CATEGORY.OTHER]: [
-    { category: 'preference', key: 'communication_preference', value: 'Prefers a short written summary after each call rather than a live readout.' },
+    { category: 'preference', key: 'communication_preference', value: 'Prefers a short written summary rather than a long back-and-forth.' },
   ],
 };
 
@@ -244,7 +244,7 @@ const CONTACTS: ContactSeed[] = [
     custom: {
       conversationTitle: 'Cleaning appointment',
       messages: [
-        { role: 'assistant', content: "I called Bright Smile Dental about your cleaning. They have an opening next Thursday at 11:15 AM — want me to lock it in?", time: 'Yesterday, 3:12 PM' },
+        { role: 'assistant', content: "I emailed Bright Smile Dental about your cleaning. They have an opening next Thursday at 11:15 AM — want me to lock it in?", time: 'Yesterday, 3:12 PM' },
         { role: 'user', content: 'Yes please, Thursday works.', time: 'Yesterday, 3:20 PM' },
         { role: 'assistant', content: "Booked. You're confirmed for Thursday at 11:15 AM. I'll send a reminder the day before.", time: 'Yesterday, 3:21 PM' },
       ],
@@ -277,7 +277,7 @@ const CONTACTS: ContactSeed[] = [
       conversationTitle: 'Reschedule haircut',
       messages: [
         { role: 'user', content: 'Can you move my Friday haircut to Saturday instead?', time: 'Jun 12, 6:40 PM' },
-        { role: 'assistant', content: "I called Northside — Saturday at 2 PM with Mei is open. Still waiting on your confirmation to lock it in.", time: 'Jun 12, 6:52 PM' },
+        { role: 'assistant', content: "I emailed Northside — Saturday at 2 PM with Mei is open. Still waiting on your confirmation to lock it in.", time: 'Jun 12, 6:52 PM' },
       ],
       history: { title: 'Reschedule haircut', detail: 'Chat · Waiting on a reply', status: 'Needs you', time: 'Jun 12' },
     },
@@ -324,16 +324,16 @@ const CONTACTS: ContactSeed[] = [
       conversationTitle: 'Policy renewal',
       messages: [
         { role: 'user', content: 'My renewal notice mentioned a rate increase — can you find out why?', time: 'Jun 05, 1:02 PM' },
-        { role: 'assistant', content: "I spoke with an agent — it's a regional rate adjustment, not tied to any claim. I asked about bundling discounts too and I'm waiting on a callback with numbers.", time: 'Jun 05, 1:30 PM' },
+        { role: 'assistant', content: "I emailed their support team — it's a regional rate adjustment, not tied to any claim. I asked about bundling discounts too and I'm waiting on numbers back.", time: 'Jun 05, 1:30 PM' },
       ],
-      history: { title: 'Insurance renewal', detail: 'Chat · Waiting on agent callback', status: 'In Progress', time: 'Jun 05' },
+      history: { title: 'Insurance renewal', detail: 'Chat · Waiting on a reply', status: 'In Progress', time: 'Jun 05' },
     },
     queries: [
-      { question: 'Would you like to add roadside assistance to the policy while we have the agent on the line?' },
+      { question: 'Would you like to add roadside assistance to the policy while we have this thread open?' },
     ],
     knowledge: [
       { category: 'fact', key: 'policy_type', value: 'Auto and home bundled policy, annual renewal in June.' },
-      { category: 'preference', key: 'callback_preference', value: 'Prefers a scheduled callback over waiting on hold for account questions.' },
+      { category: 'preference', key: 'response_preference', value: 'Prefers a written reply over waiting on hold for account questions.' },
       { category: 'contact_info', key: 'policy_number', value: 'Policy reference on file: HI-48213-B (mention if asked to verify).' },
     ],
   },
@@ -357,7 +357,7 @@ const CONTACTS: ContactSeed[] = [
     },
     knowledge: [
       { category: 'history', key: 'last_appointment', value: 'Renewed driver\'s license in person previously with no complications.' },
-      { category: 'preference', key: 'channel_preference', value: 'Prefers booking online over calling, due to long hold times on their phone line.' },
+      { category: 'preference', key: 'channel_preference', value: 'Prefers booking online over waiting on hold with their support line.' },
     ],
   },
   { name: 'Fairview City Hall', business: 'Local council / city hall', category: CATEGORY.GOVERNMENT, initials: 'FC', color: '#a8b0c9', note: 'Fence permit question' },
@@ -370,7 +370,7 @@ const CONTACTS: ContactSeed[] = [
       conversationTitle: 'Missed delivery follow-up',
       messages: [
         { role: 'user', content: 'My package PLX-48290 says delivered but I never got it.', time: 'Jun 08, 11:00 AM' },
-        { role: 'assistant', content: "I called the parcel desk and filed a missing-package trace. They'll investigate with the driver and follow up within 2 business days — I saved the case number for you.", time: 'Jun 08, 11:24 AM' },
+        { role: 'assistant', content: "I emailed the parcel desk and filed a missing-package trace. They'll investigate with the driver and follow up within 2 business days — I saved the case number for you.", time: 'Jun 08, 11:24 AM' },
       ],
       history: { title: 'Package delivery update', detail: 'Chat · Summary saved', status: 'Completed', time: 'Jun 08' },
     },
@@ -400,13 +400,13 @@ function buildTemplateThread(c: ContactSeed) {
   const t = CATEGORY_TEMPLATE[c.category];
   if (!t) throw new Error(`No template for category: ${c.category}`);
   return {
-    conversationTitle: `${t.reasonForCalling} — ${c.name}`,
+    conversationTitle: `${t.reasonForContact} — ${c.name}`,
     messages: [
       { role: 'assistant' as const, content: t.agentOpen.replace('{name}', c.name), time: 'Jun 14, 10:00 AM' },
       { role: 'user' as const, content: t.userReply, time: 'Jun 14, 10:05 AM' },
     ],
     history: {
-      title: t.reasonForCalling,
+      title: t.reasonForContact,
       detail: t.historyDetail,
       status: t.historyStatus,
       time: 'Jun 14',

@@ -72,7 +72,7 @@ router.post("/gemini/chat", async (req, res) => {
           "do not ask another confirming question — proceed immediately: state the booking/action as done, " +
           "using the word 'simulated' or 'noted' once if you like, and stop there. " +
           "Never ask 'shall I go ahead?' after the user has already told you to go ahead or has already answered your question. " +
-          "This is a demo app — you don't actually place real calls or bookings, but you should describe the outcome as settled, not pending." +
+          "This is a demo app — you don't actually place real bookings, but you should describe the outcome as settled, not pending." +
           knowledgeBlock,
       },
     ],

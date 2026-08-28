@@ -21,7 +21,7 @@ router.get("/contacts", asyncHandler(async (req, res) => {
 }, "Failed to fetch contacts"));
 
 // Create a new contact. If `withConversation` is truthy, also creates
-// that contact's first (empty) chat thread in the same call.
+// that contact's first (empty) chat thread in this same request.
 router.post("/contacts", asyncHandler(async (req, res) => {
   const { name, business, category, phone, email, initials, color, note, online, withConversation } = req.body;
   const contact = await prisma.contact.create({

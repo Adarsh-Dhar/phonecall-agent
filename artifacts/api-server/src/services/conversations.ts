@@ -7,7 +7,7 @@ import { generateGeminiText } from "./geminiText";
  * Returns the most recently updated conversation, or creates a new one if none exists.
  * 
  * @param contactId - The contact ID
- * @param titlePrefix - Prefix for the conversation title (e.g., "Email with", "Call with")
+ * @param titlePrefix - Prefix for the conversation title (e.g., "Email with")
  * @param contactName - Name of the contact for the title
  * @param newContentPreview - Optional preview of new content to check for topic continuation
  */

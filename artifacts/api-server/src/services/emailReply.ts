@@ -47,8 +47,8 @@ export async function generateEmailReply(params: {
         facts.map((f) => `- (${f.category}) ${f.key}: ${f.value}`).join("\n")
       : "";
 
-  // Pull recent conversation history (any channel — chat, call transcript,
-  // or prior emails) so the reply has full context, not just this one email.
+  // Pull recent conversation history (any channel — chat or prior emails)
+  // so the reply has full context, not just this one email.
   const priorMessages = await prisma.message.findMany({
     where: { conversationId: params.conversationId },
     orderBy: { createdAt: "asc" },
