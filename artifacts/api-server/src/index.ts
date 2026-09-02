@@ -5,6 +5,8 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { sweepStaleConversations } from "./services/taskExtraction";
+import { attachVoiceStream } from "./services/voiceStream";
+import type { Server } from "http";
 
 // ---------------------------------------------------------------------------
 // Validate required env vars
@@ -34,10 +36,12 @@ if (!process.env.DATABASE_URL) {
 // Start listening
 // ---------------------------------------------------------------------------
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   logger.info({ port }, "Server listening");
 
   // On every boot, pick up any conversations that missed extraction due to
   // a restart killing their in-flight debounce timers.
   void sweepStaleConversations();
-});
+}) as Server;
+
+attachVoiceStream(server);

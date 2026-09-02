@@ -22,14 +22,6 @@ export const contactCardSelectWithPhone = {
 } as const;
 
 /**
- * Contact card select with email
- */
-export const contactCardSelectWithEmail = {
-  ...contactCardSelect,
-  email: true,
-} as const;
-
-/**
  * Sources include - for queries/tasks that reference source messages
  */
 export const sourcesInclude = {

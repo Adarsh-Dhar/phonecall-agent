@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import {
   ArrowUpRight, BookOpen, Check, CircleHelp, History,
-  ListTodo, LoaderCircle, Mail as MailIcon, MessageCircle, Paperclip,
+  ListTodo, LoaderCircle, Phone as PhoneIcon, MessageCircle, Paperclip,
   Pencil,
   Plus, RefreshCw, Send, ShieldCheck, Sparkles, Trash2, Users, X, Zap,
 } from 'lucide-react';
@@ -15,7 +15,7 @@ import * as api from '@/lib/api';
 
 const queryClient = new QueryClient();
 
-type Contact = { id: string; name: string; business: string; category: string; phone: string; email: string | null; initials: string; color: string; note: string | null; online: boolean };
+type Contact = { id: string; name: string; business: string; category: string; phone: string; initials: string; color: string; note: string | null; online: boolean };
 
 const quickPrompts = [
   'Book me a dental cleaning next week, late mornings are best.',
@@ -46,7 +46,7 @@ function Avatar({ contact, size = 'md' }: { contact: any; size?: 'sm' | 'md' | '
   return (
     <div
       data-testid={`avatar-${contact.id}`}
-      className={`grid shrink-0 place-items-center rounded-full font-bold text-[hsl(var(--foreground))] ${sizes}`}
+      className={`grid shrink-0 place-items-center rounded-full font-bold text-foreground ${sizes}`}
       style={{ background: contact.color }}
     >
       {contact.initials}
@@ -66,36 +66,32 @@ function StatusPill({ busy }: { busy: boolean }) {
   );
 }
 
-// EmailControls — mail button that opens a small compose popover, plus a
-// status pill while the send is in flight.
-function EmailControls({
+// CallControls — phone button that places a call, plus a status pill while
+// the call is being connected.
+function CallControls({
   contactName,
-  contactEmail,
-  sending,
-  sendError,
-  lastSent,
-  onSend,
+  contactPhone,
+  calling,
+  callError,
+  lastCalled,
+  onCall,
   onDismiss,
 }: {
   contactName: string;
-  contactEmail: string | null;
-  sending: boolean;
-  sendError: string | null;
-  lastSent: boolean;
-  onSend: (subject: string, body: string) => void;
+  contactPhone: string | null;
+  calling: boolean;
+  callError: string | null;
+  lastCalled: boolean;
+  onCall: () => void;
   onDismiss: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
-
-  if (sendError) {
+  if (callError) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="max-w-[180px] truncate text-[11px] text-[#b44343]" title={sendError}>{sendError}</span>
+        <span className="max-w-45 truncate text-[11px] text-[#b44343]" title={callError}>{callError}</span>
         <button
           type="button"
-          aria-label="Dismiss email error"
+          aria-label="Dismiss call error"
           onClick={onDismiss}
           className="grid h-6 w-6 place-items-center rounded-full text-[#b44343] hover:bg-[#fde8e8]"
         >
@@ -105,20 +101,20 @@ function EmailControls({
     );
   }
 
-  if (sending) {
+  if (calling) {
     return (
       <div className="flex items-center gap-1.5 rounded-full bg-[#f1f0ea] px-3 py-1.5 text-[11px] font-bold text-[#697a73]">
         <LoaderCircle size={12} className="animate-spin" />
-        <span>Sending…</span>
+        <span>Calling…</span>
       </div>
     );
   }
 
-  if (lastSent) {
+  if (lastCalled) {
     return (
       <div className="flex items-center gap-1.5 rounded-full bg-[#e9f3ec] px-3 py-1.5 text-[11px] font-bold text-[#3f8274]">
         <Check size={12} />
-        <span>Sent</span>
+        <span>Call placed</span>
         <button type="button" aria-label="Dismiss" onClick={onDismiss} className="ml-1 opacity-60 hover:opacity-100">
           <X size={11} />
         </button>
@@ -127,65 +123,18 @@ function EmailControls({
   }
 
   return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-label="Compose email"
-        data-testid="button-compose-email"
-        onClick={() => setOpen((v) => !v)}
-        disabled={!contactEmail}
-        title={contactEmail ? undefined : `${contactName} has no email address on file`}
-        className="flex items-center gap-1.5 rounded-full border border-[hsl(var(--border))] bg-[#f6f3ed] px-3 py-1.5 text-[11px] font-bold text-[#3f8274] transition-all hover:-translate-y-0.5 hover:border-[#a7d0c1] hover:bg-[#edf7f1] disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <MailIcon size={13} />
-        Email
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-9 z-20 w-80 rounded-xl border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] p-3 shadow-[0_16px_40px_rgba(39,53,58,.12)]">
-          <p className="mb-2 text-[11px] font-bold text-[hsl(var(--muted-foreground))]">
-            Email {contactName} · {contactEmail}
-          </p>
-          <input
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Subject"
-            className="mb-2 w-full rounded-lg border border-[hsl(var(--border))] px-2.5 py-1.5 text-xs outline-none focus:border-[#a7d0c1]"
-          />
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Write your message…"
-            rows={4}
-            className="mb-2 w-full resize-none rounded-lg border border-[hsl(var(--border))] px-2.5 py-1.5 text-xs outline-none focus:border-[#a7d0c1]"
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-[hsl(var(--muted-foreground))] hover:bg-[#f1f0ea]"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              data-testid="button-send-email"
-              disabled={!subject.trim() || !body.trim()}
-              onClick={() => {
-                onSend(subject.trim(), body.trim());
-                setOpen(false);
-                setSubject('');
-                setBody('');
-              }}
-              className="rounded-lg bg-[#3f8274] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#356c61] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Send
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    <button
+      type="button"
+      aria-label="Call contact"
+      data-testid="button-call-contact"
+      onClick={onCall}
+      disabled={!contactPhone}
+      title={contactPhone ? undefined : `${contactName} has no phone number on file`}
+      className="flex items-center gap-1.5 rounded-full border border-border bg-[#f6f3ed] px-3 py-1.5 text-[11px] font-bold text-[#3f8274] transition-all hover:-translate-y-0.5 hover:border-[#a7d0c1] hover:bg-[#edf7f1] disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <PhoneIcon size={13} />
+      Call
+    </button>
   );
 }
 
@@ -214,7 +163,7 @@ function AppLayout({
 
   const navItems = [
     { path: '/messages', label: 'Messages', icon: <MessageCircle size={16} />, testId: 'nav-inbox' },
-    { path: '/emails', label: 'Emails', icon: <MailIcon size={16} />, testId: 'nav-emails' },
+    { path: '/calls', label: 'Calls', icon: <PhoneIcon size={16} />, testId: 'nav-calls' },
     { path: '/history', label: 'Task history', icon: <History size={16} />, testId: 'nav-history' },
     { path: '/contacts', label: 'Contacts', icon: <Users size={16} />, testId: 'nav-contacts' },
   ] as const;
@@ -225,7 +174,7 @@ function AppLayout({
   };
 
   return (
-    <div className="grain min-h-[100dvh] bg-[hsl(var(--background))]">
+    <div className="grain min-h-dvh bg-background">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[224px] flex-col bg-[hsl(var(--sidebar))] px-5 py-6 text-[hsl(var(--sidebar-foreground))] md:flex">
         <Link href="/messages" className="flex items-center gap-3 text-left">
@@ -369,34 +318,34 @@ function InboxPage() {
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
-  // Email compose state
-  const [emailSending, setEmailSending] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [emailLastSent, setEmailLastSent] = useState(false);
+  // Call state
+  const [callPlacing, setCallPlacing] = useState(false);
+  const [callError, setCallError] = useState<string | null>(null);
+  const [callLastPlaced, setCallLastPlaced] = useState(false);
   const [endingConversation, setEndingConversation] = useState(false);
 
-  const sendEmail = async (subject: string, body: string) => {
+  const placeCall = async () => {
     if (!activeContact) return;
-    setEmailSending(true);
-    setEmailError(null);
-    setEmailLastSent(false);
+    setCallPlacing(true);
+    setCallError(null);
+    setCallLastPlaced(false);
     try {
-      await api.sendEmail({ contactId: activeContact.id, subject, body });
-      setEmailLastSent(true);
-      // Refresh the thread so the outbound email shows up as a message.
+      await api.placeCall({ contactId: activeContact.id });
+      setCallLastPlaced(true);
+      // Refresh the thread — turns will land as the live call progresses.
       if (conversation) {
         api.fetchContactConversation(resolvedContactId).then(setConversation).catch(() => {});
       }
     } catch (err) {
-      setEmailError(err instanceof Error ? err.message : 'Could not send email');
+      setCallError(err instanceof Error ? err.message : 'Could not place call');
     } finally {
-      setEmailSending(false);
+      setCallPlacing(false);
     }
   };
 
-  const dismissEmail = () => {
-    setEmailError(null);
-    setEmailLastSent(false);
+  const dismissCall = () => {
+    setCallError(null);
+    setCallLastPlaced(false);
   };
 
   const handleEndConversation = async () => {
@@ -474,16 +423,8 @@ function InboxPage() {
       })
       .catch((err) => {
         console.error('[InboxPage] Failed to fetch conversation:', err);
-        // If conversation fetch fails, try to get conversation from contact data
-        const matchedContact = contacts.find((c) => c.id === resolvedContactId);
-        if (matchedContact && matchedContact.conversations && matchedContact.conversations.length > 0) {
-          const convFromContact = matchedContact.conversations[0];
-          console.log('[InboxPage] using conversation from contact data:', convFromContact.title);
-          setConversation(convFromContact as any);
-        } else {
-          console.warn('[InboxPage] No conversation available for contact');
-          setConversation(null);
-        }
+        console.warn('[InboxPage] No conversation available for contact');
+        setConversation(null);
       })
       .finally(() => setConvLoading(false));
   }, [resolvedContactId, contacts]);
@@ -553,7 +494,7 @@ function InboxPage() {
     conversation?.contact as Contact | undefined
     ?? contacts.find((c) => c.id === resolvedContactId);
   const chatMessages = (conversation?.messages ?? []).filter(
-    (m) => !m.content.startsWith('Answering: "') && !m.emailId
+    (m) => !m.content.startsWith('Answering: "') && !m.callId
   );
 
   if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -587,16 +528,16 @@ function InboxPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {/* Email compose button + send status */}
+                {/* Call button + status */}
                 {activeContact && (
-                  <EmailControls
+                  <CallControls
                     contactName={activeContact.name}
-                    contactEmail={activeContact.email ?? null}
-                    sending={emailSending}
-                    sendError={emailError}
-                    lastSent={emailLastSent}
-                    onSend={(subject, body) => void sendEmail(subject, body)}
-                    onDismiss={dismissEmail}
+                    contactPhone={activeContact.phone ?? null}
+                    calling={callPlacing}
+                    callError={callError}
+                    lastCalled={callLastPlaced}
+                    onCall={() => void placeCall()}
+                    onDismiss={dismissCall}
                   />
                 )}
                 <StatusPill busy={busy} />
@@ -836,7 +777,7 @@ function HistoryPage() {
 
         {loading && tasks.length === 0 ? (
           <div className="flex items-center justify-center py-20">
-            <LoaderCircle size={16} className="animate-spin text-[hsl(var(--muted-foreground))]" />
+            <LoaderCircle size={16} className="animate-spin text-muted-foreground" />
           </div>
         ) : visible.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -893,24 +834,24 @@ function TaskRowWithContact({
 }
 
 // ---------------------------------------------------------------------------
-// /emails — Emails page
+// /calls — Calls page
 // ---------------------------------------------------------------------------
 
-function EmailsPage() {
+function CallsPage() {
   const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();
-  const [emails, setEmails] = useState<api.Email[]>([]);
+  const [calls, setCalls] = useState<api.Call[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
-  const loadEmails = useCallback(async () => {
+  const loadCalls = useCallback(async () => {
     setLoading(true);
     try {
-      // If a conversation is selected, load emails for that conversation
-      // Otherwise, load all emails across all conversations
+      // If a conversation is selected, load calls for that conversation
+      // Otherwise, load all calls across all conversations
       const data = selectedConversationId
-        ? await api.fetchConversationEmails(selectedConversationId)
-        : await api.fetchAllEmails();
-      setEmails(data);
+        ? await api.fetchConversationCalls(selectedConversationId)
+        : await api.fetchAllCalls();
+      setCalls(data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -918,15 +859,15 @@ function EmailsPage() {
     }
   }, [selectedConversationId]);
 
-  useEffect(() => { void loadEmails(); }, [loadEmails]);
+  useEffect(() => { void loadCalls(); }, [loadCalls]);
 
   return (
-    <AppLayout title="Emails" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
+    <AppLayout title="Calls" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
       <div className="mx-auto max-w-[980px] px-5 py-8 md:px-10 md:py-12">
         <Link href="/messages" className="mb-8 block text-xs font-bold text-[#3159c4] hover:underline">← Back to messages</Link>
         <div className="mb-8">
           <p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">Communication</p>
-          <h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Emails</h1>
+          <h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Calls</h1>
         </div>
 
         {/* Header row: conversation filter + refresh */}
@@ -939,35 +880,35 @@ function EmailsPage() {
                 !selectedConversationId ? 'bg-[#2854cc] text-white' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]'
               }`}
             >
-              All emails
+              All calls
             </button>
           </div>
           <button
             type="button"
-            aria-label="Refresh emails"
-            onClick={() => void loadEmails()}
+            aria-label="Refresh calls"
+            onClick={() => void loadCalls()}
             className="grid h-7 w-7 place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
 
-        {loading && emails.length === 0 ? (
+        {loading && calls.length === 0 ? (
           <div className="flex items-center justify-center py-20">
-            <LoaderCircle size={16} className="animate-spin text-[hsl(var(--muted-foreground))]" />
+            <LoaderCircle size={16} className="animate-spin text-muted-foreground" />
           </div>
-        ) : emails.length === 0 ? (
+        ) : calls.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#eef4f0] text-[#4a8978]">
-              <MailIcon size={24} />
+              <PhoneIcon size={24} />
             </div>
-            <p className="mt-4 font-bold text-[#203039]">No emails yet</p>
-            <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">Emails will appear here after you send or receive them.</p>
+            <p className="mt-4 font-bold text-[#203039]">No calls yet</p>
+            <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">Calls will appear here after you place or receive them.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {emails.map((email) => (
-              <EmailRow key={email.id} email={email} />
+            {calls.map((call) => (
+              <CallRow key={call.id} call={call} />
             ))}
           </div>
         )}
@@ -976,47 +917,49 @@ function EmailsPage() {
   );
 }
 
-function EmailRow({ email }: { email: api.Email }) {
-  const isInbound = email.direction === 'inbound';
-  const statusColor = email.status === 'sent' || email.status === 'delivered' ? 'text-[#3f8274]' : 
-                     email.status === 'failed' || email.status === 'bounced' ? 'text-[#b44343]' : 
+function CallRow({ call }: { call: api.Call }) {
+  const isInbound = call.direction === 'inbound';
+  const statusColor = call.status === 'completed' ? 'text-[#3f8274]' : 
+                     call.status === 'failed' || call.status === 'no-answer' || call.status === 'busy' ? 'text-[#b44343]' : 
                      'text-[hsl(var(--muted-foreground))]';
 
   return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-[hsl(var(--border))] bg-card p-5 transition-transform hover:-translate-y-0.5">
+    <div className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-5 transition-transform hover:-translate-y-0.5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className={`text-[9px] font-bold uppercase tracking-[.08em] ${isInbound ? 'text-[#3159c4]' : 'text-[#3f8274]'}`}>
-              {isInbound ? 'Received' : 'Sent'}
+              {isInbound ? 'Inbound' : 'Outbound'}
             </span>
             <span className={`text-[10px] ${statusColor}`}>
-              {email.status}
+              {call.status}
             </span>
           </div>
-          <h3 className="mt-1 font-bold">{email.subject}</h3>
+          <h3 className="mt-1 font-bold">
+            {isInbound ? `Inbound call from ${call.from}` : `Outbound call to ${call.to}`}
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            {isInbound ? `From: ${email.from}` : `To: ${email.to}`}
+            {call.durationSec != null ? `${Math.floor(call.durationSec / 60)}m ${call.durationSec % 60}s` : 'In progress'}
           </p>
-          {email.body && (
-            <p className="mt-2 text-sm text-foreground line-clamp-2">{email.body}</p>
+          {call.recordingUrl && (
+            <a href={call.recordingUrl} className="mt-2 text-xs text-[#3159c4] underline">Recording</a>
           )}
         </div>
         <div className="shrink-0 text-right">
           <p className="text-[10px] text-muted-foreground">
-            {email.receivedAt ? new Date(email.receivedAt).toLocaleDateString() : 
-             email.sentAt ? new Date(email.sentAt).toLocaleDateString() : 
-             new Date(email.createdAt).toLocaleDateString()}
+            {call.endedAt ? new Date(call.endedAt).toLocaleDateString() : 
+             call.startedAt ? new Date(call.startedAt).toLocaleDateString() : 
+             new Date(call.createdAt).toLocaleDateString()}
           </p>
-          {email.contact && (
+          {call.contact && (
             <div className="mt-2 flex items-center gap-1.5">
               <span
                 className="grid h-4 w-4 shrink-0 place-items-center rounded-full text-[8px] font-bold"
-                style={{ background: email.contact.color }}
+                style={{ background: call.contact.color }}
               >
-                {email.contact.initials.slice(0, 1)}
+                {call.contact.initials.slice(0, 1)}
               </span>
-              <span className="text-[10px] font-bold text-[#3159c4]">{email.contact.name}</span>
+              <span className="text-[10px] font-bold text-[#3159c4]">{call.contact.name}</span>
             </div>
           )}
         </div>
@@ -1060,7 +1003,6 @@ function ContactsPage() {
                 <div className="min-w-0 flex-1 text-left">
                   <h3 className="font-bold">{contact.name}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">{contact.business}</p>
-                  {contact.email && <p className="mt-1 text-xs text-muted-foreground">{contact.email}</p>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${contact.online ? 'bg-[#5bc4a3]' : 'bg-[#879a94]'}`} />
@@ -1919,7 +1861,7 @@ export default function App() {
             <Switch>
               <Route path="/"><Redirect to="/messages" /></Route>
               <Route path="/messages" component={InboxPage} />
-              <Route path="/emails" component={EmailsPage} />
+              <Route path="/calls" component={CallsPage} />
               <Route path="/history" component={HistoryPage} />
               <Route path="/contacts" component={ContactsPage} />
               <Route path="/messages/:contactId" component={InboxPage} />

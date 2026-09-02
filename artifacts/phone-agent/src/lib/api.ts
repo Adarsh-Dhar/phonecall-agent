@@ -6,7 +6,6 @@ export type Contact = {
   business: string;
   category: string;
   phone: string;
-  email: string | null;
   initials: string;
   color: string;
   note: string | null;
@@ -29,7 +28,7 @@ export type Message = {
   createdAt: string;
   updatedAt: string;
   conversationId: string;
-  emailId?: string | null;
+  callId?: string | null;
 };
 
 export type History = {
@@ -541,25 +540,24 @@ export const deleteContactKnowledge = async (id: string): Promise<void> => {
   if (!response.ok) throw new Error('Failed to delete knowledge fact');
 };
 
-// ─── Email API helpers ────────────────────────────────────────────────────────
+// ─── Call API helpers ─────────────────────────────────────────────────────────
 
-export type EmailStatus =
-  | 'initiated' | 'queued' | 'sent' | 'delivered' | 'failed' | 'bounced' | 'received';
-export type EmailDirection = 'outbound' | 'inbound';
+export type CallStatus =
+  'initiated' | 'ringing' | 'in-progress' | 'completed' | 'failed' | 'no-answer' | 'busy';
+export type CallDirection = 'outbound' | 'inbound';
 
-export type Email = {
+export type Call = {
   id: string;
-  twilioSid: string | null;
-  status: EmailStatus;
-  direction: EmailDirection;
-  subject: string;
+  status: CallStatus;
+  direction: CallDirection;
   from: string;
   to: string;
-  body: string | null;
-  html: string | null;
-  sentAt: string | null;
-  deliveredAt: string | null;
-  receivedAt: string | null;
+  recordingUrl: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  durationSec: number | null;
+  disconnectedBy: string | null;
+  isEnoughKnowledge: boolean | null;
   createdAt: string;
   updatedAt: string;
   conversationId: string;
@@ -573,15 +571,9 @@ export type Email = {
   };
 };
 
-/** Sends a real outbound email to a contact via Twilio's Email API. */
-export const sendEmail = async (data: {
-  contactId: string;
-  subject: string;
-  body?: string;
-  html?: string;
-  fromName?: string;
-}): Promise<Email> => {
-  const response = await fetch(`${API_BASE_URL}/emails`, {
+/** Places a real outbound call to a contact via Exotel. */
+export const placeCall = async (data: { contactId: string }): Promise<Call> => {
+  const response = await fetch(`${API_BASE_URL}/calls`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -589,31 +581,31 @@ export const sendEmail = async (data: {
   if (!response.ok) {
     try {
       const err = await response.json() as { error?: string };
-      throw new Error(err.error ?? 'Failed to send email');
+      throw new Error(err.error ?? 'Failed to place call');
     } catch {
-      throw new Error('Failed to send email');
+      throw new Error('Failed to place call');
     }
   }
   return response.json();
 };
 
-export const fetchEmail = async (id: string): Promise<Email> => {
-  const response = await fetch(`${API_BASE_URL}/emails/${id}`);
-  if (!response.ok) throw new Error('Failed to fetch email');
+export const fetchCall = async (id: string): Promise<Call> => {
+  const response = await fetch(`${API_BASE_URL}/calls/${id}`);
+  if (!response.ok) throw new Error('Failed to fetch call');
   return response.json();
 };
 
-/** List all emails (sent + received) for a conversation. */
-export const fetchConversationEmails = async (conversationId: string): Promise<Email[]> => {
-  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/emails`);
-  if (!response.ok) throw new Error('Failed to fetch conversation emails');
+/** List all calls for a conversation. */
+export const fetchConversationCalls = async (conversationId: string): Promise<Call[]> => {
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/calls`);
+  if (!response.ok) throw new Error('Failed to fetch conversation calls');
   return response.json();
 };
 
-/** List all emails across all conversations. */
-export const fetchAllEmails = async (): Promise<Email[]> => {
-  const response = await fetch(`${API_BASE_URL}/emails`);
-  if (!response.ok) throw new Error('Failed to fetch all emails');
+/** List all calls across all conversations. */
+export const fetchAllCalls = async (): Promise<Call[]> => {
+  const response = await fetch(`${API_BASE_URL}/calls`);
+  if (!response.ok) throw new Error('Failed to fetch all calls');
   return response.json();
 };
 

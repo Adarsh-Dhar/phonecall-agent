@@ -178,3 +178,34 @@ export function pcm16ToTwilioPayload(
   const mulaw = encodeMulaw(resampled);
   return mulaw.toString("base64");
 }
+
+// ---------------------------------------------------------------------------
+// Exotel Voicebot Applet — raw PCM16 (no μ-law), 8 kHz mono, base64
+// ---------------------------------------------------------------------------
+
+/**
+ * Decode a base64 raw-PCM16 payload (as received from Exotel's Voicebot
+ * Applet `media` event) into PCM16 samples at the desired output rate.
+ */
+export function exotelPayloadToPcm16(
+  base64Payload: string,
+  inputRate = 8000,
+  outputRate = 24000
+): Int16Array {
+  const buf = Buffer.from(base64Payload, "base64");
+  const pcm8k = new Int16Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 2));
+  return resamplePcm16(pcm8k, inputRate, outputRate);
+}
+
+/**
+ * Encode PCM16 samples (at Gemini's output rate) into a base64 raw-PCM16
+ * payload ready to send back to Exotel as a `media` event.
+ */
+export function pcm16ToExotelPayload(
+  samples: Int16Array,
+  inputRate = 24000,
+  outputRate = 8000
+): string {
+  const resampled = resamplePcm16(samples, inputRate, outputRate);
+  return Buffer.from(resampled.buffer, resampled.byteOffset, resampled.byteLength).toString("base64");
+}

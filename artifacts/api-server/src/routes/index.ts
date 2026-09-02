@@ -8,7 +8,7 @@ import historyRouter from "./history";
 import tasksRouter from "./tasks";
 import questionsRouter from "./questions";
 import knowledgeRouter from "./knowledge";
-import emailsRouter from "./emails";
+import callsRouter from "./calls";
 
 const router: IRouter = Router();
 
@@ -23,7 +23,7 @@ router.use(tasksRouter);
 router.use(questionsRouter);
 router.use(knowledgeRouter);
 
-// ── Emails REST API (no signature check — called by our own frontend) ──────
-router.use(emailsRouter);
+// ── Calls REST API ──────────────────────────────────────────────────────────
+router.use(callsRouter);
 
 export default router;

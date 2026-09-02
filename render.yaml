@@ -13,17 +13,23 @@ services:
         sync: false
       - key: GEMINI_LIVE_MODEL
         sync: false
-      - key: TWILIO_EMAIL_ADDRESS
+      - key: EXOTEL_SID
         sync: false
-      - key: SENDGRID_EMAIL_API_KEY
+      - key: EXOTEL_API_KEY
         sync: false
-      - key: SENDGRID_FROM_EMAIL
+      - key: EXOTEL_API_TOKEN
         sync: false
-      - key: EMAIL_INBOUND_SECRET
+      - key: EXOTEL_SUBDOMAIN
         sync: false
-      - key: EMAIL_INBOUND_DOMAIN
+      - key: EXOTEL_CALLER_ID
         sync: false
-      - key: TEST_PROVIDER_EMAILS
+      - key: EXOTEL_APP_ID
+        sync: false
+      - key: PUBLIC_WS_URL
+        sync: false
+      - key: EXOTEL_PASSTHRU_SECRET
+        sync: false
+      - key: TEST_PROVIDER_PHONES
         sync: false
   - type: web
     name: phone-agent-api-v3
@@ -39,15 +45,21 @@ services:
         sync: false
       - key: GEMINI_LIVE_MODEL
         sync: false
-      - key: TWILIO_EMAIL_ADDRESS
+      - key: EXOTEL_SID
         sync: false
-      - key: SENDGRID_EMAIL_API_KEY
+      - key: EXOTEL_API_KEY
         sync: false
-      - key: SENDGRID_FROM_EMAIL
+      - key: EXOTEL_API_TOKEN
         sync: false
-      - key: EMAIL_INBOUND_SECRET
+      - key: EXOTEL_SUBDOMAIN
         sync: false
-      - key: EMAIL_INBOUND_DOMAIN
+      - key: EXOTEL_CALLER_ID
         sync: false
-      - key: TEST_PROVIDER_EMAILS
+      - key: EXOTEL_APP_ID
+        sync: false
+      - key: PUBLIC_WS_URL
+        sync: false
+      - key: EXOTEL_PASSTHRU_SECRET
+        sync: false
+      - key: TEST_PROVIDER_PHONES
         sync: false

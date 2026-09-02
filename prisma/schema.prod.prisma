@@ -30,7 +30,7 @@ model Contact {
   tasks         Task[]
   queries       Query[]
   knowledge     ContactKnowledge[]
-  emails        Email[]
+  calls         Call[]
 }
 
 model Conversation {
@@ -56,7 +56,7 @@ model Conversation {
   contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   queries   Query[]
-  emails    Email[]
+  calls     Call[]
 
   @@index([contactId])
   @@index([contactId, status])
@@ -74,9 +74,9 @@ model Message {
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  // Optional link to the email this transcript turn came from (sent or received)
-  emailId        String?
-  email          Email?       @relation(fields: [emailId], references: [id], onDelete: SetNull)
+  // Optional link to the call this transcript turn came from
+  callId         String?
+  call           Call?        @relation(fields: [callId], references: [id], onDelete: SetNull)
 
   taskSources    TaskSourceMessage[]
   querySources   QuerySourceMessage[]
@@ -186,25 +186,25 @@ model QuerySourceMessage {
 }
 
 // ---------------------------------------------------------------------------
-// Email — tracks each outbound email sent via Twilio Email API.
+// Call — tracks each phone call placed/received via Exotel's Voicebot Applet.
 // ---------------------------------------------------------------------------
-model Email {
-  id               String    @id @default(cuid())
-  twilioSid        String?   @unique    // Twilio Email SID, set once Twilio responds
-  status           String    @default("initiated")
-  // initiated | queued | sent | delivered | failed | bounced | received (inbound)
-  direction        String    @default("outbound")  // outbound | inbound
-  subject          String
-  from             String
-  to               String
-  body             String?   // plain text body
-  html             String?   // HTML body
-  sentAt           DateTime?
-  deliveredAt      DateTime?
-  receivedAt       DateTime?  // set for inbound emails, when we received the webhook
-  isEnoughKnowledge Boolean?  // true if agent had enough knowledge to answer, false if escalated, null for manual/inbound
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+model Call {
+  id                String    @id @default(cuid())
+  exotelCallSid     String?   @unique   // Exotel's Call Sid, set once Exotel responds/streams
+  streamSid         String?             // Voicebot Applet stream id, set on the "start" WS event
+  status            String    @default("initiated")
+  // initiated | ringing | in-progress | completed | failed | no-answer | busy
+  direction         String    @default("outbound")  // outbound | inbound
+  from              String
+  to                String
+  recordingUrl      String?
+  startedAt         DateTime?
+  endedAt           DateTime?
+  durationSec       Int?
+  disconnectedBy    String?   // "user" | "bot" | null
+  isEnoughKnowledge  Boolean? // set after post-call analysis; mirrors old Email field's meaning
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

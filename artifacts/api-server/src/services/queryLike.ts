@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { scheduleExtraction } from "./taskExtraction";
-import { sendFollowUpEmailIfPossible } from "./emailReply";
 import { sourcesInclude, contactCardSelect } from "../lib/prismaSelects";
 import { asyncHandler } from "../lib/asyncHandler";
 import { logger } from "../lib/logger";
@@ -136,7 +135,7 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
   // PATCH /{basePath}/:id/answer
   // Submit an answer: creates a transcript message, marks {resourceName} answered,
   // runs optional onAnswered callback (for ContactKnowledge upsert),
-  // then triggers extraction and sends a follow-up email if applicable.
+  // then triggers extraction.
   // Body: { answer: string }
   // ---------------------------------------------------------------------------
   router.patch(
@@ -193,22 +192,6 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
 
       // Re-run extraction so the agent sees the user's answer immediately
       scheduleExtraction(query.conversationId);
-
-      // Send follow-up email if contact has an email
-      const contact = await prisma.contact.findUnique({
-        where: { id: query.contactId },
-      });
-
-      await sendFollowUpEmailIfPossible({
-        conversationId: query.conversationId,
-        contactId: query.contactId,
-        contactEmail: contact?.email,
-        contactName: contact?.name || "Unknown",
-        refId: String(id),
-        logLabel: `${opts.basePath}/answer`,
-        questionText: query.question,
-        answerText: String(answer),
-      });
 
       res.json(updated);
     }, `Failed to answer ${resourceName}`)
