@@ -75,15 +75,7 @@ pnpm run dev &
 API_PID=$!
 cd ../..
 
-# Start mockup sandbox
-echo "Starting mockup sandbox..."
-cd artifacts/mockup-sandbox
-export PORT=5176
-pnpm run dev &
-SANDBOX_PID=$!
-cd ../..
-
-# Start phone agent
+# Start phone agent (Vite dev server)
 echo "Starting phone agent..."
 cd artifacts/phone-agent
 export PORT=5177
@@ -94,7 +86,6 @@ cd ../..
 echo ""
 echo "All processes started:"
 [ -n "$API_PID" ] && echo "  - API server (PID: $API_PID) - http://localhost:5175"
-[ -n "$SANDBOX_PID" ] && echo "  - Mockup sandbox (PID: $SANDBOX_PID) - http://localhost:5176"
 [ -n "$AGENT_PID" ] && echo "  - Phone agent (PID: $AGENT_PID) - http://localhost:5177"
 echo "  - Database: $DATABASE_URL"
 echo ""

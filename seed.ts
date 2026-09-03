@@ -1,74 +1,13 @@
+// @ts-check
 import { PrismaClient } from './lib/db-prisma/generated/index.js';
 
 const prisma = new PrismaClient();
 
-// Every contact in this seed uses the same dummy number — swap this for
-// real numbers (or leave as-is for demos) when you're ready.
+// Every contact in this seed uses the same TEST_PHONE_NUMBER from .env.
 // Set TEST_PHONE_NUMBER in your environment (e.g. in .env) to inject a real
 // E.164 number (+14155551234) without editing this file.
-const DUMMY_PHONE = process.env.TEST_PHONE_NUMBER ?? '0123456789';
-
-// Pool of real inboxes YOU control, used to test the agent <-> provider
-// email loop realistically: each of these gets assigned to a different
-// contact at seed time, so you can reply "as" that provider from a real inbox.
-//
-// Override via TEST_PROVIDER_EMAILS as a comma-separated list, e.g.:
-//   TEST_PROVIDER_EMAILS=a@gmail.com,b@gmail.com,c@gmail.com
-const DEFAULT_PROVIDER_EMAILS = [
-  'dharadarsh0@gmail.com',
-  'adarshdhar010@gmail.com',
-  'adarshdhar001@gmail.com',
-  'adarshdhar002@gmail.com',
-  'adarshdhar003@gmail.com',
-  'adarshdhar004@gmail.com',
-  'adarshdhar005@gmail.com',
-  'adarshdhar006@gmail.com',
-  'adarsh123ce@gmail.com',
-  'adarsh123ce0080@gmail.com',
-  '123ce0080@nitrkl.ac.in',
-  // Additional generated emails for remaining contacts
-  'horizon.claims.adjuster@gmail.com',
-  'hargrove.associates@gmail.com',
-  'olive.vine.trattoria@gmail.com',
-  'swift.courier.services@gmail.com',
-  'parkview.property.management@gmail.com',
-  'lincoln.elementary.school@gmail.com',
-  'homegoods.online.support@gmail.com',
-  'streamplus.support@gmail.com',
-  'connectmobile@gmail.com',
-  'skylines.airlines@gmail.com',
-  'amazon.customer.support@gmail.com',
-  'mara.parcel.desk@gmail.com',
-  'social.security.office@gmail.com',
-  'passport.immigration.office@gmail.com',
-  'fairview.city.hall@gmail.com',
-  'metro.dmv@gmail.com',
-  'patterson.tax.accounting@gmail.com',
-  'summit.mortgage.group@gmail.com',
-  'northwind.water.internet@gmail.com',
-  'cityline.utilities@gmail.com',
-  'meridian.bank@gmail.com',
-  'horizon.insurance@gmail.com',
-  'fixit.appliance.repair@gmail.com',
-  'quickkey.locksmith@gmail.com',
-];
-
-const PROVIDER_EMAILS =
-  process.env.TEST_PROVIDER_EMAILS
-    ?.split(',')
-    .map((s: string) => s.trim())
-    .filter(Boolean)
-  ?? DEFAULT_PROVIDER_EMAILS;
-
-/** Fisher–Yates shuffle — used to randomly pick which contacts get a real email. */
-function shuffle<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
+// @ts-ignore - process.env is available at runtime via tsx
+const CONTACT_PHONE = process.env.TEST_PHONE_NUMBER ?? '+918926130730';
 
 const CATEGORY = {
   ASSISTANT: 'Assistant',
@@ -116,7 +55,7 @@ type ContactSeed = {
 };
 
 // One reusable conversation "shape" per category: an opening line the
-// agent sends after emailing on the user's behalf, a short user reply,
+// agent sends after calling on the user's behalf, a short user reply,
 // and a matching history entry. {name} is replaced with the contact name.
 const CATEGORY_TEMPLATE: Record<string, {
   reasonForContact: string;
@@ -127,42 +66,42 @@ const CATEGORY_TEMPLATE: Record<string, {
 }> = {
   [CATEGORY.HEALTHCARE]: {
     reasonForContact: 'Booking an appointment',
-    agentOpen: "I emailed {name} and found a few available slots — want me to lock one in, or should I ask about a different time window?",
+    agentOpen: "I called {name} and found a few available slots — want me to lock one in, or should I ask about a different time window?",
     userReply: 'Go ahead and grab the earliest one that works.',
     historyStatus: 'In Progress',
     historyDetail: 'Chat · Awaiting your confirmation',
   },
   [CATEGORY.PERSONAL_CARE]: {
     reasonForContact: 'Booking / rescheduling',
-    agentOpen: "I emailed {name} about your booking. They have an opening this week — should I confirm it?",
+    agentOpen: "I called {name} about your booking. They have an opening this week — should I confirm it?",
     userReply: 'Yes, confirm it please.',
     historyStatus: 'Completed',
     historyDetail: 'Chat · Booking confirmed',
   },
   [CATEGORY.HOME_AUTO]: {
     reasonForContact: 'Service or repair booking',
-    agentOpen: "I emailed {name} to schedule the service. They can fit you in this week — I asked for a quote too and I'm waiting to hear back.",
+    agentOpen: "I called {name} to schedule the service. They can fit you in this week — I asked for a quote too and I'm waiting to hear back.",
     userReply: 'Sounds good, let me know the quote when it comes in.',
     historyStatus: 'In Progress',
     historyDetail: 'Chat · Waiting on quote',
   },
   [CATEGORY.FINANCIAL]: {
     reasonForContact: 'Account / billing question',
-    agentOpen: "I emailed {name} about your account. They need to verify a couple of details with you directly before they can proceed.",
+    agentOpen: "I called {name} about your account. They need to verify a couple of details with you directly before they can proceed.",
     userReply: 'Okay, what do they need from me?',
     historyStatus: 'Needs you',
     historyDetail: 'Chat · Needs your verification',
   },
   [CATEGORY.GOVERNMENT]: {
     reasonForContact: 'Appointment / status check',
-    agentOpen: "I emailed {name}. They don't offer phone scheduling, so I booked things through their online appointment system instead.",
+    agentOpen: "I called {name}. They don't offer phone scheduling, so I booked things through their online appointment system instead.",
     userReply: 'Perfect, that saves the hassle.',
     historyStatus: 'Completed',
     historyDetail: 'Chat · Appointment booked',
   },
   [CATEGORY.RETAIL]: {
     reasonForContact: 'Order, billing, or support issue',
-    agentOpen: "I emailed {name} about the issue and opened a case. They said to expect a follow-up within a couple of business days.",
+    agentOpen: "I called {name} about the issue and opened a case. They said to expect a follow-up within a couple of business days.",
     userReply: 'Thanks, keep me posted.',
     historyStatus: 'In Progress',
     historyDetail: 'Chat · Case opened, awaiting follow-up',
@@ -244,7 +183,7 @@ const CONTACTS: ContactSeed[] = [
     custom: {
       conversationTitle: 'Cleaning appointment',
       messages: [
-        { role: 'assistant', content: "I emailed Bright Smile Dental about your cleaning. They have an opening next Thursday at 11:15 AM — want me to lock it in?", time: 'Yesterday, 3:12 PM' },
+        { role: 'assistant', content: "I called Bright Smile Dental about your cleaning. They have an opening next Thursday at 11:15 AM — want me to lock it in?", time: 'Yesterday, 3:12 PM' },
         { role: 'user', content: 'Yes please, Thursday works.', time: 'Yesterday, 3:20 PM' },
         { role: 'assistant', content: "Booked. You're confirmed for Thursday at 11:15 AM. I'll send a reminder the day before.", time: 'Yesterday, 3:21 PM' },
       ],
@@ -252,7 +191,7 @@ const CONTACTS: ContactSeed[] = [
     },
     queries: [
       { question: 'Do you want fluoride treatment added to the cleaning?' },
-      { question: 'Would you like a copy of your X-rays emailed to you?' },
+      { question: 'Would you like a copy of your X-rays sent to you?' },
     ],
     knowledge: [
       { category: 'constraint', key: 'preferred_time_window', value: 'Prefers late-morning appointments, ideally between 10am and 12pm.' },
@@ -277,7 +216,7 @@ const CONTACTS: ContactSeed[] = [
       conversationTitle: 'Reschedule haircut',
       messages: [
         { role: 'user', content: 'Can you move my Friday haircut to Saturday instead?', time: 'Jun 12, 6:40 PM' },
-        { role: 'assistant', content: "I emailed Northside — Saturday at 2 PM with Mei is open. Still waiting on your confirmation to lock it in.", time: 'Jun 12, 6:52 PM' },
+        { role: 'assistant', content: "I called Northside — Saturday at 2 PM with Mei is open. Still waiting on your confirmation to lock it in.", time: 'Jun 12, 6:52 PM' },
       ],
       history: { title: 'Reschedule haircut', detail: 'Chat · Waiting on a reply', status: 'Needs you', time: 'Jun 12' },
     },
@@ -324,7 +263,7 @@ const CONTACTS: ContactSeed[] = [
       conversationTitle: 'Policy renewal',
       messages: [
         { role: 'user', content: 'My renewal notice mentioned a rate increase — can you find out why?', time: 'Jun 05, 1:02 PM' },
-        { role: 'assistant', content: "I emailed their support team — it's a regional rate adjustment, not tied to any claim. I asked about bundling discounts too and I'm waiting on numbers back.", time: 'Jun 05, 1:30 PM' },
+        { role: 'assistant', content: "I called their support team — it's a regional rate adjustment, not tied to any claim. I asked about bundling discounts too and I'm waiting on numbers back.", time: 'Jun 05, 1:30 PM' },
       ],
       history: { title: 'Insurance renewal', detail: 'Chat · Waiting on a reply', status: 'In Progress', time: 'Jun 05' },
     },
@@ -370,7 +309,7 @@ const CONTACTS: ContactSeed[] = [
       conversationTitle: 'Missed delivery follow-up',
       messages: [
         { role: 'user', content: 'My package PLX-48290 says delivered but I never got it.', time: 'Jun 08, 11:00 AM' },
-        { role: 'assistant', content: "I emailed the parcel desk and filed a missing-package trace. They'll investigate with the driver and follow up within 2 business days — I saved the case number for you.", time: 'Jun 08, 11:24 AM' },
+        { role: 'assistant', content: "I called the parcel desk and filed a missing-package trace. They'll investigate with the driver and follow up within 2 business days — I saved the case number for you.", time: 'Jun 08, 11:24 AM' },
       ],
       history: { title: 'Package delivery update', detail: 'Chat · Summary saved', status: 'Completed', time: 'Jun 08' },
     },
@@ -434,25 +373,8 @@ async function main() {
 
   console.log('Empty database, seeding contacts...');
 
-  // Assign the provider email pool to all non-Assistant contacts.
-  // Each contact gets a unique email for testing.
-  const eligibleForEmail = CONTACTS.filter((c) => c.category !== CATEGORY.ASSISTANT);
-  const emailByContactName = new Map<string, string>();
-  eligibleForEmail.forEach((c, i) => {
-    // Use the corresponding email from the expanded list
-    if (i < PROVIDER_EMAILS.length) {
-      emailByContactName.set(c.name, PROVIDER_EMAILS[i]);
-    } else {
-      // Generate email based on contact name for any remaining contacts
-      const sanitizedName = c.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-      emailByContactName.set(c.name, `${sanitizedName}@provider-test.com`);
-    }
-  });
-
-  console.log(`Assigning ${eligibleForEmail.length} emails to service providers:`);
-  for (const c of eligibleForEmail) {
-    console.log(`  ${c.name}  ->  ${emailByContactName.get(c.name)}`);
-  }
+  // All contacts use the same TEST_PHONE_NUMBER from .env
+  console.log(`Using phone number for all contacts: ${CONTACT_PHONE}`);
 
   let totalKnowledge = 0;
 
@@ -465,8 +387,7 @@ async function main() {
         name: c.name,
         business: c.business,
         category: c.category,
-        phone: DUMMY_PHONE,
-        email: emailByContactName.get(c.name) ?? null,
+        phone: CONTACT_PHONE,
         initials: c.initials,
         color: c.color,
         note: c.note,

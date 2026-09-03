@@ -56,6 +56,7 @@ router.get("/conversations/:id", asyncHandler(async (req, res) => {
   const conversation = await prisma.conversation.findUnique({
     where: { id: String(id) },
     include: {
+      contact: true,
       messages: {
         orderBy: { createdAt: "asc" },
       },

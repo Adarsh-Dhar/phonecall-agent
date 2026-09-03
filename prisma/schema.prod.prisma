@@ -18,7 +18,6 @@ model Contact {
   business  String
   category  String   // e.g. "Healthcare", "Personal Care", "Home & Auto", "Financial & Insurance", "Government", "Retail & Customer Service", "Other"
   phone     String   // E.164 phone number for the contact, e.g. +14155551234
-  email     String?  // Email address for the contact
   initials  String
   color     String
   note      String?

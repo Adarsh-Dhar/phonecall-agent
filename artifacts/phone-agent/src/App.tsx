@@ -840,14 +840,18 @@ function TaskRowWithContact({
 function CallsPage() {
   const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();
   const [calls, setCalls] = useState<api.Call[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [placingCall, setPlacingCall] = useState(false);
+  const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Record<string, api.Conversation>>({});
 
   const loadCalls = useCallback(async () => {
     setLoading(true);
     try {
-      // If a conversation is selected, load calls for that conversation
-      // Otherwise, load all calls across all conversations
       const data = selectedConversationId
         ? await api.fetchConversationCalls(selectedConversationId)
         : await api.fetchAllCalls();
@@ -859,7 +863,63 @@ function CallsPage() {
     }
   }, [selectedConversationId]);
 
+  const loadContacts = useCallback(async () => {
+    try {
+      const data = await api.fetchContacts();
+      setContacts(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const loadConversation = useCallback(async (conversationId: string) => {
+    try {
+      const data = await api.fetchConversationMessages(conversationId);
+      setConversations(prev => ({ ...prev, [conversationId]: data }));
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
   useEffect(() => { void loadCalls(); }, [loadCalls]);
+  useEffect(() => { void loadContacts(); }, [loadContacts]);
+
+  const handleCreateCall = async () => {
+    if (!selectedContactId) return;
+    setPlacingCall(true);
+    try {
+      const call = await api.placeCall({ contactId: selectedContactId });
+      await loadCalls();
+      setShowCreateModal(false);
+      setSelectedContactId(null);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to place call');
+    } finally {
+      setPlacingCall(false);
+    }
+  };
+
+  const handleCompleteMockCall = async (callId: string) => {
+    try {
+      await api.completeMockCall({ callId, durationSec: 30, status: 'completed' });
+      await loadCalls();
+    } catch (e) {
+      console.error(e);
+      alert('Failed to complete mock call');
+    }
+  };
+
+  const handleExpandCall = async (call: api.Call) => {
+    if (expandedCallId === call.id) {
+      setExpandedCallId(null);
+    } else {
+      setExpandedCallId(call.id);
+      if (!conversations[call.conversationId]) {
+        await loadConversation(call.conversationId);
+      }
+    }
+  };
 
   return (
     <AppLayout title="Calls" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
@@ -870,14 +930,22 @@ function CallsPage() {
           <h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Calls</h1>
         </div>
 
-        {/* Header row: conversation filter + refresh */}
+        {/* Header row: create button + conversation filter + refresh */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-1.5 rounded-full bg-[#3f8274] px-3 py-1.5 text-[11px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#356c61]"
+            >
+              <Plus size={13} />
+              New Call
+            </button>
+            <button
+              type="button"
               onClick={() => setSelectedConversationId(null)}
               className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[.08em] transition-colors ${
-                !selectedConversationId ? 'bg-[#2854cc] text-white' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]'
+                !selectedConversationId ? 'bg-[#2854cc] text-white' : 'text-muted-foreground hover:bg-muted'
               }`}
             >
               All calls
@@ -887,7 +955,7 @@ function CallsPage() {
             type="button"
             aria-label="Refresh calls"
             onClick={() => void loadCalls()}
-            className="grid h-7 w-7 place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
+            className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -908,20 +976,83 @@ function CallsPage() {
         ) : (
           <div className="space-y-3">
             {calls.map((call) => (
-              <CallRow key={call.id} call={call} />
+              <CallRow 
+                key={call.id} 
+                call={call} 
+                expanded={expandedCallId === call.id}
+                onToggle={() => void handleExpandCall(call)}
+                conversation={conversations[call.conversationId]}
+                onCompleteMockCall={(callId) => void handleCompleteMockCall(callId)}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* Create Call Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold">Place Call</h2>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:bg-muted"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="mb-4">
+              <label className="mb-2 block text-xs font-bold text-muted-foreground">Select Contact</label>
+              <select
+                value={selectedContactId || ''}
+                onChange={(e) => setSelectedContactId(e.target.value)}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-[#a7d0c1]"
+              >
+                <option value="">Choose a contact...</option>
+                {contacts.map((contact) => (
+                  <option key={contact.id} value={contact.id}>
+                    {contact.name} ({contact.phone})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="rounded-lg px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateCall()}
+                disabled={!selectedContactId || placingCall}
+                className="rounded-lg bg-[#3f8274] px-4 py-2 text-xs font-bold text-white hover:bg-[#356c61] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {placingCall ? 'Calling...' : 'Place Call'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }
 
-function CallRow({ call }: { call: api.Call }) {
+function CallRow({ call, expanded, onToggle, conversation, onCompleteMockCall }: { 
+  call: api.Call; 
+  expanded: boolean;
+  onToggle: () => void;
+  conversation?: api.Conversation;
+  onCompleteMockCall: (callId: string) => void;
+}) {
   const isInbound = call.direction === 'inbound';
   const statusColor = call.status === 'completed' ? 'text-[#3f8274]' : 
                      call.status === 'failed' || call.status === 'no-answer' || call.status === 'busy' ? 'text-[#b44343]' : 
-                     'text-[hsl(var(--muted-foreground))]';
+                     'text-muted-foreground';
 
   return (
     <div className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-5 transition-transform hover:-translate-y-0.5">
@@ -962,8 +1093,44 @@ function CallRow({ call }: { call: api.Call }) {
               <span className="text-[10px] font-bold text-[#3159c4]">{call.contact.name}</span>
             </div>
           )}
+          <button
+            type="button"
+            onClick={onToggle}
+            className="mt-2 text-xs text-[#3159c4] hover:underline"
+          >
+            {expanded ? 'Hide conversation' : 'View conversation'}
+          </button>
+          {call.status === 'in-progress' && (
+            <button
+              type="button"
+              onClick={() => onCompleteMockCall(call.id)}
+              className="mt-1 text-xs text-[#3f8274] hover:underline"
+            >
+              Complete mock call
+            </button>
+          )}
         </div>
       </div>
+      
+      {expanded && conversation && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <div className="space-y-3">
+            {conversation.messages.map((message) => (
+              <div key={message.id} className="flex gap-3">
+                <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                  message.role === 'assistant' ? 'bg-[#3f8274] text-white' : 'bg-[#697a73] text-white'
+                }`}>
+                  {message.role === 'assistant' ? 'A' : 'U'}
+                </div>
+                <div className="flex-1 rounded-lg bg-muted px-3 py-2 text-sm">
+                  <p className="text-foreground">{message.content}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">{message.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,12 +13,15 @@ const {
   EXOTEL_SID,
   EXOTEL_API_KEY,
   EXOTEL_API_TOKEN,
-  EXOTEL_SUBDOMAIN = "api.exotel.com", // use api.in.exotel.com for the India region
-  EXOTEL_CALLER_ID, // your Exophone, e.g. "0XXXXXXXXX"
-  EXOTEL_APP_ID, // App Bazaar flow id containing the Voicebot + Passthru applets
+  EXOTEL_SUBDOMAIN = "api.exotel.com",
+  EXOTEL_CALLER_ID,
+  EXOTEL_APP_ID,
+  EXOTEL_MOCK_MODE = "false",
 } = process.env;
 
-if (!EXOTEL_SID || !EXOTEL_API_KEY || !EXOTEL_API_TOKEN || !EXOTEL_CALLER_ID || !EXOTEL_APP_ID) {
+const MOCK_MODE = EXOTEL_MOCK_MODE === "true";
+
+if (!MOCK_MODE && (!EXOTEL_SID || !EXOTEL_API_KEY || !EXOTEL_API_TOKEN || !EXOTEL_CALLER_ID || !EXOTEL_APP_ID)) {
   logger.warn(
     "voiceClient: Exotel env vars are not fully set (EXOTEL_SID, EXOTEL_API_KEY, " +
       "EXOTEL_API_TOKEN, EXOTEL_CALLER_ID, EXOTEL_APP_ID) — outbound calls will fail at runtime."
@@ -39,13 +42,22 @@ export interface PlacedCall {
  * (which contains the Voicebot Applet our WebSocket server talks to).
  */
 export async function placeOutboundCall(toNumber: string): Promise<PlacedCall> {
+  // Mock mode for development - simulates a successful call without hitting Exotel API
+  if (MOCK_MODE) {
+    logger.info({ toNumber }, "voiceClient: MOCK MODE - simulating outbound call");
+    // Simulate a delay to mimic network latency
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const mockSid = `MOCK_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    return { sid: mockSid, status: "in-progress" };
+  }
+
   if (!EXOTEL_SID || !EXOTEL_API_KEY || !EXOTEL_API_TOKEN || !EXOTEL_CALLER_ID || !EXOTEL_APP_ID) {
     throw new Error("Cannot place call: Exotel env vars are not fully configured.");
   }
 
   const body = new URLSearchParams({
-    From: toNumber,
-    CallerId: EXOTEL_CALLER_ID,
+    From: EXOTEL_CALLER_ID,
+    To: toNumber,
     Url: flowUrl(),
   });
 

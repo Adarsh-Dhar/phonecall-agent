@@ -16,6 +16,7 @@
   },
   "private": true,
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "@types/pg": "^8.20.0",
     "prettier": "^3.9.6",
     "prisma": "^6.19.3",
@@ -26,5 +27,6 @@
     "@prisma/client": "^6.19.3",
     "better-sqlite3": "^13.0.3",
     "esbuild": "0.27.3"
-  }
+  },
+  "packageManager": "pnpm@9.10.0+sha1.216899f511c8dfde183c7cb50b69009c779534a8"
 }

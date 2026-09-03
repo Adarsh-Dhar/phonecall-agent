@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://phonecall-agent-1.onrender.com/api';
+const API_BASE_URL = '/api';
 
 export type Contact = {
   id: string;
@@ -110,6 +110,15 @@ export const fetchMessages = async (conversationId: string): Promise<Message[]> 
   const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`);
   if (!response.ok) throw new Error('Failed to fetch messages');
   return response.json();
+};
+
+export const fetchConversationMessages = async (conversationId: string): Promise<Conversation> => {
+  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}`);
+  if (!response.ok) throw new Error('Failed to fetch conversation');
+  const conversation = await response.json();
+  // Always fetch messages separately to ensure we have the full conversation
+  const messages = await fetchMessages(conversationId);
+  return { ...conversation, messages };
 };
 
 export const createMessage = async (conversationId: string, data: Omit<Message, 'id' | 'createdAt' | 'updatedAt' | 'conversationId'>): Promise<Message> => {
@@ -584,6 +593,23 @@ export const placeCall = async (data: { contactId: string }): Promise<Call> => {
       throw new Error(err.error ?? 'Failed to place call');
     } catch {
       throw new Error('Failed to place call');
+    }
+  }
+  return response.json();
+};
+
+export const completeMockCall = async (data: { callId: string; durationSec?: number; status?: string }): Promise<Call> => {
+  const response = await fetch(`${API_BASE_URL}/calls/mock-complete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    try {
+      const err = await response.json() as { error?: string };
+      throw new Error(err.error ?? 'Failed to complete mock call');
+    } catch {
+      throw new Error('Failed to complete mock call');
     }
   }
   return response.json();

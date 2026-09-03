@@ -81,6 +81,44 @@ router.post("/calls", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/calls/mock-complete — Simulate call completion for mock mode
+// ---------------------------------------------------------------------------
+
+router.post("/calls/mock-complete", async (req, res) => {
+  const { callId, durationSec = 30, status = "completed" } = req.body as { 
+    callId?: string; 
+    durationSec?: number; 
+    status?: string; 
+  };
+
+  if (!callId || typeof callId !== "string") {
+    res.status(400).json({ error: "callId is required" });
+    return;
+  }
+
+  try {
+    const call = await prisma.call.update({
+      where: { id: callId },
+      data: {
+        status,
+        durationSec,
+        recordingUrl: null,
+        disconnectedBy: "user",
+        endedAt: new Date(),
+      },
+    });
+
+    res.status(200).json(call);
+
+    scheduleExtraction(call.conversationId);
+    void analyzeCallForEscalation(call.id);
+  } catch (err) {
+    logger.error({ err, callId }, "calls/mock-complete: failed to process mock call completion");
+    res.status(500).json({ error: "Failed to complete mock call" });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/calls/passthru — Exotel Passthru Applet webhook.
 //
 // Fires after the Voicebot Applet stream ends, with call lifecycle metadata.
