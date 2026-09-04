@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import {
-  ArrowUpRight, BookOpen, Check, CircleHelp, History,
+  ArrowUpRight, BookOpen, Calendar as CalendarIcon, Check, CircleHelp, History,
   ListTodo, LoaderCircle, Mic, Phone as PhoneIcon, MessageCircle, Paperclip,
-  Pencil,
-  Plus, RefreshCw, Send, ShieldCheck, Sparkles, Trash2, Users, X, Zap,
+  Pencil, Plus, RefreshCw, Send, ShieldCheck, Sparkles, Trash2, Users, X, Zap,
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -108,22 +107,18 @@ function AppLayout({
   const [location] = useLocation();
 
   const navItems = [
-    { path: '/messages', label: 'Messages', icon: <MessageCircle size={16} />, testId: 'nav-inbox' },
     { path: '/calls', label: 'Calls', icon: <PhoneIcon size={16} />, testId: 'nav-calls' },
     { path: '/history', label: 'Task history', icon: <History size={16} />, testId: 'nav-history' },
     { path: '/contacts', label: 'Contacts', icon: <Users size={16} />, testId: 'nav-contacts' },
   ] as const;
 
-  const isActive = (path: string) => {
-    if (path === '/messages') return location === '/messages' || location === '/';
-    return location.startsWith(path);
-  };
+  const isActive = (path: string) => location.startsWith(path);
 
   return (
     <div className="grain min-h-dvh bg-background">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[224px] flex-col bg-[hsl(var(--sidebar))] px-5 py-6 text-[hsl(var(--sidebar-foreground))] md:flex">
-        <Link href="/messages" className="flex items-center gap-3 text-left">
+        <Link href="/contacts" className="flex items-center gap-3 text-left">
           <span className="grid h-9 w-9 place-items-center rounded-[13px] bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]">
             <MessageCircle size={17} strokeWidth={2.5} />
           </span>
@@ -147,7 +142,6 @@ function AppLayout({
               >
                 {icon}
                 <span>{label}</span>
-                {path === '/messages' && busy ? <span className="ml-auto h-2 w-2 rounded-full bg-[hsl(var(--accent))]" /> : null}
               </Link>
             ))}
           </nav>
@@ -243,387 +237,6 @@ function useSharedState() {
 }
 
 // ---------------------------------------------------------------------------
-// /messages  and  /messages/:contactId  — same inbox UI, contact-scoped chat
-// ---------------------------------------------------------------------------
-
-function InboxPage() {
-  const { contactId: urlContactId } = useParams<{ contactId?: string }>();
-  const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();
-  const [, navigate] = useLocation();
-
-  // Contacts + history list
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [history, setHistory] = useState<api.History[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // The live conversation for the active contact
-  const [conversation, setConversation] = useState<api.Conversation | null>(null);
-  const [convLoading, setConvLoading] = useState(false);
-
-  const [draft, setDraft] = useState('');
-  const [busy, setBusy] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
-
-  // Call state
-  const [showTestCall, setShowTestCall] = useState(false);
-  const [endingConversation, setEndingConversation] = useState(false);
-
-  const handleEndConversation = async () => {
-    if (!conversation || endingConversation) return;
-    setEndingConversation(true);
-    try {
-      await api.endConversation(conversation.id);
-      // Refresh the conversation to show updated status
-      if (resolvedContactId) {
-        api.fetchContactConversation(resolvedContactId)
-          .then((conv) => setConversation(conv))
-          .catch(() => {});
-      }
-    } catch (err) {
-      console.error('[InboxPage] Failed to end conversation:', err);
-    } finally {
-      setEndingConversation(false);
-    }
-  };
-
-  // Load contacts + history once
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [contactsData, historyData] = await Promise.all([api.fetchContacts(), api.fetchHistory()]);
-        setContacts(contactsData);
-        setHistory(historyData);
-      } catch {
-        // fallback
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
-
-  // Resolve the active contact id: URL param takes priority, otherwise Phone Agent
-  // If URL param is invalid (contact doesn't exist), fall back to a valid contact
-  const resolvedContactId = (() => {
-    if (urlContactId) {
-      const matched = contacts.find((c) => c.id === urlContactId);
-      if (matched) {
-        return urlContactId;
-      }
-      // URL param exists but contact doesn't - fall back
-      console.warn('[InboxPage] URL contact ID not found, falling back:', urlContactId);
-    }
-    // No URL param or invalid - use fallback logic
-    return contacts.find((c) => c.name === 'Phone Agent')?.id
-      || contacts[contacts.length - 1]?.id
-      || '';
-  })();
-
-  // Log on mount and whenever the URL contact id changes
-  useEffect(() => {
-    if (!urlContactId) return;
-    console.log('[InboxPage] contactId from URL:', urlContactId);
-    const matched = contacts.find((c) => c.id === urlContactId);
-    if (matched) {
-      console.log('[InboxPage] matched contact:', matched.name, '|', matched.business);
-    } else {
-      console.warn('[InboxPage] no contact found for id:', urlContactId);
-    }
-  }, [urlContactId, contacts]);
-
-  // Load conversation whenever the resolved contact changes
-  useEffect(() => {
-    if (!resolvedContactId) return;
-    setConvLoading(true);
-    setConversation(null);
-    api.fetchContactConversation(resolvedContactId)
-      .then((conv) => {
-        console.log('[InboxPage] conversation loaded for:', conv.contact?.name ?? resolvedContactId);
-        setConversation(conv);
-      })
-      .catch((err) => {
-        console.error('[InboxPage] Failed to fetch conversation:', err);
-        console.warn('[InboxPage] No conversation available for contact');
-        setConversation(null);
-      })
-      .finally(() => setConvLoading(false));
-  }, [resolvedContactId, contacts]);
-
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [conversation?.messages, busy]);
-
-  const switchContact = (id: string) => {
-    navigate(`/messages/${id}`);
-  };
-
-  const sendMessage = async (text = draft) => {
-    const content = text.trim();
-    if (!content || busy || !conversation) return;
-
-    const userMsg: api.Message = {
-      id: `user-${Date.now()}`, role: 'user', content, time: 'Now',
-      pending: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-      conversationId: conversation.id,
-    };
-    setConversation((c) => c ? { ...c, messages: [...c.messages, userMsg] } : null);
-    setDraft('');
-    setBusy(true);
-
-    try {
-      const payload = await api.sendGeminiMessage(
-        [...conversation.messages, userMsg].map(({ role, content: v }) => ({ role, content: v })),
-        activeContact?.id,
-      );
-      const assistantMsg: api.Message = {
-        id: `assistant-${Date.now()}`, role: 'assistant',
-        content: payload.message || "I'm here. What should we work on?",
-        time: 'Now', pending: false,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-        conversationId: conversation.id,
-      };
-      setConversation((c) => c ? { ...c, messages: [...c.messages, assistantMsg] } : null);
-
-      // Persist both messages
-      await api.createMessage(conversation.id, { role: 'user', content, time: 'Now', pending: false });
-      await api.createMessage(conversation.id, { role: 'assistant', content: assistantMsg.content, time: 'Now', pending: false });
-
-      // History entry
-      try {
-        const newHistory = history.length > 0
-          ? await api.createHistory(history[0].conversationId, { title: content.slice(0, 32), detail: `Chat with ${activeContact?.name ?? 'contact'} · Gemini`, status: 'Completed', time: 'Just now' })
-          : await api.createHistoryWithConversation({ title: content.slice(0, 32), detail: `Chat with ${activeContact?.name ?? 'contact'} · Gemini`, status: 'Completed', time: 'Just now' });
-        setHistory((c) => [newHistory, ...c]);
-      } catch {
-        setHistory((c) => [{ id: `h-${Date.now()}`, title: content.slice(0, 32), detail: 'Chat · Gemini response', status: 'Completed', time: 'Just now' } as api.History, ...c]);
-      }
-    } catch (error) {
-      setConversation((c) => c ? { ...c, messages: [...c.messages, {
-        id: `error-${Date.now()}`, role: 'assistant',
-        content: error instanceof Error ? error.message : 'Something went wrong. Please try again.',
-        time: 'Now', pending: false,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-        conversationId: conversation.id,
-      }] } : null);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // Derive the active contact: prefer embedded in conversation (always correct),
-  // fall back to contacts list lookup by resolved id.
-  const activeContact =
-    conversation?.contact as Contact | undefined
-    ?? contacts.find((c) => c.id === resolvedContactId);
-  const chatMessages = (conversation?.messages ?? []).filter(
-    (m) => !m.content.startsWith('Answering: "') && !m.callId
-  );
-
-  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-
-  return (
-    <AppLayout title="Messages" busy={busy} onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
-      <div className="mx-auto max-w-[1280px] px-5 py-8 md:px-10 md:py-10">
-        <div className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
-          <div className="animate-rise">
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">Good morning, Alex</p>
-            <h1 className="max-w-[600px] font-serif text-[clamp(2.5rem,5vw,4.7rem)] leading-[.94] tracking-[-.055em] text-[#203039]">
-              A little help,<br className="hidden md:block" /> right here.
-            </h1>
-          </div>
-          <div className="animate-rise animate-rise-1 flex items-center gap-2 rounded-2xl border border-[hsl(var(--border))] bg-[#f2eee5] px-4 py-3 text-xs text-[hsl(var(--muted-foreground))]">
-            <Zap size={15} className="text-[#e26951]" />
-            <span>3 quiet hours saved this week</span>
-          </div>
-        </div>
-
-        <section className="animate-rise animate-rise-1 grid gap-5 xl:grid-cols-[minmax(0,1.34fr)_minmax(300px,.66fr)]">
-          {/* Chat panel */}
-          <div className="flex min-h-[620px] flex-col overflow-hidden rounded-[24px] border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] shadow-[0_16px_45px_rgba(39,53,58,.06)]">
-            {/* Chat header — shows the active contact */}
-            <div className="flex items-center justify-between border-b border-[hsl(var(--border))] px-5 py-4 md:px-7">
-              <div className="flex items-center gap-3">
-                {activeContact && <Avatar contact={activeContact} />}
-                <div>
-                  <h2 className="text-sm font-bold">{activeContact?.name ?? 'Select a contact'}</h2>
-                  <p className="text-[11px] text-muted-foreground">{activeContact?.business ?? ''}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Call button — opens the in-browser test call for this contact */}
-                {activeContact && <CallButton onCall={() => setShowTestCall(true)} />}
-                <StatusPill busy={busy} />
-              </div>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-6 md:px-7">
-              {convLoading ? (
-                <div className="flex items-center justify-center py-10">
-                  <span className="inline-flex items-center gap-2 text-xs text-[#697a73]"><LoaderCircle size={13} className="animate-spin" /> Loading conversation…</span>
-                </div>
-              ) : chatMessages.length === 0 ? (
-                <div className="flex items-center justify-center py-10">
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">No messages yet. Say hello!</p>
-                </div>
-              ) : chatMessages.map((message) => (
-                <div key={message.id} data-testid={`message-${message.role}`} className={`flex gap-3 animate-rise ${message.role === 'user' ? 'justify-end' : ''}`}>
-                  <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === 'user' ? 'rounded-br-md bg-[#2854cc] text-white' : 'rounded-bl-md bg-[#edf1ec] text-[#34443f]'}`}>
-                    <p>{message.content}</p>
-                    <span className={`mt-2 block text-[10px] ${message.role === 'user' ? 'text-[#c9d5ff]' : 'text-[#82918a]'}`}>{message.time}</span>
-                  </div>
-                </div>
-              ))}
-              {busy ? (
-                <div className="flex gap-3">
-                  <div className="rounded-2xl rounded-bl-md bg-[#edf1ec] px-4 py-3">
-                    <span className="inline-flex items-center gap-2 text-xs text-[#697a73]"><LoaderCircle size={13} className="animate-spin" /> Thinking through it</span>
-                  </div>
-                </div>
-              ) : null}
-              <div ref={endRef} />
-            </div>
-
-            {/* Compose */}
-            <div className="border-t border-[hsl(var(--border))] px-5 py-4 md:px-7">
-              <div className="mb-3 flex flex-wrap gap-2">
-                {quickPrompts.map((prompt) => (
-                  <button
-                    type="button"
-                    data-testid="button-quick-prompt"
-                    key={prompt}
-                    onClick={() => setDraft(prompt)}
-                    className="rounded-full border border-[hsl(var(--border))] bg-[#f6f3ed] px-3 py-2 text-xs font-medium text-[#58645f] transition-all hover:-translate-y-0.5 hover:border-[#a2b4e8] hover:bg-[#edf1ff] hover:text-[#244dbd]"
-                  >
-                    {prompt.length > 38 ? `${prompt.slice(0, 38)}…` : prompt}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-end gap-2 rounded-2xl border border-[hsl(var(--border))] bg-[#fbfaf6] p-2 focus-within:border-[#4168e5] focus-within:ring-4 focus-within:ring-[#4168e5]/10">
-                <button type="button" aria-label="attach file" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[#82918a] hover:bg-[#edf1ec]"><Paperclip size={17} /></button>
-                <textarea
-                  data-testid="input-message"
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendMessage(); } }}
-                  placeholder={activeContact ? `Message ${activeContact.name}…` : 'What would you like help with?'}
-                  className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 outline-none placeholder:text-[#99a19d]"
-                  disabled={convLoading || !conversation}
-                />
-                <button
-                  type="button"
-                  data-testid="button-send-message"
-                  onClick={() => void sendMessage()}
-                  disabled={busy || !draft.trim() || convLoading || !conversation}
-                  className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#2854cc] text-white transition-all hover:-translate-y-0.5 hover:bg-[#2148b4] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Send size={16} />
-                </button>
-              </div>
-              <p className="mt-2 text-center text-[10px] text-[hsl(var(--muted-foreground))]">Powered by Gemini · Press Enter to send</p>
-            </div>
-          </div>
-
-          {/* Right column — tasks panel + supporting widgets */}
-          <div className="space-y-5">
-            <div className="rounded-[24px] border border-[hsl(var(--card-border))] bg-[#eef4f0] p-5 md:p-7">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-mono text-[9px] uppercase tracking-[.18em] text-[#588176]">How it works</p>
-                  <h3 className="mt-2 font-serif text-3xl tracking-tight text-[#233b3b]">Quiet by default.</h3>
-                  <p className="mt-2 text-xs leading-5 text-[#55716a]">Start with a message. Get a useful next step, not a wall of text.</p>
-                </div>
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#d2e8df] text-[#3f8274]"><Sparkles size={18} /></div>
-              </div>
-              <div className="mt-7 space-y-4 text-xs text-[#55716a]">
-                {[['01', 'Tell me what you need'], ['02', 'I help you make a plan'], ['03', 'You stay in control']].map(([num, label]) => (
-                  <div className="flex items-center gap-3" key={num}>
-                    <strong className="font-mono text-lg text-[#3f8274]">{num}</strong>
-                    <span>{label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <KnowledgeBoardPanel contactId={activeContact?.id} />
-
-            <TasksPanel
-              conversationId={conversation?.id}
-              contactId={activeContact?.id}
-            />
-
-            <QueriesPanel
-              conversationId={conversation?.id}
-              contactId={activeContact?.id}
-            />
-
-            <RecentTasksWidget history={history} />
-
-            {/* Active conversation card — click name navigates, Change goes to contacts */}
-            {activeContact && (
-              <div className="rounded-[22px] border border-card-border bg-card p-5">
-                <p className="font-mono text-[9px] uppercase tracking-[.18em] text-[hsl(var(--muted-foreground))]">Active conversation</p>
-                <div className="mt-4 flex items-center gap-3">
-                  <Avatar contact={activeContact} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <strong className="block truncate text-xs">{activeContact.name}</strong>
-                      {conversation && (
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[.07em] ${
-                          conversation.status === 'active' 
-                            ? 'bg-[#dcefe9] text-[#216457]' 
-                            : 'bg-[#edf1ec] text-[#58645f]'
-                        }`}>
-                          {conversation.status || 'active'}
-                        </span>
-                      )}
-                    </div>
-                    <small className="text-[10px] text-muted-foreground">{activeContact.business}</small>
-                    {conversation?.topicSummary && conversation.status === 'ended' && (
-                      <p className="mt-1 text-[10px] text-muted-foreground">
-                        Topic: {conversation.topicSummary}
-                      </p>
-                    )}
-                  </div>
-                  <Link
-                    href="/contacts"
-                    data-testid="button-change-contact"
-                    className="text-[10px] font-bold text-[#3159c4] hover:underline"
-                  >
-                    Change
-                  </Link>
-                </div>
-                {conversation && conversation.status === 'active' && (
-                  <button
-                    type="button"
-                    onClick={() => void handleEndConversation()}
-                    disabled={endingConversation}
-                    className="mt-3 w-full rounded-xl border border-border px-3 py-2 text-[10px] font-bold text-muted-foreground hover:bg-muted disabled:opacity-40"
-                  >
-                    {endingConversation ? 'Marking resolved…' : 'Mark topic resolved'}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
-
-      {showTestCall && activeContact && (
-        <TestCallWidget
-          contactId={activeContact.id}
-          onClose={() => {
-            setShowTestCall(false);
-            // Refresh the thread — turns landed during the call.
-            if (resolvedContactId) {
-              api.fetchContactConversation(resolvedContactId).then(setConversation).catch(() => {});
-            }
-          }}
-        />
-      )}
-    </AppLayout>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // /history — History page
 // ---------------------------------------------------------------------------
 
@@ -663,7 +276,7 @@ function HistoryPage() {
   return (
     <AppLayout title="Tasks" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
       <div className="mx-auto max-w-[980px] px-5 py-8 md:px-10 md:py-12">
-        <Link href="/messages" className="mb-8 block text-xs font-bold text-[#3159c4] hover:underline">← Back to messages</Link>
+        <Link href="/contacts" className="mb-8 block text-xs font-bold text-[#3159c4] hover:underline">← Back to contacts</Link>
         <div className="mb-8">
           <p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">All contacts</p>
           <h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Tasks</h1>
@@ -738,7 +351,7 @@ function TaskRowWithContact({
       {task.contact && (
         <div className="mb-0.5 flex items-center gap-1.5 px-1">
           <Link
-            href={`/messages/${task.contact.id}`}
+            href={`/contacts/${task.contact.id}`}
             className="flex items-center gap-1.5 text-[10px] font-bold text-[#3159c4] hover:underline"
           >
             <span
@@ -821,7 +434,7 @@ function CallsPage() {
   return (
     <AppLayout title="Calls" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
       <div className="mx-auto max-w-[980px] px-5 py-8 md:px-10 md:py-12">
-        <Link href="/messages" className="mb-8 block text-xs font-bold text-[#3159c4] hover:underline">← Back to messages</Link>
+        <Link href="/contacts" className="mb-8 block text-xs font-bold text-[#3159c4] hover:underline">← Back to contacts</Link>
         <div className="mb-8">
           <p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">Communication</p>
           <h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Calls</h1>
@@ -1045,7 +658,6 @@ function ContactsPage() {
   return (
     <AppLayout title="Contacts" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
       <div className="mx-auto max-w-[980px] px-5 py-8 md:px-10 md:py-12">
-        <Link href="/messages" className="mb-8 block text-xs font-bold text-[#3159c4] hover:underline">← Back to messages</Link>
         <div className="mb-8">
           <p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">Your network</p>
           <h1 className="mt-2 font-serif text-5xl tracking-[-.04em]">Contacts</h1>
@@ -1057,7 +669,7 @@ function ContactsPage() {
             {contacts.map((contact) => (
               <Link
                 key={contact.id}
-                href={`/messages/${contact.id}`}
+                href={`/contacts/${contact.id}`}
                 className="flex w-full items-center gap-4 rounded-2xl border border-[hsl(var(--border))] bg-card p-5 transition-transform hover:-translate-y-0.5"
               >
                 <Avatar contact={contact} />
@@ -1071,6 +683,565 @@ function ContactsPage() {
                 </div>
               </Link>
             ))}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// /contacts/:id — single contact detail page
+// ---------------------------------------------------------------------------
+
+function ContactDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();
+  const [contact, setContact] = useState<Contact | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  const [calendarItems, setCalendarItems] = useState<api.Task[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+
+  const [tasks, setTasks] = useState<api.Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+
+  const [questions, setQuestions] = useState<api.Question[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
+  const [showAddQuestion, setShowAddQuestion] = useState(false);
+  const [newQuestionText, setNewQuestionText] = useState('');
+
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    setNotFound(false);
+    api.fetchContacts()
+      .then((all) => {
+        const match = all.find((c) => c.id === id);
+        if (match) {
+          setContact(match);
+        } else {
+          setNotFound(true);
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const loadCalendar = useCallback(async () => {
+    if (!id) return;
+    setCalendarLoading(true);
+    try {
+      const tasks = await api.fetchContactTasks(id);
+      const dated = tasks
+        .filter((t) => t.dueDate && t.status !== 'cancelled')
+        .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+      setCalendarItems(dated);
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to load calendar items:', err);
+    } finally {
+      setCalendarLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { void loadCalendar(); }, [loadCalendar]);
+
+  const markCalendarItemDone = async (taskId: string) => {
+    try {
+      const updated = await api.updateTask(taskId, { status: 'done' });
+      setCalendarItems((prev) => prev.map((t) => t.id === taskId ? updated : t));
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to update calendar item:', err);
+    }
+  };
+
+  const loadTasks = useCallback(async () => {
+    if (!id) return;
+    setTasksLoading(true);
+    try {
+      const data = await api.fetchContactTasks(id);
+      setTasks(data);
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to load tasks:', err);
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { void loadTasks(); }, [loadTasks]);
+
+  const handleCreateTask = async () => {
+    if (!newTaskTitle.trim() || !id) return;
+    try {
+      const task = await api.createTask({
+        title: newTaskTitle.trim(),
+        conversationId: '', // Will be set by backend
+        contactId: id,
+      });
+      setTasks((prev) => [...prev, task]);
+      setNewTaskTitle('');
+      setShowAddTask(false);
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to create task:', err);
+    }
+  };
+
+  const handleTaskStatusChange = async (taskId: string, status: api.TaskStatus) => {
+    try {
+      const updated = await api.updateTask(taskId, { status });
+      setTasks((prev) => prev.map((t) => t.id === taskId ? updated : t));
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to update task:', err);
+    }
+  };
+
+  const loadQuestions = useCallback(async () => {
+    if (!id) return;
+    setQuestionsLoading(true);
+    try {
+      const data = await api.fetchContactQuestions(id);
+      setQuestions(data);
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to load questions:', err);
+    } finally {
+      setQuestionsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { void loadQuestions(); }, [loadQuestions]);
+
+  const handleCreateQuestion = async () => {
+    if (!newQuestionText.trim() || !id) return;
+    try {
+      const question = await api.createQuestion({
+        question: newQuestionText.trim(),
+        conversationId: '', // Will be set by backend
+        contactId: id,
+      });
+      setQuestions((prev) => [...prev, question]);
+      setNewQuestionText('');
+      setShowAddQuestion(false);
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to create question:', err);
+    }
+  };
+
+  const handleAnswerQuestion = async (questionId: string, answer: string) => {
+    try {
+      const updated = await api.answerQuestion(questionId, answer);
+      setQuestions((prev) => prev.map((q) => q.id === questionId ? updated : q));
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to answer question:', err);
+    }
+  };
+
+  const handleDismissQuestion = async (questionId: string) => {
+    try {
+      const updated = await api.dismissQuestion(questionId);
+      setQuestions((prev) => prev.map((q) => q.id === questionId ? updated : q));
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to dismiss question:', err);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
+
+    setUploading(true);
+    try {
+      // Since there's no file upload API yet, we'll just store them locally for now
+      setFiles((prev) => [...prev, ...selectedFiles]);
+      console.log('[ContactDetailPage] Files selected:', selectedFiles);
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to upload files:', err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  return (
+    <AppLayout title="Contact" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
+      <div className="mx-auto max-w-[720px] px-5 py-8 md:px-10 md:py-12">
+        <Link href="/contacts" className="mb-8 block text-xs font-bold text-[#3159c4] hover:underline">← Back to contacts</Link>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20">Loading contact…</div>
+        ) : notFound || !contact ? (
+          <div className="rounded-2xl border border-[hsl(var(--border))] bg-card p-8 text-center">
+            <p className="text-sm text-muted-foreground">This contact doesn't exist.</p>
+          </div>
+        ) : (
+          <div className="rounded-[24px] border border-[hsl(var(--card-border))] bg-card p-7 md:p-9">
+            <div className="flex items-center gap-4">
+              <Avatar contact={contact} size="lg" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h1 className="font-serif text-3xl tracking-tight">{contact.name}</h1>
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${contact.online ? 'bg-[#5bc4a3]' : 'bg-[#879a94]'}`} />
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{contact.business}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              <span className="rounded-full bg-[#edf1ec] px-3 py-1 text-[10px] font-bold uppercase tracking-[.07em] text-[#58645f]">
+                {contact.category}
+              </span>
+              <span className="rounded-full bg-[#edf1ec] px-3 py-1 text-[10px] font-bold uppercase tracking-[.07em] text-[#58645f]">
+                {contact.online ? 'Online' : 'Offline'}
+              </span>
+            </div>
+
+            <div className="mt-7 space-y-5">
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-[.18em] text-muted-foreground">Phone</p>
+                <p className="mt-1 text-sm">{contact.phone}</p>
+              </div>
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-[.18em] text-muted-foreground">Description</p>
+                <p className="mt-1 text-sm leading-6 text-[#34443f]">{contact.note || 'No description yet.'}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!loading && contact && (
+          <div className="mt-5 rounded-[22px] border border-card-border bg-card p-5">
+            <div className="flex items-center gap-2">
+              <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#fff0df] text-[#af5c1c]">
+                <CalendarIcon size={15} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">Calendar</h3>
+                <p className="text-[10px] text-[#af5c1c]">{calendarItems.filter((t) => t.status !== 'done').length} upcoming</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Refresh calendar"
+                onClick={() => void loadCalendar()}
+                className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+              >
+                <RefreshCw size={13} className={calendarLoading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {calendarLoading && calendarItems.length === 0 ? (
+                <div className="flex items-center justify-center py-6">
+                  <LoaderCircle size={14} className="animate-spin text-muted-foreground" />
+                </div>
+              ) : calendarItems.length === 0 ? (
+                <p className="py-3 text-center text-xs text-muted-foreground">Nothing scheduled for this contact yet.</p>
+              ) : (
+                calendarItems.map((item) => {
+                  const due = new Date(item.dueDate!);
+                  const isOverdue = due.getTime() < Date.now() && item.status !== 'done';
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-3 rounded-xl border border-border bg-[#fbfaf6] px-3 py-2.5"
+                    >
+                      <div className="min-w-16 shrink-0">
+                        <p className={`font-mono text-[9px] uppercase tracking-[.08em] ${isOverdue ? 'text-[#b44343]' : 'text-muted-foreground'}`}>
+                          {isOverdue ? 'Overdue' : due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </p>
+                        {!isOverdue && (
+                          <p className="text-[9px] text-muted-foreground">
+                            {due.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-xs font-medium ${item.status === 'done' ? 'text-muted-foreground line-through' : ''}`}>
+                          {item.title}
+                        </p>
+                        <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-[.06em] ${
+                          item.priority === 'high' ? 'bg-[#fde3e3] text-[#b44343]'
+                          : item.priority === 'low' ? 'bg-[#edf1ec] text-[#58645f]'
+                          : 'bg-[#eef1fb] text-[#3159c4]'
+                        }`}>
+                          {item.priority}
+                        </span>
+                      </div>
+                      {item.status !== 'done' && (
+                        <button
+                          type="button"
+                          onClick={() => void markCalendarItemDone(item.id)}
+                          className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[10px] font-bold text-muted-foreground hover:bg-muted"
+                        >
+                          Done
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {!loading && contact && (
+          <div className="mt-5 rounded-[22px] border border-card-border bg-card p-5">
+            <div className="flex items-center gap-2">
+              <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#edf1ec] text-[#3f8274]">
+                <ListTodo size={15} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">Tasks</h3>
+                <p className="text-[10px] text-[#3f8274]">{tasks.filter((t) => t.status !== 'done').length} active</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Refresh tasks"
+                onClick={() => void loadTasks()}
+                className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+              >
+                <RefreshCw size={13} className={tasksLoading ? 'animate-spin' : ''} />
+              </button>
+              <button
+                type="button"
+                aria-label="Add task"
+                onClick={() => setShowAddTask((v) => !v)}
+                className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+
+            {showAddTask && (
+              <div className="mt-3 flex gap-2">
+                <input
+                  autoFocus
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void handleCreateTask(); if (e.key === 'Escape') setShowAddTask(false); }}
+                  placeholder="New task…"
+                  className="flex-1 rounded-xl border border-border bg-[#fbfaf6] px-3 py-2 text-xs outline-none focus:border-[#4168e5] focus:ring-2 focus:ring-[#4168e5]/10"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleCreateTask()}
+                  disabled={!newTaskTitle.trim()}
+                  className="rounded-xl bg-[#2854cc] px-3 py-2 text-xs font-bold text-white hover:bg-[#2148b4] disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+
+            <div className="mt-4 space-y-2">
+              {tasksLoading && tasks.length === 0 ? (
+                <div className="flex items-center justify-center py-6">
+                  <LoaderCircle size={14} className="animate-spin text-muted-foreground" />
+                </div>
+              ) : tasks.length === 0 ? (
+                <p className="py-3 text-center text-xs text-muted-foreground">No tasks yet.</p>
+              ) : (
+                tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-3 rounded-xl border border-border bg-[#fbfaf6] px-3 py-2.5"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => void handleTaskStatusChange(task.id, task.status === 'done' ? 'open' : 'done')}
+                      className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded ${
+                        task.status === 'done'
+                          ? 'bg-[#8fba9a] text-white cursor-default'
+                          : 'border border-[#3b9a83] bg-white hover:bg-[#edf9f5]'
+                      }`}
+                    >
+                      {task.status === 'done' && <Check size={10} strokeWidth={3} />}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate text-xs font-medium ${task.status === 'done' ? 'text-muted-foreground line-through' : ''}`}>
+                        {task.title}
+                      </p>
+                      <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-[.06em] ${
+                        task.priority === 'high' ? 'bg-[#fde3e3] text-[#b44343]'
+                        : task.priority === 'low' ? 'bg-[#edf1ec] text-[#58645f]'
+                        : 'bg-[#eef1fb] text-[#3159c4]'
+                      }`}>
+                        {task.priority}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {!loading && contact && (
+          <div className="mt-5 rounded-[22px] border border-card-border bg-card p-5">
+            <div className="flex items-center gap-2">
+              <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#f0eaff] text-[#6b4fc8]">
+                <CircleHelp size={15} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">Questions</h3>
+                <p className="text-[10px] text-[#7a4fc8]">{questions.filter((q) => q.status === 'pending').length} pending</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Refresh questions"
+                onClick={() => void loadQuestions()}
+                className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+              >
+                <RefreshCw size={13} className={questionsLoading ? 'animate-spin' : ''} />
+              </button>
+              <button
+                type="button"
+                aria-label="Add question"
+                onClick={() => setShowAddQuestion((v) => !v)}
+                className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+
+            {showAddQuestion && (
+              <div className="mt-3 flex gap-2">
+                <input
+                  autoFocus
+                  type="text"
+                  value={newQuestionText}
+                  onChange={(e) => setNewQuestionText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void handleCreateQuestion(); if (e.key === 'Escape') setShowAddQuestion(false); }}
+                  placeholder="New question…"
+                  className="flex-1 rounded-xl border border-border bg-[#fbfaf6] px-3 py-2 text-xs outline-none focus:border-[#4168e5] focus:ring-2 focus:ring-[#4168e5]/10"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleCreateQuestion()}
+                  disabled={!newQuestionText.trim()}
+                  className="rounded-xl bg-[#6b4fc8] px-3 py-2 text-xs font-bold text-white hover:bg-[#5a3fb8] disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+
+            <div className="mt-4 space-y-2">
+              {questionsLoading && questions.length === 0 ? (
+                <div className="flex items-center justify-center py-6">
+                  <LoaderCircle size={14} className="animate-spin text-muted-foreground" />
+                </div>
+              ) : questions.length === 0 ? (
+                <p className="py-3 text-center text-xs text-muted-foreground">No questions yet.</p>
+              ) : (
+                questions.map((question) => (
+                  <div
+                    key={question.id}
+                    className={`rounded-xl border px-4 py-3 ${
+                      question.status === 'pending' ? 'border-[#d4c4ff] bg-[#f8f5ff]' : 'border-border bg-muted/40 opacity-60'
+                    }`}
+                  >
+                    <p className="text-xs font-semibold">{question.question}</p>
+                    {question.status === 'pending' ? (
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Your answer…"
+                          onKeyDown={(e) => { if (e.key === 'Enter' && e.currentTarget.value.trim()) void handleAnswerQuestion(question.id, e.currentTarget.value); }}
+                          className="flex-1 rounded-lg border border-[#c4b0f0] bg-white px-3 py-1.5 text-xs outline-none focus:border-[#6b4fc8] focus:ring-2 focus:ring-[#6b4fc8]/10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleDismissQuestion(question.id)}
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-1 flex items-center justify-between">
+                        <p className="text-[11px] text-muted-foreground">↳ {question.answer || 'Dismissed'}</p>
+                        <span className="text-[9px] font-bold uppercase tracking-[.1em] text-muted-foreground">
+                          {question.status}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {!loading && contact && (
+          <div className="mt-5 rounded-[22px] border border-card-border bg-card p-5">
+            <div className="flex items-center gap-2">
+              <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#e8f4fd] text-[#3b82f6]">
+                <Paperclip size={15} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">File Dump</h3>
+                <p className="text-[10px] text-[#3b82f6]">{files.length} files</p>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-[#fbfaf6] px-4 py-6 text-center transition-colors hover:border-[#3b82f6] hover:bg-[#f0f7ff]">
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.txt,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
+                {uploading ? (
+                  <LoaderCircle size={16} className="animate-spin text-[#3b82f6]" />
+                ) : (
+                  <>
+                    <Paperclip size={16} className="text-[#3b82f6]" />
+                    <span className="text-xs text-muted-foreground">
+                      Drop files here or click to upload (PDF, TXT, Excel, images)
+                    </span>
+                  </>
+                )}
+              </label>
+            </div>
+
+            {files.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {files.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 rounded-xl border border-border bg-[#fbfaf6] px-3 py-2.5"
+                  >
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#e8f4fd] text-[#3b82f6]">
+                      <Paperclip size={14} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium">{file.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {(file.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteFile(index)}
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-[#fde8e8] hover:text-[#b44343]"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1920,12 +2091,11 @@ export default function App() {
         <ErrorBoundary>
           <WouterRouter>
             <Switch>
-              <Route path="/"><Redirect to="/messages" /></Route>
-              <Route path="/messages" component={InboxPage} />
+              <Route path="/"><Redirect to="/contacts" /></Route>
               <Route path="/calls" component={CallsPage} />
               <Route path="/history" component={HistoryPage} />
               <Route path="/contacts" component={ContactsPage} />
-              <Route path="/messages/:contactId" component={InboxPage} />
+              <Route path="/contacts/:id" component={ContactDetailPage} />
               <Route component={NotFound} />
             </Switch>
           </WouterRouter>
