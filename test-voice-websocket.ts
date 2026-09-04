@@ -1,70 +1,53 @@
 // @ts-check
+//
+// Manual smoke test for the browser voice WebSocket (services/voiceStreamBrowser.ts).
+// Connects, starts a session (creating a real Call row against the "Browser
+// Test" contact), sends one empty audio frame, then stops. Useful to confirm
+// the server accepts connections and the Gemini session opens without
+// needing a real browser + microphone.
+//
+// Run with: npx tsx test-voice-websocket.ts   (or ts-node, etc.)
+
 import WebSocket from 'ws';
 
-const WS_URL = 'ws://localhost:5175/media';
+const WS_URL = 'ws://localhost:5175/media/browser';
 
-console.log('Testing Voice WebSocket Connection...');
+console.log('Testing Browser Voice WebSocket Connection...');
 console.log('Connecting to:', WS_URL);
 
 const ws = new WebSocket(WS_URL);
 
 ws.on('open', () => {
   console.log('✓ WebSocket connected');
-  
-  // Simulate Exotel Voicebot connection
-  ws.send(JSON.stringify({
-    event: 'connected'
-  }));
 
-  // Simulate call start
-  setTimeout(() => {
-    console.log('Sending start event...');
-    ws.send(JSON.stringify({
-      event: 'start',
-      stream_sid: 'test_stream_123',
-      start: {
-        call_sid: 'test_call_123',
-        from: '033-480-54604',
-        to: '+918926130730'
-      }
-    }));
-  }, 1000);
+  // Start a session — server creates/reuses the "Browser Test" contact,
+  // a Conversation, and a Call row, then opens the Gemini Live session.
+  console.log('Sending start event...');
+  ws.send(JSON.stringify({ type: 'start' }));
 
-  // Simulate audio stream (empty for test)
+  // Simulate a chunk of mic audio (empty raw-PCM16 16kHz payload for this smoke test).
   setTimeout(() => {
-    console.log('Sending media event (empty audio)...');
-    ws.send(JSON.stringify({
-      event: 'media',
-      stream_sid: 'test_stream_123',
-      media: {
-        payload: '' // Empty μ-law base64 payload
-      }
-    }));
+    console.log('Sending audio event (empty payload)...');
+    ws.send(JSON.stringify({ type: 'audio', payload: '' }));
   }, 2000);
 
-  // Simulate call end
+  // End the call — server marks the Call "completed" and runs post-call analysis.
   setTimeout(() => {
     console.log('Sending stop event...');
-    ws.send(JSON.stringify({
-      event: 'stop',
-      stream_sid: 'test_stream_123',
-      stop: {
-        call_sid: 'test_call_123'
-      }
-    }));
+    ws.send(JSON.stringify({ type: 'stop' }));
   }, 5000);
 });
 
-ws.on('message', (data) => {
+ws.on('message', (data: Buffer) => {
   try {
     const msg = JSON.parse(data.toString());
-    console.log('Received message:', msg.event, msg);
+    console.log('Received message:', msg.type, msg);
   } catch (e) {
     console.log('Received raw data:', data.toString());
   }
 });
 
-ws.on('error', (error) => {
+ws.on('error', (error: Error) => {
   console.error('WebSocket error:', error);
 });
 
