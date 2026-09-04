@@ -8,14 +8,15 @@
 //
 // Run with: npx tsx test-voice-websocket.ts   (or ts-node, etc.)
 
-import WebSocket from 'ws';
+// @ts-ignore
+const WebSocketClient: any = require('ws');
 
 const WS_URL = 'ws://localhost:5175/media/browser';
 
 console.log('Testing Browser Voice WebSocket Connection...');
 console.log('Connecting to:', WS_URL);
 
-const ws = new WebSocket(WS_URL);
+const ws = new WebSocketClient(WS_URL);
 
 ws.on('open', () => {
   console.log('✓ WebSocket connected');

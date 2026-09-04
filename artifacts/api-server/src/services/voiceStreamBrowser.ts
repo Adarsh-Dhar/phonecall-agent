@@ -115,6 +115,9 @@ export function createBrowserVoiceStream(): WebSocketServer {
               },
             });
 
+            // Wait a moment for the session to stabilize
+            await new Promise(resolve => setTimeout(resolve, 500));
+
             browserWs.send(JSON.stringify({ type: "ready", callId, conversationId }));
           } catch (err) {
             logger.error({ err }, "voiceStreamBrowser: failed to start session");
@@ -130,7 +133,32 @@ export function createBrowserVoiceStream(): WebSocketServer {
 
         case "audio": {
           if (!gemini || typeof msg.payload !== "string") return;
+          
+          // Skip empty payloads - don't send silence to Gemini
+          if (!msg.payload || msg.payload.length === 0) {
+            logger.debug("voiceStreamBrowser: skipping empty audio payload");
+            return;
+          }
+          
+          logger.info({ 
+            payloadLength: msg.payload.length, 
+            payloadStart: msg.payload.substring(0, 100),
+            payloadEnd: msg.payload.substring(msg.payload.length - 100)
+          }, "voiceStreamBrowser: received audio payload");
+          
           const pcm24k = browserPayloadToPcm16(msg.payload);
+          logger.info({ 
+            pcm24kLength: pcm24k.length,
+            sampleValues: Array.from(pcm24k.slice(0, 10)),
+            maxAmplitude: Math.max(...Array.from(pcm24k.map(Math.abs)))
+          }, "voiceStreamBrowser: resampled to 24k");
+          
+          // Skip sending if resampled audio is empty
+          if (pcm24k.length === 0) {
+            logger.debug("voiceStreamBrowser: skipping empty resampled audio");
+            return;
+          }
+          
           gemini.sendAudio(pcm24k);
           break;
         }
@@ -156,22 +184,25 @@ export function createBrowserVoiceStream(): WebSocketServer {
     }
 
     async function endCall() {
+      const currentCallId = callId; // Capture current callId before clearing
+      const currentStartedAt = startedAt; // Capture current startedAt before clearing
+      
       gemini?.close();
       gemini = null;
 
-      if (callId && startedAt) {
+      if (currentCallId && currentStartedAt) {
         const endedAt = new Date();
         await prisma.call.update({
-          where: { id: callId },
+          where: { id: currentCallId },
           data: {
             status: "completed",
             endedAt,
-            durationSec: Math.round((endedAt.getTime() - startedAt.getTime()) / 1000),
+            durationSec: Math.round((endedAt.getTime() - currentStartedAt.getTime()) / 1000),
             disconnectedBy: "user",
           },
         });
-        void analyzeCallForEscalation(callId).catch((err) =>
-          logger.error({ err, callId }, "voiceStreamBrowser: post-call analysis failed")
+        void analyzeCallForEscalation(currentCallId).catch((err) =>
+          logger.error({ err, callId: currentCallId }, "voiceStreamBrowser: post-call analysis failed")
         );
       }
 

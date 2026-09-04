@@ -15,6 +15,16 @@ type TranscriptTurn = { role: 'user' | 'assistant'; text: string };
 type Status = 'idle' | 'connecting' | 'active' | 'error';
 
 function downsampleTo16k(input: Float32Array, inputSampleRate: number): Int16Array {
+  // If already at 16kHz, just convert without resampling
+  if (inputSampleRate === 16000) {
+    const out = new Int16Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      const s = Math.max(-1, Math.min(1, input[i] ?? 0));
+      out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    return out;
+  }
+  
   const ratio = inputSampleRate / 16000;
   const outLength = Math.floor(input.length / ratio);
   const out = new Int16Array(outLength);
@@ -77,22 +87,26 @@ export function TestCallWidget({ contactId, onClose }: { contactId?: string; onC
       const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
       micStreamRef.current = mic;
 
-      const audioCtx = new AudioContext();
+      const audioCtx = new AudioContext({ sampleRate: 16000 });
       audioCtxRef.current = audioCtx;
       playbackTimeRef.current = audioCtx.currentTime;
+      console.log('AudioContext created with sample rate:', audioCtx.sampleRate);
 
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${proto}//${window.location.host}/media/browser`);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        console.log('WebSocket connected');
         ws.send(JSON.stringify({ type: 'start', contactId }));
       };
 
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
+        console.log('Received message:', msg.type, msg);
 
         if (msg.type === 'ready') {
+          console.log('Session ready, starting audio capture');
           setStatus('active');
 
           // Start streaming mic audio only once the session is confirmed live.
@@ -102,8 +116,22 @@ export function TestCallWidget({ contactId, onClose }: { contactId?: string; onC
           processor.onaudioprocess = (e) => {
             if (ws.readyState !== WebSocket.OPEN) return;
             const input = e.inputBuffer.getChannelData(0);
+            
+            // Check if there's actual audio data
+            const maxAmplitude = Math.max(...input.map(Math.abs));
+            const hasAudio = maxAmplitude > 0.01;
+            
+            if (hasAudio) {
+              console.log('Audio detected, max amplitude:', maxAmplitude.toFixed(4));
+            }
+            
             const pcm16k = downsampleTo16k(input, audioCtx.sampleRate);
-            ws.send(JSON.stringify({ type: 'audio', payload: int16ToBase64(pcm16k) }));
+            const payload = int16ToBase64(pcm16k);
+            
+            if (payload.length > 0) {
+              console.log('Sending audio payload, length:', payload.length);
+              ws.send(JSON.stringify({ type: 'audio', payload }));
+            }
           };
           source.connect(processor);
           // A ScriptProcessorNode must be connected to a destination to run,
@@ -113,6 +141,7 @@ export function TestCallWidget({ contactId, onClose }: { contactId?: string; onC
           processor.connect(silentGain);
           silentGain.connect(audioCtx.destination);
         } else if (msg.type === 'audio') {
+          console.log('Received audio payload length:', msg.payload.length);
           const pcm24k = base64ToInt16(msg.payload);
           const buffer = audioCtx.createBuffer(1, pcm24k.length, 24000);
           const channel = buffer.getChannelData(0);
@@ -126,8 +155,10 @@ export function TestCallWidget({ contactId, onClose }: { contactId?: string; onC
           src.start(startAt);
           playbackTimeRef.current = startAt + buffer.duration;
         } else if (msg.type === 'transcript') {
+          console.log('Received transcript:', msg.role, msg.text);
           setTranscript((prev) => [...prev, { role: msg.role, text: msg.text }]);
         } else if (msg.type === 'error') {
+          console.error('Received error:', msg.message);
           setErrorMessage(msg.message);
           setStatus('error');
         }
