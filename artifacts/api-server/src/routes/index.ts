@@ -9,6 +9,7 @@ import tasksRouter from "./tasks";
 import questionsRouter from "./questions";
 import knowledgeRouter from "./knowledge";
 import callsRouter from "./calls";
+import googleAuthRouter from "./googleAuth";
 
 const router: IRouter = Router();
 
@@ -25,5 +26,8 @@ router.use(knowledgeRouter);
 
 // ── Calls REST API ──────────────────────────────────────────────────────────
 router.use(callsRouter);
+
+// ── Google Calendar OAuth ─────────────────────────────────────────────────
+router.use(googleAuthRouter);
 
 export default router;

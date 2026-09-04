@@ -31,6 +31,14 @@ services:
         sync: false
       - key: TEST_PROVIDER_PHONES
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_CALENDAR_ID
+        sync: false
   - type: web
     name: phone-agent-api-v3
     env: node
@@ -62,4 +70,12 @@ services:
       - key: EXOTEL_PASSTHRU_SECRET
         sync: false
       - key: TEST_PROVIDER_PHONES
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_CALENDAR_ID
         sync: false

@@ -29,6 +29,7 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
 import { endConversation } from "./conversations";
+import { syncTaskToCalendar } from "./googleCalendar";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -239,6 +240,16 @@ export async function runExtraction(conversationId: string): Promise<{
     // ------------------------------------------------------------------
     // 5. Reconcile inside a single transaction
     // ------------------------------------------------------------------
+    const tasksToSync: Array<{
+      id: string;
+      title: string;
+      description: string | null;
+      dueDate: Date | null;
+      status: string;
+      googleEventId: string | null;
+      contact: { name: string; business: string };
+    }> = [];
+
     await prisma.$transaction(async (tx) => {      // ---- Task actions ------------------------------------------------
       for (const action of taskActions) {
         const sourceIds: string[] = action.sourceMessageIds ?? [];
@@ -263,6 +274,19 @@ export async function runExtraction(conversationId: string): Promise<{
           });
           result.created.push(task.id);
 
+          // Collect for calendar sync if has due date
+          if (action.dueDate) {
+            tasksToSync.push({
+              id: task.id,
+              title: task.title,
+              description: task.description,
+              dueDate: task.dueDate,
+              status: task.status,
+              googleEventId: task.googleEventId,
+              contact: { name: conversation.contact.name, business: conversation.contact.business },
+            });
+          }
+
           for (const msgId of sourceIds) {
             if (deltaMessages.find((m) => m.id === msgId)) {
               await tx.taskSourceMessage.upsert({
@@ -279,7 +303,7 @@ export async function runExtraction(conversationId: string): Promise<{
             }
           }
         } else if (action.type === "update" && action.taskId) {
-          await tx.task.update({
+          const updatedTask = await tx.task.update({
             where: { id: action.taskId },
             data: {
               ...(action.title ? { title: action.title } : {}),
@@ -293,6 +317,19 @@ export async function runExtraction(conversationId: string): Promise<{
             },
           });
           result.updated.push(action.taskId);
+
+          // Collect for calendar sync if has due date change
+          if (action.dueDate) {
+            tasksToSync.push({
+              id: updatedTask.id,
+              title: updatedTask.title,
+              description: updatedTask.description,
+              dueDate: updatedTask.dueDate,
+              status: updatedTask.status,
+              googleEventId: updatedTask.googleEventId,
+              contact: { name: conversation.contact.name, business: conversation.contact.business },
+            });
+          }
 
           for (const msgId of sourceIds) {
             if (deltaMessages.find((m) => m.id === msgId)) {
@@ -424,6 +461,13 @@ export async function runExtraction(conversationId: string): Promise<{
         },
       });
     }, { timeout: 30_000 });
+
+    // Sync tasks to Google Calendar (non-blocking, after transaction)
+    for (const taskToSync of tasksToSync) {
+      syncTaskToCalendar(taskToSync).catch((err) => {
+        console.error("Failed to sync task to calendar:", err);
+      });
+    }
 
     logger.info(
       {

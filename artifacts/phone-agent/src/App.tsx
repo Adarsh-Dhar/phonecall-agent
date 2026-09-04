@@ -703,6 +703,8 @@ function ContactDetailPage() {
 
   const [calendarItems, setCalendarItems] = useState<api.Task[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(true);
+  const [googleAuthStatus, setGoogleAuthStatus] = useState<api.GoogleAuthStatus | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const [tasks, setTasks] = useState<api.Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
@@ -750,6 +752,43 @@ function ContactDetailPage() {
   }, [id]);
 
   useEffect(() => { void loadCalendar(); }, [loadCalendar]);
+
+  const loadGoogleAuthStatus = useCallback(async () => {
+    try {
+      const status = await api.fetchGoogleAuthStatus();
+      setGoogleAuthStatus(status);
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to load Google auth status:', err);
+    }
+  }, []);
+
+  useEffect(() => { void loadGoogleAuthStatus(); }, [loadGoogleAuthStatus]);
+
+  const handleConnectGoogleCalendar = async () => {
+    await api.connectGoogleCalendar();
+  };
+
+  const handleSyncCalendar = async () => {
+    setSyncing(true);
+    try {
+      await api.syncCalendar();
+      await loadCalendar();
+      await loadGoogleAuthStatus();
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to sync calendar:', err);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleDisconnectGoogleCalendar = async () => {
+    try {
+      await api.disconnectGoogleCalendar();
+      setGoogleAuthStatus(null);
+    } catch (err) {
+      console.error('[ContactDetailPage] Failed to disconnect Google Calendar:', err);
+    }
+  };
 
   const markCalendarItemDone = async (taskId: string) => {
     try {
@@ -925,14 +964,36 @@ function ContactDetailPage() {
                 <h3 className="text-sm font-bold tracking-tight">Calendar</h3>
                 <p className="text-[10px] text-[#af5c1c]">{calendarItems.filter((t) => t.status !== 'done').length} upcoming</p>
               </div>
-              <button
-                type="button"
-                aria-label="Refresh calendar"
-                onClick={() => void loadCalendar()}
-                className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
-              >
-                <RefreshCw size={13} className={calendarLoading ? 'animate-spin' : ''} />
-              </button>
+              <div className="ml-auto flex items-center gap-1">
+                {!googleAuthStatus?.connected ? (
+                  <button
+                    type="button"
+                    onClick={handleConnectGoogleCalendar}
+                    className="flex items-center gap-1.5 rounded-full bg-[#3f8274] px-3 py-1.5 text-[10px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#356c61]"
+                  >
+                    <CalendarIcon size={11} />
+                    Connect Google Calendar
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleSyncCalendar}
+                      disabled={syncing}
+                      className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-50"
+                    >
+                      <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDisconnectGoogleCalendar}
+                      className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
+                    >
+                      Disconnect
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="mt-4 space-y-2">
@@ -946,6 +1007,13 @@ function ContactDetailPage() {
                 calendarItems.map((item) => {
                   const due = new Date(item.dueDate!);
                   const isOverdue = due.getTime() < Date.now() && item.status !== 'done';
+                  const isSynced = !!item.googleEventId;
+                  const syncStatus = item.lastSyncedAt ? (
+                    <span className="text-[8px] text-muted-foreground">
+                      {isSynced ? '✓ Synced' : 'Sync pending'}
+                    </span>
+                  ) : null;
+                  
                   return (
                     <div
                       key={item.id}
@@ -965,23 +1033,38 @@ function ContactDetailPage() {
                         <p className={`truncate text-xs font-medium ${item.status === 'done' ? 'text-muted-foreground line-through' : ''}`}>
                           {item.title}
                         </p>
-                        <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-[.06em] ${
-                          item.priority === 'high' ? 'bg-[#fde3e3] text-[#b44343]'
-                          : item.priority === 'low' ? 'bg-[#edf1ec] text-[#58645f]'
-                          : 'bg-[#eef1fb] text-[#3159c4]'
-                        }`}>
-                          {item.priority}
-                        </span>
+                        <div className="mt-0.5 flex items-center gap-2">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-[.06em] ${
+                            item.priority === 'high' ? 'bg-[#fde3e3] text-[#b44343]'
+                            : item.priority === 'low' ? 'bg-[#edf1ec] text-[#58645f]'
+                            : 'bg-[#eef1fb] text-[#3159c4]'
+                          }`}>
+                            {item.priority}
+                          </span>
+                          {syncStatus}
+                        </div>
                       </div>
-                      {item.status !== 'done' && (
-                        <button
-                          type="button"
-                          onClick={() => void markCalendarItemDone(item.id)}
-                          className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                        >
-                          Done
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {isSynced && (
+                          <a
+                            href={`https://calendar.google.com/calendar/event?eid=${item.googleEventId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[9px] font-bold text-[#3159c4] hover:underline"
+                          >
+                            View in Calendar
+                          </a>
+                        )}
+                        {item.status !== 'done' && (
+                          <button
+                            type="button"
+                            onClick={() => void markCalendarItemDone(item.id)}
+                            className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[10px] font-bold text-muted-foreground hover:bg-muted"
+                          >
+                            Done
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })

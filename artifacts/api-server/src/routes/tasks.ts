@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { runExtraction } from "../services/taskExtraction";
+import { syncTaskToCalendar } from "../services/googleCalendar";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sourcesInclude, contactCardSelect } from "../lib/prismaSelects";
 
@@ -95,8 +96,23 @@ router.post("/tasks", asyncHandler(async (req, res) => {
       conversationId,
       contactId,
     },
-    include: sourcesInclude,
+    include: { ...sourcesInclude, contact: true },
   });
+
+  // Sync to Google Calendar (non-blocking)
+  if (task.dueDate) {
+    syncTaskToCalendar({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      dueDate: task.dueDate,
+      status: task.status,
+      googleEventId: task.googleEventId,
+      contact: { name: task.contact.name, business: task.contact.business },
+    }).catch((err) => {
+      console.error("Failed to sync task to calendar:", err);
+    });
+  }
 
   res.status(201).json(task);
 }, "Failed to create task"));
@@ -110,7 +126,10 @@ router.patch("/tasks/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status, title, description, dueDate, priority } = req.body;
 
-  const existing = await prisma.task.findUnique({ where: { id: String(id) } });
+  const existing = await prisma.task.findUnique({ 
+    where: { id: String(id) },
+    include: { contact: true },
+  });
   if (!existing) {
     res.status(404).json({ error: "Task not found" });
     return;
@@ -128,8 +147,24 @@ router.patch("/tasks/:id", asyncHandler(async (req, res) => {
       ...(priority !== undefined ? { priority } : {}),
       ...(isCompleting ? { completedAt: new Date() } : {}),
     },
-    include: sourcesInclude,
+    include: { ...sourcesInclude, contact: true },
   });
+
+  // Sync to Google Calendar (non-blocking)
+  const shouldSync = dueDate !== undefined || status !== undefined || title !== undefined;
+  if (shouldSync) {
+    syncTaskToCalendar({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      dueDate: task.dueDate,
+      status: task.status,
+      googleEventId: task.googleEventId,
+      contact: { name: task.contact.name, business: task.contact.business },
+    }).catch((err) => {
+      console.error("Failed to sync task to calendar:", err);
+    });
+  }
 
   res.json(task);
 }, "Failed to update task"));
@@ -145,6 +180,14 @@ router.delete("/tasks/:id", asyncHandler(async (req, res) => {
   if (!existing) {
     res.status(404).json({ error: "Task not found" });
     return;
+  }
+
+  // Delete from Google Calendar if synced (non-blocking)
+  if (existing.googleEventId) {
+    const { deleteEvent } = await import("../services/googleCalendar");
+    deleteEvent({ id: existing.id, googleEventId: existing.googleEventId }).catch((err) => {
+      console.error("Failed to delete calendar event:", err);
+    });
   }
 
   await prisma.task.delete({ where: { id: String(id) } });

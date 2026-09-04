@@ -1,169 +1,149 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
   output   = "../lib/db-prisma/generated"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Contact {
-  id        String   @id @default(cuid())
-  name      String
-  business  String
-  category  String   // e.g. "Healthcare", "Personal Care", "Home & Auto", "Financial & Insurance", "Government", "Retail & Customer Service", "Other"
-  phone     String   // E.164 phone number for the contact, e.g. +14155551234
-  initials  String
-  color     String
-  note      String?
-  online    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  conversations Conversation[]
-  tasks         Task[]
-  queries       Query[]
-  knowledge     ContactKnowledge[]
+  id            String             @id @default(cuid())
+  name          String
+  business      String
+  category      String
+  phone         String
+  initials      String
+  color         String
+  note          String?
+  online        Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   calls         Call[]
+  knowledge     ContactKnowledge[]
+  conversations Conversation[]
+  queries       Query[]
+  tasks         Task[]
 }
 
 model Conversation {
-  id        String   @id @default(cuid())
-  title     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  messages  Message[]
-  history   History[]
-  tasks     Task[]
-
-  // Extraction cursor — tracks the last message already processed by the
-  // task-mining pipeline so each run only sees the delta.
+  id                     String    @id @default(cuid())
+  title                  String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
   lastExtractedMessageId String?
   lastExtractedAt        DateTime?
-
-  // Conversation lifecycle fields
-  status       String    @default("active") // "active" | "ended"
-  endedAt      DateTime?
-  topicSummary String?
-
-  contactId String
-  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  queries   Query[]
-  calls     Call[]
+  status                 String    @default("active")
+  endedAt                DateTime?
+  topicSummary           String?
+  contactId              String
+  calls                  Call[]
+  contact                Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  history                History[]
+  messages               Message[]
+  queries                Query[]
+  tasks                  Task[]
 
   @@index([contactId])
   @@index([contactId, status])
 }
 
 model Message {
-  id             String       @id @default(cuid())
-  role           String       // "user" | "assistant"
-  content        String
-  time           String
-  pending        Boolean      @default(false)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  // Optional link to the call this transcript turn came from
-  callId         String?
-  call           Call?        @relation(fields: [callId], references: [id], onDelete: SetNull)
-
-  taskSources    TaskSourceMessage[]
-  querySources   QuerySourceMessage[]
+  id               String                   @id @default(cuid())
+  role             String
+  content          String
+  time             String
+  pending          Boolean                  @default(false)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  conversationId   String
+  callId           String?
   knowledgeSources KnowledgeSourceMessage[]
+  call             Call?                    @relation(fields: [callId], references: [id])
+  conversation     Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  querySources     QuerySourceMessage[]
+  taskSources      TaskSourceMessage[]
 }
 
 model History {
   id             String       @id @default(cuid())
   title          String
   detail         String
-  status         String       // "Completed" | "Needs you" | "In Progress"
+  status         String
   time           String
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }
 
 model Task {
-  id          String    @id @default(cuid())
-  title       String
-  description String?
-  status      String    @default("suggested")
-  // suggested -> open -> in_progress -> done | cancelled
-  priority    String    @default("normal")   // low | normal | high
-  dueDate     DateTime?
-  confidence  Float     @default(1.0)        // model certainty 0-1
-  source      String    @default("agent")    // "agent" | "user"
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  completedAt DateTime?
-
+  id             String              @id @default(cuid())
+  title          String
+  description    String?
+  status         String              @default("suggested")
+  priority       String              @default("normal")
+  dueDate        DateTime?
+  confidence     Float               @default(1.0)
+  source         String              @default("agent")
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  completedAt    DateTime?
   conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  contactId String
-  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  sources   TaskSourceMessage[]
+  contactId      String
+  googleEtag     String?
+  googleEventId  String?
+  lastSyncedAt   DateTime?
+  contact        Contact             @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sources        TaskSourceMessage[]
 
   @@index([conversationId])
   @@index([contactId])
   @@index([status])
+  @@index([googleEventId])
 }
 
-// Join table: which message(s) a task was mined from / updated by.
 model TaskSourceMessage {
   id        String  @id @default(cuid())
   taskId    String
-  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   messageId String
+  role      String
   message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  role      String  // "created" | "updated" | "completed" — why this message is linked
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, messageId, role])
 }
 
-// ---------------------------------------------------------------------------
-// Query — an unanswered question surfaced from the conversation that needs
-// the user's input before the agent can proceed.
-// ---------------------------------------------------------------------------
+model GoogleAuth {
+  id           String   @id @default("default")
+  accessToken  String
+  refreshToken String
+  expiryDate   DateTime
+  scope        String
+  syncToken    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Query {
-  id        String    @id @default(cuid())
-  question  String
-  answer    String?
-  status    String    @default("pending")
-  // pending -> answered | dismissed
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  answeredAt DateTime?
-
-  // The message that was synthetically created when the user answered,
-  // so it appears in the conversation transcript.
-  answerMessageId String?
-
-  // Knowledge gap tracking — marks queries created due to insufficient knowledge
-  // and stores the key/category for upserting into ContactKnowledge when answered.
-  isKnowledgeGap    Boolean  @default(false)
+  id                String               @id @default(cuid())
+  question          String
+  answer            String?
+  status            String               @default("pending")
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  answeredAt        DateTime?
+  answerMessageId   String?
+  isKnowledgeGap    Boolean              @default(false)
   knowledgeKey      String?
   knowledgeCategory String?
-
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  contactId String
-  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  sources   QuerySourceMessage[]
+  conversationId    String
+  contactId         String
+  contact           Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation      Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sources           QuerySourceMessage[]
 
   @@index([conversationId])
   @@index([contactId])
@@ -171,69 +151,54 @@ model Query {
   @@index([isKnowledgeGap])
 }
 
-// Join table: which message(s) a query was mined from / dismissed by.
 model QuerySourceMessage {
   id        String  @id @default(cuid())
   queryId   String
-  query     Query   @relation(fields: [queryId], references: [id], onDelete: Cascade)
   messageId String
+  role      String
   message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  role      String  // "asked" | "dismissed"
+  query     Query   @relation(fields: [queryId], references: [id], onDelete: Cascade)
 
   @@unique([queryId, messageId, role])
 }
 
-// ---------------------------------------------------------------------------
-// Call — tracks each browser-based voice-agent call (services/voiceStreamBrowser.ts).
-// ---------------------------------------------------------------------------
 model Call {
-  id                String    @id @default(cuid())
-  status            String    @default("initiated")
-  // initiated | ringing | in-progress | completed | failed | no-answer | busy
-  direction         String    @default("outbound")  // outbound | inbound
+  id                String       @id @default(cuid())
+  status            String       @default("initiated")
+  direction         String       @default("outbound")
   from              String
   to                String
   recordingUrl      String?
   startedAt         DateTime?
   endedAt           DateTime?
   durationSec       Int?
-  disconnectedBy    String?   // "user" | "bot" | null
-  isEnoughKnowledge  Boolean? // set after post-call analysis; mirrors old Email field's meaning
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  contactId  String
-  contact    Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  messages   Message[]
+  disconnectedBy    String?
+  isEnoughKnowledge Boolean?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  conversationId    String
+  contactId         String
+  contact           Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messages          Message[]
 
   @@index([conversationId])
   @@index([contactId])
   @@index([status])
 }
 
-// ---------------------------------------------------------------------------
-// ContactKnowledge — durable facts about a contact, persisted across
-// conversation threads so the agent has memory beyond one chat.
-// ---------------------------------------------------------------------------
 model ContactKnowledge {
-  id          String   @id @default(cuid())
-  contactId   String
-  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  category    String   // "preference" | "fact" | "history" | "constraint" | "contact_info"
-  key         String   // stable snake_case label, e.g. "preferred_contact_time"
-  value       String   // the fact itself, one sentence
-  confidence  Float    @default(1.0)
-  status      String   @default("active") // active | superseded | stale
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  sources     KnowledgeSourceMessage[]
+  id         String                   @id @default(cuid())
+  contactId  String
+  category   String
+  key        String
+  value      String
+  confidence Float                    @default(1.0)
+  status     String                   @default("active")
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+  contact    Contact                  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  sources    KnowledgeSourceMessage[]
 
   @@unique([contactId, key])
   @@index([contactId, status])
@@ -242,10 +207,10 @@ model ContactKnowledge {
 model KnowledgeSourceMessage {
   id          String           @id @default(cuid())
   knowledgeId String
-  knowledge   ContactKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
   messageId   String
+  role        String
   message     Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  role        String           // "created" | "updated"
+  knowledge   ContactKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
 
   @@unique([knowledgeId, messageId, role])
 }

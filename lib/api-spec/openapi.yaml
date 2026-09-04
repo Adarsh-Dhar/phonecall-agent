@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: calendar
+    description: Google Calendar integration operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,71 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/google:
+    get:
+      operationId: googleAuthRedirect
+      tags: [calendar]
+      summary: Redirect to Google OAuth
+      description: Redirects user to Google OAuth consent screen
+      responses:
+        "302":
+          description: Redirect to Google OAuth
+    delete:
+      operationId: googleAuthDisconnect
+      tags: [calendar]
+      summary: Disconnect Google Calendar
+      description: Removes Google OAuth credentials and clears task calendar links
+      responses:
+        "200":
+          description: Disconnection successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+  /auth/google/callback:
+    get:
+      operationId: googleAuthCallback
+      tags: [calendar]
+      summary: Google OAuth callback
+      description: Handles OAuth callback from Google and stores tokens
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to frontend with success/error
+  /auth/google/status:
+    get:
+      operationId: googleAuthStatus
+      tags: [calendar]
+      summary: Google Calendar connection status
+      description: Returns whether Google Calendar is connected
+      responses:
+        "200":
+          description: Connection status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoogleAuthStatus"
+  /calendar/sync:
+    post:
+      operationId: calendarSync
+      tags: [calendar]
+      summary: Manual calendar sync
+      description: Manually triggers sync from Google Calendar to tasks
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarSyncResult"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +100,27 @@ components:
           type: string
       required:
         - status
+    GoogleAuthStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        hasAuth:
+          type: boolean
+        expired:
+          type: boolean
+      required:
+        - connected
+        - hasAuth
+        - expired
+    CalendarSyncResult:
+      type: object
+      properties:
+        synced:
+          type: number
+        errors:
+          type: number
+      required:
+        - synced
+        - errors
 

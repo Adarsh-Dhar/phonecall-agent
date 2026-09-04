@@ -1,5 +1,6 @@
 // @ts-check
-import { PrismaClient } from './lib/db-prisma/generated/index.js';
+import 'dotenv/config';
+import { PrismaClient } from './lib/db-prisma/generated/client';
 
 const prisma = new PrismaClient();
 

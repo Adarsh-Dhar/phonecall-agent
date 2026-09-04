@@ -6,6 +6,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { sweepStaleConversations } from "./services/taskExtraction";
 import { attachVoiceStreams } from "./services/voice";
+import { startCalendarSync } from "./services/calendarSync";
 import type { Server } from "http";
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,9 @@ const server = app.listen(port, () => {
   // On every boot, pick up any conversations that missed extraction due to
   // a restart killing their in-flight debounce timers.
   void sweepStaleConversations();
+
+  // Start Google Calendar sync polling
+  startCalendarSync();
 }) as Server;
 
 attachVoiceStreams(server);

@@ -29,32 +29,28 @@ kill_port 5176
 kill_port 5177
 echo "Ports cleared."
 
-# Run Prisma migrations
-if [[ "$DATABASE_URL" == *"render.com"* ]]; then
-  echo "Running Prisma migrations for PostgreSQL..."
-  npx prisma db push || echo "Migration failed"
-  
-  # Seed the database
-  echo "Seeding database..."
-  npx tsx seed.ts || echo "Seed failed (might already exist)"
+# Start PostgreSQL Docker container if not running
+echo "Checking PostgreSQL Docker container..."
+if ! docker ps | grep -q phone-agent-postgres; then
+  echo "Starting PostgreSQL Docker container..."
+  docker compose up -d
+  echo "Waiting for PostgreSQL to be ready..."
+  sleep 5
 else
-  echo "Using SQLite for local development"
-  # Use absolute path for DATABASE_URL to work from any directory
-  export DATABASE_URL="file:$(pwd)/prisma/dev.db"
-  echo "Database: $DATABASE_URL"
-  
-  # Create SQLite database schema
-  echo "Creating SQLite database schema..."
-  npx prisma db push --accept-data-loss
-  
-  # Generate Prisma client for SQLite
-  echo "Generating Prisma client..."
-  npx prisma generate
-  
-  # Seed the database
-  echo "Seeding database..."
-  npx tsx seed.ts || echo "Seed failed (might already exist)"
+  echo "PostgreSQL container is already running"
 fi
+
+# Run Prisma migrations for PostgreSQL
+echo "Running Prisma migrations for PostgreSQL..."
+npx prisma@6.19.3 db push --schema=prisma/schema.prisma || echo "Migration failed"
+
+# Generate Prisma client
+echo "Generating Prisma client..."
+npx prisma@6.19.3 generate --schema=prisma/schema.prisma
+
+# Seed the database
+echo "Seeding database..."
+npx tsx seed.ts || echo "Seed failed (might already exist)"
 
 # Function to handle cleanup on exit
 cleanup() {
