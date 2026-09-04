@@ -211,7 +211,15 @@ export function createBrowserVoiceStream(): WebSocketServer {
       startedAt = null;
     }
 
-    browserWs.on("close", () => void endCall());
+    browserWs.on("close", () => {
+      logger.info("voiceStreamBrowser: browser WebSocket closed");
+      void endCall();
+    });
+    
+    browserWs.on("error", (err) => {
+      logger.error({ err }, "voiceStreamBrowser: browser WebSocket error");
+      void endCall();
+    });
   });
 
   return wss;
