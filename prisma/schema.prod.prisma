@@ -185,12 +185,10 @@ model QuerySourceMessage {
 }
 
 // ---------------------------------------------------------------------------
-// Call — tracks each phone call placed/received via Exotel's Voicebot Applet.
+// Call — tracks each browser-based voice-agent call (services/voiceStreamBrowser.ts).
 // ---------------------------------------------------------------------------
 model Call {
   id                String    @id @default(cuid())
-  exotelCallSid     String?   @unique   // Exotel's Call Sid, set once Exotel responds/streams
-  streamSid         String?             // Voicebot Applet stream id, set on the "start" WS event
   status            String    @default("initiated")
   // initiated | ringing | in-progress | completed | failed | no-answer | busy
   direction         String    @default("outbound")  // outbound | inbound

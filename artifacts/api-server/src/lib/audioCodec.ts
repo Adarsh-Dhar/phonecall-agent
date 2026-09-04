@@ -180,32 +180,33 @@ export function pcm16ToTwilioPayload(
 }
 
 // ---------------------------------------------------------------------------
-// Exotel Voicebot Applet — raw PCM16 (no μ-law), 8 kHz mono, base64
+// Browser test-call transport — raw PCM16 (no μ-law), base64, over a plain
+// WebSocket from the browser mic. No telephony carrier involved.
+//
+// The browser downsamples its mic (usually 44.1/48 kHz) to 16 kHz itself
+// before sending, so inbound decode just needs 16k → 24k for Gemini. Outbound
+// audio from Gemini is already 24 kHz PCM16, and the Web Audio API can play
+// arbitrary sample rates directly, so no resampling is needed on the way out.
 // ---------------------------------------------------------------------------
 
 /**
- * Decode a base64 raw-PCM16 payload (as received from Exotel's Voicebot
- * Applet `media` event) into PCM16 samples at the desired output rate.
+ * Decode a base64 raw-PCM16 payload from the browser mic (16 kHz mono) into
+ * PCM16 samples at Gemini's input rate.
  */
-export function exotelPayloadToPcm16(
+export function browserPayloadToPcm16(
   base64Payload: string,
-  inputRate = 8000,
+  inputRate = 16000,
   outputRate = 24000
 ): Int16Array {
   const buf = Buffer.from(base64Payload, "base64");
-  const pcm8k = new Int16Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 2));
-  return resamplePcm16(pcm8k, inputRate, outputRate);
+  const pcm16k = new Int16Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 2));
+  return resamplePcm16(pcm16k, inputRate, outputRate);
 }
 
 /**
- * Encode PCM16 samples (at Gemini's output rate) into a base64 raw-PCM16
- * payload ready to send back to Exotel as a `media` event.
+ * Encode PCM16 samples (Gemini's 24 kHz output) into a base64 raw-PCM16
+ * payload for the browser to play back directly — no resampling.
  */
-export function pcm16ToExotelPayload(
-  samples: Int16Array,
-  inputRate = 24000,
-  outputRate = 8000
-): string {
-  const resampled = resamplePcm16(samples, inputRate, outputRate);
-  return Buffer.from(resampled.buffer, resampled.byteOffset, resampled.byteLength).toString("base64");
+export function pcm16ToBrowserPayload(samples: Int16Array): string {
+  return Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength).toString("base64");
 }

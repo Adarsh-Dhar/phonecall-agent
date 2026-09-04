@@ -5,7 +5,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { sweepStaleConversations } from "./services/taskExtraction";
-import { attachVoiceStream } from "./services/voiceStream";
+import { attachVoiceStreams } from "./services/voice";
 import type { Server } from "http";
 
 // ---------------------------------------------------------------------------
@@ -44,4 +44,4 @@ const server = app.listen(port, () => {
   void sweepStaleConversations();
 }) as Server;
 
-attachVoiceStream(server);
+attachVoiceStreams(server);

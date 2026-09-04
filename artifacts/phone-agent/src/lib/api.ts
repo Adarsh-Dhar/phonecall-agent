@@ -580,41 +580,7 @@ export type Call = {
   };
 };
 
-/** Places a real outbound call to a contact via Exotel. */
-export const placeCall = async (data: { contactId: string }): Promise<Call> => {
-  const response = await fetch(`${API_BASE_URL}/calls`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) {
-    try {
-      const err = await response.json() as { error?: string };
-      throw new Error(err.error ?? 'Failed to place call');
-    } catch {
-      throw new Error('Failed to place call');
-    }
-  }
-  return response.json();
-};
-
-export const completeMockCall = async (data: { callId: string; durationSec?: number; status?: string }): Promise<Call> => {
-  const response = await fetch(`${API_BASE_URL}/calls/mock-complete`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) {
-    try {
-      const err = await response.json() as { error?: string };
-      throw new Error(err.error ?? 'Failed to complete mock call');
-    } catch {
-      throw new Error('Failed to complete mock call');
-    }
-  }
-  return response.json();
-};
-
+/** Fetch a single call by ID. */
 export const fetchCall = async (id: string): Promise<Call> => {
   const response = await fetch(`${API_BASE_URL}/calls/${id}`);
   if (!response.ok) throw new Error('Failed to fetch call');

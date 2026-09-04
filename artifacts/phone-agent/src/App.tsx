@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import {
   ArrowUpRight, BookOpen, Check, CircleHelp, History,
-  ListTodo, LoaderCircle, Phone as PhoneIcon, MessageCircle, Paperclip,
+  ListTodo, LoaderCircle, Mic, Phone as PhoneIcon, MessageCircle, Paperclip,
   Pencil,
   Plus, RefreshCw, Send, ShieldCheck, Sparkles, Trash2, Users, X, Zap,
 } from 'lucide-react';
@@ -10,6 +10,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import { TestCallWidget } from './components/TestCallWidget';
 import { Route, Switch, Router as WouterRouter, Link, useLocation, Redirect, useParams } from 'wouter';
 import * as api from '@/lib/api';
 
@@ -68,69 +69,14 @@ function StatusPill({ busy }: { busy: boolean }) {
 
 // CallControls — phone button that places a call, plus a status pill while
 // the call is being connected.
-function CallControls({
-  contactName,
-  contactPhone,
-  calling,
-  callError,
-  lastCalled,
-  onCall,
-  onDismiss,
-}: {
-  contactName: string;
-  contactPhone: string | null;
-  calling: boolean;
-  callError: string | null;
-  lastCalled: boolean;
-  onCall: () => void;
-  onDismiss: () => void;
-}) {
-  if (callError) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <span className="max-w-45 truncate text-[11px] text-[#b44343]" title={callError}>{callError}</span>
-        <button
-          type="button"
-          aria-label="Dismiss call error"
-          onClick={onDismiss}
-          className="grid h-6 w-6 place-items-center rounded-full text-[#b44343] hover:bg-[#fde8e8]"
-        >
-          <X size={12} />
-        </button>
-      </div>
-    );
-  }
-
-  if (calling) {
-    return (
-      <div className="flex items-center gap-1.5 rounded-full bg-[#f1f0ea] px-3 py-1.5 text-[11px] font-bold text-[#697a73]">
-        <LoaderCircle size={12} className="animate-spin" />
-        <span>Calling…</span>
-      </div>
-    );
-  }
-
-  if (lastCalled) {
-    return (
-      <div className="flex items-center gap-1.5 rounded-full bg-[#e9f3ec] px-3 py-1.5 text-[11px] font-bold text-[#3f8274]">
-        <Check size={12} />
-        <span>Call placed</span>
-        <button type="button" aria-label="Dismiss" onClick={onDismiss} className="ml-1 opacity-60 hover:opacity-100">
-          <X size={11} />
-        </button>
-      </div>
-    );
-  }
-
+function CallButton({ onCall }: { onCall: () => void }) {
   return (
     <button
       type="button"
-      aria-label="Call contact"
+      aria-label="Test call in browser"
       data-testid="button-call-contact"
       onClick={onCall}
-      disabled={!contactPhone}
-      title={contactPhone ? undefined : `${contactName} has no phone number on file`}
-      className="flex items-center gap-1.5 rounded-full border border-border bg-[#f6f3ed] px-3 py-1.5 text-[11px] font-bold text-[#3f8274] transition-all hover:-translate-y-0.5 hover:border-[#a7d0c1] hover:bg-[#edf7f1] disabled:cursor-not-allowed disabled:opacity-40"
+      className="flex items-center gap-1.5 rounded-full border border-border bg-[#f6f3ed] px-3 py-1.5 text-[11px] font-bold text-[#3f8274] transition-all hover:-translate-y-0.5 hover:border-[#a7d0c1] hover:bg-[#edf7f1]"
     >
       <PhoneIcon size={13} />
       Call
@@ -319,34 +265,8 @@ function InboxPage() {
   const endRef = useRef<HTMLDivElement>(null);
 
   // Call state
-  const [callPlacing, setCallPlacing] = useState(false);
-  const [callError, setCallError] = useState<string | null>(null);
-  const [callLastPlaced, setCallLastPlaced] = useState(false);
+  const [showTestCall, setShowTestCall] = useState(false);
   const [endingConversation, setEndingConversation] = useState(false);
-
-  const placeCall = async () => {
-    if (!activeContact) return;
-    setCallPlacing(true);
-    setCallError(null);
-    setCallLastPlaced(false);
-    try {
-      await api.placeCall({ contactId: activeContact.id });
-      setCallLastPlaced(true);
-      // Refresh the thread — turns will land as the live call progresses.
-      if (conversation) {
-        api.fetchContactConversation(resolvedContactId).then(setConversation).catch(() => {});
-      }
-    } catch (err) {
-      setCallError(err instanceof Error ? err.message : 'Could not place call');
-    } finally {
-      setCallPlacing(false);
-    }
-  };
-
-  const dismissCall = () => {
-    setCallError(null);
-    setCallLastPlaced(false);
-  };
 
   const handleEndConversation = async () => {
     if (!conversation || endingConversation) return;
@@ -524,22 +444,12 @@ function InboxPage() {
                 {activeContact && <Avatar contact={activeContact} />}
                 <div>
                   <h2 className="text-sm font-bold">{activeContact?.name ?? 'Select a contact'}</h2>
-                  <p className="text-[11px] text-[hsl(var(--muted-foreground))]">{activeContact?.business ?? ''}</p>
+                  <p className="text-[11px] text-muted-foreground">{activeContact?.business ?? ''}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {/* Call button + status */}
-                {activeContact && (
-                  <CallControls
-                    contactName={activeContact.name}
-                    contactPhone={activeContact.phone ?? null}
-                    calling={callPlacing}
-                    callError={callError}
-                    lastCalled={callLastPlaced}
-                    onCall={() => void placeCall()}
-                    onDismiss={dismissCall}
-                  />
-                )}
+                {/* Call button — opens the in-browser test call for this contact */}
+                {activeContact && <CallButton onCall={() => setShowTestCall(true)} />}
                 <StatusPill busy={busy} />
               </div>
             </div>
@@ -696,6 +606,19 @@ function InboxPage() {
           </div>
         </section>
       </div>
+
+      {showTestCall && activeContact && (
+        <TestCallWidget
+          contactId={activeContact.id}
+          onClose={() => {
+            setShowTestCall(false);
+            // Refresh the thread — turns landed during the call.
+            if (resolvedContactId) {
+              api.fetchContactConversation(resolvedContactId).then(setConversation).catch(() => {});
+            }
+          }}
+        />
+      )}
     </AppLayout>
   );
 }
@@ -843,9 +766,9 @@ function CallsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showContactPicker, setShowContactPicker] = useState(false);
+  const [showTestCall, setShowTestCall] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
-  const [placingCall, setPlacingCall] = useState(false);
   const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Record<string, api.Conversation>>({});
 
@@ -884,32 +807,6 @@ function CallsPage() {
   useEffect(() => { void loadCalls(); }, [loadCalls]);
   useEffect(() => { void loadContacts(); }, [loadContacts]);
 
-  const handleCreateCall = async () => {
-    if (!selectedContactId) return;
-    setPlacingCall(true);
-    try {
-      const call = await api.placeCall({ contactId: selectedContactId });
-      await loadCalls();
-      setShowCreateModal(false);
-      setSelectedContactId(null);
-    } catch (e) {
-      console.error(e);
-      alert('Failed to place call');
-    } finally {
-      setPlacingCall(false);
-    }
-  };
-
-  const handleCompleteMockCall = async (callId: string) => {
-    try {
-      await api.completeMockCall({ callId, durationSec: 30, status: 'completed' });
-      await loadCalls();
-    } catch (e) {
-      console.error(e);
-      alert('Failed to complete mock call');
-    }
-  };
-
   const handleExpandCall = async (call: api.Call) => {
     if (expandedCallId === call.id) {
       setExpandedCallId(null);
@@ -935,11 +832,11 @@ function CallsPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => setShowContactPicker(true)}
               className="flex items-center gap-1.5 rounded-full bg-[#3f8274] px-3 py-1.5 text-[11px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#356c61]"
             >
-              <Plus size={13} />
-              New Call
+              <Mic size={13} />
+              New Call (Browser)
             </button>
             <button
               type="button"
@@ -982,72 +879,78 @@ function CallsPage() {
                 expanded={expandedCallId === call.id}
                 onToggle={() => void handleExpandCall(call)}
                 conversation={conversations[call.conversationId]}
-                onCompleteMockCall={(callId) => void handleCompleteMockCall(callId)}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* Create Call Modal */}
-      {showCreateModal && (
+      {/* Contact picker — choose who to log this browser call against */}
+      {showContactPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold">Place Call</h2>
+              <div>
+                <h2 className="text-lg font-bold">New Call</h2>
+                <p className="text-[11px] text-muted-foreground">Free — talks through your mic, no phone number needed.</p>
+              </div>
               <button
                 type="button"
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => setShowContactPicker(false)}
                 className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:bg-muted"
               >
                 <X size={14} />
               </button>
             </div>
             <div className="mb-4">
-              <label className="mb-2 block text-xs font-bold text-muted-foreground">Select Contact</label>
+              <label className="mb-2 block text-xs font-bold text-muted-foreground">Log call against (optional)</label>
               <select
                 value={selectedContactId || ''}
-                onChange={(e) => setSelectedContactId(e.target.value)}
+                onChange={(e) => setSelectedContactId(e.target.value || null)}
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-[#a7d0c1]"
               >
-                <option value="">Choose a contact...</option>
+                <option value="">Browser Test (default)</option>
                 {contacts.map((contact) => (
-                  <option key={contact.id} value={contact.id}>
-                    {contact.name} ({contact.phone})
-                  </option>
+                  <option key={contact.id} value={contact.id}>{contact.name}</option>
                 ))}
               </select>
             </div>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => setShowContactPicker(false)}
                 className="rounded-lg px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-muted"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => void handleCreateCall()}
-                disabled={!selectedContactId || placingCall}
-                className="rounded-lg bg-[#3f8274] px-4 py-2 text-xs font-bold text-white hover:bg-[#356c61] disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() => { setShowContactPicker(false); setShowTestCall(true); }}
+                className="flex items-center gap-1.5 rounded-lg bg-[#3f8274] px-4 py-2 text-xs font-bold text-white hover:bg-[#356c61]"
               >
-                {placingCall ? 'Calling...' : 'Place Call'}
+                <Mic size={13} /> Start Call
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Test Call in Browser — the only calling transport, free, mic-based */}
+      {showTestCall && (
+        <TestCallWidget
+          contactId={selectedContactId || undefined}
+          onClose={() => { setShowTestCall(false); setSelectedContactId(null); void loadCalls(); }}
+        />
+      )}
     </AppLayout>
   );
 }
 
-function CallRow({ call, expanded, onToggle, conversation, onCompleteMockCall }: { 
+function CallRow({ call, expanded, onToggle, conversation }: { 
   call: api.Call; 
   expanded: boolean;
   onToggle: () => void;
   conversation?: api.Conversation;
-  onCompleteMockCall: (callId: string) => void;
 }) {
   const isInbound = call.direction === 'inbound';
   const statusColor = call.status === 'completed' ? 'text-[#3f8274]' : 
@@ -1100,15 +1003,6 @@ function CallRow({ call, expanded, onToggle, conversation, onCompleteMockCall }:
           >
             {expanded ? 'Hide conversation' : 'View conversation'}
           </button>
-          {call.status === 'in-progress' && (
-            <button
-              type="button"
-              onClick={() => onCompleteMockCall(call.id)}
-              className="mt-1 text-xs text-[#3f8274] hover:underline"
-            >
-              Complete mock call
-            </button>
-          )}
         </div>
       </div>
       
