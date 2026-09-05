@@ -4,6 +4,20 @@ import { logger } from "../lib/logger";
 const MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-2.0-flash-exp";
 const LANGUAGE_CODE = process.env.GEMINI_LIVE_LANGUAGE_CODE ?? "en-US";
 
+/**
+ * Filter text to English-only content.
+ * Returns the original text if it appears to be English, null otherwise.
+ */
+function filterToEnglish(text: string): string | null {
+  // Basic heuristic: if text contains non-ASCII characters, it's likely not English
+  // This is a simple filter - for production, consider using a language detection library
+  const hasNonAscii = /[^\x00-\x7F]/.test(text);
+  if (hasNonAscii) {
+    return null;
+  }
+  return text;
+}
+
 // Function declaration exposed to the model so it can end the call itself
 // instead of just trailing off or waiting to be hung up on.
 const END_CALL_FUNCTION_DECLARATION = {
@@ -91,8 +105,18 @@ export async function openGeminiLiveSession(opts: {
           
           const inputTranscription = msg.serverContent?.inputTranscription?.text;
           if (inputTranscription) {
-            userTurnBuffer += inputTranscription;
-            logger.info({ transcription: inputTranscription }, "geminiVoiceSession: input transcription");
+            // Filter out non-English content — the input transcriber will
+            // occasionally render accented English speech in a different
+            // script (e.g. Devanagari) instead of transliterating it, which
+            // then gets both displayed and sent to the model as if it were
+            // actually a different language.
+            const englishOnly = filterToEnglish(inputTranscription);
+            if (englishOnly) {
+              userTurnBuffer += englishOnly;
+              logger.info({ transcription: englishOnly }, "geminiVoiceSession: input transcription");
+            } else {
+              logger.warn({ originalText: inputTranscription }, "geminiVoiceSession: filtered non-English input");
+            }
           }
 
           const outputTranscription = msg.serverContent?.outputTranscription?.text;
@@ -113,14 +137,15 @@ export async function openGeminiLiveSession(opts: {
           if (msg.serverContent?.turnComplete) {
             logger.info({ userText: userTurnBuffer.trim(), agentText: agentTurnBuffer.trim() }, "geminiVoiceSession: turn complete");
 
-            // Flush agent turn immediately — outputTranscription arrives in
-            // sync with the model's audio, so it's always complete by now.
-            if (agentTurnBuffer.trim()) opts.onAgentTurnText(agentTurnBuffer.trim());
-            agentTurnBuffer = "";
-
-            // Flush user turn immediately as well for real-time display
+            // Process user turn first, then agent turn — the user always
+            // speaks before the agent responds within a turn, and callers
+            // (transcript display, DB logging) rely on that call order to
+            // preserve conversation sequence.
             if (userTurnBuffer.trim()) opts.onUserTurnText(userTurnBuffer.trim());
             userTurnBuffer = "";
+
+            if (agentTurnBuffer.trim()) opts.onAgentTurnText(agentTurnBuffer.trim());
+            agentTurnBuffer = "";
 
             // The goodbye turn (if any) has now fully streamed out — safe to
             // actually hang up.

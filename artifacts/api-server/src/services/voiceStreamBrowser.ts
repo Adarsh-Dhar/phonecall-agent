@@ -184,18 +184,36 @@ export function createBrowserVoiceStream(): WebSocketServer {
       }
     });
 
+    // Serializes logTurn's DB writes so createdAt order always matches
+    // conversation order, even though onUserTurnText/onAgentTurnText fire
+    // fire-and-forget `void logTurn(...)`) — without this, two unawaited
+    // prisma.message.create calls can resolve out of order under load and
+    // leave the persisted transcript showing the agent before the user.
+    let turnLogQueue: Promise<void> = Promise.resolve();
+
     async function logTurn(role: "user" | "assistant", content: string) {
       if (!conversationId) return;
-      await prisma.message.create({
-        data: {
-          role,
-          content,
-          time: "Now",
-          conversationId,
-          callId,
-        },
-      });
-      scheduleExtraction(conversationId);
+      const currentConversationId = conversationId;
+      const currentCallId = callId;
+      turnLogQueue = turnLogQueue
+        .then(() =>
+          prisma.message.create({
+            data: {
+              role,
+              content,
+              time: "Now",
+              conversationId: currentConversationId,
+              callId: currentCallId,
+            },
+          })
+        )
+        .then(() => {
+          scheduleExtraction(currentConversationId);
+        })
+        .catch((err) => {
+          logger.error({ err, role, currentConversationId }, "voiceStreamBrowser: failed to log turn");
+        });
+      await turnLogQueue;
     }
 
     async function endCall(disconnectedBy: "user" | "agent" = "user") {

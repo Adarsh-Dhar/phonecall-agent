@@ -27,6 +27,20 @@ export async function generateGeminiText(params: {
     role: t.role === "assistant" ? "model" : "user",
     parts: [{ text: t.content }],
   }));
+
+  // The generateContent API rejects a request whose content ends on a
+  // "model" turn ("Requests ending with a model turn are not supported.").
+  // Any transcript that ends with the agent's side of the conversation
+  // (e.g. a call transcript ending in the agent's goodbye) hits this every
+  // time, so append a synthetic trailing user turn to keep the request valid
+  // regardless of how the underlying conversation actually ended.
+  if (contents.length > 0 && contents[contents.length - 1].role === "model") {
+    contents.push({
+      role: "user",
+      parts: [{ text: "(End of transcript. Respond now, following the instructions above.)" }],
+    });
+  }
+
   const systemInstruction = { parts: [{ text: params.systemInstructionText }] };
   const generationConfig: { temperature: number; maxOutputTokens: number; responseMimeType?: string } = {
     temperature: 0.7,
