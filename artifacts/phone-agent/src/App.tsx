@@ -3,6 +3,7 @@ import {
   ArrowUpRight, BookOpen, Calendar as CalendarIcon, Check, CircleHelp, History,
   ListTodo, LoaderCircle, Mic, Phone as PhoneIcon, MessageCircle, Paperclip,
   Pencil, Plus, RefreshCw, Send, ShieldCheck, Sparkles, Trash2, Users, X, Zap,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -245,6 +246,14 @@ function HistoryPage() {
   const [tasks, setTasks] = useState<api.Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'active' | 'all'>('active');
+  
+  // Calendar state
+  const [calendarItems, setCalendarItems] = useState<api.Task[]>([]);
+  const [googleCalendarEvents, setGoogleCalendarEvents] = useState<api.GoogleCalendarEvent[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const [googleAuthStatus, setGoogleAuthStatus] = useState<api.GoogleAuthStatus | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const loadTasks = useCallback(async () => {
     setLoading(true);
@@ -258,7 +267,162 @@ function HistoryPage() {
     }
   }, []);
 
+  const loadCalendar = useCallback(async () => {
+    setCalendarLoading(true);
+    try {
+      // Load tasks with due dates
+      const allTasks = await api.fetchTasks();
+      const dated = allTasks
+        .filter((t) => t.dueDate && t.status !== 'cancelled')
+        .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+      setCalendarItems(dated);
+      console.log('[HistoryPage] Loaded calendar items:', dated.length);
+
+      // Load Google Calendar events if connected
+      const status = await api.fetchGoogleAuthStatus();
+      setGoogleAuthStatus(status);
+      console.log('[HistoryPage] Google auth status:', status);
+      
+      if (status.connected) {
+        try {
+          const { events } = await api.fetchGoogleCalendarEvents();
+          console.log('[HistoryPage] Loaded Google Calendar events:', events.length);
+          setGoogleCalendarEvents(events);
+        } catch (err) {
+          console.error('[HistoryPage] Failed to load Google Calendar events:', err);
+          setGoogleCalendarEvents([]);
+        }
+      } else {
+        console.log('[HistoryPage] Google Calendar not connected');
+        setGoogleCalendarEvents([]);
+      }
+    } catch (err) {
+      console.error('[HistoryPage] Failed to load calendar items:', err);
+    } finally {
+      setCalendarLoading(false);
+    }
+  }, []);
+
+  const loadGoogleAuthStatus = useCallback(async () => {
+    try {
+      const status = await api.fetchGoogleAuthStatus();
+      setGoogleAuthStatus(status);
+    } catch (err) {
+      console.error('[HistoryPage] Failed to load Google auth status:', err);
+    }
+  }, []);
+
+  const handleConnectGoogleCalendar = async () => {
+    await api.connectGoogleCalendar();
+  };
+
+  const handleSyncCalendar = async () => {
+    setSyncing(true);
+    try {
+      await api.syncCalendar();
+      await loadCalendar();
+      await loadGoogleAuthStatus();
+    } catch (err) {
+      console.error('[HistoryPage] Failed to sync calendar:', err);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleDisconnectGoogleCalendar = async () => {
+    try {
+      await api.disconnectGoogleCalendar();
+      setGoogleAuthStatus(null);
+    } catch (err) {
+      console.error('[HistoryPage] Failed to disconnect Google Calendar:', err);
+    }
+  };
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setCurrentMonth(prev => {
+      const newDate = new Date(prev);
+      if (direction === 'prev') {
+        newDate.setMonth(newDate.getMonth() - 1);
+      } else {
+        newDate.setMonth(newDate.getMonth() + 1);
+      }
+      return newDate;
+    });
+  };
+
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDayOfWeek = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+    
+    const days = [];
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startDayOfWeek; i++) {
+      days.push(null);
+    }
+    // Add days of the month
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+    return days;
+  };
+
+  const getEventsForDate = (date: Date) => {
+    const targetYear = date.getFullYear();
+    const targetMonth = date.getMonth();
+    const targetDay = date.getDate();
+    
+    const taskEvents = calendarItems.filter(t => {
+      if (!t.dueDate) return false;
+      const taskDate = new Date(t.dueDate);
+      return taskDate.getFullYear() === targetYear &&
+             taskDate.getMonth() === targetMonth &&
+             taskDate.getDate() === targetDay;
+    }).map(t => ({ id: t.id, title: t.title, summary: t.title, type: 'task' as const }));
+    
+    const googleEvents = googleCalendarEvents.filter(e => {
+      let eventDate: Date | undefined;
+      if (e.start?.date) {
+        // All-day event - parse the date string directly
+        const [year, month, day] = e.start.date.split('-').map(Number);
+        eventDate = new Date(year, month - 1, day); // month is 0-indexed in JS
+      } else if (e.start?.dateTime) {
+        // Time-based event - parse the datetime
+        eventDate = new Date(e.start.dateTime);
+      }
+      
+      if (!eventDate) return false;
+      
+      return eventDate.getFullYear() === targetYear &&
+             eventDate.getMonth() === targetMonth &&
+             eventDate.getDate() === targetDay;
+    }).map(e => ({ id: e.id, title: e.summary, summary: e.summary, type: 'google' as const }));
+    
+    return [...taskEvents, ...googleEvents];
+  };
+
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+           date.getMonth() === today.getMonth() &&
+           date.getFullYear() === today.getFullYear();
+  };
+
+  const markCalendarItemDone = async (taskId: string) => {
+    try {
+      const updated = await api.updateTask(taskId, { status: 'done' });
+      setCalendarItems((prev) => prev.map((t) => t.id === taskId ? updated : t));
+      setTasks((prev) => prev.map((t) => t.id === taskId ? updated : t));
+    } catch (err) {
+      console.error('[HistoryPage] Failed to update calendar item:', err);
+    }
+  };
+
   useEffect(() => { void loadTasks(); }, [loadTasks]);
+  useEffect(() => { void loadCalendar(); }, [loadCalendar]);
 
   const handleStatusChange = async (taskId: string, status: api.TaskStatus) => {
     try {
@@ -334,6 +498,137 @@ function HistoryPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Calendar Section */}
+      <div className="mt-8 rounded-[22px] border border-card-border bg-card p-5">
+        <div className="flex items-center gap-2">
+          <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#fff0df] text-[#af5c1c]">
+            <CalendarIcon size={15} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold tracking-tight">Calendar</h3>
+            <p className="text-[10px] text-[#af5c1c]">{calendarItems.filter((t) => t.status !== 'done').length + googleCalendarEvents.length} upcoming</p>
+          </div>
+          <div className="ml-auto flex items-center gap-1">
+            {!googleAuthStatus?.connected ? (
+              <button
+                type="button"
+                onClick={handleConnectGoogleCalendar}
+                className="flex items-center gap-1.5 rounded-full bg-[#3f8274] px-3 py-1.5 text-[10px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#356c61]"
+              >
+                <CalendarIcon size={11} />
+                Connect Google Calendar
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleSyncCalendar}
+                  disabled={syncing}
+                  className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDisconnectGoogleCalendar}
+                  className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
+                >
+                  Disconnect
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Calendar Grid */}
+        <div className="mt-4">
+          {/* Calendar Header with Navigation */}
+          <div className="mb-4 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => navigateMonth('prev')}
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <h2 className="text-lg font-bold">
+              {currentMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+            </h2>
+            <button
+              type="button"
+              onClick={() => navigateMonth('next')}
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          {/* Weekday Headers */}
+          <div className="mb-2 grid grid-cols-7 gap-1">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+              <div key={day} className="text-center text-[10px] font-bold text-muted-foreground">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Grid */}
+          {calendarLoading && calendarItems.length === 0 && googleCalendarEvents.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <LoaderCircle size={16} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 gap-1">
+              {getDaysInMonth(currentMonth).map((date, index) => {
+                if (!date) {
+                  return <div key={`empty-${index}`} className="h-20" />;
+                }
+
+                const events = getEventsForDate(date);
+                const today = isToday(date);
+
+                return (
+                  <div
+                    key={date.toISOString()}
+                    className={`min-h-20 rounded-lg border p-1 transition-colors ${
+                      today 
+                        ? 'bg-[#eef1fb] border-[#3159c4]' 
+                        : 'bg-card border-border hover:bg-muted'
+                    }`}
+                  >
+                    <div className={`text-center text-xs font-medium ${
+                      today ? 'text-[#3159c4]' : 'text-muted-foreground'
+                    }`}>
+                      {date.getDate()}
+                    </div>
+                    <div className="mt-1 space-y-0.5">
+                      {events.slice(0, 3).map((event, i) => (
+                        <div
+                          key={i}
+                          className={`truncate rounded px-1 py-0.5 text-[8px] font-medium ${
+                            event.type === 'task' 
+                              ? 'bg-[#fbfaf6] text-[#3f8274]' 
+                              : 'bg-[#f0f7ff] text-[#3159c4]'
+                          }`}
+                          title={event.title}
+                        >
+                          {event.title}
+                        </div>
+                      ))}
+                      {events.length > 3 && (
+                        <div className="text-[8px] text-muted-foreground">
+                          +{events.length - 3} more
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </AppLayout>
   );
@@ -701,11 +996,6 @@ function ContactDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  const [calendarItems, setCalendarItems] = useState<api.Task[]>([]);
-  const [calendarLoading, setCalendarLoading] = useState(true);
-  const [googleAuthStatus, setGoogleAuthStatus] = useState<api.GoogleAuthStatus | null>(null);
-  const [syncing, setSyncing] = useState(false);
-
   const [tasks, setTasks] = useState<api.Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -734,70 +1024,6 @@ function ContactDetailPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [id]);
-
-  const loadCalendar = useCallback(async () => {
-    if (!id) return;
-    setCalendarLoading(true);
-    try {
-      const tasks = await api.fetchContactTasks(id);
-      const dated = tasks
-        .filter((t) => t.dueDate && t.status !== 'cancelled')
-        .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
-      setCalendarItems(dated);
-    } catch (err) {
-      console.error('[ContactDetailPage] Failed to load calendar items:', err);
-    } finally {
-      setCalendarLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => { void loadCalendar(); }, [loadCalendar]);
-
-  const loadGoogleAuthStatus = useCallback(async () => {
-    try {
-      const status = await api.fetchGoogleAuthStatus();
-      setGoogleAuthStatus(status);
-    } catch (err) {
-      console.error('[ContactDetailPage] Failed to load Google auth status:', err);
-    }
-  }, []);
-
-  useEffect(() => { void loadGoogleAuthStatus(); }, [loadGoogleAuthStatus]);
-
-  const handleConnectGoogleCalendar = async () => {
-    await api.connectGoogleCalendar();
-  };
-
-  const handleSyncCalendar = async () => {
-    setSyncing(true);
-    try {
-      await api.syncCalendar();
-      await loadCalendar();
-      await loadGoogleAuthStatus();
-    } catch (err) {
-      console.error('[ContactDetailPage] Failed to sync calendar:', err);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleDisconnectGoogleCalendar = async () => {
-    try {
-      await api.disconnectGoogleCalendar();
-      setGoogleAuthStatus(null);
-    } catch (err) {
-      console.error('[ContactDetailPage] Failed to disconnect Google Calendar:', err);
-    }
-  };
-
-  const markCalendarItemDone = async (taskId: string) => {
-    try {
-      const updated = await api.updateTask(taskId, { status: 'done' });
-      setCalendarItems((prev) => prev.map((t) => t.id === taskId ? updated : t));
-    } catch (err) {
-      console.error('[ContactDetailPage] Failed to update calendar item:', err);
-    }
-  };
 
   const loadTasks = useCallback(async () => {
     if (!id) return;
@@ -950,125 +1176,6 @@ function ContactDetailPage() {
                 <p className="font-mono text-[9px] uppercase tracking-[.18em] text-muted-foreground">Description</p>
                 <p className="mt-1 text-sm leading-6 text-[#34443f]">{contact.note || 'No description yet.'}</p>
               </div>
-            </div>
-          </div>
-        )}
-
-        {!loading && contact && (
-          <div className="mt-5 rounded-[22px] border border-card-border bg-card p-5">
-            <div className="flex items-center gap-2">
-              <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#fff0df] text-[#af5c1c]">
-                <CalendarIcon size={15} />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold tracking-tight">Calendar</h3>
-                <p className="text-[10px] text-[#af5c1c]">{calendarItems.filter((t) => t.status !== 'done').length} upcoming</p>
-              </div>
-              <div className="ml-auto flex items-center gap-1">
-                {!googleAuthStatus?.connected ? (
-                  <button
-                    type="button"
-                    onClick={handleConnectGoogleCalendar}
-                    className="flex items-center gap-1.5 rounded-full bg-[#3f8274] px-3 py-1.5 text-[10px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#356c61]"
-                  >
-                    <CalendarIcon size={11} />
-                    Connect Google Calendar
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleSyncCalendar}
-                      disabled={syncing}
-                      className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-50"
-                    >
-                      <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDisconnectGoogleCalendar}
-                      className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
-                    >
-                      Disconnect
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-2">
-              {calendarLoading && calendarItems.length === 0 ? (
-                <div className="flex items-center justify-center py-6">
-                  <LoaderCircle size={14} className="animate-spin text-muted-foreground" />
-                </div>
-              ) : calendarItems.length === 0 ? (
-                <p className="py-3 text-center text-xs text-muted-foreground">Nothing scheduled for this contact yet.</p>
-              ) : (
-                calendarItems.map((item) => {
-                  const due = new Date(item.dueDate!);
-                  const isOverdue = due.getTime() < Date.now() && item.status !== 'done';
-                  const isSynced = !!item.googleEventId;
-                  const syncStatus = item.lastSyncedAt ? (
-                    <span className="text-[8px] text-muted-foreground">
-                      {isSynced ? '✓ Synced' : 'Sync pending'}
-                    </span>
-                  ) : null;
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-3 rounded-xl border border-border bg-[#fbfaf6] px-3 py-2.5"
-                    >
-                      <div className="min-w-16 shrink-0">
-                        <p className={`font-mono text-[9px] uppercase tracking-[.08em] ${isOverdue ? 'text-[#b44343]' : 'text-muted-foreground'}`}>
-                          {isOverdue ? 'Overdue' : due.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </p>
-                        {!isOverdue && (
-                          <p className="text-[9px] text-muted-foreground">
-                            {due.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-                          </p>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className={`truncate text-xs font-medium ${item.status === 'done' ? 'text-muted-foreground line-through' : ''}`}>
-                          {item.title}
-                        </p>
-                        <div className="mt-0.5 flex items-center gap-2">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-[.06em] ${
-                            item.priority === 'high' ? 'bg-[#fde3e3] text-[#b44343]'
-                            : item.priority === 'low' ? 'bg-[#edf1ec] text-[#58645f]'
-                            : 'bg-[#eef1fb] text-[#3159c4]'
-                          }`}>
-                            {item.priority}
-                          </span>
-                          {syncStatus}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {isSynced && (
-                          <a
-                            href={`https://calendar.google.com/calendar/event?eid=${item.googleEventId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[9px] font-bold text-[#3159c4] hover:underline"
-                          >
-                            View in Calendar
-                          </a>
-                        )}
-                        {item.status !== 'done' && (
-                          <button
-                            type="button"
-                            onClick={() => void markCalendarItemDone(item.id)}
-                            className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-[10px] font-bold text-muted-foreground hover:bg-muted"
-                          >
-                            Done
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
             </div>
           </div>
         )}

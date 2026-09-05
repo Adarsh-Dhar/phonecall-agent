@@ -648,6 +648,23 @@ export const syncCalendar = async (): Promise<CalendarSyncResult> => {
   return response.json();
 };
 
+export type GoogleCalendarEvent = {
+  id: string;
+  summary: string;
+  description: string | null;
+  start: { dateTime?: string; date?: string } | null;
+  end: { dateTime?: string; date?: string } | null;
+  status: string;
+  htmlLink: string;
+};
+
+/** Fetch Google Calendar events */
+export const fetchGoogleCalendarEvents = async (): Promise<{ events: GoogleCalendarEvent[] }> => {
+  const response = await fetch(`${API_BASE_URL}/calendar/events`);
+  if (!response.ok) throw new Error('Failed to fetch Google Calendar events');
+  return response.json();
+};
+
 // ─── Gemini Chat API ─────────────────────────────────────────────────────────
 
 // Gemini Chat API
