@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -28,13 +29,29 @@ app.use(
     },
   }),
 );
-app.use(cors());
+app.use(cors({
+  credentials: true,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (curl, server-to-server) and any localhost port
+    if (!origin || /^https?:\/\/localhost(:\d+)?$/.test(origin)) {
+      callback(null, true);
+    } else {
+      const allowed = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (allowed.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: origin ${origin} not allowed`));
+      }
+    }
+  },
+}));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
-// Serve frontend static files if they exist (graceful fallback)
+// Serve frontend static files only in production (not during development)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const frontendDistPath = path.join(__dirname, "../../phone-agent/dist/public");
 
@@ -43,15 +60,15 @@ if (fs.existsSync(frontendDistPath)) {
   
   // Serve index.html for SPA routing (catch-all for non-API routes)
   app.use((req, res, next) => {
-    // Skip API routes and static files
     if (req.path.startsWith("/api") || req.path.includes(".")) {
       return next();
     }
-    // Serve index.html for all other routes (SPA routing)
     res.sendFile(path.join(frontendDistPath, "index.html"));
   });
   
   logger.info("Frontend static files enabled");
+} else if (process.env.NODE_ENV === 'development') {
+  logger.info("Development mode: frontend served by Vite at http://localhost:5177");
 } else {
   logger.warn("Frontend static files not found, serving API only");
 }

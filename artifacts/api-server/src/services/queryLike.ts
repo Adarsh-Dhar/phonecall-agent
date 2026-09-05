@@ -33,6 +33,15 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
       const { id } = req.params;
       const { status } = req.query;
 
+      // Verify conversation belongs to user
+      const conversation = await prisma.conversation.findFirst({
+        where: { id: String(id), contact: { userId: req.userId! } },
+      });
+      if (!conversation) {
+        res.status(404).json({ error: "Conversation not found" });
+        return;
+      }
+
       const queries = await prisma.query.findMany({
         where: {
           conversationId: String(id),
@@ -56,6 +65,15 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
     asyncHandler(async (req, res) => {
       const { id } = req.params;
       const { status } = req.query;
+
+      // Verify contact belongs to user
+      const contact = await prisma.contact.findFirst({
+        where: { id: String(id), userId: req.userId! },
+      });
+      if (!contact) {
+        res.status(404).json({ error: "Contact not found" });
+        return;
+      }
 
       const queries = await prisma.query.findMany({
         where: {
@@ -82,6 +100,7 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
 
       const queries = await prisma.query.findMany({
         where: {
+          contact: { userId: req.userId! },
           isKnowledgeGap: opts.isKnowledgeGap,
           ...(status ? { status: String(status) } : {}),
           ...(contactId ? { contactId: String(contactId) } : {}),

@@ -33,6 +33,8 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
       include: { contact: true },
     });
     if (!conversation) return result;
+    
+    const userId = conversation.contact.userId;
 
     // ------------------------------------------------------------------
     // 2. Fetch delta: messages newer than the cursor
@@ -144,7 +146,7 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
 
     // Sync tasks to Google Calendar (non-blocking, after transaction)
     for (const taskToSync of tasksToSync) {
-      syncTaskToCalendar(taskToSync).catch((err) => {
+      syncTaskToCalendar({ ...taskToSync, userId }).catch((err) => {
         console.error("Failed to sync task to calendar:", err);
       });
     }

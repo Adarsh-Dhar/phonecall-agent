@@ -36,11 +36,11 @@ export function startCalendarSync(): void {
   logger.info("Starting calendar sync polling service");
 
   // Initial sync
-  void syncCalendarChanges();
+  void syncAllUsersCalendarChanges();
 
   // Set up periodic polling
   pollTimer = setInterval(() => {
-    void syncCalendarChanges();
+    void syncAllUsersCalendarChanges();
   }, POLL_INTERVAL_MS);
 }
 
@@ -57,14 +57,14 @@ export function stopCalendarSync(): void {
 }
 
 /**
- * Manually trigger a calendar sync.
+ * Manually trigger a calendar sync for a specific user.
  * Useful for API endpoints or testing.
  */
-export async function manualSync(): Promise<{
+export async function manualSync(userId: string): Promise<{
   synced: number;
   errors: number;
 }> {
-  return await syncCalendarChanges();
+  return await syncCalendarChanges(userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -72,9 +72,34 @@ export async function manualSync(): Promise<{
 // ---------------------------------------------------------------------------
 
 /**
- * Main sync function: polls for calendar changes and updates tasks.
+ * Sync calendar changes for all users with refresh tokens.
  */
-async function syncCalendarChanges(): Promise<{
+async function syncAllUsersCalendarChanges(): Promise<void> {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        refreshToken: { not: "" },
+        accessToken: { not: "" },
+      },
+      select: { id: true },
+    });
+
+    for (const user of users) {
+      try {
+        await syncCalendarChanges(user.id);
+      } catch (error) {
+        logger.error({ error, userId: user.id }, "Failed to sync calendar for user");
+      }
+    }
+  } catch (error) {
+    logger.error({ error }, "Failed to get users for calendar sync");
+  }
+}
+
+/**
+ * Main sync function: polls for calendar changes and updates tasks for a specific user.
+ */
+async function syncCalendarChanges(userId: string): Promise<{
   synced: number;
   errors: number;
 }> {
@@ -82,17 +107,17 @@ async function syncCalendarChanges(): Promise<{
 
   try {
     // Get current sync token from database
-    const auth = await prisma.googleAuth.findUnique({
-      where: { id: "default" },
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
     });
 
-    if (!auth) {
-      logger.debug("Calendar sync: no Google auth found, skipping");
+    if (!user) {
+      logger.debug("Calendar sync: no user found, skipping");
       return result;
     }
 
     // Poll for changes
-    const { events, nextSyncToken } = await listChangedEvents(auth.syncToken || undefined);
+    const { events, nextSyncToken } = await listChangedEvents(userId, user.syncToken || undefined);
 
     if (!nextSyncToken) {
       logger.debug("Calendar sync: no next sync token returned, skipping");
@@ -102,7 +127,7 @@ async function syncCalendarChanges(): Promise<{
     // Process each changed event
     for (const event of events) {
       try {
-        await processEventChange(event);
+        await processEventChange(event, userId);
         result.synced++;
       } catch (error) {
         logger.error({ error, eventId: event.id }, "Failed to process calendar event change");
@@ -112,12 +137,12 @@ async function syncCalendarChanges(): Promise<{
 
     if (result.synced > 0 || result.errors > 0) {
       logger.info(
-        { synced: result.synced, errors: result.errors },
+        { synced: result.synced, errors: result.errors, userId },
         "Calendar sync completed"
       );
     }
   } catch (error) {
-    logger.error({ error }, "Calendar sync failed");
+    logger.error({ error, userId }, "Calendar sync failed");
     result.errors++;
   }
 
@@ -134,15 +159,18 @@ async function processEventChange(event: {
   start: { dateTime?: string; date?: string } | null;
   end: { dateTime?: string; date?: string } | null;
   status: string;
-}): Promise<void> {
-  // Find task by Google event ID
+}, userId: string): Promise<void> {
+  // Find task by Google event ID for this user
   const task = await prisma.task.findFirst({
-    where: { googleEventId: event.id },
+    where: { 
+      googleEventId: event.id,
+      contact: { userId },
+    },
     include: { contact: true },
   });
 
   if (!task) {
-    logger.debug({ eventId: event.id }, "No task found for calendar event, skipping");
+    logger.debug({ eventId: event.id, userId }, "No task found for calendar event, skipping");
     return;
   }
 

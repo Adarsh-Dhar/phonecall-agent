@@ -23,6 +23,7 @@ const router: IRouter = Router();
 
 router.get("/calls", async (req, res) => {
   const calls = await prisma.call.findMany({
+    where: { contact: { userId: req.userId! } },
     orderBy: { createdAt: "desc" },
     include: { contact: { select: contactCardSelect } },
   });
@@ -35,8 +36,8 @@ router.get("/calls", async (req, res) => {
 
 router.get("/calls/:id", async (req, res) => {
   const { id } = req.params;
-  const call = await prisma.call.findUnique({
-    where: { id: String(id) },
+  const call = await prisma.call.findFirst({
+    where: { id: String(id), contact: { userId: req.userId! } },
     include: { contact: { select: contactCardSelectWithPhone } },
   });
   if (!call) {
@@ -52,6 +53,14 @@ router.get("/calls/:id", async (req, res) => {
 
 router.get("/conversations/:conversationId/calls", async (req, res) => {
   const { conversationId } = req.params;
+  // Verify the conversation belongs to this user
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: String(conversationId), contact: { userId: req.userId! } },
+  });
+  if (!conversation) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
   const calls = await prisma.call.findMany({
     where: { conversationId: String(conversationId) },
     orderBy: { createdAt: "desc" },

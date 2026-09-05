@@ -4,6 +4,7 @@ import * as api from '@/lib/api';
 import type { Contact } from '@/lib/api';
 import { AppLayout } from '@/components/layout';
 import { useSharedState } from '@/hooks/useSharedState';
+import { useAuth } from '@/hooks/useAuth';
 import { Avatar } from '@/components/shared';
 import { ContactTasksCard } from '@/components/contact/ContactTasksCard';
 import { ContactQuestionsCard } from '@/components/contact/ContactQuestionsCard';
@@ -12,6 +13,7 @@ import { ContactFilesCard } from '@/components/contact/ContactFilesCard';
 export function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();
+  const { user } = useAuth();
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -74,6 +76,12 @@ export function ContactDetailPage() {
                 <p className="font-mono text-[9px] uppercase tracking-[.18em] text-muted-foreground">Description</p>
                 <p className="mt-1 text-sm leading-6 text-[#34443f]">{contact.note || 'No description yet.'}</p>
               </div>
+              {user?.email && (
+                <div>
+                  <p className="font-mono text-[9px] uppercase tracking-[.18em] text-muted-foreground">Account</p>
+                  <p className="mt-1 text-sm text-[#34443f]">{user.email}</p>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -8,7 +8,10 @@ const router: IRouter = Router();
 router.get("/contacts", asyncHandler(async (req, res) => {
   const { category } = req.query;
   const contacts = await prisma.contact.findMany({
-    where: category ? { category: String(category) } : undefined,
+    where: {
+      userId: req.userId!,
+      ...(category ? { category: String(category) } : {}),
+    },
     include: {
       conversations: {
         select: { id: true, title: true, updatedAt: true },
@@ -26,6 +29,7 @@ router.post("/contacts", asyncHandler(async (req, res) => {
   const { name, business, category, phone, initials, color, note, online, withConversation } = req.body;
   const contact = await prisma.contact.create({
     data: {
+      userId: req.userId!,
       name,
       business,
       category,
@@ -46,6 +50,14 @@ router.post("/contacts", asyncHandler(async (req, res) => {
 // Get the active conversation for a contact
 router.get("/contacts/:id/conversation", asyncHandler(async (req, res) => {
   const { id } = req.params;
+  // Verify contact belongs to this user
+  const contact = await prisma.contact.findFirst({
+    where: { id: String(id), userId: req.userId! },
+  });
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
   const conversation = await prisma.conversation.findFirst({
     where: { contactId: String(id) },
     orderBy: { updatedAt: "desc" },
@@ -57,7 +69,6 @@ router.get("/contacts/:id/conversation", asyncHandler(async (req, res) => {
     },
   });
   if (!conversation) {
-    // Return 404 but with a clear error message
     res.status(404).json({ error: "No conversation found for this contact" });
     return;
   }
@@ -68,18 +79,17 @@ router.get("/contacts/:id/conversation", asyncHandler(async (req, res) => {
 router.put("/contacts/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, business, category, phone, initials, color, note, online } = req.body;
+  // Verify ownership before update
+  const existing = await prisma.contact.findFirst({
+    where: { id: String(id), userId: req.userId! },
+  });
+  if (!existing) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
   const contact = await prisma.contact.update({
     where: { id: String(id) },
-    data: {
-      name,
-      business,
-      category,
-      phone,
-      initials,
-      color,
-      note,
-      online,
-    },
+    data: { name, business, category, phone, initials, color, note, online },
   });
   res.json(contact);
 }, "Failed to update contact"));
@@ -87,9 +97,15 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
 // Delete a contact
 router.delete("/contacts/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  await prisma.contact.delete({
-    where: { id: String(id) },
+  // Verify ownership before delete
+  const existing = await prisma.contact.findFirst({
+    where: { id: String(id), userId: req.userId! },
   });
+  if (!existing) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+  await prisma.contact.delete({ where: { id: String(id) } });
   res.json({ success: true });
 }, "Failed to delete contact"));
 

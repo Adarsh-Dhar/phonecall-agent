@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './shared';
+import { API_BASE_URL, apiFetch } from './shared';
 
 // ─── Task types ─────────────────────────────────────────────────────────────
 
@@ -58,7 +58,7 @@ export const fetchConversationTasks = async (
   const url = status
     ? `${API_BASE_URL}/conversations/${conversationId}/tasks?status=${status}`
     : `${API_BASE_URL}/conversations/${conversationId}/tasks`;
-  const response = await fetch(url);
+  const response = await apiFetch(url);
   if (!response.ok) throw new Error('Failed to fetch conversation tasks');
   return response.json();
 };
@@ -71,7 +71,7 @@ export const fetchContactTasks = async (
   const url = status
     ? `${API_BASE_URL}/contacts/${contactId}/tasks?status=${status}`
     : `${API_BASE_URL}/contacts/${contactId}/tasks`;
-  const response = await fetch(url);
+  const response = await apiFetch(url);
   if (!response.ok) throw new Error('Failed to fetch contact tasks');
   return response.json();
 };
@@ -87,7 +87,7 @@ export const fetchTasks = async (filters?: {
   if (filters?.priority) params.set('priority', filters.priority);
   if (filters?.contactId) params.set('contactId', filters.contactId);
   const qs = params.toString();
-  const response = await fetch(`${API_BASE_URL}/tasks${qs ? `?${qs}` : ''}`);
+  const response = await apiFetch(`${API_BASE_URL}/tasks${qs ? `?${qs}` : ''}`);
   if (!response.ok) throw new Error('Failed to fetch tasks');
   return response.json();
 };
@@ -101,7 +101,7 @@ export const createTask = async (data: {
   conversationId: string;
   contactId: string;
 }): Promise<Task> => {
-  const response = await fetch(`${API_BASE_URL}/tasks`, {
+  const response = await apiFetch(`${API_BASE_URL}/tasks`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -115,7 +115,7 @@ export const updateTask = async (
   id: string,
   data: Partial<Pick<Task, 'title' | 'description' | 'dueDate' | 'priority'> & { status: TaskStatus }>,
 ): Promise<Task> => {
-  const response = await fetch(`${API_BASE_URL}/tasks/${id}`, {
+  const response = await apiFetch(`${API_BASE_URL}/tasks/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -128,7 +128,7 @@ export const updateTask = async (
 export const extractTasks = async (
   conversationId: string,
 ): Promise<{ ok: boolean; created: string[]; updated: string[]; completed: string[]; cancelled: string[] }> => {
-  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/extract`, {
+  const response = await apiFetch(`${API_BASE_URL}/conversations/${conversationId}/extract`, {
     method: 'POST',
   });
   if (!response.ok) throw new Error('Failed to trigger extraction');

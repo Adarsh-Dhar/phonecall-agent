@@ -25,7 +25,7 @@ function sendAuthFailure(res: import("express").Response, reason: "not_connected
 // ---------------------------------------------------------------------------
 router.post("/calendar/sync", asyncHandler(async (req, res) => {
   try {
-    const result = await manualSync();
+    const result = await manualSync(req.userId!);
     res.json(result);
   } catch (error) {
     logger.error({ error }, "Failed to trigger manual calendar sync");
@@ -41,7 +41,7 @@ router.post("/calendar/events", asyncHandler(async (req, res) => {
   try {
     logger.info("Creating Google Calendar event");
 
-    const authed = await getAuthedClientOrReason();
+    const authed = await getAuthedClientOrReason(req.userId!);
     if (!authed.ok) {
       sendAuthFailure(res, authed.reason);
       return;
@@ -70,7 +70,7 @@ router.get("/calendar/events", asyncHandler(async (req, res) => {
   try {
     logger.info("Fetching Google Calendar events");
 
-    const authed = await getAuthedClientOrReason();
+    const authed = await getAuthedClientOrReason(req.userId!);
     if (!authed.ok) {
       sendAuthFailure(res, authed.reason);
       return;

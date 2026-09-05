@@ -8,6 +8,16 @@ const router: IRouter = Router();
 // Get messages for a conversation
 router.get("/conversations/:conversationId/messages", asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
+  
+  // Verify conversation belongs to user
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: String(conversationId), contact: { userId: req.userId! } },
+  });
+  if (!conversation) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  
   const messages = await prisma.message.findMany({
     where: { conversationId: String(conversationId) },
     orderBy: { createdAt: "asc" },
@@ -19,6 +29,16 @@ router.get("/conversations/:conversationId/messages", asyncHandler(async (req, r
 router.post("/conversations/:conversationId/messages", asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
   const { role, content, time, pending } = req.body;
+
+  // Verify conversation belongs to user
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: String(conversationId), contact: { userId: req.userId! } },
+  });
+  if (!conversation) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+
   const message = await prisma.message.create({
     data: {
       role,
@@ -44,14 +64,17 @@ router.post("/conversations/:conversationId/messages", asyncHandler(async (req, 
 router.put("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { role, content, time, pending } = req.body;
+  // Verify ownership via conversation → contact → user
+  const existing = await prisma.message.findFirst({
+    where: { id: String(id), conversation: { contact: { userId: req.userId! } } },
+  });
+  if (!existing) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
   const message = await prisma.message.update({
     where: { id: String(id) },
-    data: {
-      role,
-      content,
-      time,
-      pending,
-    },
+    data: { role, content, time, pending },
   });
   res.json(message);
 }, "Failed to update message"));
@@ -59,9 +82,15 @@ router.put("/:id", asyncHandler(async (req, res) => {
 // Delete a message
 router.delete("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  await prisma.message.delete({
-    where: { id: String(id) },
+  // Verify ownership via conversation → contact → user
+  const existing = await prisma.message.findFirst({
+    where: { id: String(id), conversation: { contact: { userId: req.userId! } } },
   });
+  if (!existing) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
+  await prisma.message.delete({ where: { id: String(id) } });
   res.json({ success: true });
 }, "Failed to delete message"));
 

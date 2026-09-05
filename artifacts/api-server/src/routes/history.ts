@@ -5,8 +5,9 @@ import { asyncHandler } from "../lib/asyncHandler";
 const router: IRouter = Router();
 
 // Get all history items
-router.get("/history", asyncHandler(async (_req, res) => {
+router.get("/history", asyncHandler(async (req, res) => {
   const history = await prisma.history.findMany({
+    where: { conversation: { contact: { userId: req.userId! } } },
     include: {
       conversation: {
         include: {
@@ -22,6 +23,16 @@ router.get("/history", asyncHandler(async (_req, res) => {
 // Get history for a specific conversation
 router.get("/conversations/:conversationId/history", asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
+  
+  // Verify conversation belongs to user
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: String(conversationId), contact: { userId: req.userId! } },
+  });
+  if (!conversation) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  
   const history = await prisma.history.findMany({
     where: { conversationId: String(conversationId) },
     orderBy: { createdAt: "desc" },
@@ -33,16 +44,19 @@ router.get("/conversations/:conversationId/history", asyncHandler(async (req, re
 router.post("/conversations/:conversationId/history", asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
   const { title, detail, status, time } = req.body;
-  const history = await prisma.history.create({
-    data: {
-      title,
-      detail,
-      status,
-      time,
-      conversationId: String(conversationId),
-    },
+
+  // Verify conversation belongs to user
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: String(conversationId), contact: { userId: req.userId! } },
   });
-  // Update conversation timestamp
+  if (!conversation) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+
+  const history = await prisma.history.create({
+    data: { title, detail, status, time, conversationId: String(conversationId) },
+  });
   await prisma.conversation.update({
     where: { id: String(conversationId) },
     data: { updatedAt: new Date() },
@@ -54,14 +68,17 @@ router.post("/conversations/:conversationId/history", asyncHandler(async (req, r
 router.put("/history/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { title, detail, status, time } = req.body;
+  // Verify ownership
+  const existing = await prisma.history.findFirst({
+    where: { id: String(id), conversation: { contact: { userId: req.userId! } } },
+  });
+  if (!existing) {
+    res.status(404).json({ error: "History item not found" });
+    return;
+  }
   const history = await prisma.history.update({
     where: { id: String(id) },
-    data: {
-      title,
-      detail,
-      status,
-      time,
-    },
+    data: { title, detail, status, time },
   });
   res.json(history);
 }, "Failed to update history item"));
@@ -69,9 +86,15 @@ router.put("/history/:id", asyncHandler(async (req, res) => {
 // Delete a history item
 router.delete("/history/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  await prisma.history.delete({
-    where: { id: String(id) },
+  // Verify ownership
+  const existing = await prisma.history.findFirst({
+    where: { id: String(id), conversation: { contact: { userId: req.userId! } } },
   });
+  if (!existing) {
+    res.status(404).json({ error: "History item not found" });
+    return;
+  }
+  await prisma.history.delete({ where: { id: String(id) } });
   res.json({ success: true });
 }, "Failed to delete history item"));
 

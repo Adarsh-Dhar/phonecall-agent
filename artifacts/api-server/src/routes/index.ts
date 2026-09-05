@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import authRouter from "./auth";
 import geminiRouter from "./gemini";
 import contactsRouter from "./contacts";
 import conversationsRouter from "./conversations";
@@ -9,13 +10,17 @@ import tasksRouter from "./tasks";
 import questionsRouter from "./questions";
 import knowledgeRouter from "./knowledge";
 import callsRouter from "./calls";
-import googleAuthRouter from "./googleAuth";
 import calendarEventsRouter from "./calendarEvents";
+import { requireAuth } from "../lib/authMiddleware";
 
 const router: IRouter = Router();
 
-// ── Standard API routes ────────────────────────────────────────────────────
+// ── Public routes ─────────────────────────────────────────────────────────
 router.use(healthRouter);
+router.use(authRouter);
+
+// ── Protected routes (require authentication) ─────────────────────────────
+router.use(requireAuth);
 router.use(geminiRouter);
 router.use(contactsRouter);
 router.use(conversationsRouter);
@@ -24,12 +29,7 @@ router.use(historyRouter);
 router.use(tasksRouter);
 router.use(questionsRouter);
 router.use(knowledgeRouter);
-
-// ── Calls REST API ──────────────────────────────────────────────────────────
 router.use(callsRouter);
-
-// ── Google Calendar OAuth + events ────────────────────────────────────────
-router.use(googleAuthRouter);
 router.use(calendarEventsRouter);
 
 export default router;

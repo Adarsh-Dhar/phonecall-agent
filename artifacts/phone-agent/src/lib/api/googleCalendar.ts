@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './shared';
+import { API_BASE_URL, apiFetch } from './shared';
 
 // ─── Google Calendar API ─────────────────────────────────────────────────────
 
@@ -13,30 +13,42 @@ export type CalendarSyncResult = {
   errors: number;
 };
 
-/** Check Google Calendar connection status */
+/**
+ * Check whether the current user has a connected Google Calendar.
+ * The server reads the JWT cookie to identify the user; no body needed.
+ */
 export const fetchGoogleAuthStatus = async (): Promise<GoogleAuthStatus> => {
-  const response = await fetch(`${API_BASE_URL}/auth/google/status`);
+  const response = await apiFetch(`${API_BASE_URL}/auth/google/status`);
   if (!response.ok) throw new Error('Failed to fetch Google auth status');
   return response.json();
 };
 
-/** Redirect to Google OAuth consent screen */
+/**
+ * Redirect to the Google OAuth consent screen.
+ * Because this is a full-page redirect (not a fetch), it intentionally does
+ * NOT use apiFetch — the browser handles cookie transmission automatically.
+ * Signing in grants both identity and calendar.events scope in one step,
+ * so there is no separate "Connect Calendar" button needed.
+ */
 export const connectGoogleCalendar = async (): Promise<void> => {
-  window.location.href = `${API_BASE_URL}/auth/google`;
+  window.location.href = `${API_BASE_URL}/auth/google/login`;
 };
 
-/** Disconnect Google Calendar */
+/**
+ * Clears stored Google tokens for the current user (disconnect calendar).
+ * The user stays logged in — only calendar access is revoked.
+ */
 export const disconnectGoogleCalendar = async (): Promise<{ success: boolean }> => {
-  const response = await fetch(`${API_BASE_URL}/auth/google`, {
+  const response = await apiFetch(`${API_BASE_URL}/auth/google`, {
     method: 'DELETE',
   });
   if (!response.ok) throw new Error('Failed to disconnect Google Calendar');
   return response.json();
 };
 
-/** Manually trigger calendar sync */
+/** Manually trigger a calendar sync for the current user. */
 export const syncCalendar = async (): Promise<CalendarSyncResult> => {
-  const response = await fetch(`${API_BASE_URL}/calendar/sync`, {
+  const response = await apiFetch(`${API_BASE_URL}/calendar/sync`, {
     method: 'POST',
   });
   if (!response.ok) throw new Error('Failed to sync calendar');
@@ -53,9 +65,9 @@ export type GoogleCalendarEvent = {
   htmlLink: string;
 };
 
-/** Fetch Google Calendar events */
+/** Fetch the current user's Google Calendar events. */
 export const fetchGoogleCalendarEvents = async (): Promise<{ events: GoogleCalendarEvent[] }> => {
-  const response = await fetch(`${API_BASE_URL}/calendar/events`);
+  const response = await apiFetch(`${API_BASE_URL}/calendar/events`);
   if (!response.ok) throw new Error('Failed to fetch Google Calendar events');
   return response.json();
 };

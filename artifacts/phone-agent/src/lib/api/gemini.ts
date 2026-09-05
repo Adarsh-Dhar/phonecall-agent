@@ -1,10 +1,12 @@
+import { apiFetch } from './shared';
+
 // ─── Gemini Chat API ─────────────────────────────────────────────────────────
 
 export const sendGeminiMessage = async (
   messages: Array<{ role: string; content: string }>,
   contactId?: string,
 ) => {
-  const response = await fetch('/api/gemini/chat', {
+  const response = await apiFetch('/api/gemini/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages, contactId }),

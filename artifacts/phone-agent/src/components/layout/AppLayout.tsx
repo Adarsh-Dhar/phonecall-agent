@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { ArrowUpRight, CircleHelp, History, MessageCircle, Phone as PhoneIcon, ShieldCheck, Users } from 'lucide-react';
+import { ArrowUpRight, CircleHelp, History, LogOut, MessageCircle, Phone as PhoneIcon, ShieldCheck, Users } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { IconButton } from '@/components/shared/IconButton';
 import { Preferences } from './Preferences';
+import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
   { path: '/calls', label: 'Calls', icon: <PhoneIcon size={16} />, testId: 'nav-calls' },
@@ -26,8 +27,14 @@ export function AppLayout({
   onPrefsClose: () => void;
 }) {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
 
   const isActive = (path: string) => location.startsWith(path);
+
+  /** Initials fallback when there's no picture. */
+  const initials = user?.name
+    ? user.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+    : 'U';
 
   return (
     <div className="grain min-h-dvh bg-background">
@@ -101,7 +108,25 @@ export function AppLayout({
             <IconButton label="help" onClick={onPrefsOpen} className="h-9 w-9 rounded-full text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]">
               <CircleHelp size={18} />
             </IconButton>
-            <div className="ml-1 grid h-8 w-8 place-items-center rounded-full bg-[#c8d9e8] text-[10px] font-bold">AP</div>
+            {user?.picture ? (
+              <img
+                src={user.picture}
+                alt={user.name ?? 'User'}
+                referrerPolicy="no-referrer"
+                className="ml-1 h-8 w-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="ml-1 grid h-8 w-8 place-items-center rounded-full bg-[#c8d9e8] text-[10px] font-bold">
+                {initials}
+              </div>
+            )}
+            <IconButton
+              label="Sign out"
+              onClick={() => { void logout(); }}
+              className="h-9 w-9 rounded-full text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
+            >
+              <LogOut size={16} />
+            </IconButton>
           </div>
         </header>
 

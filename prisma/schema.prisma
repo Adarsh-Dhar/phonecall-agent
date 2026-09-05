@@ -8,23 +8,43 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String    @id @default(cuid())
+  googleId     String    @unique
+  email        String    @unique
+  name         String?
+  picture      String?
+  accessToken  String  @default("")
+  refreshToken String  @default("")
+  expiryDate   DateTime
+  scope        String
+  syncToken    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  contacts     Contact[]
+}
+
 model Contact {
-  id            String             @id @default(cuid())
-  name          String
-  business      String
-  category      String
-  phone         String
-  initials      String
-  color         String
-  note          String?
-  online        Boolean            @default(false)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  calls         Call[]
-  knowledge     ContactKnowledge[]
+  id        String             @id @default(cuid())
+  userId    String
+  name      String
+  business  String
+  category  String
+  phone     String
+  initials  String
+  color     String
+  note      String?
+  online    Boolean            @default(false)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calls     Call[]
+  knowledge ContactKnowledge[]
   conversations Conversation[]
-  queries       Query[]
-  tasks         Task[]
+  queries   Query[]
+  tasks     Task[]
+
+  @@index([userId])
 }
 
 model Conversation {
@@ -115,17 +135,6 @@ model TaskSourceMessage {
   task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, messageId, role])
-}
-
-model GoogleAuth {
-  id           String   @id @default("default")
-  accessToken  String
-  refreshToken String
-  expiryDate   DateTime
-  scope        String
-  syncToken    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 }
 
 model Query {

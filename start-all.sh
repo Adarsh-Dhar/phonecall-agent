@@ -26,7 +26,6 @@ kill_port() {
 echo "Checking for existing processes on ports..."
 kill_port 5175
 kill_port 5176
-kill_port 5177
 echo "Ports cleared."
 
 # Start PostgreSQL Docker container if not running
@@ -52,6 +51,11 @@ npx prisma@6.19.3 generate --schema=prisma/schema.prisma
 echo "Seeding database..."
 npx tsx seed.ts || echo "Seed failed (might already exist)"
 
+# Build frontend
+echo "Building frontend..."
+(cd artifacts/phone-agent && pnpm run build)
+echo "Frontend built."
+
 # Function to handle cleanup on exit
 cleanup() {
     echo ""
@@ -63,20 +67,14 @@ cleanup() {
 # Set trap to cleanup on Ctrl+C
 trap cleanup SIGINT SIGTERM
 
-# Start API server
+# Start API server (also serves the built frontend)
 echo "Starting API server..."
 (cd artifacts/api-server && PORT=5175 pnpm run dev) &
 API_PID=$!
 
-# Start phone agent (Vite dev server)
-echo "Starting phone agent..."
-(cd artifacts/phone-agent && PORT=5177 pnpm run dev) &
-AGENT_PID=$!
-
 echo ""
 echo "All processes started:"
-[ -n "$API_PID" ] && echo "  - API server (PID: $API_PID) - http://localhost:5175"
-[ -n "$AGENT_PID" ] && echo "  - Phone agent (PID: $AGENT_PID) - http://localhost:5177"
+[ -n "$API_PID" ] && echo "  - App (API + frontend) - http://localhost:5175"
 echo "  - Database: $DATABASE_URL"
 echo ""
 echo "Press Ctrl+C to stop all processes"

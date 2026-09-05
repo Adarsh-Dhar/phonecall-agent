@@ -22,8 +22,9 @@ export async function createEvent(task: {
   description: string | null;
   dueDate: Date | null;
   contact: { name: string; business: string };
+  userId: string;
 }): Promise<string | null> {
-  const auth = await getAuthedClient();
+  const auth = await getAuthedClient(task.userId);
   if (!auth) {
     logger.warn("Cannot create calendar event: no authenticated client");
     return null;
@@ -96,8 +97,9 @@ export async function updateEvent(task: {
   dueDate: Date | null;
   status: string;
   contact: { name: string; business: string };
+  userId: string;
 }): Promise<boolean> {
-  const auth = await getAuthedClient();
+  const auth = await getAuthedClient(task.userId);
   if (!auth) {
     logger.warn("Cannot update calendar event: no authenticated client");
     return false;
@@ -178,8 +180,9 @@ export async function updateEvent(task: {
 export async function deleteEvent(task: {
   id: string;
   googleEventId: string;
+  userId: string;
 }): Promise<boolean> {
-  const auth = await getAuthedClient();
+  const auth = await getAuthedClient(task.userId);
   if (!auth) {
     logger.warn("Cannot delete calendar event: no authenticated client");
     return false;
@@ -216,7 +219,7 @@ export async function deleteEvent(task: {
  * List changed events using incremental sync with syncToken.
  * Returns the new syncToken and array of changed events.
  */
-export async function listChangedEvents(syncToken?: string): Promise<{
+export async function listChangedEvents(userId: string, syncToken?: string): Promise<{
   events: Array<{
     id: string;
     summary: string | null;
@@ -227,7 +230,7 @@ export async function listChangedEvents(syncToken?: string): Promise<{
   }>;
   nextSyncToken: string | null;
 }> {
-  const auth = await getAuthedClient();
+  const auth = await getAuthedClient(userId);
   if (!auth) {
     logger.warn("Cannot list calendar events: no authenticated client");
     return { events: [], nextSyncToken: null };
@@ -254,8 +257,8 @@ export async function listChangedEvents(syncToken?: string): Promise<{
 
     // Update sync token in database if we got a new one
     if (nextSyncToken) {
-      await prisma.googleAuth.update({
-        where: { id: "default" },
+      await prisma.user.update({
+        where: { id: userId },
         data: { syncToken: nextSyncToken },
       });
     }
@@ -281,13 +284,14 @@ export async function syncTaskToCalendar(task: {
   status: string;
   googleEventId: string | null;
   contact: { name: string; business: string };
+  userId: string;
 }): Promise<boolean> {
   try {
     // A cancelled task shouldn't keep occupying the calendar — remove the
     // event entirely rather than just updating its title.
     if (task.status === "cancelled") {
       if (task.googleEventId) {
-        return await deleteEvent({ id: task.id, googleEventId: task.googleEventId });
+        return await deleteEvent({ id: task.id, googleEventId: task.googleEventId, userId: task.userId });
       }
       return true;
     }
@@ -295,7 +299,7 @@ export async function syncTaskToCalendar(task: {
     if (!task.dueDate) {
       // If no due date, delete existing event if any
       if (task.googleEventId) {
-        return await deleteEvent({ id: task.id, googleEventId: task.googleEventId });
+        return await deleteEvent({ id: task.id, googleEventId: task.googleEventId, userId: task.userId });
       }
       return true;
     }
@@ -305,6 +309,7 @@ export async function syncTaskToCalendar(task: {
       return await updateEvent({
         ...task,
         googleEventId: task.googleEventId,
+        userId: task.userId,
       });
     } else {
       // Create new event

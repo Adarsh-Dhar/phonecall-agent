@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './shared';
+import { API_BASE_URL, apiFetch } from './shared';
 
 export type Contact = {
   id: string;
@@ -21,13 +21,13 @@ export type Contact = {
 
 // Contacts API
 export const fetchContacts = async (): Promise<Contact[]> => {
-  const response = await fetch(`${API_BASE_URL}/contacts`);
+  const response = await apiFetch(`${API_BASE_URL}/contacts`);
   if (!response.ok) throw new Error('Failed to fetch contacts');
   return response.json();
 };
 
 export const createContact = async (data: Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>): Promise<Contact> => {
-  const response = await fetch(`${API_BASE_URL}/contacts`, {
+  const response = await apiFetch(`${API_BASE_URL}/contacts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),

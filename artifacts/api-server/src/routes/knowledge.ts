@@ -8,6 +8,16 @@ const router: IRouter = Router();
 router.get("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.query;
+  
+  // Verify contact belongs to user
+  const contact = await prisma.contact.findFirst({
+    where: { id: String(id), userId: req.userId! },
+  });
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+  
   const facts = await prisma.contactKnowledge.findMany({
     where: { contactId: String(id), status: status ? String(status) : "active" },
     orderBy: [{ category: "asc" }, { updatedAt: "desc" }],
@@ -27,6 +37,15 @@ router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
 
   if (!category || !key || !value) {
     res.status(400).json({ error: "category, key, and value are required" });
+    return;
+  }
+
+  // Verify contact belongs to user
+  const contact = await prisma.contact.findFirst({
+    where: { id: String(id), userId: req.userId! },
+  });
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
     return;
   }
 
@@ -55,6 +74,14 @@ router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
 router.patch("/knowledge/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { value, status } = req.body;
+  // Verify ownership via contact → user
+  const existing = await prisma.contactKnowledge.findFirst({
+    where: { id: String(id), contact: { userId: req.userId! } },
+  });
+  if (!existing) {
+    res.status(404).json({ error: "Knowledge fact not found" });
+    return;
+  }
   const fact = await prisma.contactKnowledge.update({
     where: { id: String(id) },
     data: {
@@ -67,7 +94,16 @@ router.patch("/knowledge/:id", asyncHandler(async (req, res) => {
 
 // DELETE /knowledge/:id
 router.delete("/knowledge/:id", asyncHandler(async (req, res) => {
-  await prisma.contactKnowledge.delete({ where: { id: String(req.params.id) } });
+  const { id } = req.params;
+  // Verify ownership via contact → user
+  const existing = await prisma.contactKnowledge.findFirst({
+    where: { id: String(id), contact: { userId: req.userId! } },
+  });
+  if (!existing) {
+    res.status(404).json({ error: "Knowledge fact not found" });
+    return;
+  }
+  await prisma.contactKnowledge.delete({ where: { id: String(id) } });
   res.json({ success: true });
 }, "Failed to delete knowledge"));
 

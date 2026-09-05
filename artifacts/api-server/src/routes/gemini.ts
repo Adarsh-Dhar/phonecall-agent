@@ -45,6 +45,15 @@ router.post("/gemini/chat", async (req, res) => {
   // Build knowledge block from durable facts about this contact
   let knowledgeBlock = "";
   if (contactId) {
+    // Verify contact belongs to user
+    const contact = await prisma.contact.findFirst({
+      where: { id: contactId, userId: req.userId! },
+    });
+    if (!contact) {
+      res.status(404).json({ error: "Contact not found" });
+      return;
+    }
+
     const facts = await prisma.contactKnowledge.findMany({
       where: { contactId, status: "active" },
       orderBy: { category: "asc" },

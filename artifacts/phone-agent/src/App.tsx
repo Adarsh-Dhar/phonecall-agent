@@ -12,14 +12,37 @@ import { CallsPage } from '@/pages/CallsPage';
 import { HistoryPage } from '@/pages/HistoryPage';
 import { ContactsPage } from '@/pages/ContactsPage';
 import { ContactDetailPage } from '@/pages/ContactDetailPage';
+import { LoginPage } from '@/pages/LoginPage';
+import { SignupPage } from '@/pages/SignupPage';
+import { AuthProvider } from '@/context/AuthContext';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { useAuth } from '@/hooks/useAuth';
 
 const queryClient = new QueryClient();
 
-export default function App() {
-  // Set by the call scheduler ("agent") on the server when a task's due
-  // date arrives — see services/callScheduler.ts. Mounted at this top
-  // level (not inside a page) so a due call can pop up no matter which
-  // page is currently open.
+/**
+ * The backend redirects to "/" after OAuth (success and failure).
+ * - Success → user is authenticated → send to /contacts
+ * - Failure → ?auth-error=true → send to /login preserving the param
+ * - Unauthenticated with no error → send to /login
+ */
+function RootRedirect() {
+  const { isSigned, loading } = useAuth();
+  const search = window.location.search;
+
+  if (loading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+      </div>
+    );
+  }
+
+  if (isSigned) return <Redirect to="/contacts" />;
+  return <Redirect to={`/login${search}`} />;
+}
+
+function AppRoutes() {
   const [dueCall, setDueCall] = useState<CallDueNotification | null>(null);
 
   useCallDueNotifications((notification) => {
@@ -31,29 +54,41 @@ export default function App() {
   });
 
   return (
+    <>
+      <Switch>
+        <Route path="/login" component={LoginPage} />
+        <Route path="/signup" component={SignupPage} />
+        <Route path="/calls" component={() => <ProtectedRoute component={CallsPage} />} />
+        <Route path="/history" component={() => <ProtectedRoute component={HistoryPage} />} />
+        <Route path="/contacts" component={() => <ProtectedRoute component={ContactsPage} />} />
+        <Route path="/contacts/:id" component={() => <ProtectedRoute component={ContactDetailPage} />} />
+        <Route path="/" component={RootRedirect} />
+        <Route component={NotFound} />
+      </Switch>
+
+      {dueCall && (
+        <TestCallWidget
+          contactId={dueCall.contactId}
+          taskId={dueCall.taskId}
+          taskTitle={dueCall.title}
+          onClose={() => setDueCall(null)}
+        />
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <TooltipProvider>
-          <WouterRouter>
-            <Switch>
-              <Route path="/calls" component={CallsPage} />
-              <Route path="/history" component={HistoryPage} />
-              <Route path="/contacts" component={ContactsPage} />
-              <Route path="/contacts/:id" component={ContactDetailPage} />
-              <Route path="/" component={() => <Redirect to="/contacts" />} />
-              <Route component={NotFound} />
-            </Switch>
-
-          </WouterRouter>
-          <Toaster />
-          {dueCall && (
-            <TestCallWidget
-              contactId={dueCall.contactId}
-              taskId={dueCall.taskId}
-              taskTitle={dueCall.title}
-              onClose={() => setDueCall(null)}
-            />
-          )}
+          <AuthProvider>
+            <WouterRouter>
+              <AppRoutes />
+            </WouterRouter>
+            <Toaster />
+          </AuthProvider>
         </TooltipProvider>
       </ErrorBoundary>
     </QueryClientProvider>

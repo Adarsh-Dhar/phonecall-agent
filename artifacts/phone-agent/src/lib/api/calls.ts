@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './shared';
+import { API_BASE_URL, apiFetch } from './shared';
 
 // ─── Call API helpers ─────────────────────────────────────────────────────────
 
@@ -33,21 +33,21 @@ export type Call = {
 
 /** Fetch a single call by ID. */
 export const fetchCall = async (id: string): Promise<Call> => {
-  const response = await fetch(`${API_BASE_URL}/calls/${id}`);
+  const response = await apiFetch(`${API_BASE_URL}/calls/${id}`);
   if (!response.ok) throw new Error('Failed to fetch call');
   return response.json();
 };
 
 /** List all calls for a conversation. */
 export const fetchConversationCalls = async (conversationId: string): Promise<Call[]> => {
-  const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/calls`);
+  const response = await apiFetch(`${API_BASE_URL}/conversations/${conversationId}/calls`);
   if (!response.ok) throw new Error('Failed to fetch conversation calls');
   return response.json();
 };
 
 /** List all calls across all conversations. */
 export const fetchAllCalls = async (): Promise<Call[]> => {
-  const response = await fetch(`${API_BASE_URL}/calls`);
+  const response = await apiFetch(`${API_BASE_URL}/calls`);
   if (!response.ok) throw new Error('Failed to fetch all calls');
   return response.json();
 };

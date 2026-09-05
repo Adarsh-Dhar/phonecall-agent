@@ -9,7 +9,10 @@ const router: IRouter = Router();
 router.get("/conversations", asyncHandler(async (req, res) => {
   const { contactId } = req.query;
   const conversations = await prisma.conversation.findMany({
-    where: contactId ? { contactId: String(contactId) } : undefined,
+    where: {
+      contact: { userId: req.userId! },
+      ...(contactId ? { contactId: String(contactId) } : {}),
+    },
     include: {
       contact: true,
       messages: {
@@ -27,6 +30,15 @@ router.get("/conversations", asyncHandler(async (req, res) => {
 // Get a contact's single chat thread (creating it on first contact if needed)
 router.get("/contacts/:contactId/conversation", asyncHandler(async (req, res) => {
   const { contactId } = req.params;
+  // First verify the contact belongs to the user
+  const contact = await prisma.contact.findFirst({
+    where: { id: String(contactId), userId: req.userId! },
+  });
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+  
   let conversation = await prisma.conversation.findFirst({
     where: { contactId: String(contactId) },
     include: {
@@ -37,11 +49,6 @@ router.get("/contacts/:contactId/conversation", asyncHandler(async (req, res) =>
     orderBy: { updatedAt: "desc" },
   });
   if (!conversation) {
-    const contact = await prisma.contact.findUnique({ where: { id: String(contactId) } });
-    if (!contact) {
-      res.status(404).json({ error: "Contact not found" });
-      return;
-    }
     conversation = await prisma.conversation.create({
       data: { title: `Chat with ${contact.name}`, contactId: String(contactId) },
       include: { contact: true, messages: true, history: true },
@@ -53,16 +60,12 @@ router.get("/contacts/:contactId/conversation", asyncHandler(async (req, res) =>
 // Get a single conversation with messages
 router.get("/conversations/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const conversation = await prisma.conversation.findUnique({
-    where: { id: String(id) },
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: String(id), contact: { userId: req.userId! } },
     include: {
       contact: true,
-      messages: {
-        orderBy: { createdAt: "asc" },
-      },
-      history: {
-        orderBy: { createdAt: "desc" },
-      },
+      messages: { orderBy: { createdAt: "asc" } },
+      history: { orderBy: { createdAt: "desc" } },
     },
   });
   if (!conversation) {
@@ -80,11 +83,16 @@ router.post("/conversations", asyncHandler(async (req, res) => {
     res.status(400).json({ error: "contactId is required" });
     return;
   }
+  // Verify the contact belongs to this user
+  const contact = await prisma.contact.findFirst({
+    where: { id: String(contactId), userId: req.userId! },
+  });
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
   const conversation = await prisma.conversation.create({
-    data: {
-      title,
-      contactId: String(contactId),
-    },
+    data: { title, contactId: String(contactId) },
   });
   res.json(conversation);
 }, "Failed to create conversation"));
@@ -93,6 +101,13 @@ router.post("/conversations", asyncHandler(async (req, res) => {
 router.put("/conversations/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { title } = req.body;
+  const existing = await prisma.conversation.findFirst({
+    where: { id: String(id), contact: { userId: req.userId! } },
+  });
+  if (!existing) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
   const conversation = await prisma.conversation.update({
     where: { id: String(id) },
     data: { title },
@@ -103,9 +118,14 @@ router.put("/conversations/:id", asyncHandler(async (req, res) => {
 // Delete a conversation (cascades to messages and history)
 router.delete("/conversations/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  await prisma.conversation.delete({
-    where: { id: String(id) },
+  const existing = await prisma.conversation.findFirst({
+    where: { id: String(id), contact: { userId: req.userId! } },
   });
+  if (!existing) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+  await prisma.conversation.delete({ where: { id: String(id) } });
   res.json({ success: true });
 }, "Failed to delete conversation"));
 
