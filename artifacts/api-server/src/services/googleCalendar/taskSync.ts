@@ -283,6 +283,15 @@ export async function syncTaskToCalendar(task: {
   contact: { name: string; business: string };
 }): Promise<boolean> {
   try {
+    // A cancelled task shouldn't keep occupying the calendar — remove the
+    // event entirely rather than just updating its title.
+    if (task.status === "cancelled") {
+      if (task.googleEventId) {
+        return await deleteEvent({ id: task.id, googleEventId: task.googleEventId });
+      }
+      return true;
+    }
+
     if (!task.dueDate) {
       // If no due date, delete existing event if any
       if (task.googleEventId) {

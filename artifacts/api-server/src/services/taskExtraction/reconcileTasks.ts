@@ -131,11 +131,26 @@ export async function reconcileTaskActions(
         }
       }
     } else if (action.type === "complete" && action.taskId) {
-      await tx.task.update({
+      const completedTask = await tx.task.update({
         where: { id: action.taskId },
         data: { status: "done", completedAt: new Date() },
       });
       completed.push(action.taskId);
+
+      // Collect for calendar sync so the event picks up the "done" checkmark
+      // (or gets removed, if it never had a due date). Only worth a round
+      // trip if there's actually a synced event to update.
+      if (completedTask.googleEventId) {
+        tasksToSync.push({
+          id: completedTask.id,
+          title: completedTask.title,
+          description: completedTask.description,
+          dueDate: completedTask.dueDate,
+          status: completedTask.status,
+          googleEventId: completedTask.googleEventId,
+          contact: { name: contactName, business: contactBusiness },
+        });
+      }
 
       for (const msgId of sourceIds) {
         if (deltaMessages.find((m) => m.id === msgId)) {
@@ -157,11 +172,26 @@ export async function reconcileTaskActions(
         }
       }
     } else if (action.type === "cancel" && action.taskId) {
-      await tx.task.update({
+      const cancelledTask = await tx.task.update({
         where: { id: action.taskId },
         data: { status: "cancelled" },
       });
       cancelled.push(action.taskId);
+
+      // Collect for calendar sync so a cancelled task's event gets removed
+      // instead of sitting on the calendar forever. Only relevant if it was
+      // ever actually synced.
+      if (cancelledTask.googleEventId) {
+        tasksToSync.push({
+          id: cancelledTask.id,
+          title: cancelledTask.title,
+          description: cancelledTask.description,
+          dueDate: cancelledTask.dueDate,
+          status: cancelledTask.status,
+          googleEventId: cancelledTask.googleEventId,
+          contact: { name: contactName, business: contactBusiness },
+        });
+      }
 
       for (const msgId of sourceIds) {
         if (deltaMessages.find((m) => m.id === msgId)) {

@@ -11,7 +11,9 @@ export function asyncHandler(fn: RequestHandler, errorMsg: string): RequestHandl
     try {
       await fn(req, res, next);
     } catch (err) {
-      res.status(500).json({ error: errorMsg });
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[asyncHandler] ${errorMsg}:`, err);
+      res.status(500).json({ error: errorMsg, detail: message });
     }
   };
 }

@@ -65,19 +65,13 @@ trap cleanup SIGINT SIGTERM
 
 # Start API server
 echo "Starting API server..."
-cd artifacts/api-server
-export PORT=5175
-pnpm run dev &
+(cd artifacts/api-server && PORT=5175 pnpm run dev) &
 API_PID=$!
-cd ../..
 
 # Start phone agent (Vite dev server)
 echo "Starting phone agent..."
-cd artifacts/phone-agent
-export PORT=5177
-pnpm run dev &
+(cd artifacts/phone-agent && PORT=5177 pnpm run dev) &
 AGENT_PID=$!
-cd ../..
 
 echo ""
 echo "All processes started:"

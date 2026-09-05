@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * Protocol matches artifacts/api-server/src/services/voiceStreamBrowser.ts:
  *   → {type:"start", contactId?}   → {type:"audio", payload: base64 pcm16 16k}   → {type:"stop"}
  *   ← {type:"ready"}   ← {type:"audio", payload: base64 pcm16 24k}   ← {type:"transcript", role, text}
+ *   ← {type:"call_ended", reason: "agent"|"user"}   (server hung up — e.g. the agent ended the call itself)
  */
 
 export type TranscriptTurn = { role: 'user' | 'assistant'; text: string };
@@ -70,11 +71,9 @@ export function useBrowserVoiceCall(contactId?: string) {
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const playbackTimeRef = useRef(0);
 
-  const stop = useCallback(() => {
-    wsRef.current?.send(JSON.stringify({ type: 'stop' }));
-    wsRef.current?.close();
-    wsRef.current = null;
-
+  // Releases the mic/audio-context resources. Safe to call more than once
+  // (e.g. once from the user clicking "stop", and again from ws.onclose).
+  const releaseAudioResources = useCallback(() => {
     processorRef.current?.disconnect();
     processorRef.current = null;
 
@@ -83,9 +82,17 @@ export function useBrowserVoiceCall(contactId?: string) {
 
     void audioCtxRef.current?.close();
     audioCtxRef.current = null;
+  }, []);
+
+  const stop = useCallback(() => {
+    wsRef.current?.send(JSON.stringify({ type: 'stop' }));
+    wsRef.current?.close();
+    wsRef.current = null;
+
+    releaseAudioResources();
 
     setStatus('idle');
-  }, []);
+  }, [releaseAudioResources]);
 
   const start = useCallback(async () => {
     setErrorMessage(null);
@@ -166,6 +173,12 @@ export function useBrowserVoiceCall(contactId?: string) {
         } else if (msg.type === 'transcript') {
           console.log('Received transcript:', msg.role, msg.text);
           setTranscript((prev) => [...prev, { role: msg.role, text: msg.text }]);
+        } else if (msg.type === 'call_ended') {
+          // The server hung up on us — most commonly the agent itself ending
+          // the call. Release the mic right away rather than waiting on the
+          // socket's close event.
+          console.log('Call ended by server, reason:', msg.reason);
+          releaseAudioResources();
         } else if (msg.type === 'error') {
           console.error('Received error:', msg.message);
           setErrorMessage(msg.message);
@@ -179,13 +192,17 @@ export function useBrowserVoiceCall(contactId?: string) {
       };
 
       ws.onclose = () => {
+        // Covers both the user-initiated stop() path and a server-initiated
+        // close (e.g. the agent ending the call) — idempotent either way.
+        releaseAudioResources();
+        wsRef.current = null;
         setStatus((s) => (s === 'error' ? s : 'idle'));
       };
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Microphone access failed.');
       setStatus('error');
     }
-  }, [contactId]);
+  }, [contactId, releaseAudioResources]);
 
   useEffect(() => {
     return () => {

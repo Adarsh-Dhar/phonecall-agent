@@ -52,9 +52,8 @@ export async function getAuthedClient(): Promise<google.auth.OAuth2 | null> {
       try {
         logger.info("Google OAuth tokens refreshed, persisting to database");
 
-        const newExpiryDate = new Date(
-          Date.now() + (tokens.expiry_date || 3600000)
-        );
+        // tokens.expiry_date is an absolute epoch-ms timestamp, not a duration.
+        const newExpiryDate = new Date(tokens.expiry_date || Date.now() + 3600000);
 
         await prisma.googleAuth.update({
           where: { id: "default" },
@@ -130,10 +129,8 @@ export async function getAuthedClientOrReason(): Promise<AuthedClientResult> {
       const { credentials } = await oauth2Client.refreshAccessToken();
       logger.info("Google OAuth token refreshed successfully");
 
-      // Update tokens in database
-      const newExpiryDate = new Date(
-        Date.now() + (credentials.expiry_date || 3600000)
-      );
+      // credentials.expiry_date is an absolute epoch-ms timestamp, not a duration.
+      const newExpiryDate = new Date(credentials.expiry_date || Date.now() + 3600000);
 
       await prisma.googleAuth.update({
         where: { id: "default" },

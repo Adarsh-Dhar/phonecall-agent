@@ -83,11 +83,16 @@ export async function listAllCalendarEvents(client: google.auth.OAuth2): Promise
 > {
   const calendar = google.calendar({ version: "v3", auth: client });
 
-  // Get events without time filter to show all events
+  // singleEvents + orderBy:"startTime" requires a timeMin — default to
+  // 1 year ago so we get a reasonable window without an unbounded scan.
+  const timeMin = new Date();
+  timeMin.setFullYear(timeMin.getFullYear() - 1);
+
   const response = await calendar.events.list({
     calendarId: GOOGLE_CALENDAR_ID,
     singleEvents: true,
     orderBy: "startTime",
+    timeMin: timeMin.toISOString(),
   });
 
   logger.info({ eventCount: response.data.items?.length || 0 }, "Fetched Google Calendar events");

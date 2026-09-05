@@ -72,8 +72,8 @@ router.get("/auth/google/callback", asyncHandler(async (req, res) => {
       return;
     }
 
-    // Calculate expiry date (tokens expire in 1 hour by default)
-    const expiryDate = new Date(Date.now() + (tokens.expiry_date || 3600000));
+    // tokens.expiry_date is an absolute epoch-ms timestamp, not a duration.
+    const expiryDate = new Date(tokens.expiry_date || Date.now() + 3600000);
 
     // Upsert the single GoogleAuth row
     await prisma.googleAuth.upsert({

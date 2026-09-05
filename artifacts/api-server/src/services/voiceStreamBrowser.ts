@@ -13,6 +13,7 @@
  *   ← { type: "ready", callId, conversationId }                server → browser
  *   ← { type: "audio", payload: "<base64 pcm16 24kHz>" }       server → browser
  *   ← { type: "transcript", role: "user"|"assistant", text }   server → browser
+ *   ← { type: "call_ended", reason: "agent"|"user" }            server → browser
  *   ← { type: "error", message }                               server → browser
  */
 
@@ -113,6 +114,20 @@ export function createBrowserVoiceStream(): WebSocketServer {
                 void logTurn("assistant", text);
                 browserWs.send(JSON.stringify({ type: "transcript", role: "assistant", text }));
               },
+              onEndCallRequested: () => {
+                logger.info({ callId }, "voiceStreamBrowser: agent requested to end the call");
+                try {
+                  browserWs.send(JSON.stringify({ type: "call_ended", reason: "agent" }));
+                } catch (err) {
+                  logger.warn({ err }, "voiceStreamBrowser: failed to notify browser of call_ended");
+                }
+                // Give the last bit of audio a moment to actually reach the
+                // browser before we tear the socket down.
+                setTimeout(() => {
+                  void endCall("agent");
+                  browserWs.close();
+                }, 800);
+              },
             });
 
             // Wait a moment for the session to stabilize
@@ -183,7 +198,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
       scheduleExtraction(conversationId);
     }
 
-    async function endCall() {
+    async function endCall(disconnectedBy: "user" | "agent" = "user") {
       const currentCallId = callId; // Capture current callId before clearing
       const currentStartedAt = startedAt; // Capture current startedAt before clearing
       
@@ -198,7 +213,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
             status: "completed",
             endedAt,
             durationSec: Math.round((endedAt.getTime() - currentStartedAt.getTime()) / 1000),
-            disconnectedBy: "user",
+            disconnectedBy,
           },
         });
         void analyzeCallForEscalation(currentCallId).catch((err) =>
