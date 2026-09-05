@@ -63,7 +63,9 @@ export function CallRow({ call, expanded, onToggle, conversation }: {
       {expanded && conversation && (
         <div className="mt-4 pt-4 border-t border-border">
           <div className="space-y-3">
-            {conversation.messages.map((message) => (
+            {conversation.messages
+              .filter((m) => m.callId === call.id)
+              .map((message) => (
               <div key={message.id} className="flex gap-3">
                 <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
                   message.role === 'assistant' ? 'bg-[#3f8274] text-white' : 'bg-[#697a73] text-white'

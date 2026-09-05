@@ -101,8 +101,13 @@ export function createBrowserVoiceStream(): WebSocketServer {
             });
             callId = call.id;
 
+            const knowledgeFacts = await prisma.contactKnowledge.findMany({
+              where: { contactId: contact.id, status: "active" },
+              orderBy: { category: "asc" },
+            });
+
             gemini = await openGeminiLiveSession({
-              systemInstructionText: buildCallSystemInstruction(contact.name),
+              systemInstructionText: buildCallSystemInstruction(contact.name, knowledgeFacts),
               onAudioOut: (pcm24k) => {
                 browserWs.send(JSON.stringify({ type: "audio", payload: pcm16ToBrowserPayload(pcm24k) }));
               },

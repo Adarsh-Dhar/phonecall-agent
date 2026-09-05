@@ -15,7 +15,11 @@ export async function callGeminiExtraction(
 ): Promise<{ taskActions: TaskAction[]; knowledgeActions: KnowledgeAction[] }> {
   const empty = { taskActions: [], knowledgeActions: [] };
 
-  const systemPrompt = `You review a conversation between a user and their Phone Agent assistant with an external contact.
+  const todayISO = new Date().toISOString().slice(0, 10); // e.g. "2026-09-05"
+
+  const systemPrompt = `Today's date is ${todayISO}. When resolving partial or relative dates (e.g. "7th of September", "next Monday"), always use this date as the reference and infer the correct year.
+
+You review a conversation between a user and their Phone Agent assistant with an external contact.
 Your job: identify two types of things from the new messages:
 
 1. TASKS — actionable items the assistant needs to do, follow up on, or that the user is waiting on.

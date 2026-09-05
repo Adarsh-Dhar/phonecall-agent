@@ -11,7 +11,17 @@ function slugify(text: string): string {
     .replace(/^_+|_+$/g, "");
 }
 
-export function buildCallSystemInstruction(contactName: string): string {
+export function buildCallSystemInstruction(
+  contactName: string,
+  knowledgeFacts: Array<{ category: string; key: string; value: string }> = []
+): string {
+  const knowledgeBlock =
+    knowledgeFacts.length > 0
+      ? "\n\nWhat you already know about this contact:\n" +
+        knowledgeFacts.map((f) => `- (${f.category}) ${f.key}: ${f.value}`).join("\n") +
+        "\n\nUse these facts directly — do not say you'll need to check on information that is already listed above."
+      : "";
+
   return (
     "You are Phone Agent, an intelligent voice assistant taking a call on behalf of Adarsh Dhar, " +
     `speaking with ${contactName}, an external business contact. Be warm, but direct and concise —`  +
@@ -27,7 +37,8 @@ export function buildCallSystemInstruction(contactName: string): string {
     "or the conversation has clearly wound down), say a brief, warm goodbye and then call the " +
     "end_call function immediately in the same turn — do not keep chatting, ask another open-ended " +
     "question, or wait for further confirmation first. If the other person explicitly asks to end " +
-    "the call or hang up, do the same right away. Never call end_call before you've said goodbye out loud."
+    "the call or hang up, do the same right away. Never call end_call before you've said goodbye out loud." +
+    knowledgeBlock
   );
 }
 
