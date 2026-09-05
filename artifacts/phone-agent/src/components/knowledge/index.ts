@@ -1,0 +1,1 @@
+export { KnowledgeBoardPanel } from './KnowledgeBoardPanel';
