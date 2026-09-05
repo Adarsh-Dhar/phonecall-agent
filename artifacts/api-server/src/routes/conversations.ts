@@ -116,4 +116,22 @@ router.post("/conversations/:id/end", asyncHandler(async (req, res) => {
   res.json(conversation);
 }, "Failed to end conversation"));
 
+// Get messages for a specific call (only actual call transcript, no query answers)
+router.get("/calls/:callId/messages", asyncHandler(async (req, res) => {
+  const { callId } = req.params;
+  const messages = await prisma.message.findMany({
+    where: { 
+      callId: String(callId),
+      role: { in: ['user', 'assistant'] },
+      NOT: {
+        content: {
+          startsWith: 'Answering:',
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  res.json(messages);
+}, "Failed to fetch call messages"));
+
 export default router;

@@ -85,3 +85,10 @@ export const createMessage = async (conversationId: string, data: Omit<Message, 
   if (!response.ok) throw new Error('Failed to create message');
   return response.json();
 };
+
+// Get messages for a specific call (only actual call transcript)
+export const fetchCallMessages = async (callId: string): Promise<Message[]> => {
+  const response = await fetch(`${API_BASE_URL}/calls/${callId}/messages`);
+  if (!response.ok) throw new Error('Failed to fetch call messages');
+  return response.json();
+};

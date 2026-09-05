@@ -42,6 +42,11 @@ KNOWLEDGE action types:
 Rules for tasks:
 - For task "update", "complete", "cancel" — include taskId of the existing task.
 - confidence is a float 0.0–1.0 reflecting certainty.
+- dueDate: only set this if the conversation states (or unambiguously implies) BOTH a specific date AND a
+  specific time — e.g. "Tuesday the 9th at 3pm" is fine, but "sometime next week" or "in the morning" is
+  not specific enough. Never invent or guess a time of day that wasn't actually given. If only a vague
+  timeframe was mentioned, leave dueDate unset entirely rather than picking an arbitrary time — a task
+  with no due date is far better than one with a fabricated one.
 - sourceMessageIds is the array of message IDs from new_messages that support this action.
 
 Rules for knowledge:

@@ -1,15 +1,40 @@
-import type * as api from '@/lib/api';
+import { useEffect, useRef, useState } from 'react';
+import * as api from '@/lib/api';
 
-export function CallRow({ call, expanded, onToggle, conversation }: {
+export function CallRow({ call, expanded, onToggle }: {
   call: api.Call;
   expanded: boolean;
   onToggle: () => void;
-  conversation?: api.Conversation;
 }) {
+  const [callMessages, setCallMessages] = useState<api.Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const hasLoaded = useRef(false);
+
   const isInbound = call.direction === 'inbound';
   const statusColor = call.status === 'completed' ? 'text-[#3f8274]' :
                      call.status === 'failed' || call.status === 'no-answer' || call.status === 'busy' ? 'text-[#b44343]' :
                      'text-muted-foreground';
+
+  const loadCallMessages = async () => {
+    if (hasLoaded.current) return;
+    setLoadingMessages(true);
+    try {
+      const messages = await api.fetchCallMessages(call.id);
+      setCallMessages(messages);
+      hasLoaded.current = true;
+    } catch (e) {
+      console.error('Failed to load call messages:', e);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  // Load messages when expanded
+  useEffect(() => {
+    if (expanded && !hasLoaded.current) {
+      void loadCallMessages();
+    }
+  }, [expanded, call.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-5 transition-transform hover:-translate-y-0.5">
@@ -60,25 +85,29 @@ export function CallRow({ call, expanded, onToggle, conversation }: {
         </div>
       </div>
 
-      {expanded && conversation && (
+      {expanded && (
         <div className="mt-4 pt-4 border-t border-border">
-          <div className="space-y-3">
-            {conversation.messages
-              .filter((m) => m.callId === call.id)
-              .map((message) => (
-              <div key={message.id} className="flex gap-3">
-                <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                  message.role === 'assistant' ? 'bg-[#3f8274] text-white' : 'bg-[#697a73] text-white'
-                }`}>
-                  {message.role === 'assistant' ? 'A' : 'U'}
+          {loadingMessages ? (
+            <div className="text-center text-xs text-muted-foreground">Loading transcript...</div>
+          ) : callMessages.length === 0 ? (
+            <div className="text-center text-xs text-muted-foreground">No transcript available</div>
+          ) : (
+            <div className="space-y-3">
+              {callMessages.map((message) => (
+                <div key={message.id} className="flex gap-3">
+                  <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                    message.role === 'assistant' ? 'bg-[#3f8274] text-white' : 'bg-[#697a73] text-white'
+                  }`}>
+                    {message.role === 'assistant' ? 'A' : 'U'}
+                  </div>
+                  <div className="flex-1 rounded-lg bg-muted px-3 py-2 text-sm">
+                    <p className="text-foreground">{message.content}</p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">{message.time}</p>
+                  </div>
                 </div>
-                <div className="flex-1 rounded-lg bg-muted px-3 py-2 text-sm">
-                  <p className="text-foreground">{message.content}</p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">{message.time}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

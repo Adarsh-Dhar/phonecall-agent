@@ -18,7 +18,6 @@ export function CallsPage() {
   const [showTestCall, setShowTestCall] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<Record<string, api.Conversation>>({});
 
   const loadCalls = useCallback(async () => {
     setLoading(true);
@@ -43,32 +42,16 @@ export function CallsPage() {
     }
   }, []);
 
-  const loadConversation = useCallback(async (conversationId: string) => {
-    try {
-      const data = await api.fetchConversationMessages(conversationId);
-      setConversations(prev => ({ ...prev, [conversationId]: data }));
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
-
   useEffect(() => { void loadCalls(); }, [loadCalls]);
   useEffect(() => { void loadContacts(); }, [loadContacts]);
 
-  const handleExpandCall = async (call: api.Call) => {
-    if (expandedCallId === call.id) {
-      setExpandedCallId(null);
-    } else {
-      setExpandedCallId(call.id);
-      if (!conversations[call.conversationId]) {
-        await loadConversation(call.conversationId);
-      }
-    }
+  const handleExpandCall = (call: api.Call) => {
+    setExpandedCallId(expandedCallId === call.id ? null : call.id);
   };
 
   return (
     <AppLayout title="Calls" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
-      <div className="mx-auto max-w-[980px] px-5 py-8 md:px-10 md:py-12">
+      <div className="mx-auto max-w-245 px-5 py-8 md:px-10 md:py-12">
         <Link href="/contacts" className="mb-8 block text-xs font-bold text-[#3159c4] hover:underline">← Back to contacts</Link>
         <div className="mb-8">
           <p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#e26951]">Communication</p>
@@ -125,8 +108,7 @@ export function CallsPage() {
                 key={call.id}
                 call={call}
                 expanded={expandedCallId === call.id}
-                onToggle={() => void handleExpandCall(call)}
-                conversation={conversations[call.conversationId]}
+                onToggle={() => handleExpandCall(call)}
               />
             ))}
           </div>
