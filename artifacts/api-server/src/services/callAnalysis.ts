@@ -13,7 +13,8 @@ function slugify(text: string): string {
 
 export function buildCallSystemInstruction(
   contactName: string,
-  knowledgeFacts: Array<{ category: string; key: string; value: string }> = []
+  knowledgeFacts: Array<{ category: string; key: string; value: string }> = [],
+  taskContext: { title: string; description: string | null } | null = null
 ): string {
   const knowledgeBlock =
     knowledgeFacts.length > 0
@@ -21,6 +22,12 @@ export function buildCallSystemInstruction(
         knowledgeFacts.map((f) => `- (${f.category}) ${f.key}: ${f.value}`).join("\n") +
         "\n\nUse these facts directly — do not say you'll need to check on information that is already listed above."
       : "";
+
+  const taskBlock = taskContext
+    ? `\n\nTHE REASON FOR THIS CALL: You are calling specifically to resolve this: "${taskContext.title}"` +
+      (taskContext.description ?  `— ${taskContext.description}` : "") +
+      " Open the call by getting straight to this, and keep the conversation focused on it."
+    : "";
 
   return (
     "You are Phone Agent, an intelligent voice assistant taking a call on behalf of Adarsh Dhar, " +
@@ -38,6 +45,7 @@ export function buildCallSystemInstruction(
     "end_call function immediately in the same turn — do not keep chatting, ask another open-ended " +
     "question, or wait for further confirmation first. If the other person explicitly asks to end " +
     "the call or hang up, do the same right away. Never call end_call before you've said goodbye out loud." +
+    taskBlock +
     knowledgeBlock
   );
 }

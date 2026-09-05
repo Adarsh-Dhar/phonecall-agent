@@ -7,7 +7,7 @@
  * cost — every "call" happens over your own network connection.
  *
  * Wire protocol (JSON messages over the WebSocket):
- *   → { type: "start", contactId?: string }                  browser → server
+ *   → { type: "start", contactId?: string, taskId?: string }    browser → server
  *   → { type: "audio", payload: "<base64 pcm16 16kHz>" }      browser → server
  *   → { type: "stop" }                                        browser → server
  *   ← { type: "ready", callId, conversationId }                server → browser
@@ -71,6 +71,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
         case "start": {
           try {
             const contactId: string | undefined = msg.contactId;
+            const taskId: string | undefined = msg.taskId;
             const contact = contactId
               ? await prisma.contact.findUnique({ where: { id: contactId } })
               : await getOrCreateTestContact();
@@ -78,6 +79,19 @@ export function createBrowserVoiceStream(): WebSocketServer {
             if (!contact) {
               browserWs.send(JSON.stringify({ type: "error", message: "Contact not found" }));
               return;
+            }
+
+            // If this call was triggered from a specific task (e.g. "Call"
+            // on a calendar event), pull its title/description in so the
+            // agent opens the call already knowing what it's calling about.
+            let taskContext: { title: string; description: string | null } | null = null;
+            if (taskId) {
+              const task = await prisma.task.findUnique({ where: { id: taskId } });
+              if (task && task.contactId === contact.id) {
+                taskContext = { title: task.title, description: task.description };
+              } else if (task) {
+                logger.warn({ taskId, taskContactId: task.contactId, contactId: contact.id }, "voiceStreamBrowser: taskId does not belong to contact, ignoring");
+              }
             }
 
             const conversation = await getOrCreateActiveConversation(
@@ -107,7 +121,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
             });
 
             gemini = await openGeminiLiveSession({
-              systemInstructionText: buildCallSystemInstruction(contact.name, knowledgeFacts),
+              systemInstructionText: buildCallSystemInstruction(contact.name, knowledgeFacts, taskContext),
               onAudioOut: (pcm24k) => {
                 browserWs.send(JSON.stringify({ type: "audio", payload: pcm16ToBrowserPayload(pcm24k) }));
               },

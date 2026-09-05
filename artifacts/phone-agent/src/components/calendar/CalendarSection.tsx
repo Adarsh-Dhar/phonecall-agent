@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, LoaderCircle, RefreshCw } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, LoaderCircle, Phone, RefreshCw } from 'lucide-react';
 import * as api from '@/lib/api';
 import { getDaysInMonth, isToday } from './calendarDateUtils';
+import { TestCallWidget } from '@/components/TestCallWidget';
 
-type CalendarEvent = { id: string; title: string; type: 'task' | 'google' };
+type CalendarEvent = { id: string; title: string; type: 'task' | 'google'; contactId?: string };
 
 /**
  * Calendar card on the History ("Tasks") page: task due-dates + connected
@@ -18,6 +19,7 @@ export function CalendarSection() {
   const [googleAuthStatus, setGoogleAuthStatus] = useState<api.GoogleAuthStatus | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [callingTask, setCallingTask] = useState<api.Task | null>(null);
 
   const loadCalendar = useCallback(async () => {
     setCalendarLoading(true);
@@ -115,7 +117,7 @@ export function CalendarSection() {
       return taskDate.getFullYear() === targetYear &&
              taskDate.getMonth() === targetMonth &&
              taskDate.getDate() === targetDay;
-    }).map(t => ({ id: t.id, title: t.title, type: 'task' as const }));
+    }).map(t => ({ id: t.id, title: t.title, type: 'task' as const, contactId: t.contactId }));
 
     const googleEvents = googleCalendarEvents.filter(e => {
       let eventDate: Date | undefined;
@@ -242,19 +244,28 @@ export function CalendarSection() {
                     {date.getDate()}
                   </div>
                   <div className="mt-1 space-y-0.5">
-                    {events.slice(0, 3).map((event, i) => (
-                      <div
-                        key={i}
-                        className={`truncate rounded px-1 py-0.5 text-[8px] font-medium ${
-                          event.type === 'task'
-                            ? 'bg-[#fbfaf6] text-[#3f8274]'
-                            : 'bg-[#f0f7ff] text-[#3159c4]'
-                        }`}
-                        title={event.title}
-                      >
-                        {event.title}
-                      </div>
-                    ))}
+                    {events.slice(0, 3).map((event, i) => {
+                      const callable = event.type === 'task' && event.contactId;
+                      return (
+                        <div
+                          key={i}
+                          role={callable ? 'button' : undefined}
+                          onClick={callable ? () => {
+                            const task = calendarItems.find((t) => t.id === event.id);
+                            if (task) setCallingTask(task);
+                          } : undefined}
+                          className={`group flex items-center gap-1 truncate rounded px-1 py-0.5 text-[8px] font-medium ${
+                            event.type === 'task'
+                              ? 'bg-[#fbfaf6] text-[#3f8274]'
+                              : 'bg-[#f0f7ff] text-[#3159c4]'
+                          } ${callable ? 'cursor-pointer hover:bg-[#edf9f5]' : ''}`}
+                          title={callable ? `${event.title} — click to call` : event.title}
+                        >
+                          {callable && <Phone size={8} className="shrink-0 opacity-60 group-hover:opacity-100" />}
+                          <span className="truncate">{event.title}</span>
+                        </div>
+                      );
+                    })}
                     {events.length > 3 && (
                       <div className="text-[8px] text-muted-foreground">
                         +{events.length - 3} more
@@ -267,6 +278,15 @@ export function CalendarSection() {
           </div>
         )}
       </div>
+
+      {callingTask && callingTask.contactId && (
+        <TestCallWidget
+          contactId={callingTask.contactId}
+          taskId={callingTask.id}
+          taskTitle={callingTask.title}
+          onClose={() => setCallingTask(null)}
+        />
+      )}
     </div>
   );
 }

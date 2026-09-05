@@ -95,6 +95,7 @@ model Task {
   googleEtag     String?
   googleEventId  String?
   lastSyncedAt   DateTime?
+  callTriggeredAt DateTime?
   contact        Contact             @relation(fields: [contactId], references: [id], onDelete: Cascade)
   conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sources        TaskSourceMessage[]

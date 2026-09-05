@@ -7,6 +7,7 @@ import { logger } from "./lib/logger";
 import { sweepStaleConversations } from "./services/taskExtraction";
 import { attachVoiceStreams } from "./services/voice";
 import { startCalendarSync } from "./services/calendarSync";
+import { startCallScheduler } from "./services/callScheduler";
 import type { Server } from "http";
 
 // ---------------------------------------------------------------------------
@@ -46,6 +47,10 @@ const server = app.listen(port, () => {
 
   // Start Google Calendar sync polling
   startCalendarSync();
+
+  // Start the call-due scheduler ("agent") — watches task due dates and
+  // notifies connected browser tabs when it's time to call a contact.
+  startCallScheduler();
 }) as Server;
 
 attachVoiceStreams(server);

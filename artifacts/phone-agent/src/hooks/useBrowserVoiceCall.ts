@@ -60,7 +60,7 @@ function base64ToInt16(b64: string): Int16Array {
  * Manages the WebSocket + mic-capture lifecycle for an in-browser voice call.
  * `TestCallWidget` consumes this hook and stays a thin UI layer.
  */
-export function useBrowserVoiceCall(contactId?: string) {
+export function useBrowserVoiceCall(contactId?: string, taskId?: string) {
   const [status, setStatus] = useState<BrowserVoiceCallStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
@@ -114,7 +114,7 @@ export function useBrowserVoiceCall(contactId?: string) {
 
       ws.onopen = () => {
         console.log('WebSocket connected');
-        ws.send(JSON.stringify({ type: 'start', contactId }));
+        ws.send(JSON.stringify({ type: 'start', contactId, taskId }));
       };
 
       ws.onmessage = (event) => {
@@ -202,7 +202,7 @@ export function useBrowserVoiceCall(contactId?: string) {
       setErrorMessage(err instanceof Error ? err.message : 'Microphone access failed.');
       setStatus('error');
     }
-  }, [contactId, releaseAudioResources]);
+  }, [contactId, taskId, releaseAudioResources]);
 
   useEffect(() => {
     return () => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ListTodo, LoaderCircle, Plus, RefreshCw } from 'lucide-react';
+import { Check, ListTodo, LoaderCircle, Phone, Plus, RefreshCw } from 'lucide-react';
 import * as api from '@/lib/api';
+import { TestCallWidget } from '@/components/TestCallWidget';
 
 /**
  * Tasks card on the Contact Detail page. Manages its own state (load,
@@ -13,6 +14,7 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
   const [tasksLoading, setTasksLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [callingTask, setCallingTask] = useState<api.Task | null>(null);
 
   const loadTasks = useCallback(async () => {
     if (!contactId) return;
@@ -140,10 +142,30 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
                   {task.priority}
                 </span>
               </div>
+              {task.status !== 'done' && task.status !== 'cancelled' && contactId && (
+                <button
+                  type="button"
+                  aria-label={`Call about "${task.title}"`}
+                  title="Call about this"
+                  onClick={() => setCallingTask(task)}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[#3f8274] hover:bg-[#edf9f5]"
+                >
+                  <Phone size={13} />
+                </button>
+              )}
             </div>
           ))
         )}
       </div>
+
+      {callingTask && contactId && (
+        <TestCallWidget
+          contactId={contactId}
+          taskId={callingTask.id}
+          taskTitle={callingTask.title}
+          onClose={() => { setCallingTask(null); void loadTasks(); }}
+        />
+      )}
     </div>
   );
 }

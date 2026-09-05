@@ -1,8 +1,18 @@
 import { Mic, PhoneOff, X, LoaderCircle } from 'lucide-react';
 import { useBrowserVoiceCall } from '@/hooks/useBrowserVoiceCall';
 
-export function TestCallWidget({ contactId, onClose }: { contactId?: string; onClose: () => void }) {
-  const { status, errorMessage, transcript, start, stop } = useBrowserVoiceCall(contactId);
+export function TestCallWidget({
+  contactId,
+  taskId,
+  taskTitle,
+  onClose,
+}: {
+  contactId?: string;
+  taskId?: string;
+  taskTitle?: string;
+  onClose: () => void;
+}) {
+  const { status, errorMessage, transcript, start, stop } = useBrowserVoiceCall(contactId, taskId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -10,7 +20,9 @@ export function TestCallWidget({ contactId, onClose }: { contactId?: string; onC
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold">Test Call (Browser)</h2>
-            <p className="text-[11px] text-muted-foreground">Free — uses your mic, no phone number involved.</p>
+            <p className="text-[11px] text-muted-foreground">
+              {taskTitle ? `Calling about: ${taskTitle}` : 'Free — uses your mic, no phone number involved.'}
+            </p>
           </div>
           <button
             type="button"
