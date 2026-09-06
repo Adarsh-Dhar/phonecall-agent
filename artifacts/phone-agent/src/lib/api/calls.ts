@@ -3,7 +3,7 @@ import { API_BASE_URL, apiFetch } from './shared';
 // ─── Call API helpers ─────────────────────────────────────────────────────────
 
 export type CallStatus =
-  'initiated' | 'ringing' | 'in-progress' | 'completed' | 'failed' | 'no-answer' | 'busy';
+  'initiated' | 'ringing' | 'in-progress' | 'completed' | 'failed' | 'no-answer' | 'busy' | 'missed' | 'declined';
 export type CallDirection = 'outbound' | 'inbound';
 
 export type Call = {
@@ -31,6 +31,11 @@ export type Call = {
   };
 };
 
+export type DialCallResponse = {
+  callId: string;
+  status: 'ringing' | 'missed';
+};
+
 /** Fetch a single call by ID. */
 export const fetchCall = async (id: string): Promise<Call> => {
   const response = await apiFetch(`${API_BASE_URL}/calls/${id}`);
@@ -49,5 +54,43 @@ export const fetchConversationCalls = async (conversationId: string): Promise<Ca
 export const fetchAllCalls = async (): Promise<Call[]> => {
   const response = await apiFetch(`${API_BASE_URL}/calls`);
   if (!response.ok) throw new Error('Failed to fetch all calls');
+  return response.json();
+};
+
+/** Dial a call to a service account. */
+export const dialCall = async (contactId: string, taskId?: string): Promise<DialCallResponse> => {
+  const response = await apiFetch(`${API_BASE_URL}/calls/dial`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contactId, taskId }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to dial call');
+  }
+  return response.json();
+};
+
+/** Accept an incoming call. */
+export const acceptCall = async (callId: string): Promise<{ status: string }> => {
+  const response = await apiFetch(`${API_BASE_URL}/calls/${callId}/accept`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to accept call');
+  }
+  return response.json();
+};
+
+/** Decline an incoming call. */
+export const declineCall = async (callId: string): Promise<{ status: string }> => {
+  const response = await apiFetch(`${API_BASE_URL}/calls/${callId}/decline`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to decline call');
+  }
   return response.json();
 };

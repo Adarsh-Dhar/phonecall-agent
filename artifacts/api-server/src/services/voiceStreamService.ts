@@ -14,6 +14,7 @@
  */
 
 import { WebSocketServer, WebSocket } from "ws";
+import type { IncomingMessage } from "http";
 import { prisma } from "@workspace/db-prisma";
 import { browserPayloadToPcm16, pcm16ToBrowserPayload } from "../lib/audioCodec";
 import { openGeminiLiveSession, type GeminiVoiceSession } from "./geminiVoiceSession";
@@ -25,11 +26,12 @@ import { logger } from "../lib/logger";
 export function createServiceVoiceStream(): WebSocketServer {
   const wss = new WebSocketServer({ noServer: true });
 
-  wss.on("connection", (serviceWs: WebSocket) => {
+  wss.on("connection", (serviceWs: WebSocket, req: IncomingMessage) => {
     let gemini: GeminiVoiceSession | null = null;
     let callId: string | null = null;
     let conversationId: string | null = null;
     let startedAt: Date | null = null;
+    const userId = (req as any).userId;
 
     serviceWs.on("message", async (raw) => {
       let msg: any;
@@ -43,7 +45,6 @@ export function createServiceVoiceStream(): WebSocketServer {
         case "start": {
           try {
             const callIdParam: string = msg.callId;
-            const userId: string = (serviceWs as any).req?.userId;
 
             if (!callIdParam || !userId) {
               serviceWs.send(JSON.stringify({ type: "error", message: "Missing callId or userId" }));

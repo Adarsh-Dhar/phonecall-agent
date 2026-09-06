@@ -1,6 +1,7 @@
 import { Phone, PhoneOff, X } from 'lucide-react';
 import { useState } from 'react';
 import { ServiceCallWidget } from './ServiceCallWidget';
+import { acceptCall, declineCall } from '@/lib/api/calls';
 
 interface IncomingCallData {
   callId: string;
@@ -35,15 +36,8 @@ export function IncomingCallModal({
 
   const handleAccept = async () => {
     try {
-      const response = await fetch(`/api/calls/${incomingCall.callId}/accept`, {
-        method: 'POST',
-      });
-      
-      if (response.ok) {
-        setActiveCallId(incomingCall.callId);
-      } else {
-        console.error('Failed to accept call');
-      }
+      await acceptCall(incomingCall.callId);
+      setActiveCallId(incomingCall.callId);
     } catch (error) {
       console.error('Error accepting call:', error);
     }
@@ -51,9 +45,7 @@ export function IncomingCallModal({
 
   const handleDecline = async () => {
     try {
-      await fetch(`/api/calls/${incomingCall.callId}/decline`, {
-        method: 'POST',
-      });
+      await declineCall(incomingCall.callId);
       onClose();
     } catch (error) {
       console.error('Error declining call:', error);

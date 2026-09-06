@@ -3,6 +3,7 @@ import { Check, ListTodo, LoaderCircle, Phone, Plus, RefreshCw } from 'lucide-re
 import * as api from '@/lib/api';
 import { TestCallWidget } from '@/components/TestCallWidget';
 import { useAuth } from '@/hooks/useAuth';
+import { dialCall } from '@/lib/api/calls';
 
 /**
  * Tasks card on the Contact Detail page. Manages its own state (load,
@@ -69,27 +70,13 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
       // Use the real call system
       try {
         setCallStatus('ringing');
-        const response = await fetch('/api/calls/dial', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contactId,
-            taskId: task.id,
-          }),
-        });
-
-        const data = await response.json();
+        const data = await dialCall(contactId, task.id);
         
-        if (response.ok) {
-          if (data.status === 'missed') {
-            setCallStatus('missed');
-            setTimeout(() => setCallStatus('idle'), 3000);
-          } else if (data.status === 'ringing') {
-            setCallStatus('ringing');
-          }
-        } else {
-          console.error('Failed to dial call:', data.error);
-          setCallStatus('idle');
+        if (data.status === 'missed') {
+          setCallStatus('missed');
+          setTimeout(() => setCallStatus('idle'), 3000);
+        } else if (data.status === 'ringing') {
+          setCallStatus('ringing');
         }
       } catch (error) {
         console.error('Error dialing call:', error);

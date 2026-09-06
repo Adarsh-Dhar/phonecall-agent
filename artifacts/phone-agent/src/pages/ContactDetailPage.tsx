@@ -11,6 +11,7 @@ import { ContactTasksCard } from '@/components/contact/ContactTasksCard';
 import { ContactQuestionsCard } from '@/components/contact/ContactQuestionsCard';
 import { ContactFilesCard } from '@/components/contact/ContactFilesCard';
 import { TestCallWidget } from '@/components/TestCallWidget';
+import { dialCall } from '@/lib/api/calls';
 
 export function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -61,27 +62,13 @@ export function ContactDetailPage() {
     if (contact.linkedAccountId) {
       try {
         setCallStatus('ringing');
-        const response = await fetch('/api/calls/dial', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contactId: contact.id,
-            taskId: callingTask?.taskId,
-          }),
-        });
-
-        const data = await response.json();
+        const data = await dialCall(contact.id, callingTask?.taskId);
         
-        if (response.ok) {
-          if (data.status === 'missed') {
-            setCallStatus('missed');
-            setTimeout(() => setCallStatus('idle'), 3000);
-          } else if (data.status === 'ringing') {
-            setCallStatus('ringing');
-          }
-        } else {
-          console.error('Failed to dial call:', data.error);
-          setCallStatus('idle');
+        if (data.status === 'missed') {
+          setCallStatus('missed');
+          setTimeout(() => setCallStatus('idle'), 3000);
+        } else if (data.status === 'ringing') {
+          setCallStatus('ringing');
         }
       } catch (error) {
         console.error('Error dialing call:', error);
