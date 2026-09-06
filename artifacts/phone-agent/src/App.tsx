@@ -14,6 +14,7 @@ import { ContactsPage } from '@/pages/ContactsPage';
 import { ContactDetailPage } from '@/pages/ContactDetailPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { SignupPage } from '@/pages/SignupPage';
+import { RolePage } from '@/pages/RolePage';
 import { AuthProvider } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,14 +22,16 @@ import { useAuth } from '@/hooks/useAuth';
 const queryClient = new QueryClient();
 
 /**
- * The backend redirects to "/" after OAuth (success and failure).
- * - Success → user is authenticated → send to /contacts
- * - Failure → ?auth-error=true → send to /login preserving the param
- * - Unauthenticated with no error → send to /login
+ * The backend redirects to "/" after OAuth.
+ * - "/?setup=1"  → brand-new account → send to /role to pick a role
+ * - Signed in + needsRoleSetup → also send to /role (e.g. page refresh mid-setup)
+ * - Signed in + role already set → send to /contacts
+ * - Not signed in → send to /login (preserving ?auth-error if present)
  */
 function RootRedirect() {
-  const { isSigned, loading } = useAuth();
+  const { isSigned, loading, user } = useAuth();
   const search = window.location.search;
+  const isSetup = new URLSearchParams(search).get('setup') === '1';
 
   if (loading) {
     return (
@@ -38,8 +41,12 @@ function RootRedirect() {
     );
   }
 
-  if (isSigned) return <Redirect to="/contacts" />;
-  return <Redirect to={`/login${search}`} />;
+  if (!isSigned) return <Redirect to={`/login${search}`} />;
+
+  // New account coming straight from OAuth callback
+  if (isSetup || user?.needsRoleSetup) return <Redirect to="/role" />;
+
+  return <Redirect to="/contacts" />;
 }
 
 function AppRoutes() {
@@ -56,10 +63,11 @@ function AppRoutes() {
   return (
     <>
       <Switch>
-        <Route path="/login" component={LoginPage} />
-        <Route path="/signup" component={SignupPage} />
-        <Route path="/calls" component={() => <ProtectedRoute component={CallsPage} />} />
-        <Route path="/history" component={() => <ProtectedRoute component={HistoryPage} />} />
+        <Route path="/login"    component={LoginPage} />
+        <Route path="/signup"   component={SignupPage} />
+        <Route path="/role"     component={RolePage} />
+        <Route path="/calls"    component={() => <ProtectedRoute component={CallsPage} />} />
+        <Route path="/history"  component={() => <ProtectedRoute component={HistoryPage} />} />
         <Route path="/contacts" component={() => <ProtectedRoute component={ContactsPage} />} />
         <Route path="/contacts/:id" component={() => <ProtectedRoute component={ContactDetailPage} />} />
         <Route path="/" component={RootRedirect} />

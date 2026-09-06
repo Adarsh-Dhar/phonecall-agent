@@ -41,15 +41,11 @@ fi
 
 # Run Prisma migrations for PostgreSQL
 echo "Running Prisma migrations for PostgreSQL..."
-npx prisma@6.19.3 db push --schema=prisma/schema.prisma || echo "Migration failed"
+npx prisma@6.19.3 migrate deploy --schema=prisma/schema.prisma || echo "Migration failed"
 
 # Generate Prisma client
 echo "Generating Prisma client..."
 npx prisma@6.19.3 generate --schema=prisma/schema.prisma
-
-# Seed the database
-echo "Seeding database..."
-npx tsx seed.ts || echo "Seed failed (might already exist)"
 
 # Build frontend
 echo "Building frontend..."

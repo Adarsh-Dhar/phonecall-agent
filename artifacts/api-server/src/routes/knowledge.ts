@@ -8,16 +8,16 @@ const router: IRouter = Router();
 router.get("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.query;
-  
+
   // Verify contact belongs to user
-  const contact = await prisma.contact.findFirst({
-    where: { id: String(id), userId: req.userId! },
+  const contact = await prisma.account.findFirst({
+    where: { id: String(id), ownerId: req.userId!, isService: true },
   });
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
-  
+
   const facts = await prisma.contactKnowledge.findMany({
     where: { contactId: String(id), status: status ? String(status) : "active" },
     orderBy: [{ category: "asc" }, { updatedAt: "desc" }],
@@ -41,8 +41,8 @@ router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
   }
 
   // Verify contact belongs to user
-  const contact = await prisma.contact.findFirst({
-    where: { id: String(id), userId: req.userId! },
+  const contact = await prisma.account.findFirst({
+    where: { id: String(id), ownerId: req.userId!, isService: true },
   });
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
@@ -52,18 +52,18 @@ router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
   const fact = await prisma.contactKnowledge.upsert({
     where: { contactId_key: { contactId: String(id), key: String(key) } },
     create: {
-      contactId: String(id),
-      category: String(category),
-      key: String(key),
-      value: String(value),
+      contactId:  String(id),
+      category:   String(category),
+      key:        String(key),
+      value:      String(value),
       confidence: typeof confidence === "number" ? confidence : 1.0,
-      status: "active",
+      status:     "active",
     },
     update: {
-      category: String(category),
-      value: String(value),
+      category:   String(category),
+      value:      String(value),
       confidence: typeof confidence === "number" ? confidence : 1.0,
-      status: "active",
+      status:     "active",
     },
   });
 
@@ -74,9 +74,10 @@ router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
 router.patch("/knowledge/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { value, status } = req.body;
-  // Verify ownership via contact → user
+
+  // Verify ownership via contact (service account) → owner
   const existing = await prisma.contactKnowledge.findFirst({
-    where: { id: String(id), contact: { userId: req.userId! } },
+    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
   });
   if (!existing) {
     res.status(404).json({ error: "Knowledge fact not found" });
@@ -85,7 +86,7 @@ router.patch("/knowledge/:id", asyncHandler(async (req, res) => {
   const fact = await prisma.contactKnowledge.update({
     where: { id: String(id) },
     data: {
-      ...(value !== undefined ? { value } : {}),
+      ...(value  !== undefined ? { value }  : {}),
       ...(status !== undefined ? { status } : {}),
     },
   });
@@ -95,9 +96,10 @@ router.patch("/knowledge/:id", asyncHandler(async (req, res) => {
 // DELETE /knowledge/:id
 router.delete("/knowledge/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  // Verify ownership via contact → user
+
+  // Verify ownership via contact (service account) → owner
   const existing = await prisma.contactKnowledge.findFirst({
-    where: { id: String(id), contact: { userId: req.userId! } },
+    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
   });
   if (!existing) {
     res.status(404).json({ error: "Knowledge fact not found" });

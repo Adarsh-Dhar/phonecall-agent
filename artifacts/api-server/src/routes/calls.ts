@@ -14,6 +14,7 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { contactCardSelect, contactCardSelectWithPhone } from "../lib/prismaSelects";
+import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
 
@@ -23,7 +24,7 @@ const router: IRouter = Router();
 
 router.get("/calls", async (req, res) => {
   const calls = await prisma.call.findMany({
-    where: { contact: { userId: req.userId! } },
+    where: { contact: { ownerId: req.userId!, isService: true } },
     orderBy: { createdAt: "desc" },
     include: { contact: { select: contactCardSelect } },
   });
@@ -37,7 +38,7 @@ router.get("/calls", async (req, res) => {
 router.get("/calls/:id", async (req, res) => {
   const { id } = req.params;
   const call = await prisma.call.findFirst({
-    where: { id: String(id), contact: { userId: req.userId! } },
+    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
     include: { contact: { select: contactCardSelectWithPhone } },
   });
   if (!call) {
@@ -55,7 +56,7 @@ router.get("/conversations/:conversationId/calls", async (req, res) => {
   const { conversationId } = req.params;
   // Verify the conversation belongs to this user
   const conversation = await prisma.conversation.findFirst({
-    where: { id: String(conversationId), contact: { userId: req.userId! } },
+    where: { id: String(conversationId), contact: { ownerId: req.userId!, isService: true } },
   });
   if (!conversation) {
     res.status(404).json({ error: "Conversation not found" });

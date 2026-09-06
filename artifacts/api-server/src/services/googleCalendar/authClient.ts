@@ -1,9 +1,10 @@
 /**
  * Google OAuth Client Management
  *
- * Loads stored tokens from User model, refreshes them when expired, and persists refreshed
- * tokens back to the database. Everything else in the googleCalendar service
- * depends on one of these two functions to get an authenticated client.
+ * Loads stored tokens from the Account model (isService: false), refreshes them
+ * when expired, and persists refreshed tokens back to the database. Everything
+ * else in the googleCalendar service depends on one of these two functions to
+ * get an authenticated client.
  */
 
 import { prisma } from "@workspace/db-prisma";
@@ -16,8 +17,9 @@ import {
 } from "./config";
 
 /**
- * Get an authenticated OAuth2 client with auto-refresh capabilities for a specific user.
- * Loads tokens from database, refreshes if expired, and persists new tokens.
+ * Get an authenticated OAuth2 client with auto-refresh capabilities for a
+ * specific login account. Loads tokens from database, refreshes if expired,
+ * and persists new tokens.
  */
 export async function getAuthedClient(userId: string): Promise<google.auth.OAuth2 | null> {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
@@ -26,18 +28,18 @@ export async function getAuthedClient(userId: string): Promise<google.auth.OAuth
   }
 
   try {
-    const user = await prisma.user.findUnique({
+    const account = await prisma.account.findUnique({
       where: { id: userId },
     });
 
-    if (!user) {
-      logger.debug(`No user found with id: ${userId}`);
+    if (!account) {
+      logger.debug(`No account found with id: ${userId}`);
       return null;
     }
 
     // If no refresh token, nothing we can do — skip silently
-    if (!user.refreshToken) {
-      logger.debug(`No refresh token for user ${userId}, skipping calendar auth`);
+    if (!account.refreshToken) {
+      logger.debug(`No refresh token for account ${userId}, skipping calendar auth`);
       return null;
     }
 
@@ -48,9 +50,9 @@ export async function getAuthedClient(userId: string): Promise<google.auth.OAuth
     );
 
     oauth2Client.setCredentials({
-      access_token: user.accessToken,
-      refresh_token: user.refreshToken,
-      expiry_date: user.expiryDate.getTime(),
+      access_token:  account.accessToken ?? undefined,
+      refresh_token: account.refreshToken,
+      expiry_date:   account.expiryDate?.getTime(),
     });
 
     // Set up token refresh handler
@@ -61,11 +63,11 @@ export async function getAuthedClient(userId: string): Promise<google.auth.OAuth
         // tokens.expiry_date is an absolute epoch-ms timestamp, not a duration.
         const newExpiryDate = new Date(tokens.expiry_date || Date.now() + 3600000);
 
-        await prisma.user.update({
+        await prisma.account.update({
           where: { id: userId },
           data: {
-            accessToken: tokens.access_token || user.accessToken,
-            expiryDate: newExpiryDate,
+            accessToken: tokens.access_token ?? account.accessToken,
+            expiryDate:  newExpiryDate,
           },
         });
       } catch (error) {
@@ -74,10 +76,10 @@ export async function getAuthedClient(userId: string): Promise<google.auth.OAuth
     });
 
     // Check if token is expired and refresh if needed
-    if (user.expiryDate < new Date()) {
+    if (account.expiryDate && account.expiryDate < new Date()) {
       logger.info("Google OAuth token expired, attempting refresh");
       try {
-        const { credentials } = await oauth2Client.refreshAccessToken();
+        await oauth2Client.refreshAccessToken();
         logger.info("Google OAuth token refreshed successfully");
       } catch (error) {
         logger.error({ error }, "Failed to refresh Google OAuth token");
@@ -107,16 +109,16 @@ export async function getAuthedClientOrReason(userId: string): Promise<AuthedCli
     return { ok: false, reason: "not_connected" };
   }
 
-  const user = await prisma.user.findUnique({
+  const account = await prisma.account.findUnique({
     where: { id: userId },
   });
 
-  if (!user) {
-    logger.warn("Google Calendar not connected - no user found");
+  if (!account) {
+    logger.warn("Google Calendar not connected - no account found");
     return { ok: false, reason: "not_connected" };
   }
 
-  if (!user.refreshToken) {
+  if (!account.refreshToken) {
     logger.debug("Google Calendar not connected - no refresh token stored");
     return { ok: false, reason: "not_connected" };
   }
@@ -128,13 +130,13 @@ export async function getAuthedClientOrReason(userId: string): Promise<AuthedCli
   );
 
   oauth2Client.setCredentials({
-    access_token: user.accessToken,
-    refresh_token: user.refreshToken,
-    expiry_date: user.expiryDate.getTime(),
+    access_token:  account.accessToken ?? undefined,
+    refresh_token: account.refreshToken,
+    expiry_date:   account.expiryDate?.getTime(),
   });
 
   // Check if token is expired and refresh if needed
-  if (user.expiryDate < new Date()) {
+  if (account.expiryDate && account.expiryDate < new Date()) {
     logger.info("Token expired, refreshing...");
     try {
       const { credentials } = await oauth2Client.refreshAccessToken();
@@ -143,19 +145,19 @@ export async function getAuthedClientOrReason(userId: string): Promise<AuthedCli
       // credentials.expiry_date is an absolute epoch-ms timestamp, not a duration.
       const newExpiryDate = new Date(credentials.expiry_date || Date.now() + 3600000);
 
-      await prisma.user.update({
+      await prisma.account.update({
         where: { id: userId },
         data: {
-          accessToken: credentials.access_token || user.accessToken,
-          expiryDate: newExpiryDate,
+          accessToken: credentials.access_token ?? account.accessToken,
+          expiryDate:  newExpiryDate,
         },
       });
 
       // Update the client with the new token
       oauth2Client.setCredentials({
-        access_token: credentials.access_token || user.accessToken,
-        refresh_token: user.refreshToken,
-        expiry_date: newExpiryDate.getTime(),
+        access_token:  credentials.access_token ?? account.accessToken ?? undefined,
+        refresh_token: account.refreshToken,
+        expiry_date:   newExpiryDate.getTime(),
       });
     } catch (error) {
       logger.error({ error }, "Failed to refresh Google OAuth token");

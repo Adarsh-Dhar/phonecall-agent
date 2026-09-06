@@ -35,7 +35,7 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
 
       // Verify conversation belongs to user
       const conversation = await prisma.conversation.findFirst({
-        where: { id: String(id), contact: { userId: req.userId! } },
+        where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
       });
       if (!conversation) {
         res.status(404).json({ error: "Conversation not found" });
@@ -67,8 +67,8 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
       const { status } = req.query;
 
       // Verify contact belongs to user
-      const contact = await prisma.contact.findFirst({
-        where: { id: String(id), userId: req.userId! },
+      const contact = await prisma.account.findFirst({
+        where: { id: String(id), ownerId: req.userId!, isService: true },
       });
       if (!contact) {
         res.status(404).json({ error: "Contact not found" });
@@ -100,9 +100,9 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
 
       const queries = await prisma.query.findMany({
         where: {
-          contact: { userId: req.userId! },
+          contact: { ownerId: req.userId!, isService: true },
           isKnowledgeGap: opts.isKnowledgeGap,
-          ...(status ? { status: String(status) } : {}),
+          ...(status    ? { status: String(status) }       : {}),
           ...(contactId ? { contactId: String(contactId) } : {}),
         },
         include: {
@@ -132,6 +132,23 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         res
           .status(400)
           .json({ error: `question, conversationId, and contactId are required` });
+        return;
+      }
+
+      // Verify the contact belongs to this user, and the conversation
+      // actually belongs to that same contact, before attaching anything.
+      const contact = await prisma.account.findFirst({
+        where: { id: String(contactId), ownerId: req.userId!, isService: true },
+      });
+      if (!contact) {
+        res.status(404).json({ error: "Contact not found" });
+        return;
+      }
+      const conversation = await prisma.conversation.findFirst({
+        where: { id: String(conversationId), contactId: String(contactId) },
+      });
+      if (!conversation) {
+        res.status(404).json({ error: "Conversation not found" });
         return;
       }
 
@@ -168,7 +185,9 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         return;
       }
 
-      const query = await prisma.query.findUnique({ where: { id: String(id) } });
+      const query = await prisma.query.findFirst({
+        where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
+      });
       if (!query) {
         res.status(404).json({ error: `${resourceCapitalized} not found` });
         return;
@@ -227,7 +246,9 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
       const { id } = req.params;
       const { status, question } = req.body;
 
-      const existing = await prisma.query.findUnique({ where: { id: String(id) } });
+      const existing = await prisma.query.findFirst({
+        where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
+      });
       if (!existing) {
         res.status(404).json({ error: `${resourceCapitalized} not found` });
         return;
@@ -236,7 +257,7 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
       const updatedQuery = await prisma.query.update({
         where: { id: String(id) },
         data: {
-          ...(status !== undefined ? { status: String(status) } : {}),
+          ...(status   !== undefined ? { status: String(status) }     : {}),
           ...(question !== undefined ? { question: String(question) } : {}),
         },
         include: sourcesInclude,

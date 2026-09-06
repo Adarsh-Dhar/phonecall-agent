@@ -8,7 +8,7 @@ export async function callGeminiExtraction(
   apiKey: string,
   context: {
     contactName: string;
-    contactBusiness: string;
+    contactBusiness: string | null;
     existingTasks: ExistingTask[];
     newMessages: NewMessage[];
   }
@@ -84,7 +84,7 @@ JSON schema:
   ]
 }`;
 
-  const userContent = `Contact: ${context.contactName} (${context.contactBusiness})
+  const userContent = `Contact: ${context.contactName} (${context.contactBusiness ?? ""})
 
 Existing open tasks:
 ${context.existingTasks.length === 0 ? "(none)" : JSON.stringify(context.existingTasks, null, 2)}

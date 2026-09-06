@@ -34,7 +34,7 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
     });
     if (!conversation) return result;
     
-    const userId = conversation.contact.userId;
+    const userId = conversation.contact.ownerId;
 
     // ------------------------------------------------------------------
     // 2. Fetch delta: messages newer than the cursor

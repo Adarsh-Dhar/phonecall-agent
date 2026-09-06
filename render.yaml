@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     region: oregon
-    buildCommand: npx pnpm@latest install && cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma generate && npx prisma db push --accept-data-loss && npx pnpm run db:seed && cd artifacts/phone-agent && npx pnpm@latest run build && cd ../api-server && npx pnpm@latest run build
+    buildCommand: npx pnpm@latest install && cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma generate && npx prisma db push --accept-data-loss && cd artifacts/phone-agent && npx pnpm@latest run build && cd ../api-server && npx pnpm@latest run build
     startCommand: cp prisma/schema.prod.prisma prisma/schema.prisma && cd artifacts/api-server && npx pnpm@latest run start
     envVars:
       - key: DATABASE_URL
@@ -28,8 +28,6 @@ services:
       - key: PUBLIC_WS_URL
         sync: false
       - key: EXOTEL_PASSTHRU_SECRET
-        sync: false
-      - key: TEST_PROVIDER_PHONES
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
@@ -44,7 +42,7 @@ services:
     env: node
     plan: free
     region: singapore
-    buildCommand: npx pnpm@latest install && cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma generate && npx prisma db push --accept-data-loss && npx pnpm run db:seed && cd artifacts/phone-agent && npx pnpm@latest run build && cd ../api-server && npx pnpm@latest run build
+    buildCommand: npx pnpm@latest install && cp prisma/schema.prod.prisma prisma/schema.prisma && npx prisma generate && npx prisma db push --accept-data-loss && cd artifacts/phone-agent && npx pnpm@latest run build && cd ../api-server && npx pnpm@latest run build
     startCommand: cp prisma/schema.prod.prisma prisma/schema.prisma && cd artifacts/api-server && npx pnpm@latest run start
     envVars:
       - key: DATABASE_URL
@@ -68,8 +66,6 @@ services:
       - key: PUBLIC_WS_URL
         sync: false
       - key: EXOTEL_PASSTHRU_SECRET
-        sync: false
-      - key: TEST_PROVIDER_PHONES
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false

@@ -2,22 +2,23 @@ import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { scheduleExtraction } from "../services/taskExtraction";
 import { asyncHandler } from "../lib/asyncHandler";
+import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
 
 // Get messages for a conversation
 router.get("/conversations/:conversationId/messages", asyncHandler(async (req, res) => {
   const { conversationId } = req.params;
-  
+
   // Verify conversation belongs to user
   const conversation = await prisma.conversation.findFirst({
-    where: { id: String(conversationId), contact: { userId: req.userId! } },
+    where: { id: String(conversationId), contact: { ownerId: req.userId!, isService: true } },
   });
   if (!conversation) {
     res.status(404).json({ error: "Conversation not found" });
     return;
   }
-  
+
   const messages = await prisma.message.findMany({
     where: { conversationId: String(conversationId) },
     orderBy: { createdAt: "asc" },
@@ -32,7 +33,7 @@ router.post("/conversations/:conversationId/messages", asyncHandler(async (req, 
 
   // Verify conversation belongs to user
   const conversation = await prisma.conversation.findFirst({
-    where: { id: String(conversationId), contact: { userId: req.userId! } },
+    where: { id: String(conversationId), contact: { ownerId: req.userId!, isService: true } },
   });
   if (!conversation) {
     res.status(404).json({ error: "Conversation not found" });
@@ -64,9 +65,10 @@ router.post("/conversations/:conversationId/messages", asyncHandler(async (req, 
 router.put("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { role, content, time, pending } = req.body;
-  // Verify ownership via conversation → contact → user
+
+  // Verify ownership via conversation → contact (service account) → owner
   const existing = await prisma.message.findFirst({
-    where: { id: String(id), conversation: { contact: { userId: req.userId! } } },
+    where: { id: String(id), conversation: { contact: { ownerId: req.userId!, isService: true } } },
   });
   if (!existing) {
     res.status(404).json({ error: "Message not found" });
@@ -82,9 +84,10 @@ router.put("/:id", asyncHandler(async (req, res) => {
 // Delete a message
 router.delete("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  // Verify ownership via conversation → contact → user
+
+  // Verify ownership via conversation → contact (service account) → owner
   const existing = await prisma.message.findFirst({
-    where: { id: String(id), conversation: { contact: { userId: req.userId! } } },
+    where: { id: String(id), conversation: { contact: { ownerId: req.userId!, isService: true } } },
   });
   if (!existing) {
     res.status(404).json({ error: "Message not found" });

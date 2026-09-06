@@ -57,7 +57,7 @@ export function stopCalendarSync(): void {
 }
 
 /**
- * Manually trigger a calendar sync for a specific user.
+ * Manually trigger a calendar sync for a specific login account.
  * Useful for API endpoints or testing.
  */
 export async function manualSync(userId: string): Promise<{
@@ -72,32 +72,35 @@ export async function manualSync(userId: string): Promise<{
 // ---------------------------------------------------------------------------
 
 /**
- * Sync calendar changes for all users with refresh tokens.
+ * Sync calendar changes for all login accounts with refresh tokens.
  */
 async function syncAllUsersCalendarChanges(): Promise<void> {
   try {
-    const users = await prisma.user.findMany({
+    // Only login accounts (isService: false) hold OAuth tokens
+    const accounts = await prisma.account.findMany({
       where: {
-        refreshToken: { not: "" },
-        accessToken: { not: "" },
+        isService:    false,
+        refreshToken: { not: null },
+        accessToken:  { not: null },
       },
       select: { id: true },
     });
 
-    for (const user of users) {
+    for (const account of accounts) {
       try {
-        await syncCalendarChanges(user.id);
+        await syncCalendarChanges(account.id);
       } catch (error) {
-        logger.error({ error, userId: user.id }, "Failed to sync calendar for user");
+        logger.error({ error, userId: account.id }, "Failed to sync calendar for account");
       }
     }
   } catch (error) {
-    logger.error({ error }, "Failed to get users for calendar sync");
+    logger.error({ error }, "Failed to get accounts for calendar sync");
   }
 }
 
 /**
- * Main sync function: polls for calendar changes and updates tasks for a specific user.
+ * Main sync function: polls for calendar changes and updates tasks for a
+ * specific login account.
  */
 async function syncCalendarChanges(userId: string): Promise<{
   synced: number;
@@ -107,22 +110,28 @@ async function syncCalendarChanges(userId: string): Promise<{
 
   try {
     // Get current sync token from database
-    const user = await prisma.user.findUnique({
+    const account = await prisma.account.findUnique({
       where: { id: userId },
     });
 
-    if (!user) {
-      logger.debug("Calendar sync: no user found, skipping");
+    if (!account) {
+      logger.debug("Calendar sync: no account found, skipping");
       return result;
     }
 
     // Poll for changes
-    const { events, nextSyncToken } = await listChangedEvents(userId, user.syncToken || undefined);
+    const { events, nextSyncToken } = await listChangedEvents(userId, account.syncToken || undefined);
 
     if (!nextSyncToken) {
       logger.debug("Calendar sync: no next sync token returned, skipping");
       return result;
     }
+
+    // Persist the new sync token
+    await prisma.account.update({
+      where: { id: userId },
+      data:  { syncToken: nextSyncToken },
+    });
 
     // Process each changed event
     for (const event of events) {
@@ -160,11 +169,11 @@ async function processEventChange(event: {
   end: { dateTime?: string; date?: string } | null;
   status: string;
 }, userId: string): Promise<void> {
-  // Find task by Google event ID for this user
+  // Find task by Google event ID, scoped to this login account's service contacts
   const task = await prisma.task.findFirst({
-    where: { 
+    where: {
       googleEventId: event.id,
-      contact: { userId },
+      contact: { ownerId: userId, isService: true },
     },
     include: { contact: true },
   });
@@ -177,14 +186,14 @@ async function processEventChange(event: {
   // Handle event deletion/cancellation
   if (event.status === "cancelled") {
     logger.info({ taskId: task.id, eventId: event.id }, "Calendar event cancelled, marking task as cancelled");
-    
+
     await prisma.task.update({
       where: { id: task.id },
       data: {
-        status: "cancelled",
+        status:        "cancelled",
         googleEventId: null, // Clear the link since event is gone
-        googleEtag: null,
-        lastSyncedAt: new Date(),
+        googleEtag:    null,
+        lastSyncedAt:  new Date(),
       },
     });
     return;
@@ -214,7 +223,7 @@ async function processEventChange(event: {
     updateData.dueDate = newDueDate;
   }
 
-  // Only update if there are changes
+  // Only update if there are changes beyond lastSyncedAt
   if (Object.keys(updateData).length > 1) {
     logger.info(
       { taskId: task.id, eventId: event.id, changes: Object.keys(updateData) },
@@ -223,7 +232,7 @@ async function processEventChange(event: {
 
     await prisma.task.update({
       where: { id: task.id },
-      data: updateData,
+      data:  updateData,
     });
   }
 }

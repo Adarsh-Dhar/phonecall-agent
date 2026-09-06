@@ -13,7 +13,7 @@ export async function reconcileTaskActions(
     conversationId: string;
     contactId: string;
     contactName: string;
-    contactBusiness: string;
+    contactBusiness: string | null;
     deltaMessages: Array<{ id: string }>;
   }
 ): Promise<{

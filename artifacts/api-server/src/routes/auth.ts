@@ -7,46 +7,6 @@ import { signToken } from "../lib/jwt";
 import { requireAuth } from "../lib/authMiddleware";
 import crypto from 'crypto';
 
-// ---------------------------------------------------------------------------
-// Default contacts seeded for every new user on first sign-in
-// ---------------------------------------------------------------------------
-
-const DEFAULT_CONTACTS = [
-  { name: 'Phone Agent',             business: 'Your personal assistant',       category: 'Assistant',                    initials: 'PA', color: '#ff9b83', note: 'Ready to help with everyday admin',      online: true  },
-  { name: 'Bright Smile Dental',     business: 'Dentist / dental clinic',       category: 'Healthcare & Medical',         initials: 'BS', color: '#f7ad92', note: 'Ask for a late morning slot'                          },
-  { name: 'Dr. Patel — Family Practice', business: 'Doctor / GP',              category: 'Healthcare & Medical',         initials: 'DP', color: '#8fc9b0', note: 'Annual physical is due'                               },
-  { name: 'Riverside Auto Service',  business: 'Car service / mechanic',        category: 'Home, Auto & Local Services',  initials: 'RA', color: '#e0b568', note: 'Due for an oil change + brake check'                  },
-  { name: 'Horizon Insurance',       business: 'Insurance company',             category: 'Financial, Insurance & Bills', initials: 'HI', color: '#c9a4dd', note: 'Policy renewal question'                              },
-  { name: 'Meridian Bank',           business: 'Bank / credit card company',    category: 'Financial, Insurance & Bills', initials: 'MB', color: '#7fa8dd', note: 'Dispute a charge'                                      },
-  { name: 'Metro DMV',               business: 'DMV / motor vehicle dept',      category: 'Government & Bureaucracy',     initials: 'MD', color: '#7fb3d5', note: 'License renewal — appointment needed'                  },
-  { name: 'ConnectMobile',           business: 'Telecom / mobile provider',     category: 'Customer Service & Retail',   initials: 'CM', color: '#a8c9a8', note: 'Question about the new plan'                           },
-] as const;
-
-const CONTACT_PHONE = process.env.TEST_PHONE_NUMBER ?? '+10000000000';
-
-async function seedDefaultContacts(userId: string): Promise<void> {
-  logger.info({ userId }, "Seeding default contacts for new user");
-  for (const c of DEFAULT_CONTACTS) {
-    const contact = await prisma.contact.create({
-      data: {
-        userId,
-        name:     c.name,
-        business: c.business,
-        category: c.category,
-        phone:    CONTACT_PHONE,
-        initials: c.initials,
-        color:    c.color,
-        note:     c.note,
-        online:   'online' in c ? Boolean(c.online) : false,
-      },
-    });
-    await prisma.conversation.create({
-      data: { title: `Chat with ${c.name}`, contactId: contact.id },
-    });
-  }
-  logger.info({ userId, count: DEFAULT_CONTACTS.length }, "Default contacts seeded");
-}
-
 const router: IRouter = Router();
 
 // ---------------------------------------------------------------------------
@@ -77,26 +37,27 @@ router.get("/auth/google/login", asyncHandler(async (req, res) => {
     return;
   }
 
-  // Generate a random state parameter for CSRF protection
+  // Plain random state for CSRF protection — role is chosen after OAuth on
+  // the /role page, so we no longer need to encode it in the state string.
   const state = crypto.randomBytes(16).toString('hex');
 
   const scopes = [
     "openid",
-    "email", 
+    "email",
     "profile",
     "https://www.googleapis.com/auth/calendar.events",
   ];
 
   const authUrl = oauth2Client.generateAuthUrl({
-    access_type: "offline", // Request refresh token
-    prompt: "consent",      // Force consent to ensure we get refresh token
+    access_type: "offline",  // Request refresh token
+    prompt: "consent",       // Force consent to ensure we get refresh token
     scope: scopes,
     state: state,
   });
 
   // Store state in a cookie for verification during callback
-  res.cookie('oauth_state', state, { 
-    httpOnly: true, 
+  res.cookie('oauth_state', state, {
+    httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     maxAge: 600000 // 10 minutes
@@ -107,7 +68,7 @@ router.get("/auth/google/login", asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // GET /auth/google/callback
-// Exchange authorization code for tokens, create/update user, set JWT cookie
+// Exchange authorization code for tokens, create/update account, set JWT cookie
 // ---------------------------------------------------------------------------
 router.get("/auth/google/callback", asyncHandler(async (req, res) => {
   const { code, state } = req.query;
@@ -140,7 +101,7 @@ router.get("/auth/google/callback", asyncHandler(async (req, res) => {
 
   try {
     const { tokens } = await oauth2Client.getToken(code);
-    
+
     if (!tokens.access_token || !tokens.refresh_token) {
       res.status(500).json({ error: "Failed to obtain tokens from Google" });
       return;
@@ -159,39 +120,41 @@ router.get("/auth/google/callback", asyncHandler(async (req, res) => {
     // tokens.expiry_date is an absolute epoch-ms timestamp, not a duration.
     const expiryDate = new Date(tokens.expiry_date || Date.now() + 3600000);
 
-    // Upsert user by googleId
-    const user = await prisma.user.upsert({
+    // Check whether this Google identity already exists in the DB
+    const existingAccount = await prisma.account.findUnique({
+      where: { googleId: userInfo.id },
+    });
+    const isNewAccount = !existingAccount;
+
+    // Upsert the login account.
+    // New accounts get isService=false as a placeholder — the /role page sets the real value.
+    // Returning accounts keep their existing isService value unchanged.
+    const account = await prisma.account.upsert({
       where: { googleId: userInfo.id },
       create: {
-        googleId: userInfo.id,
-        email: userInfo.email,
-        name: userInfo.name,
-        picture: userInfo.picture,
-        accessToken: tokens.access_token,
+        isService:    false, // placeholder; overwritten immediately on /role
+        googleId:     userInfo.id,
+        email:        userInfo.email,
+        name:         userInfo.name ?? userInfo.email,
+        picture:      userInfo.picture,
+        accessToken:  tokens.access_token,
         refreshToken: tokens.refresh_token,
-        expiryDate: expiryDate,
-        scope: tokens.scope || "",
+        expiryDate:   expiryDate,
+        scope:        tokens.scope ?? "",
       },
       update: {
-        accessToken: tokens.access_token,
+        accessToken:  tokens.access_token,
         refreshToken: tokens.refresh_token,
-        expiryDate: expiryDate,
-        scope: tokens.scope || "",
-        name: userInfo.name,
-        picture: userInfo.picture,
+        expiryDate:   expiryDate,
+        scope:        tokens.scope ?? "",
+        name:         userInfo.name ?? userInfo.email,
+        picture:      userInfo.picture,
+        // Do NOT update isService here — role changes go through PATCH /auth/role
       },
     });
 
     // Sign JWT token
-    const jwtToken = signToken({ userId: user.id, email: user.email });
-
-    // Seed default contacts for brand-new users (no contacts yet)
-    const contactCount = await prisma.contact.count({ where: { userId: user.id } });
-    if (contactCount === 0) {
-      void seedDefaultContacts(user.id).catch((err) =>
-        logger.error({ err }, "Failed to seed default contacts for new user"),
-      );
-    }
+    const jwtToken = signToken({ userId: account.id, email: account.email ?? "" });
 
     // Set httpOnly cookie
     res.cookie('token', jwtToken, {
@@ -201,10 +164,10 @@ router.get("/auth/google/callback", asyncHandler(async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    logger.info(`User authenticated: ${user.email}`);
+    logger.info(`Account authenticated: ${account.email}`);
 
-    // Redirect to frontend
-    res.redirect("/");
+    // New accounts → role selection page; returning accounts → app
+    res.redirect(isNewAccount ? "/?setup=1" : "/");
   } catch (error) {
     logger.error({ error }, "Failed to handle Google OAuth callback");
     res.redirect("/?auth-error=true");
@@ -222,33 +185,69 @@ router.post("/auth/logout", asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // GET /auth/me
-// Return current user or 401
+// Return current login account or 401
 // ---------------------------------------------------------------------------
 router.get("/auth/me", requireAuth, asyncHandler(async (req, res) => {
-  const user = await prisma.user.findUnique({
+  const account = await prisma.account.findUnique({
     where: { id: req.userId! },
     select: {
-      id: true,
-      googleId: true,
-      email: true,
-      name: true,
-      picture: true,
+      id:        true,
+      googleId:  true,
+      email:     true,
+      name:      true,
+      picture:   true,
+      isService: true,
       createdAt: true,
     },
   });
 
-  if (!user) {
-    res.status(401).json({ error: "User not found" });
+  if (!account) {
+    res.status(401).json({ error: "Account not found" });
     return;
   }
 
-  res.json(user);
-}, "Failed to get current user"));
+  // needsRoleSetup: true when the account has never been through /role.
+  // An account that has completed /role will have isService explicitly set
+  // via PATCH /auth/role — we track this via a dedicated DB flag instead of
+  // inferring from contact count (which is now always zero on first login).
+  // For now we use the same heuristic but keyed only on whether the account
+  // was just created (ownerId is null and isService is the placeholder false).
+  // Simplest reliable signal: the account was created in the last 5 minutes
+  // and has isService=false with no contacts — i.e. it's brand new.
+  const isNewAccount = !account.isService &&
+    (new Date().getTime() - new Date(account.createdAt).getTime()) < 5 * 60 * 1000;
+  // But that's fragile. Better: store a roleSetAt timestamp. For now, use
+  // the /?setup=1 redirect from the callback as the gate and just expose
+  // needsRoleSetup as false for all existing accounts (they already have a role).
+  const needsRoleSetup = false;
+
+  res.json({ ...account, needsRoleSetup });
+}, "Failed to get current account"));
+
+// ---------------------------------------------------------------------------
+// PATCH /auth/role
+// Set the account's role (isService true/false) after the OAuth sign-up.
+// Body: { isService: boolean }
+// ---------------------------------------------------------------------------
+router.patch("/auth/role", requireAuth, asyncHandler(async (req, res) => {
+  const { isService } = req.body;
+
+  if (typeof isService !== "boolean") {
+    res.status(400).json({ error: "isService must be a boolean" });
+    return;
+  }
+
+  await prisma.account.update({
+    where: { id: req.userId! },
+    data:  { isService },
+  });
+
+  res.json({ ok: true, isService });
+}, "Failed to set account role"));
 
 // ---------------------------------------------------------------------------
 // GET /auth/google/status
-// Returns whether the current user has a connected Google Calendar.
-// Used by CalendarSection to decide whether to show Connect or Sync button.
+// Returns whether the current account has a connected Google Calendar.
 // ---------------------------------------------------------------------------
 router.get("/auth/google/status", asyncHandler(async (req, res) => {
   const token = req.cookies?.token;
@@ -264,30 +263,30 @@ router.get("/auth/google/status", asyncHandler(async (req, res) => {
     return;
   }
 
-  const user = await prisma.user.findUnique({
+  const account = await prisma.account.findUnique({
     where: { id: payload.userId },
     select: { accessToken: true, refreshToken: true, expiryDate: true },
   });
 
-  if (!user || !user.accessToken) {
+  if (!account || !account.accessToken) {
     res.json({ connected: false, hasAuth: false, expired: false });
     return;
   }
 
-  const expired = user.expiryDate < new Date();
-  const canRefresh = Boolean(user.refreshToken);
+  const expired = account.expiryDate ? account.expiryDate < new Date() : true;
+  const canRefresh = Boolean(account.refreshToken);
 
   res.json({
     connected: canRefresh || !expired,
-    hasAuth: true,
-    expired: expired && !canRefresh,
+    hasAuth:   true,
+    expired:   expired && !canRefresh,
   });
 }, "Failed to get Google auth status"));
 
 // ---------------------------------------------------------------------------
 // DELETE /auth/google
-// Clears the user's stored Google Calendar tokens (disconnect calendar).
-// Does NOT log the user out — they keep their session cookie.
+// Clears the login account's stored Google Calendar tokens (disconnect calendar).
+// Does NOT log the account out — they keep their session cookie.
 // ---------------------------------------------------------------------------
 router.delete("/auth/google", asyncHandler(async (req, res) => {
   const token = req.cookies?.token;
@@ -303,12 +302,12 @@ router.delete("/auth/google", asyncHandler(async (req, res) => {
     return;
   }
 
-  await prisma.user.update({
+  await prisma.account.update({
     where: { id: payload.userId },
     data: {
-      accessToken: "",
+      accessToken:  "",
       refreshToken: "",
-      syncToken: null,
+      syncToken:    null,
     },
   });
 

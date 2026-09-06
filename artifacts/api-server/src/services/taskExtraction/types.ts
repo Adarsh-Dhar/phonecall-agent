@@ -47,7 +47,7 @@ export type TaskToSync = {
   dueDate: Date | null;
   status: string;
   googleEventId: string | null;
-  contact: { name: string; business: string };
+  contact: { name: string; business: string | null };
 };
 
 export type ExtractionResult = {

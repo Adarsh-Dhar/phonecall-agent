@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
+import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
 
@@ -45,9 +46,9 @@ router.post("/gemini/chat", async (req, res) => {
   // Build knowledge block from durable facts about this contact
   let knowledgeBlock = "";
   if (contactId) {
-    // Verify contact belongs to user
-    const contact = await prisma.contact.findFirst({
-      where: { id: contactId, userId: req.userId! },
+    // Verify the contact (service account) belongs to this user
+    const contact = await prisma.account.findFirst({
+      where: { id: contactId, ownerId: req.userId!, isService: true },
     });
     if (!contact) {
       res.status(404).json({ error: "Contact not found" });

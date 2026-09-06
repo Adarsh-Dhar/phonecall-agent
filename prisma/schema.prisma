@@ -8,43 +8,50 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           String    @id @default(cuid())
-  googleId     String    @unique
-  email        String    @unique
-  name         String?
+model Account {
+  id        String  @id @default(cuid())
+  isService Boolean @default(false)
+
+  // Self-relation: a login account (isService: false) owns N service
+  // accounts (isService: true — today's "contacts")
+  ownerId  String?
+  owner    Account?  @relation("AccountOwnership", fields: [ownerId], references: [id], onDelete: Cascade)
+  contacts Account[] @relation("AccountOwnership")
+
+  // --- Login-only fields (Google OAuth identity) — null for service accounts ---
+  googleId     String?   @unique
+  email        String?   @unique
   picture      String?
-  accessToken  String  @default("")
-  refreshToken String  @default("")
-  expiryDate   DateTime
-  scope        String
+  accessToken  String?
+  refreshToken String?
+  expiryDate   DateTime?
+  scope        String?
   syncToken    String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  contacts     Contact[]
-}
 
-model Contact {
-  id        String             @id @default(cuid())
-  userId    String
+  // --- Shared / contact-ish fields ---
   name      String
-  business  String
-  category  String
-  phone     String
-  initials  String
-  color     String
+  business  String?
+  category  String?
+  phone     String?
+  initials  String?
+  color     String?
   note      String?
-  online    Boolean            @default(false)
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  calls     Call[]
-  knowledge ContactKnowledge[]
-  conversations Conversation[]
-  queries   Query[]
-  tasks     Task[]
+  online    Boolean  @default(false)
 
-  @@index([userId])
+  // When this row was created as a contact mirror of another Account,
+  // this stores the source account's id for deduplication checks.
+  linkedAccountId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  calls         Call[]
+  knowledge     ContactKnowledge[]
+  conversations Conversation[]
+  queries       Query[]
+  tasks         Task[]
+
+  @@index([ownerId])
 }
 
 model Conversation {
@@ -59,7 +66,7 @@ model Conversation {
   topicSummary           String?
   contactId              String
   calls                  Call[]
-  contact                Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact                Account   @relation(fields: [contactId], references: [id], onDelete: Cascade)
   history                History[]
   messages               Message[]
   queries                Query[]
@@ -99,26 +106,26 @@ model History {
 }
 
 model Task {
-  id             String              @id @default(cuid())
-  title          String
-  description    String?
-  status         String              @default("suggested")
-  priority       String              @default("normal")
-  dueDate        DateTime?
-  confidence     Float               @default(1.0)
-  source         String              @default("agent")
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  completedAt    DateTime?
-  conversationId String
-  contactId      String
-  googleEtag     String?
-  googleEventId  String?
-  lastSyncedAt   DateTime?
+  id              String              @id @default(cuid())
+  title           String
+  description     String?
+  status          String              @default("suggested")
+  priority        String              @default("normal")
+  dueDate         DateTime?
+  confidence      Float               @default(1.0)
+  source          String              @default("agent")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  completedAt     DateTime?
+  conversationId  String
+  contactId       String
+  googleEtag      String?
+  googleEventId   String?
+  lastSyncedAt    DateTime?
   callTriggeredAt DateTime?
-  contact        Contact             @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sources        TaskSourceMessage[]
+  contact         Account             @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation    Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sources         TaskSourceMessage[]
 
   @@index([conversationId])
   @@index([contactId])
@@ -151,7 +158,7 @@ model Query {
   knowledgeCategory String?
   conversationId    String
   contactId         String
-  contact           Contact              @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact           Account              @relation(fields: [contactId], references: [id], onDelete: Cascade)
   conversation      Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sources           QuerySourceMessage[]
 
@@ -188,7 +195,7 @@ model Call {
   updatedAt         DateTime     @updatedAt
   conversationId    String
   contactId         String
-  contact           Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact           Account      @relation(fields: [contactId], references: [id], onDelete: Cascade)
   conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   messages          Message[]
 
@@ -207,7 +214,7 @@ model ContactKnowledge {
   status     String                   @default("active")
   createdAt  DateTime                 @default(now())
   updatedAt  DateTime                 @updatedAt
-  contact    Contact                  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact    Account                  @relation(fields: [contactId], references: [id], onDelete: Cascade)
   sources    KnowledgeSourceMessage[]
 
   @@unique([contactId, key])

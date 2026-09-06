@@ -25,7 +25,6 @@ New REST API endpoints for database operations:
 ### 3. Frontend Integration
 - Real API calls instead of hardcoded data
 - Loading states and error handling
-- Fallback to seed data if API unavailable
 - Dynamic contact and history loading
 
 ## How to Run
@@ -48,8 +47,7 @@ New REST API endpoints for database operations:
 # This will:
 # 1. Start PostgreSQL in Docker
 # 2. Run Prisma migrations
-# 3. Seed the database with initial data
-# 4. Start all services (API, frontend, mockup sandbox)
+# 3. Start all services (API, frontend, mockup sandbox)
 ./start-all.sh
 ```
 
@@ -60,9 +58,6 @@ docker-compose up -d
 
 # Run migrations
 npx prisma migrate dev --name init
-
-# Seed database
-npx tsx prisma/seed.ts
 
 # Start services
 export PORT=5175 DATABASE_URL="postgresql://phoneagent:phoneagent_password@localhost:5432/phone_agent"
@@ -141,7 +136,6 @@ cd artifacts/phone-agent && export PORT=5177 && pnpm run dev &
 ```bash
 # Database operations
 pnpm run db:migrate      # Create and run migrations
-pnpm run db:seed        # Seed database with sample data
 pnpm run db:studio      # Open Prisma Studio (database GUI)
 pnpm run db:generate    # Regenerate Prisma Client
 

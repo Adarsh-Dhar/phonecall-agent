@@ -76,7 +76,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
     return;
   }
 
-  const contact = await prisma.contact.findUnique({ where: { id: call.contactId } });
+  const contact = await prisma.account.findUnique({ where: { id: call.contactId } });
   const facts = await prisma.contactKnowledge.findMany({
     where: { contactId: call.contactId, status: "active" },
     orderBy: { category: "asc" },

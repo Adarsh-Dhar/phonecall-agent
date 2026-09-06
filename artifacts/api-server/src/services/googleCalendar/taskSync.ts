@@ -21,7 +21,7 @@ export async function createEvent(task: {
   title: string;
   description: string | null;
   dueDate: Date | null;
-  contact: { name: string; business: string };
+  contact: { name: string; business: string | null };
   userId: string;
 }): Promise<string | null> {
   const auth = await getAuthedClient(task.userId);
@@ -42,8 +42,8 @@ export async function createEvent(task: {
     const endTime = new Date(startTime.getTime() + DEFAULT_EVENT_DURATION_MINUTES * 60000);
 
     const description = task.description
-      ? `${task.description}\n\nContact: ${task.contact.name} (${task.contact.business})`
-      : `Contact: ${task.contact.name} (${task.contact.business})`;
+      ? `${task.description}\n\nContact: ${task.contact.name} (${task.contact.business ?? ""})`
+      : `Contact: ${task.contact.name} (${task.contact.business ?? ""})`;
 
     const event = {
       summary: task.title,
@@ -96,7 +96,7 @@ export async function updateEvent(task: {
   description: string | null;
   dueDate: Date | null;
   status: string;
-  contact: { name: string; business: string };
+  contact: { name: string; business: string | null };
   userId: string;
 }): Promise<boolean> {
   const auth = await getAuthedClient(task.userId);
@@ -130,8 +130,8 @@ export async function updateEvent(task: {
       : new Date(existingEvent.data.end?.dateTime || Date.now() + DEFAULT_EVENT_DURATION_MINUTES * 60000);
 
     const description = task.description
-      ? `${task.description}\n\nContact: ${task.contact.name} (${task.contact.business})`
-      : `Contact: ${task.contact.name} (${task.contact.business})`;
+      ? `${task.description}\n\nContact: ${task.contact.name} (${task.contact.business ?? ""})`
+      : `Contact: ${task.contact.name} (${task.contact.business ?? ""})`;
 
     // If task is done, prefix title with checkmark
     const summary = task.status === "done" ? `✓ ${task.title}` : task.title;
@@ -257,7 +257,7 @@ export async function listChangedEvents(userId: string, syncToken?: string): Pro
 
     // Update sync token in database if we got a new one
     if (nextSyncToken) {
-      await prisma.user.update({
+      await prisma.account.update({
         where: { id: userId },
         data: { syncToken: nextSyncToken },
       });
@@ -283,7 +283,7 @@ export async function syncTaskToCalendar(task: {
   dueDate: Date | null;
   status: string;
   googleEventId: string | null;
-  contact: { name: string; business: string };
+  contact: { name: string; business: string | null };
   userId: string;
 }): Promise<boolean> {
   try {

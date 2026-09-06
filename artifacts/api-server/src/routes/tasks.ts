@@ -17,7 +17,7 @@ router.get("/conversations/:id/tasks", asyncHandler(async (req, res) => {
 
   // Verify conversation belongs to user
   const conversation = await prisma.conversation.findFirst({
-    where: { id: String(id), contact: { userId: req.userId! } },
+    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
   });
   if (!conversation) {
     res.status(404).json({ error: "Conversation not found" });
@@ -45,8 +45,8 @@ router.get("/contacts/:id/tasks", asyncHandler(async (req, res) => {
   const { status } = req.query;
 
   // Verify contact belongs to user
-  const contact = await prisma.contact.findFirst({
-    where: { id: String(id), userId: req.userId! },
+  const contact = await prisma.account.findFirst({
+    where: { id: String(id), ownerId: req.userId!, isService: true },
   });
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
@@ -75,9 +75,9 @@ router.get("/tasks", asyncHandler(async (req, res) => {
 
   const tasks = await prisma.task.findMany({
     where: {
-      contact: { userId: req.userId! },
-      ...(status ? { status: String(status) } : {}),
-      ...(priority ? { priority: String(priority) } : {}),
+      contact: { ownerId: req.userId!, isService: true },
+      ...(status    ? { status: String(status) }       : {}),
+      ...(priority  ? { priority: String(priority) }   : {}),
       ...(contactId ? { contactId: String(contactId) } : {}),
     },
     include: {
@@ -104,8 +104,8 @@ router.post("/tasks", asyncHandler(async (req, res) => {
   }
 
   // Verify contact belongs to this user
-  const contact = await prisma.contact.findFirst({
-    where: { id: String(contactId), userId: req.userId! },
+  const contact = await prisma.account.findFirst({
+    where: { id: String(contactId), ownerId: req.userId!, isService: true },
   });
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
@@ -116,11 +116,11 @@ router.post("/tasks", asyncHandler(async (req, res) => {
     data: {
       title,
       description: description ?? null,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      priority: priority ?? "normal",
-      status: "open",          // user-created tasks skip "suggested"
-      source: "user",
-      confidence: 1.0,
+      dueDate:     dueDate ? new Date(dueDate) : null,
+      priority:    priority ?? "normal",
+      status:      "open",   // user-created tasks skip "suggested"
+      source:      "user",
+      confidence:  1.0,
       conversationId,
       contactId,
     },
@@ -130,14 +130,14 @@ router.post("/tasks", asyncHandler(async (req, res) => {
   // Sync to Google Calendar (non-blocking)
   if (task.dueDate) {
     syncTaskToCalendar({
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      dueDate: task.dueDate,
-      status: task.status,
+      id:           task.id,
+      title:        task.title,
+      description:  task.description,
+      dueDate:      task.dueDate,
+      status:       task.status,
       googleEventId: task.googleEventId,
-      contact: { name: task.contact.name, business: task.contact.business },
-      userId: req.userId!,
+      contact:      { name: task.contact.name, business: task.contact.business },
+      userId:       req.userId!,
     }).catch((err) => {
       console.error("Failed to sync task to calendar:", err);
     });
@@ -155,8 +155,8 @@ router.patch("/tasks/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status, title, description, dueDate, priority } = req.body;
 
-  const existing = await prisma.task.findFirst({ 
-    where: { id: String(id), contact: { userId: req.userId! } },
+  const existing = await prisma.task.findFirst({
+    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
     include: { contact: true },
   });
   if (!existing) {
@@ -169,12 +169,12 @@ router.patch("/tasks/:id", asyncHandler(async (req, res) => {
   const task = await prisma.task.update({
     where: { id: String(id) },
     data: {
-      ...(status !== undefined ? { status } : {}),
-      ...(title !== undefined ? { title } : {}),
-      ...(description !== undefined ? { description } : {}),
-      ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
-      ...(priority !== undefined ? { priority } : {}),
-      ...(isCompleting ? { completedAt: new Date() } : {}),
+      ...(status      !== undefined ? { status }                               : {}),
+      ...(title       !== undefined ? { title }                                : {}),
+      ...(description !== undefined ? { description }                          : {}),
+      ...(dueDate     !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
+      ...(priority    !== undefined ? { priority }                             : {}),
+      ...(isCompleting              ? { completedAt: new Date() }              : {}),
     },
     include: { ...sourcesInclude, contact: true },
   });
@@ -183,14 +183,14 @@ router.patch("/tasks/:id", asyncHandler(async (req, res) => {
   const shouldSync = dueDate !== undefined || status !== undefined || title !== undefined;
   if (shouldSync) {
     syncTaskToCalendar({
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      dueDate: task.dueDate,
-      status: task.status,
+      id:            task.id,
+      title:         task.title,
+      description:   task.description,
+      dueDate:       task.dueDate,
+      status:        task.status,
       googleEventId: task.googleEventId,
-      contact: { name: task.contact.name, business: task.contact.business },
-      userId: req.userId!,
+      contact:       { name: task.contact.name, business: task.contact.business },
+      userId:        req.userId!,
     }).catch((err) => {
       console.error("Failed to sync task to calendar:", err);
     });
@@ -207,7 +207,7 @@ router.delete("/tasks/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const existing = await prisma.task.findFirst({
-    where: { id: String(id), contact: { userId: req.userId! } },
+    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
   });
   if (!existing) {
     res.status(404).json({ error: "Task not found" });
@@ -234,7 +234,9 @@ router.delete("/tasks/:id", asyncHandler(async (req, res) => {
 router.post("/conversations/:id/extract", asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const conversation = await prisma.conversation.findUnique({ where: { id: String(id) } });
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
+  });
   if (!conversation) {
     res.status(404).json({ error: "Conversation not found" });
     return;
