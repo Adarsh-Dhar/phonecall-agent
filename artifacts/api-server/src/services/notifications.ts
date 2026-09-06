@@ -10,10 +10,15 @@
  * This does NOT deliver to a closed tab or a phone that isn't looking at the
  * app — there is no push-notification/service-worker layer here. It only
  * reaches whatever browser tabs currently hold an open connection.
+ * 
+ * DEPRECATED: This file is being replaced by the presence registry system
+ * in presence.ts. The broadcastCallDue function now uses sendToAccount
+ * to target specific users instead of broadcasting to all connected clients.
  */
 
 import { WebSocketServer, WebSocket } from "ws";
 import { logger } from "../lib/logger";
+import { sendToAccount } from "./presence";
 
 const clients = new Set<WebSocket>();
 
@@ -48,22 +53,10 @@ export type CallDueNotification = {
 };
 
 /**
- * Sends a call_due notification to every currently-connected browser tab.
- * Returns how many clients actually received it, so the caller can log
- * when a due task had nobody around to pick it up.
+ * Sends a call_due notification to the specific account that owns the task.
+ * Uses the presence registry to target the right user instead of broadcasting.
+ * Returns true if the notification was delivered, false if the user is offline.
  */
-export function broadcastCallDue(payload: CallDueNotification): number {
-  const message = JSON.stringify(payload);
-  let delivered = 0;
-  for (const client of clients) {
-    if (client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(message);
-        delivered++;
-      } catch (err) {
-        logger.warn({ err }, "notifications: failed to send to a client");
-      }
-    }
-  }
-  return delivered;
+export function broadcastCallDue(payload: CallDueNotification & { ownerId: string }): boolean {
+  return sendToAccount(payload.ownerId, payload);
 }

@@ -11,7 +11,7 @@ function slugify(text: string): string {
     .replace(/^_+|_+$/g, "");
 }
 
-export function buildCallSystemInstruction(
+function buildBaseCallInstruction(
   contactName: string,
   knowledgeFacts: Array<{ category: string; key: string; value: string }> = [],
   taskContext: { title: string; description: string | null } | null = null
@@ -30,13 +30,6 @@ export function buildCallSystemInstruction(
     : "";
 
   return (
-    "You are Phone Agent, an intelligent voice assistant taking a call on behalf of Adarsh Dhar, " +
-    `speaking with ${contactName}, an external business contact. Be warm, but direct and concise — ` +
-    "this is a live phone conversation, not an email. Get to the point quickly, don't pad your " +
-    "sentences with filler, and don't repeat back what the other person just said. If you don't have " +
-    "enough information to commit to something, or the other person can't give you something you need " +
-    "(e.g. a reference number or ID you don't have), say plainly that you'll need to check with Adarsh " +
-    "Dhar and get back to them — don't guess or invent details.\n\n" +
     "IMPORTANT: Speak only in English. If the other person speaks in a different language, " +
     "politely ask them to speak in English. Do not attempt to respond in other languages.\n\n" +
     "GETTING PRECISE INFORMATION: If the call involves scheduling, rescheduling, or referencing any " +
@@ -55,6 +48,56 @@ export function buildCallSystemInstruction(
     taskBlock +
     knowledgeBlock
   );
+}
+
+export function buildInboundCallSystemInstruction(
+  onBehalfOfName: string,
+  contactName: string,
+  knowledgeFacts: Array<{ category: string; key: string; value: string }> = [],
+  taskContext: { title: string; description: string | null } | null = null
+): string {
+  const baseInstruction = buildBaseCallInstruction(contactName, knowledgeFacts, taskContext);
+  
+  return (
+    `You are Phone Agent, an intelligent voice assistant taking a call on behalf of ${onBehalfOfName}, ` +
+    `speaking with ${contactName}, an external business contact. Be warm, but direct and concise — ` +
+    "this is a live phone conversation, not an email. Get to the point quickly, don't pad your " +
+    "sentences with filler, and don't repeat back what the other person just said. If you don't have " +
+    "enough information to commit to something, or the other person can't give you something you need " +
+    "(e.g. a reference number or ID you don't have), say plainly that you'll need to check with " +
+    `${onBehalfOfName} and get back to them — don't guess or invent details.\n\n` +
+    baseInstruction
+  );
+}
+
+export function buildOutboundCallSystemInstruction(
+  onBehalfOfName: string,
+  calleeName: string,
+  knowledgeFacts: Array<{ category: string; key: string; value: string }> = [],
+  taskContext: { title: string; description: string | null } | null = null
+): string {
+  const baseInstruction = buildBaseCallInstruction(calleeName, knowledgeFacts, taskContext);
+  
+  return (
+    `You are Phone Agent, an intelligent voice assistant taking a call on behalf of ${onBehalfOfName}, ` +
+    `speaking with ${calleeName}, an external business contact. Be warm, but direct and concise — ` +
+    "this is a live phone conversation, not an email. Get to the point quickly, don't pad your " +
+    "sentences with filler, and don't repeat back what the other person just said. If you don't have " +
+    "enough information to commit to something, or the other person can't give you something you need " +
+    "(e.g. a reference number or ID you don't have), say plainly that you'll need to check with " +
+    `${onBehalfOfName} and get back to them — don't guess or invent details.\n\n` +
+    baseInstruction
+  );
+}
+
+// Legacy function for backward compatibility with voiceStreamBrowser.ts
+export function buildCallSystemInstruction(
+  contactName: string,
+  knowledgeFacts: Array<{ category: string; key: string; value: string }> = [],
+  taskContext: { title: string; description: string | null } | null = null
+): string {
+  // Default to "Adarsh Dhar" for backward compatibility
+  return buildInboundCallSystemInstruction("Adarsh Dhar", contactName, knowledgeFacts, taskContext);
 }
 
 /**

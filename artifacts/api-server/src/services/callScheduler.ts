@@ -61,7 +61,15 @@ async function checkDueTasks(): Promise<void> {
         callTriggeredAt: null,
         status: { in: ["open", "in_progress"] },
       },
-      include: { contact: true },
+      include: { 
+        contact: {
+          select: {
+            id: true,
+            name: true,
+            ownerId: true,
+          },
+        },
+      },
       orderBy: { dueDate: "asc" },
     });
 
@@ -80,6 +88,7 @@ async function checkDueTasks(): Promise<void> {
         contactName: task.contact.name,
         title: task.title,
         description: task.description,
+        ownerId: task.contact.ownerId!,
       });
 
       logger.info(
