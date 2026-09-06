@@ -2,6 +2,7 @@
  * Server entry point
  */
 
+import 'dotenv/config';
 import app from "./app";
 import { logger } from "./lib/logger";
 import { sweepStaleConversations } from "./services/taskExtraction";

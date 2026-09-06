@@ -26,15 +26,50 @@ import { verifyToken } from "../lib/jwt";
 function extractUserId(req: IncomingMessage): string | null {
   const cookieHeader = req.headers.cookie ?? "";
   const match = cookieHeader.match(/(?:^|;\s*)token=([^;]+)/);
-  if (!match) return null;
+  if (!match) {
+    logger.warn({ url: req.url, hasCookie: !!cookieHeader }, "WebSocket upgrade failed: no token cookie found");
+    return null;
+  }
   const payload = verifyToken(decodeURIComponent(match[1]));
-  return payload?.userId ?? null;
+  if (!payload?.userId) {
+    logger.warn({ url: req.url }, "WebSocket upgrade failed: invalid token");
+    return null;
+  }
+  logger.info({ userId: payload.userId, url: req.url }, "WebSocket upgrade authenticated successfully");
+  return payload.userId;
 }
 
 export function attachVoiceStreams(server: Server) {
   const browserWss = createBrowserVoiceStream();
   const serviceWss = createServiceVoiceStream();
   const notificationsWss = createNotificationsStream();
+  
+  // Create a single presence WebSocket server to be reused for all connections
+  const presenceWss = new WebSocketServer({ noServer: true });
+
+  // Handle presence connections
+  presenceWss.on("connection", (ws: WebSocket, req: any) => {
+    logger.info("Presence WebSocket connection established");
+    const userId = req.userId;
+    if (!userId) {
+      logger.warn("Presence connection without userId");
+      ws.close();
+      return;
+    }
+    
+    logger.info({ userId }, "Calling registerPresence");
+    registerPresence(userId, ws);
+    
+    ws.on("close", () => {
+      logger.info({ userId }, "Presence WebSocket closed");
+      unregisterPresence(userId, ws);
+    });
+    
+    ws.on("error", (error) => {
+      logger.error({ userId, error }, "Presence WebSocket error");
+      unregisterPresence(userId, ws);
+    });
+  });
 
   server.on("upgrade", (req, socket, head) => {
     const pathname = req.url?.split("?")[0];
@@ -59,25 +94,12 @@ export function attachVoiceStreams(server: Server) {
     }
 
     if (pathname === "/presence") {
-      // Presence registry - use a simple WebSocket upgrade
-      // Create a minimal WebSocket server for presence
-      const presenceWss = new WebSocketServer({ noServer: true });
+      // Presence registry - use the reusable WebSocket server
+      logger.info({ userId }, "Handling /presence WebSocket upgrade");
       presenceWss.handleUpgrade(req, socket, head, (ws) => {
+        logger.info({ userId }, "Presence WebSocket upgrade complete, emitting connection event");
         presenceWss.emit("connection", ws, req);
       });
-      
-      presenceWss.on("connection", (ws: WebSocket) => {
-        registerPresence(userId, ws);
-        
-        ws.on("close", () => {
-          unregisterPresence(userId, ws);
-        });
-        
-        ws.on("error", () => {
-          unregisterPresence(userId, ws);
-        });
-      });
-      
       return;
     }
 
@@ -86,7 +108,9 @@ export function attachVoiceStreams(server: Server) {
       return;
     }
 
+    // Unknown WebSocket path
     logger.warn({ pathname }, "voice: rejected upgrade request for unknown path");
+    socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
     socket.destroy();
   });
 }

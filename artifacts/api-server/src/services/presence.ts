@@ -7,16 +7,21 @@ const sockets = new Map<string, Set<WebSocket>>(); // accountId -> tabs
 export function registerPresence(accountId: string, ws: WebSocket): void {
   if (!sockets.has(accountId)) sockets.set(accountId, new Set());
   sockets.get(accountId)!.add(ws);
+  logger.info({ accountId, socketCount: sockets.get(accountId)!.size }, "User presence registered");
   void markOnline(accountId, true);
 }
 
 export function unregisterPresence(accountId: string, ws: WebSocket): void {
   sockets.get(accountId)?.delete(ws);
-  if (sockets.get(accountId)?.size === 0) {
+  const remainingSockets = sockets.get(accountId)?.size ?? 0;
+  logger.info({ accountId, remainingSockets }, "User presence unregistered");
+  
+  if (remainingSockets === 0) {
     sockets.delete(accountId);
     // Consider a 5s debounce for reloads to avoid flickering
     setTimeout(() => {
       if (!isOnline(accountId)) {
+        logger.info({ accountId }, "Marking user offline after debounce");
         void markOnline(accountId, false);
       }
     }, 5000);

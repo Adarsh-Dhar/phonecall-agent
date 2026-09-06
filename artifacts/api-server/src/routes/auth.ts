@@ -157,9 +157,11 @@ router.get("/auth/google/callback", asyncHandler(async (req, res) => {
     const jwtToken = signToken({ userId: account.id, email: account.email ?? "" });
 
     // Set httpOnly cookie
+    // Only use secure cookies in production if not on localhost
+    const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
     res.cookie('token', jwtToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' && !isLocalhost,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
