@@ -7,7 +7,9 @@ import { toast } from '@/hooks/use-toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { TestCallWidget } from '@/components/TestCallWidget';
+import { IncomingCallModal } from '@/components/calls/IncomingCallModal';
 import { useCallDueNotifications, type CallDueNotification } from '@/hooks/useCallDueNotifications';
+import { usePresence } from '@/hooks/usePresence';
 import { CallsPage } from '@/pages/CallsPage';
 import { HistoryPage } from '@/pages/HistoryPage';
 import { ContactsPage } from '@/pages/ContactsPage';
@@ -51,6 +53,8 @@ function RootRedirect() {
 
 function AppRoutes() {
   const [dueCall, setDueCall] = useState<CallDueNotification | null>(null);
+  const [incomingCall, setIncomingCall] = useState<{ callId: string; callerName: string; taskContext?: { taskId: string; title: string; description: string | null } | null } | null>(null);
+  const { user } = useAuth();
 
   useCallDueNotifications((notification) => {
     toast({
@@ -59,6 +63,25 @@ function AppRoutes() {
     });
     setDueCall(notification);
   });
+
+  // Only enable presence for service accounts to receive incoming calls
+  usePresence(
+    (event) => {
+      if (user?.isService) {
+        console.log('Incoming call received:', event);
+        setIncomingCall({
+          callId: event.callId,
+          callerName: event.callerName,
+          taskContext: event.taskContext,
+        });
+      }
+    },
+    (event) => {
+      console.log('Call status update:', event);
+      // Handle call status updates (ringing → in-progress → missed/declined)
+      // This could update UI state or show notifications
+    }
+  );
 
   return (
     <>
@@ -80,6 +103,13 @@ function AppRoutes() {
           taskId={dueCall.taskId}
           taskTitle={dueCall.title}
           onClose={() => setDueCall(null)}
+        />
+      )}
+
+      {user?.isService && incomingCall && (
+        <IncomingCallModal
+          incomingCall={incomingCall}
+          onClose={() => setIncomingCall(null)}
         />
       )}
     </>

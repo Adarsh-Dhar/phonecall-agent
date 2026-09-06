@@ -17,6 +17,7 @@ import type { Server } from "http";
 import type { IncomingMessage } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { createBrowserVoiceStream } from "./voiceStreamBrowser";
+import { createServiceVoiceStream } from "./voiceStreamService";
 import { createNotificationsStream } from "./notifications";
 import { registerPresence, unregisterPresence } from "./presence";
 import { logger } from "../lib/logger";
@@ -32,6 +33,7 @@ function extractUserId(req: IncomingMessage): string | null {
 
 export function attachVoiceStreams(server: Server) {
   const browserWss = createBrowserVoiceStream();
+  const serviceWss = createServiceVoiceStream();
   const notificationsWss = createNotificationsStream();
 
   server.on("upgrade", (req, socket, head) => {
@@ -52,9 +54,7 @@ export function attachVoiceStreams(server: Server) {
     }
 
     if (pathname === "/media/service") {
-      // Will be implemented in voiceStreamService.ts
-      logger.warn({ pathname }, "voice: service voice stream not yet implemented");
-      socket.destroy();
+      serviceWss.handleUpgrade(req, socket, head, (ws) => serviceWss.emit("connection", ws, req));
       return;
     }
 

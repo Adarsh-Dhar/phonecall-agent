@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { asyncHandler } from "../lib/asyncHandler";
+import { isOnline } from "../services/presence";
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -260,13 +261,20 @@ router.get("/contacts", asyncHandler(async (req, res) => {
     },
     orderBy: { createdAt: "desc" },
   });
-  res.json(contacts);
+
+  // Resolve online status via presence registry for contacts with linkedAccountId
+  const contactsWithLiveOnline = contacts.map(contact => ({
+    ...contact,
+    online: contact.linkedAccountId ? isOnline(contact.linkedAccountId) : contact.online,
+  }));
+
+  res.json(contactsWithLiveOnline);
 }, "Failed to fetch contacts"));
 
 // Create a new service account (contact).
 // If `withConversation` is truthy, also creates the first chat thread.
 router.post("/contacts", asyncHandler(async (req, res) => {
-  const { name, business, category, phone, initials, color, note, online, withConversation } = req.body;
+  const { name, business, category, phone, initials, color, note, withConversation } = req.body;
   const contact = await prisma.account.create({
     data: {
       isService: true,
@@ -278,7 +286,7 @@ router.post("/contacts", asyncHandler(async (req, res) => {
       initials,
       color,
       note,
-      online: online || false,
+      online: false, // Always start as offline, presence system will update this
       ...(withConversation
         ? { conversations: { create: { title: `Chat with ${name}` } } }
         : {}),
@@ -319,7 +327,7 @@ router.get("/contacts/:id/conversation", asyncHandler(async (req, res) => {
 // Update a contact
 router.put("/contacts/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, business, category, phone, initials, color, note, online } = req.body;
+  const { name, business, category, phone, initials, color, note } = req.body;
   // Verify ownership before update
   const existing = await prisma.account.findFirst({
     where: { id: String(id), ownerId: req.userId!, isService: true },
@@ -330,7 +338,7 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
   }
   const contact = await prisma.account.update({
     where: { id: String(id) },
-    data: { name, business, category, phone, initials, color, note, online },
+    data: { name, business, category, phone, initials, color, note },
   });
   res.json(contact);
 }, "Failed to update contact"));

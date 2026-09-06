@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, ListTodo, LoaderCircle, Phone, Plus, RefreshCw } from 'lucide-react';
 import * as api from '@/lib/api';
 import { TestCallWidget } from '@/components/TestCallWidget';
+import { useAuth } from '@/hooks/useAuth';
 
 /**
  * Tasks card on the Contact Detail page. Manages its own state (load,
@@ -10,11 +11,13 @@ import { TestCallWidget } from '@/components/TestCallWidget';
  * has different filters and a different data source.
  */
 export function ContactTasksCard({ contactId }: { contactId: string | undefined }) {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<api.Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [callingTask, setCallingTask] = useState<api.Task | null>(null);
+  const [callStatus, setCallStatus] = useState<'idle' | 'ringing' | 'in-progress' | 'missed' | 'declined'>('idle');
 
   const loadTasks = useCallback(async () => {
     if (!contactId) return;
@@ -56,6 +59,48 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
     }
   };
 
+  const handleCall = async (task: api.Task) => {
+    if (!contactId) return;
+
+    // Check if this contact has a linkedAccountId (real service account)
+    const contact = await api.fetchContacts().then(contacts => contacts.find(c => c.id === contactId));
+    
+    if (contact?.linkedAccountId) {
+      // Use the real call system
+      try {
+        setCallStatus('ringing');
+        const response = await fetch('/api/calls/dial', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contactId,
+            taskId: task.id,
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+          if (data.status === 'missed') {
+            setCallStatus('missed');
+            setTimeout(() => setCallStatus('idle'), 3000);
+          } else if (data.status === 'ringing') {
+            setCallStatus('ringing');
+          }
+        } else {
+          console.error('Failed to dial call:', data.error);
+          setCallStatus('idle');
+        }
+      } catch (error) {
+        console.error('Error dialing call:', error);
+        setCallStatus('idle');
+      }
+    } else {
+      // Fall back to browser test call
+      setCallingTask(task);
+    }
+  };
+
   return (
     <div className="mt-5 rounded-[22px] border border-card-border bg-card p-5">
       <div className="flex items-center gap-2">
@@ -66,6 +111,11 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
           <h3 className="text-sm font-bold tracking-tight">Tasks</h3>
           <p className="text-[10px] text-[#3f8274]">{tasks.filter((t) => t.status !== 'done').length} active</p>
         </div>
+        {callStatus !== 'idle' && (
+          <span className="ml-2 rounded-full bg-[#fff0df] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[.06em] text-[#af5c1c]">
+            {callStatus === 'ringing' ? 'Ringing...' : callStatus}
+          </span>
+        )}
         <button
           type="button"
           aria-label="Refresh tasks"
@@ -147,7 +197,7 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
                   type="button"
                   aria-label={`Call about "${task.title}"`}
                   title="Call about this"
-                  onClick={() => setCallingTask(task)}
+                  onClick={() => void handleCall(task)}
                   className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[#3f8274] hover:bg-[#edf9f5]"
                 >
                   <Phone size={13} />
