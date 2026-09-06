@@ -175,7 +175,11 @@ export function createServiceVoiceStream(): WebSocketServer {
         }
 
         case "audio": {
-          if (!gemini || typeof msg.payload !== "string") return;
+          if (!gemini) {
+            logger.warn("voiceStreamService: audio received before gemini session was ready");
+            return;
+          }
+          if (typeof msg.payload !== "string") return;
 
           // Skip empty payloads - don't send silence to Gemini
           if (!msg.payload || msg.payload.length === 0) {
@@ -183,15 +187,28 @@ export function createServiceVoiceStream(): WebSocketServer {
             return;
           }
 
-          const pcm24k = browserPayloadToPcm16(msg.payload);
+          try {
+            logger.info({
+              payloadLength: msg.payload.length,
+            }, "voiceStreamService: received audio payload");
 
-          // Skip sending if resampled audio is empty
-          if (pcm24k.length === 0) {
-            logger.debug("voiceStreamService: skipping empty resampled audio");
-            return;
+            const pcm24k = browserPayloadToPcm16(msg.payload);
+
+            logger.info({
+              pcm24kLength: pcm24k.length,
+              maxAmplitude: pcm24k.length ? Math.max(...Array.from(pcm24k.map(Math.abs))) : 0,
+            }, "voiceStreamService: resampled to 24k");
+
+            // Skip sending if resampled audio is empty
+            if (pcm24k.length === 0) {
+              logger.debug("voiceStreamService: skipping empty resampled audio");
+              return;
+            }
+
+            gemini.sendAudio(pcm24k);
+          } catch (err) {
+            logger.error({ err }, "voiceStreamService: failed to process/send audio chunk");
           }
-
-          gemini.sendAudio(pcm24k);
           break;
         }
 
