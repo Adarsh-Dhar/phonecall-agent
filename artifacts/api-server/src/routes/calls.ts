@@ -21,15 +21,6 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth } from "../lib/authMiddleware";
 import { isOnline, sendToAccount } from "../services/presence";
 import { logger } from "../lib/logger";
-import type { Request } from "express";
-import type { JWTPayload } from "../lib/jwt";
-
-declare module 'express' {
-  interface Request {
-    userId?: string;
-    user?: JWTPayload;
-  }
-}
 
 const router: IRouter = Router();
 
@@ -173,7 +164,7 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
     select: { id: true, title: true, description: true },
   }) : null;
 
-  sendToAccount(contact.linkedAccountId, {
+  const delivered = sendToAccount(contact.linkedAccountId, {
     type: "incoming_call",
     callId: call.id,
     callerName: caller?.name || "Unknown",
@@ -183,6 +174,10 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
       description: taskContext.description,
     } : null,
   });
+  logger.info(
+    { callId: call.id, calleeAccountId: contact.linkedAccountId, delivered },
+    "dial: incoming_call push result"
+  );
 
   // Start a timeout to automatically mark as missed after ~25 seconds
   setTimeout(async () => {

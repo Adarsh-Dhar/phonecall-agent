@@ -2,13 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken, type JWTPayload } from './jwt';
 import { logger } from './logger';
 
-declare module 'express' {
-  interface Request {
-    userId?: string;
-    user?: JWTPayload;
-  }
-}
-
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const token = req.cookies?.token;
 
