@@ -29,14 +29,15 @@ model Account {
   syncToken    String?
 
   // --- Shared / contact-ish fields ---
-  name      String
-  business  String?
-  category  String?
-  phone     String?
-  initials  String?
-  color     String?
-  note      String?
-  online    Boolean  @default(false)
+  name        String
+  description String?
+  business    String?
+  category    String?
+  phone       String?
+  initials    String?
+  color       String?
+  note        String?
+  online      Boolean  @default(false)
 
   // When this row was created as a contact mirror of another Account,
   // this stores the source account's id for deduplication checks.

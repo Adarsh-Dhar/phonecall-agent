@@ -197,6 +197,7 @@ router.get("/auth/me", requireAuth, asyncHandler(async (req, res) => {
       name:      true,
       picture:   true,
       isService: true,
+      description: true,
       createdAt: true,
     },
   });
@@ -227,19 +228,33 @@ router.get("/auth/me", requireAuth, asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 // PATCH /auth/role
 // Set the account's role (isService true/false) after the OAuth sign-up.
-// Body: { isService: boolean }
+// Body: { isService: boolean; name: string; description?: string }
 // ---------------------------------------------------------------------------
 router.patch("/auth/role", requireAuth, asyncHandler(async (req, res) => {
-  const { isService } = req.body;
+  const { isService, name, description } = req.body;
 
   if (typeof isService !== "boolean") {
     res.status(400).json({ error: "isService must be a boolean" });
     return;
   }
 
+  if (typeof name !== "string" || name.trim().length === 0) {
+    res.status(400).json({ error: "name is required and must be a non-empty string" });
+    return;
+  }
+
+  if (isService && (typeof description !== "string" || description.trim().length === 0)) {
+    res.status(400).json({ error: "description is required for service accounts" });
+    return;
+  }
+
   await prisma.account.update({
     where: { id: req.userId! },
-    data:  { isService },
+    data:  { 
+      isService,
+      name: name.trim(),
+      description: isService ? description?.trim() : null,
+    },
   });
 
   res.json({ ok: true, isService });

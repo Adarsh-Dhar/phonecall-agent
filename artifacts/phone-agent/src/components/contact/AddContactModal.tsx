@@ -315,6 +315,11 @@ export function AddContactModal({ onClose, onAdded }: Props) {
                             {account.business}
                           </p>
                         )}
+                        {account.isService && account.description && (
+                          <p className="mt-1 line-clamp-2 text-[10px] text-muted-foreground/70">
+                            {account.description}
+                          </p>
+                        )}
                       </div>
 
                       {/* Type pill */}

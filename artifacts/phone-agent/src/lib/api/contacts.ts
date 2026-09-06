@@ -9,6 +9,7 @@ export type Contact = {
   initials: string | null;
   color: string | null;
   note: string | null;
+  description: string | null;
   online: boolean;
   linkedAccountId: string | null;
   createdAt: string;
@@ -28,6 +29,7 @@ export type AccountSearchResult = {
   isService: boolean;
   business: string | null;
   category: string | null;
+  description: string | null;
 };
 
 // ── Contacts ──────────────────────────────────────────────────────────────

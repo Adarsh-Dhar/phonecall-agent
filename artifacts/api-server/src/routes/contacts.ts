@@ -23,7 +23,7 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
   // Determine the current account's type so we know which type to search for
   const me = await prisma.account.findUnique({
     where: { id: req.userId! },
-    select: { isService: true },
+    select: { isService: true, email: true },
   });
   if (!me) {
     res.status(401).json({ error: "Account not found" });
@@ -47,10 +47,44 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
   // Exclude self and already-linked accounts
   const excludeIds = [req.userId!, ...linkedIds];
 
-  // Fetch more than we'll return so we can rank client-side
+  // Additional protection: exclude accounts with very similar email patterns
+  // to prevent users from seeing their other personal accounts in search
+  if (me.email) {
+    const myEmailBase = me.email.split('@')[0].replace(/[0-9]/g, '').toLowerCase();
+    const myDomain = me.email.split('@')[1];
+    
+    const similarAccounts = await prisma.account.findMany({
+      where: {
+        ownerId: null,
+        id: { notIn: excludeIds },
+        email: { not: null, contains: myDomain },
+      },
+      select: { id: true, email: true },
+    });
+
+    similarAccounts.forEach(acc => {
+      if (acc.email) {
+        const theirEmailBase = acc.email.split('@')[0].replace(/[0-9]/g, '').toLowerCase();
+        // If the base parts match (ignoring numbers), exclude this account
+        if (myEmailBase === theirEmailBase && myEmailBase.length > 3) {
+          excludeIds.push(acc.id);
+        }
+      }
+    });
+  }
+
+  // Fetch more than we'll return so we can rank client-side.
+  // ownerId: null restricts results to *real, discoverable* accounts (people
+  // who signed in with Google). Without this, other users' private contact
+  // mirrors (rows they created via /contacts/from-account, which copy a
+  // target's name/email into `business` and are owned by the person who
+  // added them) leak into everyone's search — including mirrors that
+  // describe the searching user themselves, since a mirror row's own id is
+  // never in excludeIds.
   const candidates = await prisma.account.findMany({
     where: {
       isService: searchForService,
+      ownerId: null,
       id: { notIn: excludeIds },
       OR: [
         { email: { contains: q, mode: "insensitive" } },
@@ -66,15 +100,18 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
       isService: true,
       business:  true,
       category:  true,
+      description: true,
     },
     take: 20,
   });
 
   // If the primary search returned nothing, broaden to all account types
   // so the user isn't left with a blank screen just because no opposite-type
-  // accounts match yet.
+  // accounts match yet. Still restricted to real accounts (ownerId: null) —
+  // never fall back into other users' private contact mirrors.
   const allCandidates = candidates.length > 0 ? candidates : await prisma.account.findMany({
     where: {
+      ownerId: null,
       id: { notIn: excludeIds },
       OR: [
         { email: { contains: q, mode: "insensitive" } },
@@ -90,6 +127,7 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
       isService: true,
       business:  true,
       category:  true,
+      description: true,
     },
     take: 20,
   });
@@ -136,6 +174,7 @@ router.post("/contacts/from-account/:accountId", asyncHandler(async (req, res) =
       initials:  true,
       color:     true,
       note:      true,
+      description: true,
     },
   });
   if (!target) {
@@ -181,7 +220,7 @@ router.post("/contacts/from-account/:accountId", asyncHandler(async (req, res) =
       phone:           target.phone ?? "",
       initials,
       color,
-      note:            target.note,
+      note:            target.description ?? target.note,
       online:          false,
       conversations: {
         create: { title: `Chat with ${target.name}` },
@@ -200,7 +239,20 @@ router.get("/contacts", asyncHandler(async (req, res) => {
       isService: true,
       ...(category ? { category: String(category) } : {}),
     },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      business: true,
+      category: true,
+      phone: true,
+      initials: true,
+      color: true,
+      note: true,
+      description: true,
+      online: true,
+      linkedAccountId: true,
+      createdAt: true,
+      updatedAt: true,
       conversations: {
         select: { id: true, title: true, updatedAt: true },
         orderBy: { updatedAt: "desc" },

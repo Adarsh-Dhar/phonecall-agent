@@ -7,6 +7,7 @@ export type AuthUser = {
   name: string | null;
   picture: string | null;
   isService: boolean;
+  description: string | null;
   /** True when the account has never been through the /role selection page. */
   needsRoleSetup: boolean;
   createdAt: string;
@@ -31,12 +32,19 @@ export const logout = async (): Promise<void> => {
 };
 
 /** Set the account role after the OAuth sign-up flow. */
-export const setAccountRole = async (isService: boolean): Promise<void> => {
+export const setAccountRole = async (payload: { 
+  isService: boolean; 
+  name: string; 
+  description?: string 
+}): Promise<void> => {
   const response = await fetch(`${API_BASE_URL}/auth/role`, {
     method: 'PATCH',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ isService }),
+    body: JSON.stringify(payload),
   });
-  if (!response.ok) throw new Error('Failed to set account role');
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to set account role');
+  }
 };

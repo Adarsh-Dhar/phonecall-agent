@@ -139,10 +139,18 @@ export function CallsPage() {
                 onChange={(e) => setSelectedContactId(e.target.value || null)}
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm outline-none focus:border-[#a7d0c1]"
               >
-                <option value="">Browser Test (default)</option>
-                {contacts.map((contact) => (
-                  <option key={contact.id} value={contact.id}>{contact.name}</option>
-                ))}
+                {contacts.length === 0 ? (
+                  <option value="" disabled>No contacts available</option>
+                ) : (
+                  <>
+                    <option value="">Select a contact...</option>
+                    {contacts.map((contact) => (
+                      <option key={contact.id} value={contact.id}>
+                        {contact.name} {contact.business ? `(${contact.business})` : ''}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             </div>
             <div className="flex justify-end gap-2">
