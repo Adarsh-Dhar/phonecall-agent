@@ -11,6 +11,7 @@ export function CallRow({ call, expanded, onToggle }: {
   const hasLoaded = useRef(false);
 
   const isInbound = call.direction === 'inbound';
+  const otherPartyName = call.contact?.name ?? (isInbound ? call.from : call.to);
   const statusColor = call.status === 'completed' ? 'text-[#3f8274]' :
                      call.status === 'failed' || call.status === 'no-answer' || call.status === 'busy' ? 'text-[#b44343]' :
                      'text-muted-foreground';
@@ -49,7 +50,7 @@ export function CallRow({ call, expanded, onToggle }: {
             </span>
           </div>
           <h3 className="mt-1 font-bold">
-            {isInbound ? `Inbound call from ${call.from}` : `Outbound call to ${call.to}`}
+            {isInbound ? `Inbound call from ${otherPartyName}` : `Outbound call to ${otherPartyName}`}
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {call.durationSec != null ? `${Math.floor(call.durationSec / 60)}m ${call.durationSec % 60}s` : 'In progress'}

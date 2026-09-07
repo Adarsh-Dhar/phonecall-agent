@@ -54,7 +54,6 @@ function RootRedirect() {
 function AppRoutes() {
   const [dueCall, setDueCall] = useState<CallDueNotification | null>(null);
   const [incomingCall, setIncomingCall] = useState<{ callId: string; callerName: string; taskContext?: { taskId: string; title: string; description: string | null } | null } | null>(null);
-  const { user } = useAuth();
 
   useCallDueNotifications((notification) => {
     toast({
@@ -67,14 +66,12 @@ function AppRoutes() {
   // Only enable presence for service accounts to receive incoming calls
   usePresence(
     (event) => {
-      if (user?.isService) {
         console.log('Incoming call received:', event);
         setIncomingCall({
           callId: event.callId,
           callerName: event.callerName,
           taskContext: event.taskContext,
         });
-      }
     },
     (event) => {
       console.log('Call status update:', event);
@@ -106,7 +103,7 @@ function AppRoutes() {
         />
       )}
 
-      {user?.isService && incomingCall && (
+      {(
         <IncomingCallModal
           incomingCall={incomingCall}
           onClose={() => setIncomingCall(null)}
