@@ -7,6 +7,7 @@ import { AppLayout } from '@/components/layout';
 import { useSharedState } from '@/hooks/useSharedState';
 import { CallRow } from '@/components/calls';
 import { TestCallWidget } from '@/components/TestCallWidget';
+import { dialCall } from '@/lib/api/calls';
 
 export function CallsPage() {
   const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();
@@ -18,6 +19,7 @@ export function CallsPage() {
   const [showTestCall, setShowTestCall] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
+  const [callStatus, setCallStatus] = useState<'idle' | 'ringing' | 'in-progress' | 'missed' | 'declined'>('idle');
 
   const loadCalls = useCallback(async () => {
     setLoading(true);
@@ -49,6 +51,33 @@ export function CallsPage() {
     setExpandedCallId(expandedCallId === call.id ? null : call.id);
   };
 
+  const handleCall = async (contactId: string) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    // If contact has a linkedAccountId, use the real call system
+    if (contact.linkedAccountId) {
+      try {
+        setCallStatus('ringing');
+        const data = await dialCall(contact.id, undefined);
+        
+        if (data.status === 'missed') {
+          setCallStatus('missed');
+          setTimeout(() => setCallStatus('idle'), 3000);
+        } else if (data.status === 'ringing') {
+          setCallStatus('ringing');
+        }
+      } catch (error) {
+        console.error('Error dialing call:', error);
+        setCallStatus('idle');
+      }
+    } else {
+      // Fall back to browser test call for contacts without linkedAccountId
+      setSelectedContactId(contactId);
+      setShowTestCall(true);
+    }
+  };
+
   return (
     <AppLayout title="Calls" onPrefsOpen={() => setPrefsOpen(true)} currentDate={currentDate} prefsOpen={prefsOpen} onPrefsClose={() => setPrefsOpen(false)}>
       <div className="mx-auto max-w-245 px-5 py-8 md:px-10 md:py-12">
@@ -66,8 +95,8 @@ export function CallsPage() {
               onClick={() => setShowContactPicker(true)}
               className="flex items-center gap-1.5 rounded-full bg-[#3f8274] px-3 py-1.5 text-[11px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#356c61]"
             >
-              <Mic size={13} />
-              New Call (Browser)
+              <PhoneIcon size={13} />
+              New Call
             </button>
             <button
               type="button"
@@ -78,6 +107,11 @@ export function CallsPage() {
             >
               All calls
             </button>
+            {callStatus !== 'idle' && (
+              <span className="rounded-full bg-[#fff0df] px-3 py-1 text-[10px] font-bold uppercase tracking-[.07em] text-[#af5c1c]">
+                {callStatus === 'ringing' ? 'Ringing...' : callStatus}
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -115,14 +149,14 @@ export function CallsPage() {
         )}
       </div>
 
-      {/* Contact picker — choose who to log this browser call against */}
+      {/* Contact picker — choose who to call */}
       {showContactPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold">New Call</h2>
-                <p className="text-[11px] text-muted-foreground">Free — talks through your mic, no phone number needed.</p>
+                <p className="text-[11px] text-muted-foreground">Select a contact to call with notifications.</p>
               </div>
               <button
                 type="button"
@@ -133,7 +167,7 @@ export function CallsPage() {
               </button>
             </div>
             <div className="mb-4">
-              <label className="mb-2 block text-xs font-bold text-muted-foreground">Log call against (optional)</label>
+              <label className="mb-2 block text-xs font-bold text-muted-foreground">Select contact</label>
               <select
                 value={selectedContactId || ''}
                 onChange={(e) => setSelectedContactId(e.target.value || null)}
@@ -146,7 +180,7 @@ export function CallsPage() {
                     <option value="">Select a contact...</option>
                     {contacts.map((contact) => (
                       <option key={contact.id} value={contact.id}>
-                        {contact.name} {contact.business ? `(${contact.business})` : ''}
+                        {contact.name} {contact.business ? `(${contact.business})` : ''} {contact.linkedAccountId ? '✓' : '(browser only)'}
                       </option>
                     ))}
                   </>
@@ -163,21 +197,27 @@ export function CallsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => { setShowContactPicker(false); setShowTestCall(true); }}
-                className="flex items-center gap-1.5 rounded-lg bg-[#3f8274] px-4 py-2 text-xs font-bold text-white hover:bg-[#356c61]"
+                onClick={() => {
+                  if (selectedContactId) {
+                    handleCall(selectedContactId);
+                  }
+                  setShowContactPicker(false);
+                }}
+                disabled={!selectedContactId}
+                className="flex items-center gap-1.5 rounded-lg bg-[#3f8274] px-4 py-2 text-xs font-bold text-white hover:bg-[#356c61] disabled:opacity-50"
               >
-                <Mic size={13} /> Start Call
+                <PhoneIcon size={13} /> Call
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Test Call in Browser — the only calling transport, free, mic-based */}
+      {/* Test Call in Browser — fallback for contacts without linkedAccountId */}
       {showTestCall && (
         <TestCallWidget
           contactId={selectedContactId || undefined}
-          onClose={() => { setShowTestCall(false); setSelectedContactId(null); void loadCalls(); }}
+          onClose={() => { setShowTestCall(false); setSelectedContactId(null); setCallStatus('idle'); void loadCalls(); }}
         />
       )}
     </AppLayout>

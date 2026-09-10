@@ -121,6 +121,8 @@ router.get("/conversations/:conversationId/calls", requireAuth, async (req, res)
 router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
   const { contactId, taskId } = req.body;
 
+  logger.info({ userId: req.userId, contactId, taskId }, "dial: received call request");
+
   // Load the mirror contact account
   const contact = await prisma.account.findFirst({
     where: { 
@@ -131,12 +133,15 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
     select: { linkedAccountId: true, name: true },
   });
 
+  logger.info({ userId: req.userId, contactId, contactFound: !!contact, contact }, "dial: contact lookup result");
+
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
 
   if (!contact.linkedAccountId) {
+    logger.warn({ userId: req.userId, contactId, contact }, "dial: contact has no linkedAccountId, falling back to browser call");
     res.status(400).json({ error: "This contact isn't a real, callable account yet" });
     return;
   }
