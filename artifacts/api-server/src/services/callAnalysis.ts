@@ -79,8 +79,8 @@ export function buildOutboundCallSystemInstruction(
   const baseInstruction = buildBaseCallInstruction(calleeName, knowledgeFacts, taskContext);
   
   return (
-    `You are Phone Agent, an intelligent voice assistant taking a call on behalf of ${onBehalfOfName}, ` +
-    `speaking with ${calleeName}, an external business contact. Be warm, but direct and concise — ` +
+    `You are Phone Agent, an intelligent voice assistant calling on behalf of ${onBehalfOfName}, ` +
+    `speaking with ${calleeName}. Be warm, but direct and concise — ` +
     "this is a live phone conversation, not an email. Get to the point quickly, don't pad your " +
     "sentences with filler, and don't repeat back what the other person just said. If you don't have " +
     "enough information to commit to something, or the other person can't give you something you need " +
@@ -88,16 +88,6 @@ export function buildOutboundCallSystemInstruction(
     `${onBehalfOfName} and get back to them — don't guess or invent details.\n\n` +
     baseInstruction
   );
-}
-
-// Legacy function for backward compatibility with voiceStreamBrowser.ts
-export function buildCallSystemInstruction(
-  contactName: string,
-  knowledgeFacts: Array<{ category: string; key: string; value: string }> = [],
-  taskContext: { title: string; description: string | null } | null = null
-): string {
-  // Default to "Adarsh Dhar" for backward compatibility
-  return buildInboundCallSystemInstruction("Adarsh Dhar", contactName, knowledgeFacts, taskContext);
 }
 
 /**

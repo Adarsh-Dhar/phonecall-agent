@@ -22,7 +22,7 @@ import { prisma } from "@workspace/db-prisma";
 import { browserPayloadToPcm16, pcm16ToBrowserPayload } from "../lib/audioCodec";
 import { openGeminiLiveSession, type GeminiVoiceSession } from "./geminiVoiceSession";
 import { scheduleExtraction } from "./taskExtraction";
-import { buildCallSystemInstruction } from "./callAnalysis";
+import { buildOutboundCallSystemInstruction, buildInboundCallSystemInstruction } from "./callAnalysis";
 import { analyzeCallForEscalation } from "./callAnalysis";
 import { getOrCreateActiveConversation } from "./conversations";
 import { logger } from "../lib/logger";
@@ -151,8 +151,24 @@ export function createBrowserVoiceStream(): WebSocketServer {
               orderBy: { category: "asc" },
             });
 
+            // Get the user's name (the person making the call)
+            const user = await prisma.account.findUnique({
+              where: { id: contact.ownerId ?? undefined },
+              select: { name: true },
+            });
+
+            if (!user) {
+              throw new Error("User account not found for contact");
+            }
+
+            // Browser calls are outbound from the user to the contact
             gemini = await openGeminiLiveSession({
-              systemInstructionText: buildCallSystemInstruction(contact.name, knowledgeFacts, taskContext),
+              systemInstructionText: buildOutboundCallSystemInstruction(
+                user.name,
+                contact.name,
+                knowledgeFacts,
+                taskContext
+              ),
               onAudioOut: (pcm24k) => {
                 browserWs.send(JSON.stringify({ type: "audio", payload: pcm16ToBrowserPayload(pcm24k) }));
               },
