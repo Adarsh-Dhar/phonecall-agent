@@ -154,6 +154,14 @@ export function ContactDetailPage() {
             onClose={() => { setTestCallWidget(null); }}
           />
         )}
+
+        {/* Incoming Call Modal for real service calls */}
+        {incomingCall && (
+          <IncomingCallModal
+            incomingCall={incomingCall}
+            onClose={() => { setIncomingCall(null); }}
+          />
+        )}
       </div>
     </AppLayout>
   );

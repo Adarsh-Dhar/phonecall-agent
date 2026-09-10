@@ -63,7 +63,8 @@ function AppRoutes() {
     setDueCall(notification);
   });
 
-  // Only enable presence for service accounts to receive incoming calls
+  // Enable presence for both personal users and service accounts
+  // Personal users get call status updates, service accounts get incoming calls
   usePresence(
     (event) => {
         console.log('Incoming call received:', event);
@@ -103,7 +104,7 @@ function AppRoutes() {
         />
       )}
 
-      {(
+      {incomingCall && (
         <IncomingCallModal
           incomingCall={incomingCall}
           onClose={() => setIncomingCall(null)}
