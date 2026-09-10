@@ -21,25 +21,61 @@ import {
  * specific login account. Loads tokens from database, refreshes if expired,
  * and persists new tokens.
  */
-export async function getAuthedClient(userId: string): Promise<google.auth.OAuth2 | null> {
+export async function getAuthedClient(userId: string): Promise<InstanceType<typeof google.auth.OAuth2> | null> {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
     logger.warn("Google OAuth credentials not configured");
     return null;
   }
 
   try {
-    const account = await prisma.account.findUnique({
+    logger.info({ userId }, "authClient: attempting to get authenticated client");
+    
+    let account = await prisma.account.findUnique({
       where: { id: userId },
     });
 
     if (!account) {
-      logger.debug(`No account found with id: ${userId}`);
+      logger.warn({ userId }, `authClient: no account found with id: ${userId}`);
       return null;
+    }
+
+    logger.info({ 
+      userId, 
+      accountId: account.id, 
+      accountName: account.name, 
+      isService: account.isService,
+      hasRefreshToken: !!account.refreshToken,
+      hasAccessToken: !!account.accessToken 
+    }, "authClient: found account, checking OAuth tokens");
+
+    // If this is a service account, we need to use the owner's OAuth tokens instead
+    // Service accounts (contacts) don't have Google OAuth tokens - only their owners do
+    if (account.isService && account.ownerId) {
+      const ownerId = account.ownerId;
+      logger.info({ 
+        serviceAccountId: account.id, 
+        ownerId 
+      }, "authClient: service account detected, using owner's OAuth tokens");
+      
+      account = await prisma.account.findUnique({
+        where: { id: ownerId },
+      });
+      
+      if (!account) {
+        logger.warn({ ownerId }, "authClient: owner account not found");
+        return null;
+      }
+      
+      logger.info({ 
+        ownerId: account.id, 
+        ownerName: account.name, 
+        hasRefreshToken: !!account.refreshToken 
+      }, "authClient: using owner account for OAuth");
     }
 
     // If no refresh token, nothing we can do — skip silently
     if (!account.refreshToken) {
-      logger.debug(`No refresh token for account ${userId}, skipping calendar auth`);
+      logger.warn({ userId, accountId: account.id, isService: account.isService }, `authClient: no refresh token for account, skipping calendar auth`);
       return null;
     }
 
@@ -100,7 +136,7 @@ export async function getAuthedClient(userId: string): Promise<google.auth.OAuth
  * never connected, 401 when the stored token is there but refresh failed.
  */
 export type AuthedClientResult =
-  | { ok: true; client: google.auth.OAuth2 }
+  | { ok: true; client: InstanceType<typeof google.auth.OAuth2> }
   | { ok: false; reason: "not_connected" }
   | { ok: false; reason: "refresh_failed" };
 
@@ -109,13 +145,31 @@ export async function getAuthedClientOrReason(userId: string): Promise<AuthedCli
     return { ok: false, reason: "not_connected" };
   }
 
-  const account = await prisma.account.findUnique({
+  let account = await prisma.account.findUnique({
     where: { id: userId },
   });
 
   if (!account) {
     logger.warn("Google Calendar not connected - no account found");
     return { ok: false, reason: "not_connected" };
+  }
+
+  // If this is a service account, we need to use the owner's OAuth tokens instead
+  if (account.isService && account.ownerId) {
+    const ownerId = account.ownerId;
+    logger.info({ 
+      serviceAccountId: account.id, 
+      ownerId 
+    }, "authClient: service account detected in getAuthedClientOrReason, using owner's OAuth tokens");
+    
+    account = await prisma.account.findUnique({
+      where: { id: ownerId },
+    });
+    
+    if (!account) {
+      logger.warn({ ownerId }, "authClient: owner account not found");
+      return { ok: false, reason: "not_connected" };
+    }
   }
 
   if (!account.refreshToken) {

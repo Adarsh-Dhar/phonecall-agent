@@ -157,10 +157,20 @@ export function createBrowserVoiceStream(): WebSocketServer {
                 browserWs.send(JSON.stringify({ type: "audio", payload: pcm16ToBrowserPayload(pcm24k) }));
               },
               onUserTurnText: (text) => {
+                logger.info({ 
+                  userText: text, 
+                  textLength: text.length,
+                  conversationId 
+                }, "voiceStreamBrowser: received user turn from Gemini");
                 void logTurn("user", text);
                 browserWs.send(JSON.stringify({ type: "transcript", role: "user", text }));
               },
               onAgentTurnText: (text) => {
+                logger.info({ 
+                  agentText: text, 
+                  textLength: text.length,
+                  conversationId 
+                }, "voiceStreamBrowser: received agent turn from Gemini");
                 void logTurn("assistant", text);
                 browserWs.send(JSON.stringify({ type: "transcript", role: "assistant", text }));
               },
@@ -245,6 +255,15 @@ export function createBrowserVoiceStream(): WebSocketServer {
       if (!conversationId) return;
       const currentConversationId = conversationId;
       const currentCallId = callId;
+      
+      logger.info({ 
+        role, 
+        content, 
+        contentLength: content.length,
+        conversationId: currentConversationId,
+        callId: currentCallId 
+      }, "voiceStreamBrowser: logging turn to database");
+      
       turnLogQueue = turnLogQueue
         .then(() =>
           prisma.message.create({
@@ -257,7 +276,12 @@ export function createBrowserVoiceStream(): WebSocketServer {
             },
           })
         )
-        .then(() => {
+        .then((createdMessage) => {
+          logger.info({ 
+            messageId: createdMessage.id, 
+            role: createdMessage.role, 
+            contentLength: createdMessage.content.length 
+          }, "voiceStreamBrowser: successfully logged turn to database");
           scheduleExtraction(currentConversationId);
         })
         .catch((err) => {

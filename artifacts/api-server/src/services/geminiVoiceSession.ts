@@ -105,6 +105,12 @@ export async function openGeminiLiveSession(opts: {
           
           const inputTranscription = msg.serverContent?.inputTranscription?.text;
           if (inputTranscription) {
+            logger.info({ 
+              originalTranscription: inputTranscription,
+              transcriptionLength: inputTranscription.length,
+              hasNonAscii: /[^\x00-\x7F]/.test(inputTranscription)
+            }, "geminiVoiceSession: received input transcription");
+            
             // Filter out non-English content — the input transcriber will
             // occasionally render accented English speech in a different
             // script (e.g. Devanagari) instead of transliterating it, which
@@ -113,7 +119,11 @@ export async function openGeminiLiveSession(opts: {
             const englishOnly = filterToEnglish(inputTranscription);
             if (englishOnly) {
               userTurnBuffer += englishOnly;
-              logger.info({ transcription: englishOnly }, "geminiVoiceSession: input transcription");
+              logger.info({ 
+                filteredTranscription: englishOnly,
+                bufferLength: userTurnBuffer.length,
+                bufferSize: userTurnBuffer
+              }, "geminiVoiceSession: added to user turn buffer");
             } else {
               logger.warn({ originalText: inputTranscription }, "geminiVoiceSession: filtered non-English input");
             }
@@ -135,16 +145,36 @@ export async function openGeminiLiveSession(opts: {
           }
 
           if (msg.serverContent?.turnComplete) {
-            logger.info({ userText: userTurnBuffer.trim(), agentText: agentTurnBuffer.trim() }, "geminiVoiceSession: turn complete");
+            const userText = userTurnBuffer.trim();
+            const agentText = agentTurnBuffer.trim();
+            
+            logger.info({ 
+              userText, 
+              agentText,
+              userTextLength: userText.length,
+              agentTextLength: agentText.length,
+              userBufferBefore: userTurnBuffer,
+              agentBufferBefore: agentTurnBuffer
+            }, "geminiVoiceSession: turn complete");
 
             // Process user turn first, then agent turn — the user always
             // speaks before the agent responds within a turn, and callers
             // (transcript display, DB logging) rely on that call order to
             // preserve conversation sequence.
-            if (userTurnBuffer.trim()) opts.onUserTurnText(userTurnBuffer.trim());
+            if (userText) {
+              logger.info({ sendingUserText: userText }, "geminiVoiceSession: sending user turn to callback");
+              opts.onUserTurnText(userText);
+            } else {
+              logger.warn("geminiVoiceSession: user turn buffer empty, skipping user turn callback");
+            }
             userTurnBuffer = "";
 
-            if (agentTurnBuffer.trim()) opts.onAgentTurnText(agentTurnBuffer.trim());
+            if (agentText) {
+              logger.info({ sendingAgentText: agentText }, "geminiVoiceSession: sending agent turn to callback");
+              opts.onAgentTurnText(agentText);
+            } else {
+              logger.warn("geminiVoiceSession: agent turn buffer empty, skipping agent turn callback");
+            }
             agentTurnBuffer = "";
 
             // The goodbye turn (if any) has now fully streamed out — safe to

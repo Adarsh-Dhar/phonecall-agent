@@ -16,7 +16,7 @@ import { GOOGLE_CALENDAR_ID } from "./config";
  * POST /calendar/events route).
  */
 export async function insertCalendarEvent(
-  client: google.auth.OAuth2,
+  client: InstanceType<typeof google.auth.OAuth2>,
   input: {
     summary: string;
     description?: string;
@@ -70,7 +70,7 @@ export async function insertCalendarEvent(
  * Distinct from listChangedEvents() in taskSync.ts, which does incremental
  * sync pulls.
  */
-export async function listAllCalendarEvents(client: google.auth.OAuth2): Promise<
+export async function listAllCalendarEvents(client: InstanceType<typeof google.auth.OAuth2>): Promise<
   Array<{
     id: string | null | undefined;
     summary: string;

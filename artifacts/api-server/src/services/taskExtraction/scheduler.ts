@@ -20,13 +20,18 @@ const pending = new Map<string, PendingExtraction>();
  * immediately instead of waiting.
  */
 export function scheduleExtraction(conversationId: string): void {
+  logger.info({ conversationId }, "scheduler: scheduling extraction");
+  
   const existing = pending.get(conversationId);
 
   if (existing) {
     clearTimeout(existing.timer);
     existing.pendingCount += 1;
 
+    logger.info({ conversationId, pendingCount: existing.pendingCount }, "scheduler: resetting existing timer");
+
     if (existing.pendingCount >= HARD_CAP_MESSAGES) {
+      logger.info({ conversationId, pendingCount: existing.pendingCount }, "scheduler: hard cap reached, running extraction immediately");
       pending.delete(conversationId);
       void runExtraction(conversationId);
       return;
@@ -36,12 +41,14 @@ export function scheduleExtraction(conversationId: string): void {
   const entry: PendingExtraction = {
     pendingCount: (existing?.pendingCount ?? 0) + (existing ? 0 : 1),
     timer: setTimeout(() => {
+      logger.info({ conversationId }, "scheduler: debounce timer fired, running extraction");
       pending.delete(conversationId);
       void runExtraction(conversationId);
     }, DEBOUNCE_MS),
   };
 
   pending.set(conversationId, entry);
+  logger.info({ conversationId, debounceMs: DEBOUNCE_MS }, "scheduler: extraction scheduled");
 }
 
 /**

@@ -24,9 +24,16 @@ export async function createEvent(task: {
   contact: { name: string; business: string | null };
   userId: string;
 }): Promise<string | null> {
+  logger.info({ 
+    taskId: task.id, 
+    userId: task.userId,
+    taskTitle: task.title,
+    contactName: task.contact.name 
+  }, "taskSync: attempting to create calendar event");
+  
   const auth = await getAuthedClient(task.userId);
   if (!auth) {
-    logger.warn("Cannot create calendar event: no authenticated client");
+    logger.warn({ userId: task.userId }, "Cannot create calendar event: no authenticated client");
     return null;
   }
 
@@ -65,7 +72,13 @@ export async function createEvent(task: {
 
     const eventId = response.data.id;
     if (eventId) {
-      logger.info({ taskId: task.id, eventId }, "Created Google Calendar event");
+      logger.info({ 
+        taskId: task.id, 
+        eventId, 
+        eventTitle: task.title,
+        calendarId: GOOGLE_CALENDAR_ID,
+        userId: task.userId 
+      }, "Created Google Calendar event");
 
       // Update task with Google event ID
       await prisma.task.update({
@@ -248,8 +261,14 @@ export async function listChangedEvents(userId: string, syncToken?: string): Pro
       id: event.id || "",
       summary: event.summary || null,
       description: event.description || null,
-      start: event.start || null,
-      end: event.end || null,
+      start: event.start ? {
+        dateTime: event.start.dateTime || undefined,
+        date: event.start.date || undefined,
+      } : null,
+      end: event.end ? {
+        dateTime: event.end.dateTime || undefined,
+        date: event.end.date || undefined,
+      } : null,
       status: event.status || "",
     }));
 

@@ -16,11 +16,13 @@ import { emptyExtractionResult, type ExtractionResult, type TaskToSync } from ".
  * them in API responses.
  */
 export async function runExtraction(conversationId: string): Promise<ExtractionResult> {
+  logger.info({ conversationId }, "extraction: started");
+  
   const result = emptyExtractionResult();
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    logger.debug({ conversationId }, "extraction: skipped (no API key)");
+    logger.warn({ conversationId }, "extraction: skipped (no API key)");
     return result;
   }
 
@@ -34,7 +36,22 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
     });
     if (!conversation) return result;
     
+    // The userId for calendar sync should be the owner of the contact (the user who owns this contact)
+    // This ensures calendar events are created in the correct user's calendar
     const userId = conversation.contact.ownerId;
+    
+    if (!userId) {
+      logger.warn({ conversationId, contactId: conversation.contactId }, "extraction: no userId found for calendar sync, skipping");
+      return result;
+    }
+    
+    logger.info({ 
+      conversationId, 
+      userId, 
+      contactId: conversation.contactId,
+      contactOwnerId: conversation.contact.ownerId,
+      contactIsService: conversation.contact.isService 
+    }, "extraction: determining userId for calendar sync");
 
     // ------------------------------------------------------------------
     // 2. Fetch delta: messages newer than the cursor
@@ -145,9 +162,22 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
     }, { timeout: 30_000 });
 
     // Sync tasks to Google Calendar (non-blocking, after transaction)
+    logger.info({ 
+      conversationId, 
+      tasksToSyncCount: tasksToSync.length,
+      userId 
+    }, "extraction: syncing tasks to Google Calendar");
+    
     for (const taskToSync of tasksToSync) {
+      logger.info({ 
+        taskId: taskToSync.id, 
+        taskTitle: taskToSync.title,
+        hasDueDate: !!taskToSync.dueDate,
+        userId 
+      }, "extraction: syncing individual task to calendar");
+      
       syncTaskToCalendar({ ...taskToSync, userId }).catch((err) => {
-        console.error("Failed to sync task to calendar:", err);
+        logger.error({ err, taskId: taskToSync.id }, "extraction: failed to sync task to calendar");
       });
     }
 
@@ -166,6 +196,16 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
 
     // Auto-end conversation if all tasks are completed and no pending queries
     await checkAndAutoEndConversation(conversationId);
+
+    logger.info({ 
+      conversationId,
+      created: result.created.length,
+      updated: result.updated.length,
+      completed: result.completed.length,
+      cancelled: result.cancelled.length,
+      knowledgeUpserted: result.knowledgeUpserted.length,
+      knowledgeInvalidated: result.knowledgeInvalidated.length,
+    }, "extraction: completed successfully");
 
     return result;
   } catch (err) {

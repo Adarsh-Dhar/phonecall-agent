@@ -93,7 +93,7 @@ async function checkDueTasks(): Promise<void> {
 
       logger.info(
         { taskId: task.id, contactName: task.contact.name, delivered },
-        delivered > 0
+        delivered
           ? "callScheduler: task due — notified a connected tab to start the call"
           : "callScheduler: task due but no browser tab is connected to pick it up"
       );
