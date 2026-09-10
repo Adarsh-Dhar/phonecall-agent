@@ -24,17 +24,43 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
+// A Call's `contact` relation is always the mirror row the *dialer* used to
+// place it (owned by the caller, describing the callee) — the stored
+// `direction` column defaults to "outbound" and is never overridden on
+// creation, and `contact.name` only ever makes sense from the dialer's own
+// point of view. This recomputes both relative to whoever is actually
+// looking at the list, so the person who was called sees "inbound" with the
+// caller's real name instead of their own name reflected back at them.
+function toViewerCall<
+  T extends { calleeAccountId: string | null; contact: { name: string; owner: { name: string } | null } }
+>(call: T, viewerId: string) {
+  const viewerIsCallee = call.calleeAccountId === viewerId;
+  return {
+    ...call,
+    direction: viewerIsCallee ? "inbound" : "outbound",
+    otherPartyName: viewerIsCallee ? (call.contact.owner?.name ?? "Unknown caller") : call.contact.name,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/calls — list all calls across all conversations
 // ---------------------------------------------------------------------------
 
 router.get("/calls", requireAuth, async (req, res) => {
   const calls = await prisma.call.findMany({
-    where: { contact: { ownerId: req.userId!, isService: true } },
+    where: {
+      // Calls the viewer placed (owns the dialing contact) OR calls placed
+      // to the viewer (they're the real callee) — previously only the first
+      // half was queried, so a callee had no way to ever see an inbound call.
+      OR: [
+        { contact: { ownerId: req.userId!, isService: true } },
+        { calleeAccountId: req.userId! },
+      ],
+    },
     orderBy: { createdAt: "desc" },
-    include: { contact: { select: contactCardSelect } },
+    include: { contact: { select: { ...contactCardSelect, owner: { select: { name: true } } } } },
   });
-  res.json(calls);
+  res.json(calls.map((call) => toViewerCall(call, req.userId!)));
 });
 
 // ---------------------------------------------------------------------------
@@ -44,25 +70,37 @@ router.get("/calls", requireAuth, async (req, res) => {
 router.get("/calls/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
   const call = await prisma.call.findFirst({
-    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
-    include: { contact: { select: contactCardSelectWithPhone } },
+    where: {
+      id: String(id),
+      OR: [
+        { contact: { ownerId: req.userId!, isService: true } },
+        { calleeAccountId: req.userId! },
+      ],
+    },
+    include: { contact: { select: { ...contactCardSelectWithPhone, owner: { select: { name: true } } } } },
   });
   if (!call) {
     res.status(404).json({ error: "Call not found" });
     return;
   }
-  res.json(call);
+  res.json(toViewerCall(call, req.userId!));
 });
 
 // ---------------------------------------------------------------------------
 // GET /api/conversations/:conversationId/calls — list calls for a conversation
 // ---------------------------------------------------------------------------
 
-router.get("/conversations/:conversationId/calls", async (req, res) => {
+router.get("/conversations/:conversationId/calls", requireAuth, async (req, res) => {
   const { conversationId } = req.params;
-  // Verify the conversation belongs to this user
+  // Verify the conversation belongs to this user (either as dialer contact owner or callee)
   const conversation = await prisma.conversation.findFirst({
-    where: { id: String(conversationId), contact: { ownerId: req.userId!, isService: true } },
+    where: {
+      id: String(conversationId),
+      OR: [
+        { contact: { ownerId: req.userId!, isService: true } },
+        { calls: { some: { calleeAccountId: req.userId! } } },
+      ],
+    },
   });
   if (!conversation) {
     res.status(404).json({ error: "Conversation not found" });
@@ -71,9 +109,9 @@ router.get("/conversations/:conversationId/calls", async (req, res) => {
   const calls = await prisma.call.findMany({
     where: { conversationId: String(conversationId) },
     orderBy: { createdAt: "desc" },
-    include: { contact: { select: contactCardSelect } },
+    include: { contact: { select: { ...contactCardSelect, owner: { select: { name: true } } } } },
   });
-  res.json(calls);
+  res.json(calls.map((call) => toViewerCall(call, req.userId!)));
 });
 
 // ---------------------------------------------------------------------------

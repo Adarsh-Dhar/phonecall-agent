@@ -22,6 +22,10 @@ export type Call = {
   updatedAt: string;
   conversationId: string;
   contactId: string;
+  // Resolved server-side relative to the viewer — the caller's name when the
+  // viewer is the callee (inbound), or the callee's name when the viewer is
+  // the caller (outbound). Use this instead of `contact.name` for display.
+  otherPartyName: string;
   contact?: {
     id: string;
     name: string;

@@ -11,7 +11,9 @@ export function CallRow({ call, expanded, onToggle }: {
   const hasLoaded = useRef(false);
 
   const isInbound = call.direction === 'inbound';
-  const otherPartyName = call.contact?.name ?? (isInbound ? call.from : call.to);
+  // Resolved server-side relative to this viewer (caller's name if inbound,
+  // callee's name if outbound) — see toViewerCall() in the calls API.
+  const otherPartyName = call.otherPartyName;
   const statusColor = call.status === 'completed' ? 'text-[#3f8274]' :
                      call.status === 'failed' || call.status === 'no-answer' || call.status === 'busy' ? 'text-[#b44343]' :
                      'text-muted-foreground';
@@ -73,7 +75,7 @@ export function CallRow({ call, expanded, onToggle }: {
               >
                 {call.contact.initials.slice(0, 1)}
               </span>
-              <span className="text-[10px] font-bold text-[#3159c4]">{call.contact.name}</span>
+              <span className="text-[10px] font-bold text-[#3159c4]">{otherPartyName}</span>
             </div>
           )}
           <button
