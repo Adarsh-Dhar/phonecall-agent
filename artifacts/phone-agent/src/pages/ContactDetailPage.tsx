@@ -11,6 +11,7 @@ import { ContactTasksCard } from '@/components/contact/ContactTasksCard';
 import { ContactQuestionsCard } from '@/components/contact/ContactQuestionsCard';
 import { ContactFilesCard } from '@/components/contact/ContactFilesCard';
 import { TestCallWidget } from '@/components/TestCallWidget';
+import { CallerCallWidget } from '@/components/calls/CallerCallWidget';
 import { dialCall } from '@/lib/api/calls';
 
 export function ContactDetailPage() {
@@ -23,6 +24,7 @@ export function ContactDetailPage() {
   const [callingTask, setCallingTask] = useState<{ taskId?: string; taskTitle?: string } | null>(null);
   const [callStatus, setCallStatus] = useState<'idle' | 'ringing' | 'in-progress' | 'missed' | 'declined'>('idle');
   const [testCallWidget, setTestCallWidget] = useState<{ contactId?: string; taskId?: string; taskTitle?: string } | null>(null);
+  const [callerCallId, setCallerCallId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -69,6 +71,7 @@ export function ContactDetailPage() {
           setTimeout(() => setCallStatus('idle'), 3000);
         } else if (data.status === 'ringing') {
           setCallStatus('ringing');
+          setCallerCallId(data.callId);
         }
       } catch (error) {
         console.error('Error dialing call:', error);
@@ -152,6 +155,14 @@ export function ContactDetailPage() {
             taskId={testCallWidget.taskId}
             taskTitle={testCallWidget.taskTitle}
             onClose={() => { setTestCallWidget(null); }}
+          />
+        )}
+
+        {callerCallId && (
+          <CallerCallWidget
+            callId={callerCallId}
+            contactName={contact?.name}
+            onClose={() => { setCallerCallId(null); setCallStatus('idle'); }}
           />
         )}
 

@@ -7,6 +7,7 @@ import { AppLayout } from '@/components/layout';
 import { useSharedState } from '@/hooks/useSharedState';
 import { CallRow } from '@/components/calls';
 import { TestCallWidget } from '@/components/TestCallWidget';
+import { CallerCallWidget } from '@/components/calls/CallerCallWidget';
 import { dialCall } from '@/lib/api/calls';
 
 export function CallsPage() {
@@ -20,6 +21,7 @@ export function CallsPage() {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
   const [callStatus, setCallStatus] = useState<'idle' | 'ringing' | 'in-progress' | 'missed' | 'declined'>('idle');
+  const [callerCallId, setCallerCallId] = useState<string | null>(null);
 
   const loadCalls = useCallback(async () => {
     setLoading(true);
@@ -59,6 +61,7 @@ export function CallsPage() {
     if (contact.linkedAccountId) {
       try {
         setCallStatus('ringing');
+        setSelectedContactId(contactId);
         const data = await dialCall(contact.id, undefined);
         
         if (data.status === 'missed') {
@@ -66,6 +69,7 @@ export function CallsPage() {
           setTimeout(() => setCallStatus('idle'), 3000);
         } else if (data.status === 'ringing') {
           setCallStatus('ringing');
+          setCallerCallId(data.callId);
         }
       } catch (error) {
         console.error('Error dialing call:', error);
@@ -218,6 +222,14 @@ export function CallsPage() {
         <TestCallWidget
           contactId={selectedContactId || undefined}
           onClose={() => { setShowTestCall(false); setSelectedContactId(null); setCallStatus('idle'); void loadCalls(); }}
+        />
+      )}
+
+      {callerCallId && (
+        <CallerCallWidget
+          callId={callerCallId}
+          contactName={contacts.find(c => c.id === selectedContactId)?.name}
+          onClose={() => { setCallerCallId(null); setCallStatus('idle'); void loadCalls(); }}
         />
       )}
     </AppLayout>
