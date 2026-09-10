@@ -1,5 +1,6 @@
 import { Mic, PhoneOff, X, LoaderCircle } from 'lucide-react';
 import { useServiceVoiceCall } from '@/hooks/useServiceVoiceCall';
+import { useAuth } from '@/hooks/useAuth';
 
 export function ServiceCallWidget({
   callId,
@@ -10,7 +11,11 @@ export function ServiceCallWidget({
   callerName?: string;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
   const { status, errorMessage, transcript, start, stop } = useServiceVoiceCall(callId);
+  
+  const userName = user?.name || 'You';
+  const agentName = callerName || 'Agent';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -41,7 +46,7 @@ export function ServiceCallWidget({
               {transcript.map((turn, i) => (
                 <p key={i}>
                   <span className={`font-bold ${turn.role === 'assistant' ? 'text-[#3f8274]' : 'text-[#3159c4]'}`}>
-                    {turn.role === 'assistant' ? 'Agent: ' : 'You: '}
+                    {turn.role === 'assistant' ? `${agentName}: ` : `${userName}: `}
                   </span>
                   {turn.text}
                 </p>

@@ -1,5 +1,8 @@
 import { Mic, PhoneOff, X, LoaderCircle } from 'lucide-react';
 import { useBrowserVoiceCall } from '@/hooks/useBrowserVoiceCall';
+import { useAuth } from '@/hooks/useAuth';
+import { useEffect, useState } from 'react';
+import * as api from '@/lib/api';
 
 export function TestCallWidget({
   contactId,
@@ -12,7 +15,23 @@ export function TestCallWidget({
   taskTitle?: string;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
   const { status, errorMessage, transcript, start, stop } = useBrowserVoiceCall(contactId, taskId);
+  const [contactName, setContactName] = useState<string | null>(null);
+  
+  const userName = user?.name || 'You';
+  const agentName = contactName || 'Agent';
+  
+  useEffect(() => {
+    if (contactId) {
+      api.fetchContacts().then(contacts => {
+        const contact = contacts.find(c => c.id === contactId);
+        if (contact) {
+          setContactName(contact.name);
+        }
+      });
+    }
+  }, [contactId]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -43,7 +62,7 @@ export function TestCallWidget({
               {transcript.map((turn, i) => (
                 <p key={i}>
                   <span className={`font-bold ${turn.role === 'assistant' ? 'text-[#3f8274]' : 'text-[#3159c4]'}`}>
-                    {turn.role === 'assistant' ? 'Agent: ' : 'You: '}
+                    {turn.role === 'assistant' ? `${agentName}: ` : `${userName}: `}
                   </span>
                   {turn.text}
                 </p>

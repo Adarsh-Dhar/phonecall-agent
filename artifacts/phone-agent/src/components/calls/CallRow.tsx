@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import * as api from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 
 export function CallRow({ call, expanded, onToggle }: {
   call: api.Call;
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { user } = useAuth();
   const [callMessages, setCallMessages] = useState<api.Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const hasLoaded = useRef(false);
+  
+  const userName = user?.name || 'You';
+  const otherPartyName = call.otherPartyName || 'Agent';
 
   const isInbound = call.direction === 'inbound';
-  // Resolved server-side relative to this viewer (caller's name if inbound,
-  // callee's name if outbound) — see toViewerCall() in the calls API.
-  const otherPartyName = call.otherPartyName;
   const statusColor = call.status === 'completed' ? 'text-[#3f8274]' :
                      call.status === 'failed' || call.status === 'no-answer' || call.status === 'busy' ? 'text-[#b44343]' :
                      'text-muted-foreground';
@@ -101,9 +103,12 @@ export function CallRow({ call, expanded, onToggle }: {
                   <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
                     message.role === 'assistant' ? 'bg-[#3f8274] text-white' : 'bg-[#697a73] text-white'
                   }`}>
-                    {message.role === 'assistant' ? 'A' : 'U'}
+                    {message.role === 'assistant' ? otherPartyName.charAt(0).toUpperCase() : userName.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 rounded-lg bg-muted px-3 py-2 text-sm">
+                    <p className="text-xs font-bold text-muted-foreground mb-1">
+                      {message.role === 'assistant' ? otherPartyName : userName}
+                    </p>
                     <p className="text-foreground">{message.content}</p>
                     <p className="mt-1 text-[10px] text-muted-foreground">{message.time}</p>
                   </div>
