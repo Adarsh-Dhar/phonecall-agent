@@ -106,7 +106,7 @@ function AppShell() {
     setDraft('');
     setBusy(true);
     try {
-      const payload = await api.sendGeminiMessage([...messages, userMessage].map(({ role, content: value }) => ({ role, content: value })));
+      const payload = await api.sendOrchestratorMessage([...messages, userMessage].map(({ role, content: value }) => ({ role, content: value })));
       const assistantMessage: Message = { id: `assistant-${Date.now()}`, role: 'assistant', content: payload.message || 'I\'m here. What should we work on?', time: 'Now' };
       setMessages((current) => [...current, assistantMessage]);
       

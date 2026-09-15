@@ -1,5 +1,5 @@
 import { prisma } from "@workspace/db-prisma";
-import { generateGeminiText, type GeminiTextTurn } from "./geminiText";
+import { generateOrchestratorText, type OrchestratorTextTurn } from "./nebiusText";
 import { logger } from "../lib/logger";
 
 function slugify(text: string): string {
@@ -120,7 +120,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
         facts.map((f) => `- (${f.category}) ${f.key}: ${f.value}`).join("\n")
       : "";
 
-  const geminiTurns: GeminiTextTurn[] = turns.map((m) => ({
+  const orchestratorTurns: OrchestratorTextTurn[] = turns.map((m) => ({
     role: m.role === "assistant" ? "assistant" : "user",
     content: m.content,
   }));
@@ -145,9 +145,9 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
   let knowledgeCategory: string | null = null;
 
   try {
-    const { text } = await generateGeminiText({
+    const { text } = await generateOrchestratorText({
       systemInstructionText: systemText,
-      turns: geminiTurns,
+      turns: orchestratorTurns,
       jsonResponse: true,
     });
     const parsed = JSON.parse(text) as {

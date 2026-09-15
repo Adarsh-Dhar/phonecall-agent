@@ -1,10 +1,13 @@
 import type { ExistingTask, NewMessage, TaskAction, KnowledgeAction } from "./types";
 
 // ---------------------------------------------------------------------------
-// Gemini extraction call
+// Orchestrator extraction call (Nebius Token Factory, NVIDIA open model)
 // ---------------------------------------------------------------------------
 
-export async function callGeminiExtraction(
+const REQUESTED_MODEL = process.env.NEBIUS_MODEL ?? "nvidia/llama-3_1-nemotron-ultra-253b-v1";
+const BASE_URL = (process.env.NEBIUS_BASE_URL ?? "https://api.tokenfactory.nebius.com/v1").replace(/\/+$/, "");
+
+export async function callOrchestratorExtraction(
   apiKey: string,
   context: {
     contactName: string;
@@ -95,39 +98,47 @@ ${JSON.stringify(context.newMessages, null, 2)}
 Return the JSON object with taskActions and knowledgeActions now.`;
 
   const body = {
-    contents: [{ role: "user", parts: [{ text: userContent }] }],
-    systemInstruction: { parts: [{ text: systemPrompt }] },
-    generationConfig: {
-      temperature: 0.2,        // low temperature — we want structured, deterministic output
-      maxOutputTokens: 4096,
-      responseMimeType: "application/json",
-    },
+    model: REQUESTED_MODEL,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
+    ],
+    temperature: 0.2, // low temperature — we want structured, deterministic output
+    max_tokens: 4096,
+    response_format: { type: "json_object" },
   };
 
-  const model = "gemini-2.5-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const url = `${BASE_URL}/chat/completions`;
 
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(
-      `Gemini extraction failed: ${response.status} — ${JSON.stringify(err)}`
+      `Orchestrator extraction failed: ${response.status} — ${JSON.stringify(err)}`
     );
   }
 
   const payload = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    choices?: Array<{
+      message?: {
+        content?: string | null;
+        // Some Nemotron reasoning models put the answer here instead of
+        // `content` when left in their default reasoning mode.
+        reasoning_content?: string | null;
+      };
+    }>;
   };
 
-  const raw = payload.candidates?.[0]?.content?.parts
-    ?.map((p) => p.text ?? "")
-    .join("")
-    .trim();
+  const message = payload.choices?.[0]?.message;
+  const raw = (message?.content || message?.reasoning_content || "").trim();
 
   if (!raw) return empty;
 

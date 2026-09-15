@@ -9,4 +9,4 @@ export * from './questions';
 export * from './knowledge';
 export * from './calls';
 export * from './googleCalendar';
-export * from './gemini';
+export * from './orchestrator';

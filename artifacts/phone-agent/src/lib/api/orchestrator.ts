@@ -1,8 +1,10 @@
 import { apiFetch } from './shared';
 
-// ─── Gemini Chat API ─────────────────────────────────────────────────────────
+// ─── Orchestrator Chat API ────────────────────────────────────────────────────
+// Backed by Nebius Token Factory on the server; the route path (/api/gemini/chat)
+// is kept as-is for compatibility — see routes/orchestrator.ts.
 
-export const sendGeminiMessage = async (
+export const sendOrchestratorMessage = async (
   messages: Array<{ role: string; content: string }>,
   contactId?: string,
 ) => {

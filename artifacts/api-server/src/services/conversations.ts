@@ -1,6 +1,6 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
-import { generateGeminiText } from "./geminiText";
+import { generateOrchestratorText } from "./nebiusText";
 
 /**
  * Get or create the active conversation for a contact.
@@ -96,7 +96,7 @@ export async function getOrCreateActiveConversation(
 
 /**
  * Classify whether new content is a continuation of a previous topic.
- * Uses Gemini to compare the new content against the previous topic summary.
+ * Uses the orchestrator model to compare the new content against the previous topic summary.
  * Fails safe toward "continuation" on error.
  */
 async function classifyTopicContinuation(
@@ -109,7 +109,7 @@ async function classifyTopicContinuation(
   }
 
   try {
-    const { text } = await generateGeminiText({
+    const { text } = await generateOrchestratorText({
       systemInstructionText: `You are a conversation topic classifier. Determine if the new content is a continuation of the previous topic or a completely different topic.`,
       turns: [
         {
@@ -156,7 +156,7 @@ export async function endConversation(conversationId: string) {
 }
 
 /**
- * Generate a topic summary for a conversation using Gemini.
+ * Generate a topic summary for a conversation using the orchestrator model.
  */
 async function summarizeConversationTopic(conversationId: string): Promise<string> {
   try {
@@ -174,7 +174,7 @@ async function summarizeConversationTopic(conversationId: string): Promise<strin
       .map((m) => `${m.role}: ${m.content}`)
       .join("\n");
 
-    const { text } = await generateGeminiText({
+    const { text } = await generateOrchestratorText({
       systemInstructionText: `Summarize the main topic of a conversation in 1-2 sentences (max 100 characters). Focus on what was discussed or accomplished.`,
       turns: [
         {

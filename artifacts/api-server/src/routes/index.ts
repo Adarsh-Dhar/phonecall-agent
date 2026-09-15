@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
-import geminiRouter from "./gemini";
+import orchestratorRouter from "./orchestrator";
 import contactsRouter from "./contacts";
 import conversationsRouter from "./conversations";
 import messagesRouter from "./messages";
@@ -21,7 +21,7 @@ router.use(authRouter);
 
 // ── Protected routes (require authentication) ─────────────────────────────
 router.use(requireAuth);
-router.use(geminiRouter);
+router.use(orchestratorRouter);
 router.use(contactsRouter);
 router.use(conversationsRouter);
 router.use(messagesRouter);
