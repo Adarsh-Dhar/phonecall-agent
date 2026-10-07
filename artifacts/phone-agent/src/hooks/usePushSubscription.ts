@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api/shared';
 
 export function usePushSubscription() {
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
@@ -32,7 +33,7 @@ export function usePushSubscription() {
   }, []);
 
   const subscribe = async () => {
-    if (!('serviceWorker' in navigator) return;
+    if (!('serviceWorker' in navigator)) return;
 
     try {
       // Request permission
@@ -45,7 +46,7 @@ export function usePushSubscription() {
       }
 
       // Get public key from server
-      const publicKeyRes = await fetch('/api/push/public-key');
+      const publicKeyRes = await apiFetch('/api/push/public-key');
       if (!publicKeyRes.ok) {
         throw new Error('Failed to get public key');
       }
@@ -63,7 +64,10 @@ export function usePushSubscription() {
 
       // Send subscription to server
       const keys = sub.toJSON().keys;
-      await fetch('/api/push/subscribe', {
+      if (!keys) {
+        throw new Error('No keys in subscription');
+      }
+      await apiFetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

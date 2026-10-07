@@ -115,7 +115,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
 
   const existingQuery = await prisma.query.findFirst({ where: { callId } });
   if (existingQuery) {
-    await prisma.call.update({ where: { id: callId }, data: { isEnoughKnowledge: false } });
+    await prisma.call.update({ where: { id: callId }, data: { isEnoughKnowledge: existingQuery.status === "pending" ? false : true } });
     return;
   }
 
@@ -164,15 +164,16 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
 
   const systemText =
     "You are reviewing the transcript of a phone call your voice agent just completed on behalf of " +
-    `your user, with ${contact?.name ?? "a contact"}. Decide ONE thing: did the agent get everything ` +
-    "it needed during the call, or does it need to escalate something to your user afterward " +
-    "(e.g. a decision it couldn't make, a detail it couldn't confirm)?\n\n" +
+    `your user, with ${contact?.name ?? "a contact"}. Decide TWO things:\n\n` +
+    "1. Did the agent get everything it needed during the call, or does it need to escalate something to your user?\n" +
+    "2. What was the outcome of the call? (booked, rescheduled, cancelled, info_gathered, needs_user, failed)\n\n" +
     "Return ONLY a JSON object, no markdown fences:\n" +
     "{\n" +
     '  "isEnoughKnowledge": boolean,\n' +
     '  "escalationQuestion": string | null,\n' +
     '  "knowledgeKey": string | null,\n' +
-    '  "knowledgeCategory": string | null\n' +
+    '  "knowledgeCategory": string | null,\n' +
+    '  "outcome": "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed" | null\n' +
     "}" +
     knowledgeBlock;
 
@@ -180,6 +181,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
   let escalationQuestion: string | null = null;
   let knowledgeKey: string | null = null;
   let knowledgeCategory: string | null = null;
+  let llmOutcome: string | null = null;
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -193,6 +195,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
         escalationQuestion?: string | null;
         knowledgeKey?: string | null;
         knowledgeCategory?: string | null;
+        outcome?: string | null;
       };
       isEnoughKnowledge = parsed.isEnoughKnowledge !== false;
       if (!isEnoughKnowledge) {
@@ -202,13 +205,20 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
         knowledgeKey = slugify(parsed.knowledgeKey || escalationQuestion);
         knowledgeCategory = parsed.knowledgeCategory?.trim() || "fact";
       }
+      llmOutcome = parsed.outcome || null;
       break;
     } catch (err) {
       logger.warn({ err, callId, attempt }, "callAnalysis: failed to parse escalation decision, retrying");
     }
   }
 
-  await prisma.call.update({ where: { id: callId }, data: { isEnoughKnowledge } });
+  await prisma.call.update({
+    where: { id: callId },
+    data: {
+      isEnoughKnowledge,
+      outcome: call.outcome || llmOutcome,
+    },
+  });
 
   if (!isEnoughKnowledge && escalationQuestion) {
     const existing = knowledgeKey

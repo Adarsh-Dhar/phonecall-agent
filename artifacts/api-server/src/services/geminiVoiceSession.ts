@@ -106,7 +106,6 @@ export async function openGeminiLiveSession(opts: {
             const functionResponses = await Promise.all(
               msg.toolCall.functionCalls.map(async (fc) => {
                 if (fc.name === "end_call") {
-                  logger.info({ callArgs: fc.args }, "geminiVoiceSession: model called end_call");
                   endCallArgs = fc.args as EndCallArgs;
                   endCallPending = true;
                   // Safety net: if turnComplete never arrives (e.g. the model
@@ -184,10 +183,8 @@ export async function openGeminiLiveSession(opts: {
     return {
       sendAudio: (pcm24k: Int16Array) => {
         if (sessionClosed) {
-          logger.warn("geminiVoiceSession: attempt to send audio on closed session");
           return;
         }
-        logger.info({ audioLength: pcm24k.length }, "geminiVoiceSession: sending audio to Gemini");
         try {
           session.sendRealtimeInput({
             audio: { data: Buffer.from(pcm24k.buffer, pcm24k.byteOffset, pcm24k.byteLength).toString("base64"), mimeType: "audio/pcm;rate=24000" },

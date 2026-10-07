@@ -35,7 +35,13 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
       include: { contact: true },
     });
     if (!conversation) return result;
-    
+
+    // Load the owner account for timezone
+    const owner = await prisma.account.findUnique({
+      where: { id: conversation.contact.ownerId ?? undefined },
+      select: { id: true, timezone: true },
+    });
+
     // The userId for calendar sync should be the owner of the contact (the user who owns this contact)
     // This ensures calendar events are created in the correct user's calendar
     const userId = conversation.contact.ownerId;
@@ -122,7 +128,7 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
         content: m.content,
         time: m.time,
       })),
-      timezone: conversation.contact.timezone,
+      timezone: owner?.timezone,
     });
 
     if (taskActions.length === 0 && knowledgeActions.length === 0) {

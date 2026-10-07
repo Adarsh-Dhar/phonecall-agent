@@ -11,6 +11,7 @@ import { IncomingCallModal } from '@/components/calls/IncomingCallModal';
 import { LiveQuestionModal } from '@/components/calls/LiveQuestionModal';
 import { useCallDueNotifications, type CallDueNotification } from '@/hooks/useCallDueNotifications';
 import { usePresence } from '@/hooks/usePresence';
+import { usePushSubscription } from '@/hooks/usePushSubscription';
 import { CallsPage } from '@/pages/CallsPage';
 import { HistoryPage } from '@/pages/HistoryPage';
 import { ContactsPage } from '@/pages/ContactsPage';
@@ -56,6 +57,8 @@ function AppRoutes() {
   const [dueCall, setDueCall] = useState<CallDueNotification | null>(null);
   const [incomingCall, setIncomingCall] = useState<{ callId: string; callerName: string; taskContext?: { taskId: string; title: string; description: string | null } | null } | null>(null);
   const [liveQuestion, setLiveQuestion] = useState<{ queryId: string; callId: string; question: string; urgent: boolean } | null>(null);
+
+  const { permission, subscribe } = usePushSubscription();
 
   useCallDueNotifications((notification) => {
     toast({

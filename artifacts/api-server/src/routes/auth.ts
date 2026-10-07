@@ -331,4 +331,42 @@ router.delete("/auth/google", asyncHandler(async (req, res) => {
   res.json({ success: true });
 }, "Failed to disconnect Google Calendar"));
 
+// ---------------------------------------------------------------------------
+// GET /user/timezone
+// Get the user's timezone setting
+// ---------------------------------------------------------------------------
+router.get("/user/timezone", requireAuth, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { timezone: true },
+  });
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  res.json({ timezone: account.timezone });
+}, "Failed to get timezone"));
+
+// ---------------------------------------------------------------------------
+// PATCH /user/timezone
+// Update the user's timezone setting
+// ---------------------------------------------------------------------------
+router.patch("/user/timezone", requireAuth, asyncHandler(async (req, res) => {
+  const { timezone } = req.body;
+
+  if (typeof timezone !== "string" || timezone.trim().length === 0) {
+    res.status(400).json({ error: "timezone is required and must be a non-empty string" });
+    return;
+  }
+
+  await prisma.account.update({
+    where: { id: req.userId! },
+    data: { timezone: timezone.trim() },
+  });
+
+  res.json({ success: true });
+}, "Failed to update timezone"));
+
 export default router;

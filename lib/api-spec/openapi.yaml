@@ -123,4 +123,68 @@ components:
       required:
         - synced
         - errors
+    Call:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, ringing, in-progress, completed, missed, failed]
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+        durationSec:
+          type: number
+        disconnectedBy:
+          type: string
+        outcome:
+          type: string
+          enum: [booked, rescheduled, cancelled, info_gathered, needs_user, failed]
+          nullable: true
+        outcomeSummary:
+          type: string
+          nullable: true
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+        confirmationRef:
+          type: string
+          nullable: true
+        taskId:
+          type: string
+          nullable: true
+      required:
+        - id
+        - status
+    Query:
+      type: object
+      properties:
+        id:
+          type: string
+        question:
+          type: string
+        answer:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, answered]
+        isKnowledgeGap:
+          type: boolean
+        urgent:
+          type: boolean
+        callId:
+          type: string
+          nullable: true
+      required:
+        - id
+        - question
+        - status
+        - isKnowledgeGap
+        - urgent
 

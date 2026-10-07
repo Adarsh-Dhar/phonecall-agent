@@ -59,7 +59,7 @@ export type CallDueNotification = {
  * Falls back to push notifications if the user is offline.
  * Returns true if the notification was delivered, false if delivery failed.
  */
-export function broadcastCallDue(payload: CallDueNotification & { ownerId: string }): boolean {
+export async function broadcastCallDue(payload: CallDueNotification & { ownerId: string }): Promise<boolean> {
   const delivered = sendToAccount(payload.ownerId, payload);
   if (!delivered) {
     return sendPushToAccount(payload.ownerId, {

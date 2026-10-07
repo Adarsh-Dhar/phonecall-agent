@@ -107,7 +107,12 @@ export function createServiceVoiceStream(): WebSocketServer {
               return;
             }
 
-            const tz = call.contact.timezone ?? process.env.DEFAULT_TIMEZONE ?? "Asia/Kolkata";
+            // Get the personal user's timezone for time context
+            const owner = await prisma.account.findUnique({
+              where: { id: call.contact.ownerId ?? undefined },
+              select: { timezone: true },
+            });
+            const tz = owner?.timezone ?? process.env.DEFAULT_TIMEZONE ?? "Asia/Kolkata";
 
             let taskContext: { title: string; description: string | null } | null = null;
             const task = call.taskId ? await prisma.task.findFirst({

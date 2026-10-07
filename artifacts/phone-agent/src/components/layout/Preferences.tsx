@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { apiFetch } from '@/lib/api/shared';
 
 type Pref = { id: string; label: string; description: string; enabled: boolean };
 
@@ -24,15 +25,47 @@ const DEFAULT_PREFS: Pref[] = [
     description: 'Always confirm before making calls or changes.',
     enabled: false,
   },
+  {
+    id: 'notifications',
+    label: 'Push notifications',
+    description: 'Receive notifications when calls are due or during calls.',
+    enabled: false,
+  },
 ];
 
 export function Preferences({ onClose }: { onClose: () => void }) {
   const [prefs, setPrefs] = useState<Pref[]>(DEFAULT_PREFS);
+  const [timezone, setTimezone] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   const toggle = (id: string) =>
     setPrefs((prev) =>
       prev.map((p) => (p.id === id ? { ...p, enabled: !p.enabled } : p)),
     );
+
+  // Load user's timezone on mount
+  useEffect(() => {
+    apiFetch('/api/user/timezone')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.timezone) setTimezone(data.timezone);
+      })
+      .catch(() => {
+        // Default to browser timezone
+      });
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      await apiFetch('/api/user/timezone', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone }),
+      });
+    } catch (err) {
+      console.error('Failed to save timezone:', err);
+    }
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -82,15 +115,58 @@ export function Preferences({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
+        {/* Timezone selector */}
+        <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
+          <Label htmlFor="timezone" className="text-sm font-medium leading-none">
+            Timezone
+          </Label>
+          <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+            Used for date/time resolution in calls and task extraction
+          </p>
+          <select
+            id="timezone"
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            className="mt-2 w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
+          >
+            <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+            <option value="America/New_York">America/New_York (EST)</option>
+            <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+            <option value="Europe/London">Europe/London (GMT)</option>
+            <option value="Europe/Paris">Europe/Paris (CET)</option>
+            <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+            <option value="Australia/Sydney">Australia/Sydney (AEST)</option>
+          </select>
+        </div>
+
         {/* Save */}
         <button
           type="button"
           data-testid="button-save-preferences"
-          onClick={onClose}
+          onClick={handleSave}
           className="mt-6 w-full rounded-xl bg-[#2854cc] py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#2148b4] active:translate-y-0"
         >
           Save preferences
         </button>
+
+        {/* Push notification subscription */}
+        {prefs.find((p) => p.id === 'notifications')?.enabled && (
+          <div className="mt-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
+            <p className="text-sm font-medium">Push notifications</p>
+            <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+              {permission === 'granted' ? 'Notifications enabled' : permission === 'denied' ? 'Notifications blocked' : 'Enable notifications'}
+            </p>
+            {permission !== 'granted' && (
+              <button
+                type="button"
+                onClick={() => subscribe()}
+                className="mt-2 rounded-lg bg-[#2854cc] px-4 py-2 text-xs font-bold text-white hover:bg-[#2148b4]"
+              >
+                Enable
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

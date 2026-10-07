@@ -128,8 +128,18 @@ export function createBrowserVoiceStream(): WebSocketServer {
               contact.name
             );
 
+            // Get the user's name and timezone (the person making the call)
+            const user = await prisma.account.findUnique({
+              where: { id: contact.ownerId ?? undefined },
+              select: { name: true, timezone: true },
+            });
+
+            if (!user) {
+              throw new Error("User account not found for contact");
+            }
+
             const startedAt = new Date();
-            const tz = contact.timezone ?? process.env.DEFAULT_TIMEZONE ?? "Asia/Kolkata";
+            const tz = user.timezone ?? process.env.DEFAULT_TIMEZONE ?? "Asia/Kolkata";
             const call = await prisma.call.create({
               data: {
                 status: "in-progress",
@@ -159,16 +169,6 @@ export function createBrowserVoiceStream(): WebSocketServer {
               where: { contactId: contact.id, status: "active" },
               orderBy: { category: "asc" },
             });
-
-            // Get the user's name (the person making the call)
-            const user = await prisma.account.findUnique({
-              where: { id: contact.ownerId ?? undefined },
-              select: { name: true },
-            });
-
-            if (!user) {
-              throw new Error("User account not found for contact");
-            }
 
             gemini = await openGeminiLiveSession({
               systemInstructionText: buildOutboundCallSystemInstruction(

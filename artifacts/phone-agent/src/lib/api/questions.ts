@@ -40,6 +40,8 @@ export type Query = {
   isKnowledgeGap?: boolean;
   knowledgeKey?: string;
   knowledgeCategory?: string;
+  callId?: string;
+  urgent?: boolean;
 };
 
 // ─── Query API helpers ────────────────────────────────────────────────────────

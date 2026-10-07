@@ -99,7 +99,7 @@ export function createCallLifecycle(opts: {
   }
 
   async function onAskUser(args: { question: string; knowledgeKey?: string; knowledgeCategory?: string }) {
-    await askUserDuringCall({
+    return askUserDuringCall({
       callId: opts.callId,
       conversationId: opts.conversationId,
       contactId: opts.contactId,

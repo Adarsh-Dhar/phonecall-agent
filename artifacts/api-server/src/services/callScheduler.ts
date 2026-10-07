@@ -74,7 +74,7 @@ async function checkDueTasks(): Promise<void> {
     });
 
     for (const task of dueTasks) {
-      const delivered = broadcastCallDue({
+      const delivered = await broadcastCallDue({
         type: "call_due",
         taskId: task.id,
         contactId: task.contactId,

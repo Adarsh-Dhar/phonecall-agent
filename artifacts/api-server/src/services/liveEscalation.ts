@@ -1,5 +1,5 @@
 import { prisma } from "@workspace/db-prisma";
-import { sendToAccount } from "./notifications";
+import { sendToAccount } from "./presence";
 import { sendPushToAccount } from "./push";
 import { slugify } from "../lib/utils";
 import { logger } from "../lib/logger";
