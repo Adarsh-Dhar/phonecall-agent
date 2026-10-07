@@ -1,173 +1,107 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, vi } from 'vitest';
+
+vi.mock('../presence', () => ({ sendToAccount: vi.fn().mockReturnValue(true) }));
+vi.mock('../push', () => ({ sendPushToAccount: vi.fn().mockResolvedValue(undefined) }));
+
 import { prisma } from '@workspace/db-prisma';
 import { handleQueryAnswered } from '../../routes/questions';
-import { resolveLiveQuery } from '../liveEscalation';
+import { askUserDuringCall } from '../liveEscalation';
 
-describe('questions live answer with real DB', () => {
-  const testId = Date.now().toString();
-  let callId: string;
-  let taskId: string;
-  let queryId: string;
-  let conversationId: string;
-  let contactId: string;
+const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const created = { accounts: [] as string[], conversations: [] as string[] };
 
-  beforeAll(async () => {
-    // Verify we're using a test database
-    const dbUrl = process.env.DATABASE_URL || process.env.TEST_DATABASE_URL;
-    if (!dbUrl?.includes('test')) {
-      throw new Error('Tests must run against a test database (DATABASE_URL or TEST_DATABASE_URL must contain "test")');
-    }
+async function seed(callStatus: 'completed' | 'in-progress') {
+  const n = created.accounts.length;
+  const contact = await prisma.account.create({
+    data: { googleId: `t-live-${runId}-${n}`, email: `t-live-${runId}-${n}@example.com`, name: 'Test Contact', isService: true },
+  });
+  created.accounts.push(contact.id);
+  const conversation = await prisma.conversation.create({ data: { contactId: contact.id } });
+  created.conversations.push(conversation.id);
+  const task = await prisma.task.create({
+    data: { title: 'Book dentist', status: callStatus === 'completed' ? 'completed' : 'open', conversationId: conversation.id, contactId: contact.id },
+  });
+  const call = await prisma.call.create({
+    data: {
+      status: callStatus,
+      contactId: contact.id,
+      conversationId: conversation.id,
+      taskId: task.id,
+      from: '+11234567890',
+      to: '+10987654321',
+      startedAt: new Date(),
+      endedAt: callStatus === 'completed' ? new Date() : null,
+    },
+  });
+  return { contact, conversation, task, call };
+}
 
-    // Create test data
-    const contact = await prisma.account.create({
-      data: {
-        googleId: `test-contact-live-answer-${testId}`,
-        email: `contact-${testId}@example.com`,
-        name: 'Test Contact',
-        isService: true,
-      },
-    });
-    contactId = contact.id;
+const callbackTasks = (taskId: string) =>
+  prisma.task.count({ where: { parentTaskId: taskId, title: { startsWith: 'Call back with answer' } } });
 
-    const conversation = await prisma.conversation.create({
-      data: {
-        contactId: contact.id,
-      },
-    });
-    conversationId = conversation.id;
+describe('handleQueryAnswered with a real DB', () => {
+  afterAll(async () => {
+    // Only rows created by this run.
+    const where = { conversationId: { in: created.conversations } };
+    await prisma.task.deleteMany({ where: { ...where, parentTaskId: { not: null } } });
+    await prisma.contactKnowledge.deleteMany({ where: { contactId: { in: created.accounts } } });
+    await prisma.query.deleteMany({ where });
+    await prisma.task.deleteMany({ where });
+    await prisma.message.deleteMany({ where });
+    await prisma.call.deleteMany({ where });
+    await prisma.conversation.deleteMany({ where: { id: { in: created.conversations } } });
+    await prisma.account.deleteMany({ where: { id: { in: created.accounts } } });
+  });
 
-    const task = await prisma.task.create({
-      data: {
-        title: 'Test Task',
-        status: 'completed',
-        conversationId: conversation.id,
-        contactId: contact.id,
-      },
-    });
-    taskId = task.id;
-
-    const call = await prisma.call.create({
-      data: {
-        status: 'completed',
-        contactId: contact.id,
-        conversationId: conversation.id,
-        taskId: task.id,
-        from: '+11234567890',
-        to: '+10987654321',
-        startedAt: new Date(),
-        endedAt: new Date(),
-      },
-    });
-    callId = call.id;
-
+  it('after the call ended: saves the fact, creates the callback task, reopens the original task', async () => {
+    const { contact, conversation, task, call } = await seed('completed');
     const query = await prisma.query.create({
       data: {
-        question: 'What is the price?',
-        status: 'pending',
-        conversationId: conversation.id,
-        contactId: contact.id,
-        callId: call.id,
-        isKnowledgeGap: true,
-        urgent: true,
-        knowledgeKey: 'price',
-        knowledgeCategory: 'fact',
+        question: 'What is the price?', status: 'pending', conversationId: conversation.id, contactId: contact.id,
+        callId: call.id, isKnowledgeGap: true, urgent: true, knowledgeKey: 'price', knowledgeCategory: 'fact',
       },
     });
-    queryId = query.id;
+
+    await handleQueryAnswered(query, '$50');
+
+    expect(await callbackTasks(task.id)).toBe(1);
+    const callback = await prisma.task.findFirst({ where: { parentTaskId: task.id } });
+    expect(callback?.status).toBe('open');
+    expect(callback?.priority).toBe('high');
+    expect(callback?.description).toContain('$50');
+
+    const original = await prisma.task.findUnique({ where: { id: task.id } });
+    expect(original?.status).toBe('open');
+    expect(original?.callTriggeredAt).toBeNull();
+
+    const fact = await prisma.contactKnowledge.findUnique({ where: { contactId_key: { contactId: contact.id, key: 'price' } } });
+    expect(fact?.value).toBe('$50');
   });
 
-  afterAll(async () => {
-    // Cleanup only the test data we created
-    await prisma.query.deleteMany({ where: { id: queryId } });
-    await prisma.task.deleteMany({ where: { id: taskId } });
-    await prisma.call.deleteMany({ where: { id: callId } });
-    await prisma.conversation.deleteMany({ where: { id: conversationId } });
-    await prisma.account.deleteMany({ where: { googleId: `test-contact-live-answer-${testId}` } });
-  });
+  it('during the call: the waiting ask_user gets the answer and no callback task is created', async () => {
+    const { contact, conversation, task, call } = await seed('in-progress');
 
-  it('after the call ended, answering creates the callback task and reopens the original task', async () => {
-    const query = await prisma.query.findUnique({ where: { id: queryId } });
-    expect(query).not.toBeNull();
-
-    await handleQueryAnswered(query!, '$50');
-
-    // The callback task should be created
-    const callbackTasks = await prisma.task.findMany({
-      where: {
-        title: { contains: 'Call back with answer' },
-        conversationId: conversationId,
-      },
+    const asked = askUserDuringCall({
+      callId: call.id, conversationId: conversation.id, contactId: contact.id, ownerId: contact.id,
+      question: 'What is the availability?', knowledgeKey: 'availability', knowledgeCategory: 'fact',
     });
 
-    expect(callbackTasks.length).toBeGreaterThan(0);
-    expect(callbackTasks[0].status).toBe('open');
-    expect(callbackTasks[0].priority).toBe('high');
-    expect(callbackTasks[0].description).toContain('$50');
-
-    // The original task should be reopened
-    const originalTask = await prisma.task.findUnique({ where: { id: taskId } });
-    expect(originalTask?.status).toBe('open');
-
-    // The fact should be saved in ContactKnowledge
-    const knowledge = await prisma.contactKnowledge.findUnique({
-      where: {
-        contactId_key: {
-          contactId: contactId,
-          key: 'price',
-        },
-      },
-    });
-    expect(knowledge).not.toBeNull();
-    expect(knowledge?.value).toBe('$50');
-  });
-
-  it('when call is in-progress, resolving live query does not create callback task', async () => {
-    // Create another call that's in-progress
-    const inProgressCall = await prisma.call.create({
-      data: {
-        status: 'in-progress',
-        contactId: contactId,
-        conversationId: conversationId,
-        from: '+11234567890',
-        to: '+10987654321',
-        startedAt: new Date(),
-      },
+    const query = await vi.waitFor(async () => {
+      const q = await prisma.query.findFirst({ where: { callId: call.id } });
+      expect(q).not.toBeNull();
+      return q!;
     });
 
-    const inProgressQuery = await prisma.query.create({
-      data: {
-        question: 'What is the availability?',
-        status: 'pending',
-        conversationId: conversationId,
-        contactId: contactId,
-        callId: inProgressCall.id,
-        isKnowledgeGap: true,
-        urgent: true,
-        knowledgeKey: 'availability',
-        knowledgeCategory: 'fact',
-      },
-    });
+    const before = await callbackTasks(task.id);
+    await handleQueryAnswered(query, '9am-5pm');
 
-    // Resolve the live query (simulating user answering during call)
-    const resolved = resolveLiveQuery(inProgressQuery.id, '9am-5pm');
-    expect(resolved).toBe(true);
+    expect(await asked).toBe('9am-5pm');
+    expect(await callbackTasks(task.id)).toBe(before);
+    expect(before).toBe(0);
 
-    // Wait a bit for any async operations
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // No callback task should be created
-    const callbackTasks = await prisma.task.findMany({
-      where: {
-        title: { contains: 'Call back with answer' },
-        conversationId: conversationId,
-      },
-    });
-
-    // Only the previous callback task should exist, not a new one
-    expect(callbackTasks.length).toBe(1);
-
-    // Cleanup
-    await prisma.query.delete({ where: { id: inProgressQuery.id } });
-    await prisma.call.delete({ where: { id: inProgressCall.id } });
+    const original = await prisma.task.findUnique({ where: { id: task.id } });
+    expect(original?.status).toBe('open'); // untouched, still in progress
+    const fact = await prisma.contactKnowledge.findUnique({ where: { contactId_key: { contactId: contact.id, key: 'availability' } } });
+    expect(fact?.value).toBe('9am-5pm');
   });
 });

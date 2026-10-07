@@ -65,3 +65,6 @@ prisma/dev.db-wal
 dev.db
 dev.db-shm
 dev.db-wal
+
+claude
+

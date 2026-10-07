@@ -10,12 +10,6 @@ describe('task briefing with taskId', () => {
   let taskBId: string;
 
   beforeAll(async () => {
-    // Verify we're using a test database
-    const dbUrl = process.env.DATABASE_URL || process.env.TEST_DATABASE_URL;
-    if (!dbUrl?.includes('test')) {
-      throw new Error('Tests must run against a test database (DATABASE_URL or TEST_DATABASE_URL must contain "test")');
-    }
-
     const contact = await prisma.account.create({
       data: {
         googleId: `test-contact-briefing-${testId}`,

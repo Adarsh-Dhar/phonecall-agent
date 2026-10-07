@@ -1,51 +1,47 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { openGeminiLiveSession } from '../geminiVoiceSession';
+
+const h = vi.hoisted(() => ({ callbacks: undefined as any }));
 
 vi.mock('@google/genai', () => ({
-  GoogleGenAI: vi.fn(),
+  Modality: { AUDIO: 'AUDIO' },
+  Type: { OBJECT: 'OBJECT', STRING: 'STRING' },
+  GoogleGenAI: class {
+    live = {
+      connect: async (params: any) => {
+        h.callbacks = params.callbacks;
+        return { sendToolResponse: () => {}, sendRealtimeInput: () => {}, close: () => {} };
+      },
+    };
+  },
 }));
+
+import { openGeminiLiveSession } from '../geminiVoiceSession';
 
 describe('Hindi transcript preservation', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    h.callbacks = undefined;
     process.env.GEMINI_API_KEY = 'test-key';
   });
 
-  it('Hindi input transcription is preserved unchanged', async () => {
-    const mockSession = {
-      on: vi.fn(),
-      close: vi.fn(),
-    };
+  it('passes Hindi user and agent turns through unchanged', async () => {
+    const hindiUser = 'नमस्ते, मैं अपॉइंटमेंट बुक करना चाहता हूं';
+    const hindiAgent = 'जी, कल सुबह दस बजे का समय ठीक रहेगा?';
+    const onUserTurnText = vi.fn();
+    const onAgentTurnText = vi.fn();
 
-    const { GoogleGenAI } = await import('@google/genai');
-    vi.mocked(GoogleGenAI).mockImplementation(() => ({
-      getGenerativeModel: vi.fn().mockReturnValue({
-        getGenerativeModel: vi.fn().mockReturnValue({
-          session: vi.fn().mockResolvedValue(mockSession),
-        }),
-      }),
-    } as any));
-
-    const hindiText = 'नमस्ते, मैं अपॉइंटमेंट बुक करना चाहता हूं';
-    let receivedText: string | null = null;
-
-    const session = await openGeminiLiveSession({
+    await openGeminiLiveSession({
       systemInstructionText: 'Test instruction',
       onAudioOut: vi.fn(),
-      onUserTurnText: (text) => {
-        receivedText = text;
-      },
-      onAgentTurnText: vi.fn(),
+      onUserTurnText,
+      onAgentTurnText,
     });
 
-    // Simulate receiving Hindi input transcription from Gemini
-    const onHandler = mockSession.on.mock.calls.find((call) => call[0] === 'inputTranscription');
-    if (onHandler && onHandler[1]) {
-      const callback = onHandler[1];
-      callback({ inputTranscription: hindiText });
-    }
+    await h.callbacks.onmessage({ serverContent: { inputTranscription: { text: hindiUser } } });
+    await h.callbacks.onmessage({ serverContent: { outputTranscription: { text: hindiAgent } } });
+    await h.callbacks.onmessage({ serverContent: { turnComplete: true } });
 
-    // The Hindi text should be passed through unchanged
-    expect(receivedText).toBe(hindiText);
+    expect(onUserTurnText).toHaveBeenCalledTimes(1);
+    expect(onUserTurnText).toHaveBeenCalledWith(hindiUser);
+    expect(onAgentTurnText).toHaveBeenCalledWith(hindiAgent);
   });
 });
