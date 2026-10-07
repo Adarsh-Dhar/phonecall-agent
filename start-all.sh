@@ -65,7 +65,7 @@ trap cleanup SIGINT SIGTERM
 
 # Start API server (also serves the built frontend)
 echo "Starting API server..."
-(cd artifacts/api-server && PORT=5175 pnpm run dev) &
+(cd artifacts/api-server && DOTENV_CONFIG_PATH=../../.env PORT=5175 pnpm run dev) &
 API_PID=$!
 
 echo ""
