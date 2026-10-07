@@ -221,6 +221,10 @@ async function processEventChange(event: {
 
   if (newDueDate && (!task.dueDate || newDueDate.getTime() !== task.dueDate.getTime())) {
     updateData.dueDate = newDueDate;
+    // Reset scheduler fields when due date changes via calendar sync
+    updateData.nextAttemptAt = newDueDate;
+    updateData.callAttempts = 0;
+    updateData.schedulerStatus = "pending";
   }
 
   // Only update if there are changes beyond lastSyncedAt

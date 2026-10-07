@@ -58,9 +58,12 @@ function AppRoutes() {
   const [liveQuestion, setLiveQuestion] = useState<{ queryId: string; callId: string; question: string; urgent: boolean } | null>(null);
 
   useCallDueNotifications((notification) => {
+    const attemptText = notification.attempt && notification.maxAttempts
+      ? ` (attempt ${notification.attempt} of ${notification.maxAttempts})`
+      : '';
     toast({
       title: 'Call due',
-      description: `Time to call ${notification.contactName} about: ${notification.title}`,
+      description: `Time to call ${notification.contactName} about: ${notification.title}${attemptText}`,
     });
     setDueCall(notification);
   });

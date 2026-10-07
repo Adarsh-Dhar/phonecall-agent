@@ -53,6 +53,16 @@ services:
         value: Asia/Kolkata
       - key: ASK_USER_TIMEOUT_MS
         value: "45000"
+      - key: SCHEDULER_STALE_HOURS
+        value: "24"
+      - key: SCHEDULER_MAX_ATTEMPTS
+        value: "3"
+      - key: SCHEDULER_CLAIM_TTL_MS
+        value: "300000"
+      - key: CALL_SCHEDULER_POLL_MS
+        value: "30000"
+      - key: AUTODIAL_ENABLED
+        value: "false"
   - type: web
     name: phone-agent-api-v3
     env: node
@@ -107,3 +117,13 @@ services:
         value: Asia/Kolkata
       - key: ASK_USER_TIMEOUT_MS
         value: "45000"
+      - key: SCHEDULER_STALE_HOURS
+        value: "24"
+      - key: SCHEDULER_MAX_ATTEMPTS
+        value: "3"
+      - key: SCHEDULER_CLAIM_TTL_MS
+        value: "300000"
+      - key: CALL_SCHEDULER_POLL_MS
+        value: "30000"
+      - key: AUTODIAL_ENABLED
+        value: "false"

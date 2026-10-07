@@ -16,3 +16,17 @@ Tests run against a real PostgreSQL database. All commands from the **repo root*
 
 `vitest.setup.ts` refuses to run unless `TEST_DATABASE_URL` is set and its database name ends in `_test`,
 and it overrides `DATABASE_URL` with it, so tests can never touch your dev or prod database.
+
+## Environment Variables
+
+### Scheduler Configuration
+
+- `SCHEDULER_STALE_HOURS` (default: 24) - Hours after which a task is considered stale and won't be triggered
+- `SCHEDULER_MAX_ATTEMPTS` (default: 3) - Maximum number of retry attempts for a task notification
+- `SCHEDULER_CLAIM_TTL_MS` (default: 300000) - Time in milliseconds after which a stuck claim is released (5 minutes)
+- `CALL_SCHEDULER_POLL_MS` (default: 30000) - Poll interval in milliseconds for the call scheduler (30 seconds)
+- `AUTODIAL_ENABLED` (default: false) - Enable real auto-dial via telephony provider (requires provider setup)
+
+### Timezone Settings
+
+- `DEFAULT_TIMEZONE` (default: Asia/Kolkata) - Default timezone for date/time resolution when user timezone is not set

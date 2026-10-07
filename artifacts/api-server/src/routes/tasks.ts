@@ -93,10 +93,10 @@ router.get("/tasks", asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /tasks
 // Manual task creation — source: "user", skips "suggested", goes to "open"
-// Body: { title, description?, dueDate?, priority?, conversationId, contactId }
+// Body: { title, description?, dueDate?, priority?, kind?, conversationId, contactId }
 // ---------------------------------------------------------------------------
 router.post("/tasks", asyncHandler(async (req, res) => {
-  const { title, description, dueDate, priority, conversationId, contactId } = req.body;
+  const { title, description, dueDate, priority, kind, conversationId, contactId } = req.body;
 
   if (!title || !conversationId || !contactId) {
     res.status(400).json({ error: "title, conversationId, and contactId are required" });
@@ -118,6 +118,7 @@ router.post("/tasks", asyncHandler(async (req, res) => {
       description: description ?? null,
       dueDate:     dueDate ? new Date(dueDate) : null,
       priority:    priority ?? "normal",
+      kind:        kind ?? "call",
       status:      "open",   // user-created tasks skip "suggested"
       source:      "user",
       confidence:  1.0,
@@ -148,12 +149,12 @@ router.post("/tasks", asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // PATCH /tasks/:id
-// User edits a task: status, title, description, dueDate, priority
+// User edits a task: status, title, description, dueDate, priority, kind
 // Automatically sets completedAt when status transitions to "done"
 // ---------------------------------------------------------------------------
 router.patch("/tasks/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { status, title, description, dueDate, priority } = req.body;
+  const { status, title, description, dueDate, priority, kind } = req.body;
 
   const existing = await prisma.task.findFirst({
     where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
@@ -174,6 +175,7 @@ router.patch("/tasks/:id", asyncHandler(async (req, res) => {
       ...(description !== undefined ? { description }                          : {}),
       ...(dueDate     !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
       ...(priority    !== undefined ? { priority }                             : {}),
+      ...(kind        !== undefined ? { kind }                                 : {}),
       ...(isCompleting              ? { completedAt: new Date() }              : {}),
     },
     include: { ...sourcesInclude, contact: true },

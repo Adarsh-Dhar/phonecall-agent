@@ -7,6 +7,19 @@ import type { ExistingTask, NewMessage, TaskAction, KnowledgeAction } from "./ty
 const REQUESTED_MODEL = process.env.NEBIUS_MODEL ?? "nvidia/llama-3_1-nemotron-ultra-253b-v1";
 const BASE_URL = (process.env.NEBIUS_BASE_URL ?? "https://api.tokenfactory.nebius.com/v1").replace(/\/+$/, "");
 
+export function resolveTodayISO(timezone?: string, now = new Date()): string {
+  const defaultTz = process.env.DEFAULT_TIMEZONE || "Asia/Kolkata";
+  const providedTz = timezone ?? defaultTz;
+  let tz = defaultTz;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: providedTz });
+    tz = providedTz;
+  } catch {
+    /* keep default */
+  }
+  return new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(now);
+}
+
 export async function callOrchestratorExtraction(
   apiKey: string,
   context: {
@@ -19,17 +32,7 @@ export async function callOrchestratorExtraction(
 ): Promise<{ taskActions: TaskAction[]; knowledgeActions: KnowledgeAction[] }> {
   const empty = { taskActions: [], knowledgeActions: [] };
 
-  const tz = (() => {
-    const defaultTz = process.env.DEFAULT_TIMEZONE || "Asia/Kolkata";
-    const providedTz = context.timezone ?? defaultTz;
-    try {
-      new Intl.DateTimeFormat("en-US", { timeZone: providedTz });
-      return providedTz;
-    } catch {
-      return defaultTz;
-    }
-  })();
-  const todayISO = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+  const todayISO = resolveTodayISO(context.timezone);
 
   const systemPrompt = `Today's date is ${todayISO}. When resolving partial or relative dates (e.g. "7th of September", "next Monday"), always use this date as the reference and infer the correct year.
 
@@ -61,6 +64,7 @@ Rules for tasks:
   not specific enough. Never invent or guess a time of day that wasn't actually given. If only a vague
   timeframe was mentioned, leave dueDate unset entirely rather than picking an arbitrary time — a task
   with no due date is far better than one with a fabricated one.
+- kind: "call" if the task involves contacting the external person (phone call, email, etc.), "reminder" if it's a personal note or internal task that doesn't require contacting them. Default to "call" when in doubt.
 - sourceMessageIds is the array of message IDs from new_messages that support this action.
 
 Rules for knowledge:
@@ -82,6 +86,7 @@ JSON schema:
       "description": "<string, optional>",
       "dueDate": "<ISO 8601 string, optional>",
       "priority": "low" | "normal" | "high",
+      "kind": "call" | "reminder",
       "confidence": <number 0-1>,
       "sourceMessageIds": ["<messageId>", ...]
     }

@@ -142,6 +142,18 @@ export async function updateEvent(task: {
       ? new Date(startTime.getTime() + DEFAULT_EVENT_DURATION_MINUTES * 60000)
       : new Date(existingEvent.data.end?.dateTime || Date.now() + DEFAULT_EVENT_DURATION_MINUTES * 60000);
 
+    // Reset scheduler fields when due date changes via calendar sync
+    if (task.dueDate) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: {
+          nextAttemptAt: task.dueDate,
+          callAttempts: 0,
+          schedulerStatus: "pending",
+        },
+      });
+    }
+
     const description = task.description
       ? `${task.description}\n\nContact: ${task.contact.name} (${task.contact.business ?? ""})`
       : `Contact: ${task.contact.name} (${task.contact.business ?? ""})`;

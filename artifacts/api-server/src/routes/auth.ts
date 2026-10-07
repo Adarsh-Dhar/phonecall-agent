@@ -379,4 +379,58 @@ router.patch("/user/timezone", requireAuth, asyncHandler(async (req, res) => {
   res.json({ success: true });
 }, "Failed to update timezone"));
 
+// ---------------------------------------------------------------------------
+// GET /user/quiet-hours
+// Get the user's quiet hours setting
+// ---------------------------------------------------------------------------
+router.get("/user/quiet-hours", requireAuth, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { quietHoursStart: true, quietHoursEnd: true },
+  });
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  res.json({ quietHoursStart: account.quietHoursStart, quietHoursEnd: account.quietHoursEnd });
+}, "Failed to get quiet hours"));
+
+// ---------------------------------------------------------------------------
+// PATCH /user/quiet-hours
+// Update the user's quiet hours setting
+// Body: { quietHoursStart: number | null, quietHoursEnd: number | null }
+// Hours are 0-23, or null to disable quiet hours
+// ---------------------------------------------------------------------------
+router.patch("/user/quiet-hours", requireAuth, asyncHandler(async (req, res) => {
+  const { quietHoursStart, quietHoursEnd } = req.body;
+
+  // Validate: if one is set, both must be set; if both are null, that's fine (disabled)
+  if ((quietHoursStart === null && quietHoursEnd !== null) ||
+      (quietHoursStart !== null && quietHoursEnd === null)) {
+    res.status(400).json({ error: "Both quietHoursStart and quietHoursEnd must be set together, or both null" });
+    return;
+  }
+
+  // If not null, validate range 0-23
+  if (quietHoursStart !== null) {
+    if (typeof quietHoursStart !== "number" || quietHoursStart < 0 || quietHoursStart > 23 ||
+        typeof quietHoursEnd !== "number" || quietHoursEnd < 0 || quietHoursEnd > 23) {
+      res.status(400).json({ error: "Quiet hours must be numbers between 0 and 23" });
+      return;
+    }
+  }
+
+  await prisma.account.update({
+    where: { id: req.userId! },
+    data: {
+      quietHoursStart: quietHoursStart === null ? null : quietHoursStart,
+      quietHoursEnd: quietHoursEnd === null ? null : quietHoursEnd,
+    },
+  });
+
+  res.json({ success: true });
+}, "Failed to update quiet hours"));
+
 export default router;

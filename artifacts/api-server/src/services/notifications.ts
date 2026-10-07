@@ -51,6 +51,8 @@ export type CallDueNotification = {
   contactName: string;
   title: string;
   description: string | null;
+  attempt?: number;
+  maxAttempts?: number;
 };
 
 /**

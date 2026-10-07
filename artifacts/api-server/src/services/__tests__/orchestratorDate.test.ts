@@ -1,14 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import { resolveTodayISO } from '../taskExtraction/orchestratorPrompt';
 
-describe('orchestratorPrompt', () => {
-  it('the orchestrator date at 00:30 IST is today\'s date, not yesterday\'s', () => {
-    // Test that when it's 00:30 IST (early morning), the date resolves to today
-    // not yesterday's date as would happen with UTC
-    const tz = 'Asia/Kolkata';
-    const now = new Date('2026-10-08T19:00:00Z'); // 00:30 IST the next day
-    const todayISO = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
+describe('orchestrator date (real app function)', () => {
+  afterEach(() => {
+    delete process.env.DEFAULT_TIMEZONE;
+  });
 
-    // Should be 2026-10-09 (the next day in IST), not 2026-10-08 (still UTC)
-    expect(todayISO).toBe('2026-10-09');
+  it('at 00:30 IST the date is the IST day, not the UTC day', () => {
+    const now = new Date('2026-10-08T19:00:00Z'); // 00:30 IST on the 9th
+    expect(resolveTodayISO('Asia/Kolkata', now)).toBe('2026-10-09');
+  });
+
+  it('falls back to DEFAULT_TIMEZONE when the zone is invalid', () => {
+    process.env.DEFAULT_TIMEZONE = 'Asia/Kolkata';
+    const now = new Date('2026-10-08T19:00:00Z');
+    expect(resolveTodayISO('Not/AZone', now)).toBe('2026-10-09');
   });
 });

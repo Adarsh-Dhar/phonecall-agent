@@ -37,6 +37,8 @@ const DEFAULT_PREFS: Pref[] = [
 export function Preferences({ onClose }: { onClose: () => void }) {
   const [prefs, setPrefs] = useState<Pref[]>(DEFAULT_PREFS);
   const [timezone, setTimezone] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [quietHoursStart, setQuietHoursStart] = useState<number | null>(null);
+  const [quietHoursEnd, setQuietHoursEnd] = useState<number | null>(null);
   const { permission, subscribe } = usePushSubscription();
 
   const toggle = (id: string) =>
@@ -44,7 +46,7 @@ export function Preferences({ onClose }: { onClose: () => void }) {
       prev.map((p) => (p.id === id ? { ...p, enabled: !p.enabled } : p)),
     );
 
-  // Load user's timezone on mount
+  // Load user's timezone and quiet hours on mount
   useEffect(() => {
     apiFetch('/api/user/timezone')
       .then((res) => res.json())
@@ -53,6 +55,16 @@ export function Preferences({ onClose }: { onClose: () => void }) {
       })
       .catch(() => {
         // Default to browser timezone
+      });
+
+    apiFetch('/api/user/quiet-hours')
+      .then((res) => res.json())
+      .then((data) => {
+        setQuietHoursStart(data.quietHoursStart);
+        setQuietHoursEnd(data.quietHoursEnd);
+      })
+      .catch(() => {
+        // Default to no quiet hours
       });
   }, []);
 
@@ -67,8 +79,14 @@ export function Preferences({ onClose }: { onClose: () => void }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timezone }),
       });
+
+      await apiFetch('/api/user/quiet-hours', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quietHoursStart, quietHoursEnd }),
+      });
     } catch (err) {
-      console.error('Failed to save timezone:', err);
+      console.error('Failed to save preferences:', err);
     }
     onClose();
   };
@@ -141,6 +159,44 @@ export function Preferences({ onClose }: { onClose: () => void }) {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Quiet hours selector */}
+        <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
+          <Label className="text-sm font-medium leading-none">
+            Quiet hours
+          </Label>
+          <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+            Don't trigger call notifications during these hours (0-23). Leave empty to disable.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <div className="flex-1">
+              <Label htmlFor="quiet-start" className="text-xs">Start hour</Label>
+              <input
+                id="quiet-start"
+                type="number"
+                min="0"
+                max="23"
+                value={quietHoursStart ?? ''}
+                onChange={(e) => setQuietHoursStart(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
+                placeholder="e.g., 22"
+              />
+            </div>
+            <div className="flex-1">
+              <Label htmlFor="quiet-end" className="text-xs">End hour</Label>
+              <input
+                id="quiet-end"
+                type="number"
+                min="0"
+                max="23"
+                value={quietHoursEnd ?? ''}
+                onChange={(e) => setQuietHoursEnd(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
+                placeholder="e.g., 8"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Save */}

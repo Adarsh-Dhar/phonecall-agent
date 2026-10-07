@@ -26,6 +26,7 @@ export type TaskAction = {
   description?: string;
   dueDate?: string;
   priority?: "low" | "normal" | "high";
+  kind?: "call" | "reminder";
   confidence: number;
   sourceMessageIds: string[];
 };

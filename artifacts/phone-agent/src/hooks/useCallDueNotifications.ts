@@ -7,21 +7,25 @@ export type CallDueNotification = {
   contactName: string;
   title: string;
   description: string | null;
+  attempt?: number;
+  maxAttempts?: number;
 };
 
 /**
  * Keeps a WebSocket open to the server's call-scheduler notification
  * channel (services/notifications.ts + services/callScheduler.ts) for as
- * long as the app is mounted. When a task's due date arrives, the server
+ * long as the app is mounted. When a task's nextAttemptAt arrives, the server
  * pushes a "call_due" message here and `onCallDue` fires — this is what
  * lets a task's due time actually trigger something on its own, instead of
  * just sitting in the calendar until someone remembers to click "Call".
  *
- * This only works while this tab is open with a live connection — there's
- * no service-worker/push layer, so closing the tab means a due task just
- * waits (the server still marks it as triggered so it won't double-fire,
- * but nothing pops up until a tab reconnects and the user notices it).
- * Reconnects automatically with a short backoff if the connection drops.
+ * The scheduler now supports retries with exponential backoff, so ignored
+ * notifications will re-notify the user (up to MAX_ATTEMPTS). The notification
+ * includes attempt/maxAttempts to show retry progress.
+ *
+ * This uses the presence registry (services/presence.ts) to target specific
+ * users, and falls back to push notifications (services/push.ts) if the user
+ * is offline. Reconnects automatically with a short backoff if the connection drops.
  */
 export function useCallDueNotifications(onCallDue: (notification: CallDueNotification) => void) {
   const handlerRef = useRef(onCallDue);

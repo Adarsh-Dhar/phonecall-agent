@@ -86,7 +86,13 @@ export async function handleQueryAnswered(
     if (call?.taskId && call.status !== "in-progress") {
       await prisma.task.update({
         where: { id: call.taskId },
-        data: { status: "open", callTriggeredAt: null },
+        data: {
+          status: "open",
+          callTriggeredAt: null,
+          schedulerStatus: "pending",
+          nextAttemptAt: new Date(),
+          callAttempts: 0,
+        },
       });
     }
 
@@ -101,6 +107,7 @@ export async function handleQueryAnswered(
         parentTaskId: call?.taskId ?? null,
         conversationId: query.conversationId,
         contactId: query.contactId,
+        kind: "call",
       },
     });
   }

@@ -50,6 +50,7 @@ export async function reconcileTaskActions(
           source: "agent",
           conversationId,
           contactId,
+          kind: action.kind ?? "call",
         },
       });
       created.push(task.id);
