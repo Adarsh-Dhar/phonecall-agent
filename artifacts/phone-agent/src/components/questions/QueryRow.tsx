@@ -40,11 +40,18 @@ export function QueryRow({
 
   return (
     <div className="rounded-xl border border-[#d4c4ff] bg-[#f8f5ff] px-4 py-3">
-      {query.contact && (
-        <p className="text-[9px] font-bold uppercase tracking-[.08em] text-[#8a72c4]">
-          {query.contact.name}
-        </p>
-      )}
+      <div className="flex items-center gap-2">
+        {query.contact && (
+          <p className="text-[9px] font-bold uppercase tracking-[.08em] text-[#8a72c4]">
+            {query.contact.name}
+          </p>
+        )}
+        {query.urgent && (
+          <span className="rounded-full bg-red-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[.08em] text-red-700">
+            Urgent
+          </span>
+        )}
+      </div>
       <p className="text-xs font-semibold text-[#3d2a72]">{query.question}</p>
       <div className="mt-2 flex gap-2">
         <input

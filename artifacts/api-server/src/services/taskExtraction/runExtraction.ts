@@ -122,6 +122,7 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
         content: m.content,
         time: m.time,
       })),
+      timezone: conversation.contact.timezone,
     });
 
     if (taskActions.length === 0 && knowledgeActions.length === 0) {

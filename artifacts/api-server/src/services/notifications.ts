@@ -19,6 +19,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { logger } from "../lib/logger";
 import { sendToAccount } from "./presence";
+import { sendPushToAccount } from "./push";
 
 const clients = new Set<WebSocket>();
 
@@ -55,8 +56,17 @@ export type CallDueNotification = {
 /**
  * Sends a call_due notification to the specific account that owns the task.
  * Uses the presence registry to target the right user instead of broadcasting.
- * Returns true if the notification was delivered, false if the user is offline.
+ * Falls back to push notifications if the user is offline.
+ * Returns true if the notification was delivered, false if delivery failed.
  */
 export function broadcastCallDue(payload: CallDueNotification & { ownerId: string }): boolean {
-  return sendToAccount(payload.ownerId, payload);
+  const delivered = sendToAccount(payload.ownerId, payload);
+  if (!delivered) {
+    return sendPushToAccount(payload.ownerId, {
+      title: "Call due",
+      body: `It's time to call about ${payload.title}`,
+      url: `/tasks/${payload.taskId}`,
+    });
+  }
+  return delivered;
 }

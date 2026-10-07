@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
+import pushRouter from "./push";
 import orchestratorRouter from "./orchestrator";
 import contactsRouter from "./contacts";
 import conversationsRouter from "./conversations";
@@ -18,6 +19,7 @@ const router: IRouter = Router();
 // ── Public routes ─────────────────────────────────────────────────────────
 router.use(healthRouter);
 router.use(authRouter);
+router.use(pushRouter);
 
 // ── Protected routes (require authentication) ─────────────────────────────
 router.use(requireAuth);

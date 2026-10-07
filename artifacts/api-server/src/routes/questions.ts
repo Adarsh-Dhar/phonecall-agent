@@ -21,6 +21,7 @@ import { Router, type IRouter } from "express";
 import { makeQueryLikeRouter } from "../services/queryLike";
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
+import { resolveLiveQuery } from "../services/liveEscalation";
 
 const router: IRouter = Router();
 
@@ -30,6 +31,36 @@ const questionsRouter = makeQueryLikeRouter({
   isKnowledgeGap: true,
   resourceName: "question",
   onAnswered: async (query, answer) => {
+    // If this is a live call query, try to resolve it to the in-progress call
+    if (query.callId) {
+      if (resolveLiveQuery(query.id, answer)) {
+        return;
+      }
+
+      // Call already ended - create callback task and reopen original task if applicable
+      const call = await prisma.call.findUnique({ where: { id: query.callId } });
+      if (call?.taskId) {
+        await prisma.task.update({
+          where: { id: call.taskId },
+          data: { status: "open", callTriggeredAt: null },
+        });
+      }
+
+      await prisma.task.create({
+        data: {
+          title: `Call back with answer: ${query.question}`,
+          description: `Answer from user: ${answer}`,
+          status: "open",
+          priority: "high",
+          dueDate: new Date(),
+          source: "escalation",
+          parentTaskId: call?.taskId ?? null,
+          conversationId: query.conversationId,
+          contactId: query.contactId,
+        },
+      });
+    }
+
     // Upsert to ContactKnowledge using the stored knowledgeKey and knowledgeCategory
     if (query.knowledgeKey && query.knowledgeCategory) {
       await prisma.contactKnowledge.upsert({

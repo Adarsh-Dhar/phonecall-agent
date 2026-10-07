@@ -20,7 +20,7 @@
     "@types/ws": "^8.5.13",
     "prettier": "^3.9.6",
     "prisma": "^6.19.3",
-    "tsx": "catalog:",
+    "tsx": "^4.19.2",
     "typescript": "~5.9.3"
   },
   "dependencies": {

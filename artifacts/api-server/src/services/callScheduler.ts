@@ -74,13 +74,6 @@ async function checkDueTasks(): Promise<void> {
     });
 
     for (const task of dueTasks) {
-      // Claim it before broadcasting — if the poll interval is short or a
-      // broadcast is slow, this stops the same due task from firing twice.
-      await prisma.task.update({
-        where: { id: task.id },
-        data: { callTriggeredAt: now },
-      });
-
       const delivered = broadcastCallDue({
         type: "call_due",
         taskId: task.id,
@@ -90,6 +83,15 @@ async function checkDueTasks(): Promise<void> {
         description: task.description,
         ownerId: task.contact.ownerId!,
       });
+
+      // Only mark as triggered if delivery succeeded — if the user is offline,
+      // we want to retry on the next poll cycle rather than silently dropping the notification.
+      if (delivered) {
+        await prisma.task.update({
+          where: { id: task.id },
+          data: { callTriggeredAt: now },
+        });
+      }
 
       logger.info(
         { taskId: task.id, contactName: task.contact.name, delivered },

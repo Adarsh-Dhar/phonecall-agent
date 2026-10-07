@@ -1,31 +1,50 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { logger } from "../lib/logger";
 
 const MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-2.0-flash-exp";
 const LANGUAGE_CODE = process.env.GEMINI_LIVE_LANGUAGE_CODE ?? "en-US";
 
-/**
- * Filter text to English-only content.
- * Returns the original text if it appears to be English, null otherwise.
- */
-function filterToEnglish(text: string): string | null {
-  // Basic heuristic: if text contains non-ASCII characters, it's likely not English
-  // This is a simple filter - for production, consider using a language detection library
-  const hasNonAscii = /[^\x00-\x7F]/.test(text);
-  if (hasNonAscii) {
-    return null;
-  }
-  return text;
+interface EndCallArgs {
+  outcome: "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed";
+  summary: string;
+  confirmedAt?: string;
+  confirmationRef?: string;
 }
 
-// Function declaration exposed to the model so it can end the call itself
-// instead of just trailing off or waiting to be hung up on.
-const END_CALL_FUNCTION_DECLARATION = {
+const END_CALL = {
   name: "end_call",
+  description: "Ends the phone call right now. Say goodbye first, then call this once.",
+  parameters: {
+    type: Type.OBJECT,
+    required: ["outcome", "summary"],
+    properties: {
+      outcome: {
+        type: Type.STRING,
+        enum: ["booked", "rescheduled", "cancelled", "info_gathered", "needs_user", "failed"],
+      },
+      summary: { type: Type.STRING },
+      confirmedAt: {
+        type: Type.STRING,
+        description: "ISO date-time if an appointment was confirmed",
+      },
+      confirmationRef: { type: Type.STRING },
+    },
+  },
+};
+
+const ASK_USER = {
+  name: "ask_user",
   description:
-    "Ends the phone call right now. Call this immediately after you've said a brief goodbye, " +
-    "once the purpose of the call is resolved or the other person wants to hang up. Do not call " +
-    "this before you've said goodbye out loud, and do not keep talking after calling it.",
+    "Ask your user a question you cannot answer. Say 'one moment please' first. Use before agreeing to any fee, deposit, or time not already approved.",
+  parameters: {
+    type: Type.OBJECT,
+    required: ["question"],
+    properties: {
+      question: { type: Type.STRING },
+      knowledgeKey: { type: Type.STRING },
+      knowledgeCategory: { type: Type.STRING },
+    },
+  },
 };
 
 export interface GeminiVoiceSession {
@@ -38,7 +57,9 @@ export async function openGeminiLiveSession(opts: {
   onAudioOut: (pcm24k: Int16Array) => void;
   onUserTurnText: (text: string) => void;
   onAgentTurnText: (text: string) => void;
-  onEndCallRequested?: () => void;
+  onAskUser?: (args: { question: string; knowledgeKey?: string; knowledgeCategory?: string }) => Promise<string>;
+  onEndCallRequested?: (args: EndCallArgs) => void;
+  onClosed?: () => void;
 }): Promise<GeminiVoiceSession> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
@@ -49,21 +70,21 @@ export async function openGeminiLiveSession(opts: {
 
   let userTurnBuffer = "";
   let agentTurnBuffer = "";
-  let audioReceivedCount = 0;
   let sessionClosed = false;
+  let closedByUs = false;
   // Set once the model calls end_call. We don't hang up mid-sentence — we
   // wait for the current turn (the goodbye) to finish streaming first, with
   // a fallback timer in case turnComplete never arrives.
   let endCallPending = false;
   let endCallFired = false; // guards against double-fire from turnComplete + fallback timer
   let endCallFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  let endCallArgs: EndCallArgs | null = null;
 
   function requestEndCall() {
     if (endCallFired) return;
     endCallFired = true;
     if (endCallFallbackTimer) clearTimeout(endCallFallbackTimer);
-    logger.info("geminiVoiceSession: agent requested end_call, notifying caller");
-    opts.onEndCallRequested?.();
+    opts.onEndCallRequested?.(endCallArgs || { outcome: "failed", summary: "No reason provided" });
   }
 
   try {
@@ -75,70 +96,52 @@ export async function openGeminiLiveSession(opts: {
         inputAudioTranscription: {},
         outputAudioTranscription: {},
         speechConfig: { languageCode: LANGUAGE_CODE },
-        tools: [{ functionDeclarations: [END_CALL_FUNCTION_DECLARATION] }],
+        tools: [{ functionDeclarations: [END_CALL, ASK_USER] }],
       },
       callbacks: {
-        onmessage: (msg) => {
+        onmessage: async (msg) => {
           if (sessionClosed) return;
-          
-          logger.info({ messageType: msg.serverContent?.modelTurn ? "modelTurn" : "other" }, "geminiVoiceSession: received message");
 
           if (msg.toolCall?.functionCalls?.length) {
-            const functionResponses = msg.toolCall.functionCalls.map((fc) => {
-              if (fc.name === "end_call") {
-                logger.info({ callArgs: fc.args }, "geminiVoiceSession: model called end_call");
-                endCallPending = true;
-                // Safety net: if turnComplete never arrives (e.g. the model
-                // considers the goodbye audio already sent), hang up anyway
-                // after a short grace period instead of leaving the call open.
-                if (endCallFallbackTimer) clearTimeout(endCallFallbackTimer);
-                endCallFallbackTimer = setTimeout(() => requestEndCall(), 4000);
-              }
-              return { id: fc.id, name: fc.name, response: { result: "ok" } };
-            });
+            const functionResponses = await Promise.all(
+              msg.toolCall.functionCalls.map(async (fc) => {
+                if (fc.name === "end_call") {
+                  logger.info({ callArgs: fc.args }, "geminiVoiceSession: model called end_call");
+                  endCallArgs = fc.args as EndCallArgs;
+                  endCallPending = true;
+                  // Safety net: if turnComplete never arrives (e.g. the model
+                  // considers the goodbye audio already sent), hang up anyway
+                  // after a short grace period instead of leaving the call open.
+                  if (endCallFallbackTimer) clearTimeout(endCallFallbackTimer);
+                  endCallFallbackTimer = setTimeout(() => requestEndCall(), 4000);
+                  return { id: fc.id, name: fc.name, response: { result: "ok" } };
+                }
+                if (fc.name === "ask_user") {
+                  const answer = await opts.onAskUser?.(fc.args as any).catch(() => "USER_UNAVAILABLE");
+                  return { id: fc.id, name: fc.name, response: { answer: answer ?? "USER_UNAVAILABLE" } };
+                }
+                return { id: fc.id, name: fc.name, response: { error: "unknown tool" } };
+              })
+            );
             try {
               session.sendToolResponse({ functionResponses });
             } catch (err) {
               logger.error({ err }, "geminiVoiceSession: failed to send tool response");
             }
           }
-          
+
           const inputTranscription = msg.serverContent?.inputTranscription?.text;
           if (inputTranscription) {
-            logger.info({ 
-              originalTranscription: inputTranscription,
-              transcriptionLength: inputTranscription.length,
-              hasNonAscii: /[^\x00-\x7F]/.test(inputTranscription)
-            }, "geminiVoiceSession: received input transcription");
-            
-            // Filter out non-English content — the input transcriber will
-            // occasionally render accented English speech in a different
-            // script (e.g. Devanagari) instead of transliterating it, which
-            // then gets both displayed and sent to the model as if it were
-            // actually a different language.
-            const englishOnly = filterToEnglish(inputTranscription);
-            if (englishOnly) {
-              userTurnBuffer += englishOnly;
-              logger.info({ 
-                filteredTranscription: englishOnly,
-                bufferLength: userTurnBuffer.length,
-                bufferSize: userTurnBuffer
-              }, "geminiVoiceSession: added to user turn buffer");
-            } else {
-              logger.warn({ originalText: inputTranscription }, "geminiVoiceSession: filtered non-English input");
-            }
+            userTurnBuffer += inputTranscription;
           }
 
           const outputTranscription = msg.serverContent?.outputTranscription?.text;
           if (outputTranscription) {
             agentTurnBuffer += outputTranscription;
-            logger.info({ transcription: outputTranscription }, "geminiVoiceSession: output transcription");
           }
 
           const audioPart = msg.serverContent?.modelTurn?.parts?.find((p) => p.inlineData?.data);
           if (audioPart?.inlineData?.data) {
-            audioReceivedCount++;
-            logger.info({ audioCount: audioReceivedCount, audioLength: audioPart.inlineData.data.length }, "geminiVoiceSession: received audio from Gemini");
             const buf = Buffer.from(audioPart.inlineData.data, "base64");
             const pcm24k = new Int16Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 2));
             opts.onAudioOut(pcm24k);
@@ -147,38 +150,17 @@ export async function openGeminiLiveSession(opts: {
           if (msg.serverContent?.turnComplete) {
             const userText = userTurnBuffer.trim();
             const agentText = agentTurnBuffer.trim();
-            
-            logger.info({ 
-              userText, 
-              agentText,
-              userTextLength: userText.length,
-              agentTextLength: agentText.length,
-              userBufferBefore: userTurnBuffer,
-              agentBufferBefore: agentTurnBuffer
-            }, "geminiVoiceSession: turn complete");
 
-            // Process user turn first, then agent turn — the user always
-            // speaks before the agent responds within a turn, and callers
-            // (transcript display, DB logging) rely on that call order to
-            // preserve conversation sequence.
             if (userText) {
-              logger.info({ sendingUserText: userText }, "geminiVoiceSession: sending user turn to callback");
               opts.onUserTurnText(userText);
-            } else {
-              logger.warn("geminiVoiceSession: user turn buffer empty, skipping user turn callback");
             }
             userTurnBuffer = "";
 
             if (agentText) {
-              logger.info({ sendingAgentText: agentText }, "geminiVoiceSession: sending agent turn to callback");
               opts.onAgentTurnText(agentText);
-            } else {
-              logger.warn("geminiVoiceSession: agent turn buffer empty, skipping agent turn callback");
             }
             agentTurnBuffer = "";
 
-            // The goodbye turn (if any) has now fully streamed out — safe to
-            // actually hang up.
             if (endCallPending) requestEndCall();
           }
         },
@@ -192,8 +174,7 @@ export async function openGeminiLiveSession(opts: {
         },
         onclose: () => {
           sessionClosed = true;
-          logger.info({ audioReceivedCount }, "geminiVoiceSession: live session closed");
-          logger.info("geminiVoiceSession: this may indicate the session was terminated by the server or client");
+          if (!closedByUs) opts.onClosed?.();
         },
       },
     });
@@ -216,7 +197,7 @@ export async function openGeminiLiveSession(opts: {
         }
       },
       close: () => {
-        logger.info("geminiVoiceSession: closing session manually");
+        closedByUs = true;
         sessionClosed = true;
         session.close();
       },

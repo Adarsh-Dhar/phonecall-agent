@@ -21,10 +21,9 @@ import { WebSocketServer, WebSocket } from "ws";
 import { prisma } from "@workspace/db-prisma";
 import { browserPayloadToPcm16, pcm16ToBrowserPayload } from "../lib/audioCodec";
 import { openGeminiLiveSession, type GeminiVoiceSession } from "./geminiVoiceSession";
-import { scheduleExtraction } from "./taskExtraction";
-import { buildOutboundCallSystemInstruction, buildInboundCallSystemInstruction } from "./callAnalysis";
-import { analyzeCallForEscalation } from "./callAnalysis";
+import { buildOutboundCallSystemInstruction } from "./callAnalysis";
 import { getOrCreateActiveConversation } from "./conversations";
+import { createCallLifecycle } from "./callLifecycle";
 import { logger } from "../lib/logger";
 
 // A fixed synthetic contact that all browser test calls are logged against,
@@ -61,9 +60,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
 
   wss.on("connection", (browserWs: WebSocket) => {
     let gemini: GeminiVoiceSession | null = null;
-    let callId: string | null = null;
-    let conversationId: string | null = null;
-    let startedAt: Date | null = null;
+    let lifecycle: ReturnType<typeof createCallLifecycle> | null = null;
 
     browserWs.on("message", async (raw) => {
       let msg: any;
@@ -130,21 +127,33 @@ export function createBrowserVoiceStream(): WebSocketServer {
               "Browser test call with",
               contact.name
             );
-            conversationId = conversation.id;
 
-            startedAt = new Date();
+            const startedAt = new Date();
+            const tz = contact.timezone ?? process.env.DEFAULT_TIMEZONE ?? "Asia/Kolkata";
             const call = await prisma.call.create({
               data: {
-                status:         "in-progress",
-                direction:      "outbound",
+                status: "in-progress",
+                direction: "outbound",
                 conversationId: conversation.id,
-                contactId:      contact.id,
-                from:           "browser",
-                to:             "browser",
+                contactId: contact.id,
+                from: "browser",
+                to: "browser",
                 startedAt,
+                taskId: taskContext ? taskId : null,
               },
             });
-            callId = call.id;
+
+            lifecycle = createCallLifecycle({
+              callId: call.id,
+              conversationId: conversation.id,
+              ownerId: contact.ownerId ?? "",
+              contactId: contact.id,
+              startedAt,
+              send: (msg) => browserWs.send(JSON.stringify(msg)),
+              closeSocket: () => browserWs.close(),
+              getGemini: () => gemini,
+              clearGemini: () => { gemini = null; },
+            });
 
             const knowledgeFacts = await prisma.contactKnowledge.findMany({
               where: { contactId: contact.id, status: "active" },
@@ -161,55 +170,34 @@ export function createBrowserVoiceStream(): WebSocketServer {
               throw new Error("User account not found for contact");
             }
 
-            // Browser calls are outbound from the user to the contact
             gemini = await openGeminiLiveSession({
               systemInstructionText: buildOutboundCallSystemInstruction(
                 user.name,
                 contact.name,
                 knowledgeFacts,
-                taskContext
+                taskContext,
+                tz
               ),
               onAudioOut: (pcm24k) => {
+                lifecycle?.noteAudioOut(pcm24k);
                 browserWs.send(JSON.stringify({ type: "audio", payload: pcm16ToBrowserPayload(pcm24k) }));
               },
               onUserTurnText: (text) => {
-                logger.info({ 
-                  userText: text, 
-                  textLength: text.length,
-                  conversationId 
-                }, "voiceStreamBrowser: received user turn from Gemini");
-                void logTurn("user", text);
+                void lifecycle?.logTurn("user", text);
                 browserWs.send(JSON.stringify({ type: "transcript", role: "user", text }));
               },
               onAgentTurnText: (text) => {
-                logger.info({ 
-                  agentText: text, 
-                  textLength: text.length,
-                  conversationId 
-                }, "voiceStreamBrowser: received agent turn from Gemini");
-                void logTurn("assistant", text);
+                void lifecycle?.logTurn("assistant", text);
                 browserWs.send(JSON.stringify({ type: "transcript", role: "assistant", text }));
               },
-              onEndCallRequested: () => {
-                logger.info({ callId }, "voiceStreamBrowser: agent requested to end the call");
-                try {
-                  browserWs.send(JSON.stringify({ type: "call_ended", reason: "agent" }));
-                } catch (err) {
-                  logger.warn({ err }, "voiceStreamBrowser: failed to notify browser of call_ended");
-                }
-                // Give the last bit of audio a moment to actually reach the
-                // browser before we tear the socket down.
-                setTimeout(() => {
-                  void endCall("agent");
-                  browserWs.close();
-                }, 800);
-              },
+              onAskUser: (args) => lifecycle?.onAskUser(args),
+              onEndCallRequested: (args) => lifecycle?.onEndCall(args),
+              onClosed: () => lifecycle?.onGeminiClosed(),
             });
 
-            // Wait a moment for the session to stabilize
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise((resolve) => setTimeout(resolve, 500));
 
-            browserWs.send(JSON.stringify({ type: "ready", callId, conversationId }));
+            browserWs.send(JSON.stringify({ type: "ready", callId: call.id, conversationId: conversation.id }));
           } catch (err) {
             logger.error({ err }, "voiceStreamBrowser: failed to start session");
             browserWs.send(
@@ -225,28 +213,12 @@ export function createBrowserVoiceStream(): WebSocketServer {
         case "audio": {
           if (!gemini || typeof msg.payload !== "string") return;
 
-          // Skip empty payloads - don't send silence to Gemini
           if (!msg.payload || msg.payload.length === 0) {
-            logger.debug("voiceStreamBrowser: skipping empty audio payload");
             return;
           }
 
-          logger.info({
-            payloadLength: msg.payload.length,
-            payloadStart:  msg.payload.substring(0, 100),
-            payloadEnd:    msg.payload.substring(msg.payload.length - 100)
-          }, "voiceStreamBrowser: received audio payload");
-
           const pcm24k = browserPayloadToPcm16(msg.payload);
-          logger.info({
-            pcm24kLength:  pcm24k.length,
-            sampleValues:  Array.from(pcm24k.slice(0, 10)),
-            maxAmplitude:  Math.max(...Array.from(pcm24k.map(Math.abs)))
-          }, "voiceStreamBrowser: resampled to 24k");
-
-          // Skip sending if resampled audio is empty
           if (pcm24k.length === 0) {
-            logger.debug("voiceStreamBrowser: skipping empty resampled audio");
             return;
           }
 
@@ -255,93 +227,18 @@ export function createBrowserVoiceStream(): WebSocketServer {
         }
 
         case "stop":
-          await endCall();
+          await lifecycle?.end("user");
           break;
       }
     });
 
-    // Serializes logTurn's DB writes so createdAt order always matches
-    // conversation order, even though onUserTurnText/onAgentTurnText fire
-    // fire-and-forget `void logTurn(...)`) — without this, two unawaited
-    // prisma.message.create calls can resolve out of order under load and
-    // leave the persisted transcript showing the agent before the user.
-    let turnLogQueue: Promise<void> = Promise.resolve();
-
-    async function logTurn(role: "user" | "assistant", content: string) {
-      if (!conversationId) return;
-      const currentConversationId = conversationId;
-      const currentCallId = callId;
-      
-      logger.info({ 
-        role, 
-        content, 
-        contentLength: content.length,
-        conversationId: currentConversationId,
-        callId: currentCallId 
-      }, "voiceStreamBrowser: logging turn to database");
-      
-      turnLogQueue = turnLogQueue
-        .then(() =>
-          prisma.message.create({
-            data: {
-              role,
-              content,
-              time:           "Now",
-              conversationId: currentConversationId,
-              callId:         currentCallId,
-            },
-          })
-        )
-        .then((createdMessage) => {
-          logger.info({ 
-            messageId: createdMessage.id, 
-            role: createdMessage.role, 
-            contentLength: createdMessage.content.length 
-          }, "voiceStreamBrowser: successfully logged turn to database");
-          scheduleExtraction(currentConversationId);
-        })
-        .catch((err) => {
-          logger.error({ err, role, currentConversationId }, "voiceStreamBrowser: failed to log turn");
-        });
-      await turnLogQueue;
-    }
-
-    async function endCall(disconnectedBy: "user" | "agent" = "user") {
-      const currentCallId    = callId;    // Capture before clearing
-      const currentStartedAt = startedAt; // Capture before clearing
-
-      gemini?.close();
-      gemini = null;
-
-      if (currentCallId && currentStartedAt) {
-        const endedAt = new Date();
-        await prisma.call.update({
-          where: { id: currentCallId },
-          data: {
-            status:        "completed",
-            endedAt,
-            durationSec:   Math.round((endedAt.getTime() - currentStartedAt.getTime()) / 1000),
-            disconnectedBy,
-          },
-        });
-        void analyzeCallForEscalation(currentCallId).catch((err) =>
-          logger.error({ err, callId: currentCallId }, "voiceStreamBrowser: post-call analysis failed")
-        );
-      }
-
-      callId         = null;
-      conversationId = null;
-      startedAt      = null;
-    }
-
     browserWs.on("close", () => {
-      logger.info("voiceStreamBrowser: browser WebSocket closed");
-      void endCall();
+      void lifecycle?.end("user");
     });
 
     browserWs.on("error", (err) => {
       logger.error({ err }, "voiceStreamBrowser: browser WebSocket error");
-      void endCall();
+      void lifecycle?.end("user");
     });
   });
 

@@ -8,6 +8,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { TestCallWidget } from '@/components/TestCallWidget';
 import { IncomingCallModal } from '@/components/calls/IncomingCallModal';
+import { LiveQuestionModal } from '@/components/calls/LiveQuestionModal';
 import { useCallDueNotifications, type CallDueNotification } from '@/hooks/useCallDueNotifications';
 import { usePresence } from '@/hooks/usePresence';
 import { CallsPage } from '@/pages/CallsPage';
@@ -54,6 +55,7 @@ function RootRedirect() {
 function AppRoutes() {
   const [dueCall, setDueCall] = useState<CallDueNotification | null>(null);
   const [incomingCall, setIncomingCall] = useState<{ callId: string; callerName: string; taskContext?: { taskId: string; title: string; description: string | null } | null } | null>(null);
+  const [liveQuestion, setLiveQuestion] = useState<{ queryId: string; callId: string; question: string; urgent: boolean } | null>(null);
 
   useCallDueNotifications((notification) => {
     toast({
@@ -64,7 +66,7 @@ function AppRoutes() {
   });
 
   // Enable presence for both personal users and service accounts
-  // Personal users get call status updates, service accounts get incoming calls
+  // Personal users get call status updates and live questions, service accounts get incoming calls
   usePresence(
     (event) => {
         console.log('Incoming call received:', event);
@@ -78,6 +80,15 @@ function AppRoutes() {
       console.log('Call status update:', event);
       // Handle call status updates (ringing → in-progress → missed/declined)
       // This could update UI state or show notifications
+    },
+    (event) => {
+      console.log('Live question received:', event);
+      setLiveQuestion({
+        queryId: event.queryId,
+        callId: event.callId,
+        question: event.question,
+        urgent: event.urgent,
+      });
     }
   );
 
@@ -108,6 +119,13 @@ function AppRoutes() {
         <IncomingCallModal
           incomingCall={incomingCall}
           onClose={() => setIncomingCall(null)}
+        />
+      )}
+
+      {liveQuestion && (
+        <LiveQuestionModal
+          liveQuestion={liveQuestion}
+          onClose={() => setLiveQuestion(null)}
         />
       )}
     </>

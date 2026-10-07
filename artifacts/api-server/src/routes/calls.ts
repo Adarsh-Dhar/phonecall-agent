@@ -125,10 +125,10 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
 
   // Load the mirror contact account
   const contact = await prisma.account.findFirst({
-    where: { 
-      id: String(contactId), 
-      ownerId: req.userId!, 
-      isService: true 
+    where: {
+      id: String(contactId),
+      ownerId: req.userId!,
+      isService: true,
     },
     select: { linkedAccountId: true, name: true },
   });
@@ -138,6 +138,18 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
     return;
+  }
+
+  // Validate taskId belongs to this contact if provided
+  if (taskId) {
+    const task = await prisma.task.findUnique({
+      where: { id: String(taskId) },
+      select: { contactId: true },
+    });
+    if (!task || task.contactId !== String(contactId)) {
+      res.status(400).json({ error: "Task does not belong to this contact" });
+      return;
+    }
   }
 
   if (!contact.linkedAccountId) {
@@ -174,6 +186,7 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
         conversationId: conversation.id,
         from: "agent",
         to: contact.linkedAccountId,
+        taskId: taskId ? String(taskId) : null,
       },
     });
 
@@ -192,6 +205,7 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
       conversationId: conversation.id,
       from: "agent",
       to: contact.linkedAccountId,
+      taskId: taskId ? String(taskId) : null,
     },
   });
 
