@@ -106,7 +106,7 @@ export async function openGeminiLiveSession(opts: {
             const functionResponses = await Promise.all(
               msg.toolCall.functionCalls.map(async (fc) => {
                 if (fc.name === "end_call") {
-                  endCallArgs = fc.args as EndCallArgs;
+                  endCallArgs = fc.args as unknown as EndCallArgs;
                   endCallPending = true;
                   // Safety net: if turnComplete never arrives (e.g. the model
                   // considers the goodbye audio already sent), hang up anyway

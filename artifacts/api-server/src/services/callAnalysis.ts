@@ -4,13 +4,23 @@ import { logger } from "../lib/logger";
 import { slugify } from "../lib/utils";
 
 export function buildCallTimeContext(tz: string, now = new Date()): string {
-  const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: tz, weekday: "long", year: "numeric", month: "long", day: "numeric" });
-  const timeFormatter = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "numeric", hour12: true });
-  const tzFormatter = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "long" });
+  const defaultTz = process.env.DEFAULT_TIMEZONE || "Asia/Kolkata";
+  const effectiveTz = (() => {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: tz });
+      return tz;
+    } catch {
+      return defaultTz;
+    }
+  })();
+
+  const dateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: effectiveTz, weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const timeFormatter = new Intl.DateTimeFormat("en-US", { timeZone: effectiveTz, hour: "numeric", minute: "numeric", hour12: true });
+  const tzFormatter = new Intl.DateTimeFormat("en-US", { timeZone: effectiveTz, timeZoneName: "long" });
 
   const dateStr = dateFormatter.format(now);
   const timeStr = timeFormatter.format(now);
-  const tzName = tzFormatter.formatToParts(now).find((p) => p.type === "timeZoneName")?.value || tz;
+  const tzName = tzFormatter.formatToParts(now).find((p) => p.type === "timeZoneName")?.value || effectiveTz;
 
   return `CURRENT DATE AND TIME: ${dateStr}, ${timeStr} (${tzName}). Resolve "today/tomorrow/next Tuesday" against this and repeat the exact calendar date back to confirm.`;
 }
@@ -177,6 +187,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
     "}" +
     knowledgeBlock;
 
+  const validOutcomes = ["booked", "rescheduled", "cancelled", "info_gathered", "needs_user", "failed"] as const;
   let isEnoughKnowledge: boolean | null = null;
   let escalationQuestion: string | null = null;
   let knowledgeKey: string | null = null;
@@ -206,6 +217,10 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
         knowledgeCategory = parsed.knowledgeCategory?.trim() || "fact";
       }
       llmOutcome = parsed.outcome || null;
+      // Validate outcome against allowed values
+      if (llmOutcome && !validOutcomes.includes(llmOutcome as any)) {
+        llmOutcome = null;
+      }
       break;
     } catch (err) {
       logger.warn({ err, callId, attempt }, "callAnalysis: failed to parse escalation decision, retrying");

@@ -361,9 +361,19 @@ router.patch("/user/timezone", requireAuth, asyncHandler(async (req, res) => {
     return;
   }
 
+  const tz = timezone.trim();
+
+  // Validate that the timezone is valid
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+  } catch (e) {
+    res.status(400).json({ error: "Invalid timezone identifier" });
+    return;
+  }
+
   await prisma.account.update({
     where: { id: req.userId! },
-    data: { timezone: timezone.trim() },
+    data: { timezone: tz },
   });
 
   res.json({ success: true });

@@ -10,7 +10,7 @@ export function Avatar({ contact, size = 'md' }: { contact: AvatarSubject; size?
     <div
       data-testid={`avatar-${contact.id}`}
       className={`grid shrink-0 place-items-center rounded-full font-bold text-foreground ${sizes}`}
-      style={{ background: contact.color }}
+      style={{ background: contact.color || undefined }}
     >
       {contact.initials}
     </div>

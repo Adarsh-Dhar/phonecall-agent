@@ -19,7 +19,16 @@ export async function callOrchestratorExtraction(
 ): Promise<{ taskActions: TaskAction[]; knowledgeActions: KnowledgeAction[] }> {
   const empty = { taskActions: [], knowledgeActions: [] };
 
-  const tz = context.timezone ?? process.env.DEFAULT_TIMEZONE ?? "UTC";
+  const tz = (() => {
+    const defaultTz = process.env.DEFAULT_TIMEZONE || "Asia/Kolkata";
+    const providedTz = context.timezone ?? defaultTz;
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: providedTz });
+      return providedTz;
+    } catch {
+      return defaultTz;
+    }
+  })();
   const todayISO = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
 
   const systemPrompt = `Today's date is ${todayISO}. When resolving partial or relative dates (e.g. "7th of September", "next Monday"), always use this date as the reference and infer the correct year.

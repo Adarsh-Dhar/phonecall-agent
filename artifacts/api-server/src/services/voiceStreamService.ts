@@ -156,7 +156,7 @@ export function createServiceVoiceStream(): WebSocketServer {
                 void lifecycle?.logTurn("assistant", text);
                 serviceWs.send(JSON.stringify({ type: "transcript", role: "assistant", text }));
               },
-              onAskUser: (args) => lifecycle?.onAskUser(args),
+              onAskUser: (args) => lifecycle?.onAskUser(args) ?? Promise.resolve('USER_UNAVAILABLE'),
               onEndCallRequested: (args) => lifecycle?.onEndCall(args),
               onClosed: () => lifecycle?.onGeminiClosed(),
             });

@@ -16,10 +16,10 @@ describe('liveEscalation', () => {
   });
 
   it('ask_user resolves with the answer through resolveLiveQuery', async () => {
-    vi.mocked(prisma.query.create.mockResolvedValue({
+    vi.mocked(prisma.query.create).mockResolvedValue({
       id: 'query-1',
       question: 'What is the price?',
-    });
+    } as any);
 
     const promise = askUserDuringCall({
       callId: 'call-1',
@@ -39,10 +39,10 @@ describe('liveEscalation', () => {
   });
 
   it('ask_user times out and the agent receives USER_UNAVAILABLE', async () => {
-    vi.mocked(prisma.query.create.mockResolvedValue({
+    vi.mocked(prisma.query.create).mockResolvedValue({
       id: 'query-2',
       question: 'What is the price?',
-    });
+    } as any);
 
     const promise = askUserDuringCall({
       callId: 'call-2',

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { apiFetch } from '@/lib/api/shared';
+import { usePushSubscription } from '@/hooks/usePushSubscription';
 
 type Pref = { id: string; label: string; description: string; enabled: boolean };
 
@@ -36,6 +37,7 @@ const DEFAULT_PREFS: Pref[] = [
 export function Preferences({ onClose }: { onClose: () => void }) {
   const [prefs, setPrefs] = useState<Pref[]>(DEFAULT_PREFS);
   const [timezone, setTimezone] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const { permission, subscribe } = usePushSubscription();
 
   const toggle = (id: string) =>
     setPrefs((prev) =>
@@ -53,6 +55,10 @@ export function Preferences({ onClose }: { onClose: () => void }) {
         // Default to browser timezone
       });
   }, []);
+
+  // Get all available timezones, plus the current one if not in the list
+  const allTimezones = Intl.supportedValuesOf('timeZone');
+  const timezones = allTimezones.includes(timezone) ? allTimezones : [timezone, ...allTimezones];
 
   const handleSave = async () => {
     try {
@@ -129,13 +135,11 @@ export function Preferences({ onClose }: { onClose: () => void }) {
             onChange={(e) => setTimezone(e.target.value)}
             className="mt-2 w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
           >
-            <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-            <option value="America/New_York">America/New_York (EST)</option>
-            <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
-            <option value="Europe/London">Europe/London (GMT)</option>
-            <option value="Europe/Paris">Europe/Paris (CET)</option>
-            <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
-            <option value="Australia/Sydney">Australia/Sydney (AEST)</option>
+            {timezones.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ))}
           </select>
         </div>
 
