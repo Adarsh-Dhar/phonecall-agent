@@ -22,6 +22,24 @@ import { buildOutboundCallSystemInstruction } from "./callAnalysis";
 import { createCallLifecycle } from "./callLifecycle";
 import { logger } from "../lib/logger";
 
+/**
+ * Exported for testing: retrieves the task context for a call based on call.taskId
+ * Returns the task if it exists and belongs to the contact, null otherwise
+ */
+export async function getTaskContextForCall(
+  taskId: string | null | undefined,
+  contactId: string
+): Promise<{ title: string; description: string | null } | null> {
+  if (!taskId) return null;
+
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, contactId },
+    select: { title: true, description: true },
+  });
+
+  return task ? { title: task.title, description: task.description } : null;
+}
+
 export function createServiceVoiceStream(): WebSocketServer {
   const wss = new WebSocketServer({ noServer: true });
 
@@ -115,12 +133,7 @@ export function createServiceVoiceStream(): WebSocketServer {
             const tz = owner?.timezone ?? process.env.DEFAULT_TIMEZONE ?? "Asia/Kolkata";
 
             let taskContext: { title: string; description: string | null } | null = null;
-            const task = call.taskId ? await prisma.task.findFirst({
-              where: { id: call.taskId, contactId: call.contactId },
-            }) : null;
-            if (task) {
-              taskContext = { title: task.title, description: task.description };
-            }
+            taskContext = await getTaskContextForCall(call.taskId, call.contactId);
 
             const startedAt = call.startedAt ? new Date(call.startedAt) : new Date();
 

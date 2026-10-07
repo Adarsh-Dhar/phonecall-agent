@@ -12,7 +12,6 @@ import { ContactQuestionsCard } from '@/components/contact/ContactQuestionsCard'
 import { ContactFilesCard } from '@/components/contact/ContactFilesCard';
 import { TestCallWidget } from '@/components/TestCallWidget';
 import { CallerCallWidget } from '@/components/calls/CallerCallWidget';
-import { IncomingCallModal } from '@/components/calls/IncomingCallModal';
 import { dialCall } from '@/lib/api/calls';
 
 export function ContactDetailPage() {
@@ -26,7 +25,6 @@ export function ContactDetailPage() {
   const [callStatus, setCallStatus] = useState<'idle' | 'ringing' | 'in-progress' | 'missed' | 'declined'>('idle');
   const [testCallWidget, setTestCallWidget] = useState<{ contactId?: string; taskId?: string; taskTitle?: string } | null>(null);
   const [callerCallId, setCallerCallId] = useState<string | null>(null);
-  const [incomingCall, setIncomingCall] = useState<{ callId: string; callerName: string; taskContext?: { taskId: string; title: string; description: string | null } | null } | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -46,16 +44,7 @@ export function ContactDetailPage() {
 
   // Listen for call status updates (only for personal users)
   usePresence(
-    (event) => {
-      // Handle incoming calls for service accounts
-      if (contact?.linkedAccountId && event.callerName === contact.name) {
-        setIncomingCall({
-          callId: event.callId,
-          callerName: event.callerName,
-          taskContext: event.taskContext,
-        });
-      }
-    },
+    () => {}, // No incoming calls for personal users
     (event) => {
       if (event.callId && contact?.linkedAccountId) {
         // This is a call status update for a call we initiated
@@ -174,14 +163,6 @@ export function ContactDetailPage() {
             callId={callerCallId}
             contactName={contact?.name}
             onClose={() => { setCallerCallId(null); setCallStatus('idle'); }}
-          />
-        )}
-
-        {/* Incoming Call Modal for real service calls */}
-        {incomingCall && (
-          <IncomingCallModal
-            incomingCall={incomingCall}
-            onClose={() => { setIncomingCall(null); }}
           />
         )}
       </div>
