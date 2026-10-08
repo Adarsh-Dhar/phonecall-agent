@@ -8,9 +8,8 @@
  * hooks/useCallDueNotifications.ts on the frontend) and reacts by auto-opening
  * the call widget for that task or showing an exhausted notification.
  *
- * This does NOT deliver to a closed tab or a phone that isn't looking at the
- * app — there is no push-notification/service-worker layer here. It only
- * reaches whatever browser tabs currently hold an open connection.
+ * Delivery targets the owner's open tabs through the presence registry
+ * (presence.ts) and falls back to web push (push.ts) when none are connected.
  *
  * DEPRECATED: This file is being replaced by the presence registry system
  * in presence.ts. The broadcastCallDue and broadcastCallExhausted functions now

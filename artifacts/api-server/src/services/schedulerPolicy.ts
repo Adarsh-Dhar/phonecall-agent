@@ -1,244 +1,148 @@
 /**
- * Scheduler Policy — pure functions for scheduling logic.
- *
- * This module contains the core scheduling algorithms that are easy to unit test:
- * - Exponential backoff for retry attempts
- * - Time window validation (quiet hours, business hours)
- * - Max attempts configuration
+ * Scheduler Policy: pure functions for scheduling logic (no DB, no server-timezone dependence).
+ * - Exponential backoff for retries
+ * - Allowed window: owner quiet hours + contact business hours
+ * - Business-hours validation
  */
 
 export const MAX_ATTEMPTS = Number(process.env.SCHEDULER_MAX_ATTEMPTS) || 3;
 
-/**
- * Computes the next attempt time using exponential backoff.
- *
- * Backoff schedule:
- * - Attempt 1 → 15 minutes
- * - Attempt 2 → 1 hour
- * - Attempt 3 → 4 hours
- * - Attempt 4+ → 8 hours (cap)
- *
- * @param attempts - Current attempt count (1-indexed)
- * @param now - Current timestamp
- * @returns Next attempt timestamp
- */
-export function computeNextAttempt(attempts: number, now: Date): Date {
-  const backoffMs = getBackoffMs(attempts);
-  return new Date(now.getTime() + backoffMs);
+/** days: 0 = Sunday to 6 = Saturday. start: 0-23. end: 1-24 (exclusive). tz: IANA zone of the business. */
+export interface BusinessHours {
+  days: number[];
+  start: number;
+  end: number;
+  tz?: string;
 }
 
-/**
- * Returns the backoff duration in milliseconds for a given attempt count.
- */
-function getBackoffMs(attempts: number): number {
-  const backoffSchedule = [
-    15 * 60 * 1000, // 15 minutes
-    60 * 60 * 1000, // 1 hour
-    4 * 60 * 60 * 1000, // 4 hours
-  ];
+const STEP_MS = 15 * 60 * 1000; // every real UTC offset is a multiple of 15 min
+const MAX_SEARCH_STEPS = 8 * 24 * 4; // look up to 8 days ahead
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  if (attempts <= 0) return backoffSchedule[0];
-  if (attempts - 1 < backoffSchedule.length) {
-    return backoffSchedule[attempts - 1];
-  }
-  // Cap at 8 hours for attempts beyond the schedule
+// Backoff: attempts is 1-indexed. 1 = 15 min, 2 = 1 h, 3 = 4 h, 4+ = 8 h.
+export function computeNextAttempt(attempts: number, now: Date): Date {
+  return new Date(now.getTime() + getBackoffMs(attempts));
+}
+
+function getBackoffMs(attempts: number): number {
+  const schedule = [15 * 60 * 1000, 60 * 60 * 1000, 4 * 60 * 60 * 1000];
+  if (attempts <= 0) return schedule[0];
+  if (attempts - 1 < schedule.length) return schedule[attempts - 1];
   return 8 * 60 * 60 * 1000;
 }
 
+// Time helpers: always computed from Intl, never from the server's local time.
+function resolveTz(tz: string | null | undefined): string {
+  if (!tz) return 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return tz;
+  } catch {
+    return 'UTC';
+  }
+}
+
+function localParts(date: Date, tz: string): { weekday: number; hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    weekday: 'short',
+    hour: 'numeric',
+    minute: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return {
+    weekday: WEEKDAYS.indexOf(get('weekday')),
+    hour: Number(get('hour')) % 24,
+    minute: Number(get('minute')),
+  };
+}
+
+/** Handles wrap-around ranges such as 22 to 6. */
+function isHourInRange(hour: number, start: number, end: number): boolean {
+  if (start <= end) return hour >= start && hour < end;
+  return hour >= start || hour < end;
+}
+
+function isBusinessOpen(date: Date, bh: BusinessHours, tz: string): boolean {
+  const { weekday, hour } = localParts(date, tz);
+  return bh.days.includes(weekday) && hour >= bh.start && hour < bh.end;
+}
+
 /**
- * Checks if the current time is within the allowed calling window.
- *
- * Respects:
- * - Owner's quiet hours (if set)
- * - Contact's business hours (if set as a service account)
- *
- * @param now - Current timestamp
- * @param ownerTz - Owner's timezone (e.g., "Asia/Kolkata")
- * @param quietStart - Owner's quiet hours start (0-23)
- * @param quietEnd - Owner's quiet hours end (0-23)
- * @param businessHours - Contact's business hours JSON (optional)
- * @returns Object with allowed flag and next allowed time if not allowed
+ * Is it OK to trigger a call right now?
+ * - quietStart/quietEnd: the OWNER's quiet hours, evaluated in ownerTz.
+ * - businessHours: the CONTACT's opening hours, evaluated in businessHours.tz (falls back to ownerTz).
+ * If not allowed, nextAllowedTime is the first 15-minute boundary where both checks pass.
  */
 export function isWithinAllowedWindow(
   now: Date,
   ownerTz: string,
   quietStart: number | null,
   quietEnd: number | null,
-  businessHours: any | null
+  businessHours: BusinessHours | null,
 ): { allowed: boolean; nextAllowedTime?: Date } {
-  // Get current hour in owner's timezone
-  const ownerHour = getHourInTimezone(now, ownerTz);
+  const tz = resolveTz(ownerTz);
+  const bhTz = resolveTz(businessHours?.tz ?? ownerTz);
+  const hasQuiet = quietStart !== null && quietEnd !== null;
 
-  // Check quiet hours (owner's personal quiet time)
-  if (quietStart !== null && quietEnd !== null) {
-    if (isHourInRange(ownerHour, quietStart, quietEnd)) {
-      // In quiet hours - find next time outside quiet hours
-      const nextAllowed = findNextTimeOutsideQuietHours(now, ownerTz, quietStart, quietEnd);
-      return { allowed: false, nextAllowedTime: nextAllowed };
+  const blocked = (d: Date): boolean => {
+    if (hasQuiet && isHourInRange(localParts(d, tz).hour, quietStart as number, quietEnd as number)) return true;
+    if (businessHours && !isBusinessOpen(d, businessHours, bhTz)) return true;
+    return false;
+  };
+
+  if (!blocked(now)) return { allowed: true };
+
+  let t = Math.floor(now.getTime() / STEP_MS) * STEP_MS;
+  for (let i = 0; i < MAX_SEARCH_STEPS; i++) {
+    t += STEP_MS;
+    const candidate = new Date(t);
+    if (!blocked(candidate)) return { allowed: false, nextAllowedTime: candidate };
+  }
+  // Nothing found within 8 days (for example an empty schedule): try again tomorrow.
+  return { allowed: false, nextAllowedTime: new Date(now.getTime() + 24 * 60 * 60 * 1000) };
+}
+
+/** Throws Error(message) when invalid. Accepts an object or a JSON string. */
+export function validateBusinessHours(raw: unknown): BusinessHours {
+  let value: any = raw;
+  if (typeof raw === 'string') {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      throw new Error('businessHours must be valid JSON');
     }
   }
+  if (!value || typeof value !== 'object') throw new Error('businessHours must be an object');
 
-  // Check business hours (contact's availability)
-  if (businessHours) {
-    // Parse business hours JSON and check
-    // For now, this is a placeholder - implement based on your business hours schema
-    // Example: { "days": [1,2,3,4,5], "start": 9, "end": 17 }
-    const isWithinBusinessHours = checkBusinessHours(now, ownerTz, businessHours);
-    if (!isWithinBusinessHours) {
-      const nextAllowed = findNextBusinessHoursOpen(now, ownerTz, businessHours);
-      return { allowed: false, nextAllowedTime: nextAllowed };
+  const { days, start, end, tz } = value;
+  if (!Array.isArray(days) || days.length === 0 || !days.every((d) => Number.isInteger(d) && d >= 0 && d <= 6)) {
+    throw new Error('days must be a non-empty array of integers 0 (Sun) to 6 (Sat)');
+  }
+  if (!Number.isInteger(start) || start < 0 || start > 23) throw new Error('start must be an integer 0-23');
+  if (!Number.isInteger(end) || end < 1 || end > 24) throw new Error('end must be an integer 1-24');
+  if (end <= start) throw new Error('end must be after start');
+
+  const result: BusinessHours = { days: Array.from(new Set<number>(days)).sort(), start, end };
+  if (tz !== undefined && tz !== null) {
+    if (typeof tz !== 'string') throw new Error('tz must be a string');
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    } catch {
+      throw new Error('tz is not a valid IANA timezone');
     }
+    result.tz = tz;
   }
-
-  return { allowed: true };
+  return result;
 }
 
-/**
- * Gets the hour (0-23) of a date in a specific timezone.
- * Uses hourCycle: 'h23' to ensure 0-23 range (24 at midnight becomes 0).
- */
-function getHourInTimezone(date: Date, timezone: string): number {
-  return parseInt(
-    date.toLocaleString("en-US", { timeZone: timezone, hour12: false, hour: "numeric", hourCycle: "h23" })
-  );
-}
-
-/**
- * Checks if an hour is within a range, handling wrap-around (e.g., 22:00 to 06:00).
- */
-function isHourInRange(hour: number, start: number, end: number): boolean {
-  if (start <= end) {
-    // Normal range (e.g., 9:00 to 17:00)
-    return hour >= start && hour < end;
-  } else {
-    // Wrap-around range (e.g., 22:00 to 06:00)
-    return hour >= start || hour < end;
-  }
-}
-
-/**
- * Finds the next time outside quiet hours.
- * Computes the next boundary in the owner's timezone using formatter parts.
- */
-function findNextTimeOutsideQuietHours(
-  now: Date,
-  timezone: string,
-  quietStart: number,
-  quietEnd: number
-): Date {
-  const ownerHour = getHourInTimezone(now, timezone);
-  const nextHour = findNextHourOutsideRange(ownerHour, quietStart, quietEnd);
-
-  // Get date parts in owner's timezone
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    hour12: false,
-    hourCycle: "h23",
-  });
-
-  const parts = formatter.formatToParts(now);
-  const getPart = (type: string) => parts.find(p => p.type === type)?.value;
-
-  let year = Number(getPart("year"));
-  let month = Number(getPart("month")) - 1; // JS months are 0-indexed
-  let day = Number(getPart("day"));
-
-  // If next hour is in the future today, use it
-  if (nextHour > ownerHour) {
-    return new Date(year, month, day, nextHour, 0, 0);
-  }
-
-  // Otherwise, next allowed time is tomorrow at quietEnd
-  // Add one day
-  const tomorrow = new Date(year, month, day + 1, quietEnd, 0, 0);
-  return tomorrow;
-}
-
-/**
- * Finds the next hour outside a range.
- */
-function findNextHourOutsideRange(currentHour: number, start: number, end: number): number {
-  if (start <= end) {
-    // Normal range
-    if (currentHour < start) return start;
-    if (currentHour >= end) return currentHour + 1;
-    return end;
-  } else {
-    // Wrap-around range
-    if (currentHour >= start || currentHour < end) {
-      // Currently in quiet hours
-      return end;
-    }
-    return currentHour + 1;
-  }
-}
-
-/**
- * Checks if current time is within business hours.
- * Placeholder implementation - extend based on your business hours schema.
- */
-function checkBusinessHours(now: Date, timezone: string, businessHours: any): boolean {
-  // TODO: Implement based on your business hours JSON schema
-  // Example: { "days": [1,2,3,4,5], "start": 9, "end": 17 }
-  // For now, always return true (no restriction)
-  return true;
-}
-
-/**
- * Finds the next time business hours are open.
- * Placeholder implementation - returns 1 hour from now.
- * TODO: Implement based on your business hours JSON schema.
- */
-function findNextBusinessHoursOpen(now: Date, timezone: string, businessHours: any): Date {
-  // For now, return 1 hour from now
-  return new Date(now.getTime() + 60 * 60 * 1000);
-}
-
-/**
- * Parses and validates business hours JSON.
- * Returns null if parsing fails or the format is invalid.
- */
-export function parseBusinessHours(json: string | null): any | null {
+/** Safe parse for stored data: returns null (instead of throwing) when missing or corrupt. */
+export function parseBusinessHours(json: string | null | undefined): BusinessHours | null {
   if (!json) return null;
   try {
-    const parsed = JSON.parse(json);
-    // Basic validation
-    if (!parsed || typeof parsed !== 'object') return null;
-    if (!Array.isArray(parsed.days)) return null;
-    if (typeof parsed.start !== 'number' || parsed.start < 0 || parsed.start > 23) return null;
-    if (typeof parsed.end !== 'number' || parsed.end < 0 || parsed.end > 24) return null;
-    return parsed;
+    return validateBusinessHours(json);
   } catch {
     return null;
   }
-}
-
-/**
- * Validates business hours and throws an error if invalid.
- * Returns the validated object.
- */
-export function validateBusinessHours(value: any): any {
-  if (!value || typeof value !== 'object') {
-    throw new Error('Business hours must be an object');
-  }
-  if (!Array.isArray(value.days)) {
-    throw new Error('Business hours must have a "days" array');
-  }
-  if (value.days.some((d: number) => d < 0 || d > 6)) {
-    throw new Error('Days must be numbers 0-6 (0=Sunday, 6=Saturday)');
-  }
-  if (typeof value.start !== 'number' || value.start < 0 || value.start > 23) {
-    throw new Error('Start hour must be a number 0-23');
-  }
-  if (typeof value.end !== 'number' || value.end < 0 || value.end > 24) {
-    throw new Error('End hour must be a number 0-24');
-  }
-  if (value.start >= value.end) {
-    throw new Error('Start hour must be less than end hour');
-  }
-  return value;
 }
