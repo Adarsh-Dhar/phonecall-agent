@@ -57,16 +57,22 @@ function AppRoutes() {
   const [incomingCall, setIncomingCall] = useState<{ callId: string; callerName: string; taskContext?: { taskId: string; title: string; description: string | null } | null } | null>(null);
   const [liveQuestion, setLiveQuestion] = useState<{ queryId: string; callId: string; question: string; urgent: boolean } | null>(null);
 
-  useCallDueNotifications((notification) => {
-    const attemptText = notification.attempt && notification.maxAttempts
-      ? ` (attempt ${notification.attempt} of ${notification.maxAttempts})`
-      : '';
-    toast({
-      title: 'Call due',
-      description: `Time to call ${notification.contactName} about: ${notification.title}${attemptText}`,
-    });
-    setDueCall(notification);
-  });
+  useCallDueNotifications(
+    (notification) => {
+      const attemptText = notification.attempt && notification.maxAttempts
+        ? ` (attempt ${notification.attempt} of ${notification.maxAttempts})`
+        : '';
+      toast({
+        title: 'Call due',
+        description: `Time to call ${notification.contactName} about: ${notification.title}${attemptText}`,
+      });
+      setDueCall(notification);
+    },
+    (n) => toast({
+      title: 'Could not reach contact',
+      description: `Couldn't reach ${n.contactName} about "${n.title}" after ${n.attempts} attempts. Open the task to call manually.`,
+    })
+  );
 
   // Enable presence for both personal users and service accounts
   // Personal users get call status updates and live questions, service accounts get incoming calls

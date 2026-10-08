@@ -19,7 +19,7 @@ async function seed(callStatus: 'completed' | 'in-progress') {
   const conversation = await prisma.conversation.create({ data: { contactId: contact.id } });
   created.conversations.push(conversation.id);
   const task = await prisma.task.create({
-    data: { title: 'Book dentist', status: callStatus === 'completed' ? 'completed' : 'open', conversationId: conversation.id, contactId: contact.id },
+    data: { title: 'Book dentist', status: callStatus === 'completed' ? 'done' : 'open', conversationId: conversation.id, contactId: contact.id },
   });
   const call = await prisma.call.create({
     data: {

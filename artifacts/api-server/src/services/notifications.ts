@@ -2,18 +2,20 @@
  * Notifications WebSocket — a lightweight, one-directional (server → browser)
  * channel separate from the call transport in voiceStreamBrowser.ts.
  *
- * Right now it carries exactly one message type: "call_due", pushed by
- * services/callScheduler.ts when a task's due date arrives. The browser
- * listens on this while the app is open (see hooks/useCallDueNotifications.ts
- * on the frontend) and reacts by auto-opening the call widget for that task.
+ * Currently carries two message types: "call_due" and "call_exhausted", pushed by
+ * services/callScheduler.ts when a task's due date arrives or when retry attempts
+ * are exhausted. The browser listens on this while the app is open (see
+ * hooks/useCallDueNotifications.ts on the frontend) and reacts by auto-opening
+ * the call widget for that task or showing an exhausted notification.
  *
  * This does NOT deliver to a closed tab or a phone that isn't looking at the
  * app — there is no push-notification/service-worker layer here. It only
  * reaches whatever browser tabs currently hold an open connection.
- * 
+ *
  * DEPRECATED: This file is being replaced by the presence registry system
- * in presence.ts. The broadcastCallDue function now uses sendToAccount
- * to target specific users instead of broadcasting to all connected clients.
+ * in presence.ts. The broadcastCallDue and broadcastCallExhausted functions now
+ * use sendToAccount to target specific users instead of broadcasting to all
+ * connected clients.
  */
 
 import { WebSocketServer, WebSocket } from "ws";
@@ -67,6 +69,29 @@ export async function broadcastCallDue(payload: CallDueNotification & { ownerId:
     return sendPushToAccount(payload.ownerId, {
       title: "Call due",
       body: `It's time to call about ${payload.title}`,
+      url: `/tasks/${payload.taskId}`,
+    });
+  }
+  return delivered;
+}
+
+export type CallExhaustedNotification = {
+  type: "call_exhausted";
+  taskId: string;
+  contactId: string;
+  contactName: string;
+  title: string;
+  attempts: number;
+};
+
+export async function broadcastCallExhausted(
+  payload: CallExhaustedNotification & { ownerId: string },
+): Promise<boolean> {
+  const delivered = sendToAccount(payload.ownerId, payload);
+  if (!delivered) {
+    return sendPushToAccount(payload.ownerId, {
+      title: "Could not reach contact",
+      body: `Couldn't reach ${payload.contactName} about ${payload.title} after ${payload.attempts} attempts`,
       url: `/tasks/${payload.taskId}`,
     });
   }

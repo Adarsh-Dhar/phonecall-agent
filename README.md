@@ -31,6 +31,26 @@ and it overrides `DATABASE_URL` with it, so tests can never touch your dev or pr
 
 - `DEFAULT_TIMEZONE` (default: Asia/Kolkata) - Default timezone for date/time resolution when user timezone is not set
 
+### Business Hours
+
+Business hours can be set on contacts to control when the scheduler attempts to call them. The format is a JSON object with the following structure:
+
+```json
+{
+  "days": [1, 2, 3, 4, 5],
+  "start": 9,
+  "end": 17,
+  "tz": "Asia/Kolkata"
+}
+```
+
+- `days`: Array of day numbers (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+- `start`: Start hour in 24-hour format (0-23)
+- `end`: End hour in 24-hour format (0-24, exclusive)
+- `tz`: Timezone string (optional, defaults to contact's timezone or DEFAULT_TIMEZONE)
+
+Example: `{"days":[1,2,3,4,5],"start":9,"end":17,"tz":"Asia/Kolkata"}` means Monday through Friday, 9 AM to 5 PM IST.
+
 ## Environment Variables
 
 ### API Keys

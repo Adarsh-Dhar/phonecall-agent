@@ -349,4 +349,52 @@ components:
         - kind
         - callAttempts
         - schedulerStatus
+    Contact:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        business:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        initials:
+          type: string
+          nullable: true
+        color:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        businessHoursJson:
+          type: string
+          nullable: true
+        online:
+          type: boolean
+        linkedAccountId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - online
+        - createdAt
+        - updatedAt
 

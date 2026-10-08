@@ -197,3 +197,48 @@ function findNextBusinessHoursOpen(now: Date, timezone: string, businessHours: a
   // For now, return 1 hour from now
   return new Date(now.getTime() + 60 * 60 * 1000);
 }
+
+/**
+ * Parses and validates business hours JSON.
+ * Returns null if parsing fails or the format is invalid.
+ */
+export function parseBusinessHours(json: string | null): any | null {
+  if (!json) return null;
+  try {
+    const parsed = JSON.parse(json);
+    // Basic validation
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!Array.isArray(parsed.days)) return null;
+    if (typeof parsed.start !== 'number' || parsed.start < 0 || parsed.start > 23) return null;
+    if (typeof parsed.end !== 'number' || parsed.end < 0 || parsed.end > 24) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Validates business hours and throws an error if invalid.
+ * Returns the validated object.
+ */
+export function validateBusinessHours(value: any): any {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Business hours must be an object');
+  }
+  if (!Array.isArray(value.days)) {
+    throw new Error('Business hours must have a "days" array');
+  }
+  if (value.days.some((d: number) => d < 0 || d > 6)) {
+    throw new Error('Days must be numbers 0-6 (0=Sunday, 6=Saturday)');
+  }
+  if (typeof value.start !== 'number' || value.start < 0 || value.start > 23) {
+    throw new Error('Start hour must be a number 0-23');
+  }
+  if (typeof value.end !== 'number' || value.end < 0 || value.end > 24) {
+    throw new Error('End hour must be a number 0-24');
+  }
+  if (value.start >= value.end) {
+    throw new Error('Start hour must be less than end hour');
+  }
+  return value;
+}

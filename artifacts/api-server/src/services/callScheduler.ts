@@ -21,6 +21,10 @@
  * scheduler will attempt to place a real phone call instead of just notifying.
  * See services/telephony.ts for the telephony provider interface.
  *
+ * When a task exhausts its maximum retry attempts (MAX_ATTEMPTS), the scheduler
+ * broadcasts a "call_exhausted" notification to inform the user that the contact
+ * could not be reached after multiple attempts.
+ *
  * "Triggered" means the scheduler has attempted to notify the user about the
  * task. A task is re-triggered (with exponential backoff) if the user ignores
  * the notification or is offline, up to MAX_ATTEMPTS.
@@ -28,9 +32,8 @@
 
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
-import { broadcastCallDue } from "./notifications";
-import { sendPushToAccount } from "./push";
-import { computeNextAttempt, isWithinAllowedWindow, MAX_ATTEMPTS } from "./schedulerPolicy";
+import { broadcastCallDue, broadcastCallExhausted } from "./notifications";
+import { computeNextAttempt, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS } from "./schedulerPolicy";
 import { placeCall, isAutoDialEnabled } from "./telephony";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
@@ -61,7 +64,7 @@ export function stopCallScheduler(): void {
   }
 }
 
-async function checkDueTasks(): Promise<void> {
+export async function checkDueTasks(): Promise<void> {
   if (isRunning) {
     logger.debug("callScheduler: previous cycle still running, skipping");
     return;
@@ -202,7 +205,11 @@ async function processTask(task: any, now: Date): Promise<void> {
 
     // Check if within allowed window (quiet hours, business hours)
     const ownerTz = owner.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
-    const businessHours = contact.businessHoursJson ? JSON.parse(contact.businessHoursJson) : null;
+    const parsedHours = parseBusinessHours(contact.businessHoursJson);
+    if (contact.businessHoursJson && !parsedHours) {
+      logger.warn({ taskId: task.id, contactId: contact.id }, "callScheduler: invalid businessHoursJson, ignoring");
+    }
+    const businessHours = parsedHours ? { ...parsedHours, tz: parsedHours.tz ?? contact.timezone ?? undefined } : null;
     const windowCheck = isWithinAllowedWindow(
       now,
       ownerTz,
@@ -326,22 +333,14 @@ async function processTask(task: any, now: Date): Promise<void> {
         },
       });
 
-      // Send "couldn't reach" notification
-      await broadcastCallDue({
-        type: "call_due",
+      await broadcastCallExhausted({
+        type: "call_exhausted",
         taskId: task.id,
         contactId: task.contactId,
         contactName: contact.name,
         title: task.title,
-        description: task.description,
+        attempts: newAttempts,
         ownerId: contact.ownerId,
-      });
-
-      // Also send push notification for exhausted tasks
-      await sendPushToAccount(contact.ownerId, {
-        title: "Could not reach contact",
-        body: `Couldn't reach ${contact.name} about ${task.title} after ${MAX_ATTEMPTS} attempts`,
-        url: `/tasks/${task.id}`,
       });
 
       logger.info(

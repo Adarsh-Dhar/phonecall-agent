@@ -10,6 +10,7 @@ import { Avatar, CallButton } from '@/components/shared';
 import { ContactTasksCard } from '@/components/contact/ContactTasksCard';
 import { ContactQuestionsCard } from '@/components/contact/ContactQuestionsCard';
 import { ContactFilesCard } from '@/components/contact/ContactFilesCard';
+import { BusinessHoursCard } from '@/components/contact/BusinessHoursCard';
 import { TestCallWidget } from '@/components/TestCallWidget';
 import { CallerCallWidget } from '@/components/calls/CallerCallWidget';
 import { dialCall } from '@/lib/api/calls';
@@ -148,6 +149,7 @@ export function ContactDetailPage() {
         {!loading && contact && <ContactTasksCard contactId={id} />}
         {!loading && contact && <ContactQuestionsCard contactId={id} />}
         {!loading && contact && <ContactFilesCard />}
+        {!loading && contact && <BusinessHoursCard contactId={id} initial={contact.businessHoursJson ?? null} />}
 
         {testCallWidget && (
           <TestCallWidget

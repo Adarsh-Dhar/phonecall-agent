@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { asyncHandler } from "../lib/asyncHandler";
 import { isOnline } from "../services/presence";
+import { validateBusinessHours } from "../services/schedulerPolicy";
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -102,6 +103,7 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
       business:  true,
       category:  true,
       description: true,
+      businessHoursJson: true,
     },
     take: 20,
   });
@@ -129,6 +131,7 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
       business:  true,
       category:  true,
       description: true,
+      businessHoursJson: true,
     },
     take: 20,
   });
@@ -176,6 +179,7 @@ router.post("/contacts/from-account/:accountId", asyncHandler(async (req, res) =
       color:     true,
       note:      true,
       description: true,
+      businessHoursJson: true,
     },
   });
   if (!target) {
@@ -250,6 +254,7 @@ router.get("/contacts", asyncHandler(async (req, res) => {
       color: true,
       note: true,
       description: true,
+      businessHoursJson: true,
       online: true,
       linkedAccountId: true,
       createdAt: true,
@@ -327,7 +332,7 @@ router.get("/contacts/:id/conversation", asyncHandler(async (req, res) => {
 // Update a contact
 router.put("/contacts/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, business, category, phone, initials, color, note } = req.body;
+  const { name, business, category, phone, initials, color, note, businessHoursJson } = req.body;
   // Verify ownership before update
   const existing = await prisma.account.findFirst({
     where: { id: String(id), ownerId: req.userId!, isService: true },
@@ -336,9 +341,33 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
+
+  let businessHoursValue: string | null | undefined = undefined;
+  if (businessHoursJson !== undefined) {
+    if (businessHoursJson === null) {
+      businessHoursValue = null;
+    } else {
+      try {
+        businessHoursValue = JSON.stringify(validateBusinessHours(businessHoursJson));
+      } catch (e) {
+        res.status(400).json({ error: (e as Error).message });
+        return;
+      }
+    }
+  }
+
   const contact = await prisma.account.update({
     where: { id: String(id) },
-    data: { name, business, category, phone, initials, color, note },
+    data: {
+      name,
+      business,
+      category,
+      phone,
+      initials,
+      color,
+      note,
+      ...(businessHoursValue !== undefined ? { businessHoursJson: businessHoursValue } : {}),
+    },
   });
   res.json(contact);
 }, "Failed to update contact"));

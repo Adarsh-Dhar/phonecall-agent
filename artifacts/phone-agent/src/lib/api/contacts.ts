@@ -10,6 +10,7 @@ export type Contact = {
   color: string | null;
   note: string | null;
   description: string | null;
+  businessHoursJson?: string | null;
   online: boolean;
   linkedAccountId: string | null;
   createdAt: string;
