@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, LoaderCircle, Phone, RefreshCw } from 'lucide-react';
 import * as api from '@/lib/api';
 import { getDaysInMonth, isToday } from './calendarDateUtils';
-import { TestCallWidget } from '@/components/TestCallWidget';
+import { TestCallWidget } from '@/individual/components/TestCallWidget';
 
 type CalendarEvent = { id: string; title: string; type: 'task' | 'google'; contactId?: string };
 

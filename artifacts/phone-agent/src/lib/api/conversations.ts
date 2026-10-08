@@ -12,6 +12,8 @@ export type Message = {
   updatedAt: string;
   conversationId: string;
   callId?: string | null;
+  speaker?: 'business' | 'agent';
+  speakerName?: string;
 };
 
 export type Conversation = {

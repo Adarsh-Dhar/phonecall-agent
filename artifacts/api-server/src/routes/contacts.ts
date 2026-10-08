@@ -10,8 +10,7 @@ const router: IRouter = Router();
 // ---------------------------------------------------------------------------
 // GET /accounts/search?q=<email or name>
 // Discover registered app accounts to add as contacts.
-// - Personal users (isService: false) → search service accounts
-// - Service accounts (isService: true) → search personal users
+// - Personal users (isService: false) → search service accounts only
 // Excludes accounts already linked as contacts of the requester.
 // Minimum 2 chars; returns up to 8 ranked results (email prefix match first).
 // ---------------------------------------------------------------------------
@@ -32,10 +31,8 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
     return;
   }
 
-  // Personal users see service accounts; service accounts see personal users.
-  // If no opposite-type accounts exist yet, also show same-type so search
-  // is never a dead end — the type badge in the UI makes the distinction clear.
-  const searchForService = !me.isService;
+  // Individuals can only search for business accounts (isService: true)
+  const searchForService = true;
 
   // IDs already linked as contacts so we can exclude them
   const existingContacts = await prisma.account.findMany({
@@ -54,10 +51,11 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
   if (me.email) {
     const myEmailBase = me.email.split('@')[0].replace(/[0-9]/g, '').toLowerCase();
     const myDomain = me.email.split('@')[1];
-    
+
     const similarAccounts = await prisma.account.findMany({
       where: {
         ownerId: null,
+        isService: true, // Only check business accounts
         id: { notIn: excludeIds },
         email: { not: null, contains: myDomain },
       },
@@ -85,7 +83,7 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
   // never in excludeIds.
   const candidates = await prisma.account.findMany({
     where: {
-      isService: searchForService,
+      isService: true, // Individuals can only add business accounts
       ownerId: null,
       id: { notIn: excludeIds },
       OR: [
@@ -108,33 +106,8 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
     take: 20,
   });
 
-  // If the primary search returned nothing, broaden to all account types
-  // so the user isn't left with a blank screen just because no opposite-type
-  // accounts match yet. Still restricted to real accounts (ownerId: null) —
-  // never fall back into other users' private contact mirrors.
-  const allCandidates = candidates.length > 0 ? candidates : await prisma.account.findMany({
-    where: {
-      ownerId: null,
-      id: { notIn: excludeIds },
-      OR: [
-        { email: { contains: q, mode: "insensitive" } },
-        { name:  { contains: q, mode: "insensitive" } },
-        { business: { contains: q, mode: "insensitive" } },
-      ],
-    },
-    select: {
-      id:        true,
-      name:      true,
-      email:     true,
-      picture:   true,
-      isService: true,
-      business:  true,
-      category:  true,
-      description: true,
-      businessHoursJson: true,
-    },
-    take: 20,
-  });
+  // Individuals can only add business accounts; no fallback to all types
+  const allCandidates = candidates;
 
   // Rank: email/name that *starts with* q floats to the top
   const lq = q.toLowerCase();
@@ -184,6 +157,12 @@ router.post("/contacts/from-account/:accountId", asyncHandler(async (req, res) =
   });
   if (!target) {
     res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  // Individuals can only add business accounts
+  if (!target.isService) {
+    res.status(400).json({ error: "You can only add business accounts as contacts" });
     return;
   }
 

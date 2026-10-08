@@ -1,5 +1,29 @@
 # phonecall-agent
 
+## Individuals and businesses
+
+The app supports two account roles with separate frontends and API surfaces:
+
+| Role | Account type | Frontend | API access | AI behavior |
+|------|-------------|----------|------------|-------------|
+| Individual | `isService: false` | Full app (Calls, Contacts, History, Calendar, Tasks) | All endpoints except `/api/business/*` | AI represents the individual and speaks for them in both call directions |
+| Business | `isService: true` | Calls + Contacts only | `/api/business/*` endpoints only | No AI — the business human speaks directly to the individual's AI agent |
+
+### Hard limitations
+
+- Calls are strictly individual ↔ business; same-role calls are rejected.
+- Individuals can only add/search business contacts (no fallback across account types).
+- Businesses can only add/search individual contacts.
+- Individuals cannot access `/api/business/*` (403 Forbidden).
+- Businesses cannot access individual-only APIs (403 Forbidden).
+- Browser test calls are blocked for business accounts.
+- The AI agent always represents the individual, never the business.
+- On calls, the individual observes the transcript without speaking; the business human speaks to the individual's AI agent.
+
+### Call party resolution
+
+The `Call` model includes `individualId`, `businessId`, and `initiatedBy` fields to track call parties and direction. Existing calls are backfilled by migration where possible; calls with unresolved parties remain nullable and are rejected by the voice socket.
+
 ## Running Tests
 
 Tests run against a real PostgreSQL database. All commands from the **repo root** unless noted.

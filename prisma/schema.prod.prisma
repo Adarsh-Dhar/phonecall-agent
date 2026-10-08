@@ -235,11 +235,19 @@ model Call {
   messages          Message[]
   task              Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
+  // The two parties of a call. The AI agent ALWAYS speaks for `individualId`;
+  // `businessId` is the human on the other end. `initiatedBy` is who dialed.
+  individualId      String?
+  businessId        String?
+  initiatedBy       String? // "individual" | "business"
+
   @@index([conversationId])
   @@index([contactId])
   @@index([status])
   @@index([calleeAccountId])
   @@index([taskId])
+  @@index([individualId])
+  @@index([businessId])
 }
 
 model ContactKnowledge {

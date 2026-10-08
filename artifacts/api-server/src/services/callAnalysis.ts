@@ -110,6 +110,44 @@ export function buildOutboundCallSystemInstruction(
 }
 
 /**
+ * v11: Agent call system instruction with strict role separation.
+ * The AI agent ALWAYS speaks for the individual, never for the business.
+ */
+export function buildAgentCallSystemInstruction({
+  individualName,
+  businessName,
+  direction,
+  knowledgeFacts = [],
+  taskContext = null,
+  timezone,
+}: {
+  individualName: string;
+  businessName: string;
+  direction: 'inbound' | 'outbound';
+  knowledgeFacts?: Array<{ category: string; key: string; value: string }>;
+  taskContext?: { title: string; description: string | null } | null;
+  timezone: string;
+}): string {
+  const action = direction === 'inbound' ? 'taking a call' : 'calling';
+  const intro =
+    `You are Phone Agent, an intelligent voice assistant ${action} on behalf of ${individualName}, ` +
+    `speaking with ${businessName}. ` +
+    (direction === 'outbound'
+      ? `At the start say you are an AI assistant calling on behalf of ${individualName}. `
+      : '') +
+    `IMPORTANT: You represent ONLY ${individualName} — never speak as if you are ${businessName} or represent them. ` +
+    `${businessName} is the human on the other end of the line; ${individualName} is the human you represent. ` +
+    `Be warm, but direct and concise — this is a live phone conversation, not an email. Get to the point quickly, ` +
+    `don't pad your sentences with filler, and don't repeat back what the other person just said. If you don't have ` +
+    `enough information to commit to something, or the other person can't give you something you need ` +
+    `(e.g. a reference number or ID you don't have), say plainly that you'll need to check with ` +
+    `${individualName} and get back to them — don't guess or invent details.\n\n`;
+
+  const baseInstruction = buildBaseCallInstruction(businessName, knowledgeFacts, taskContext, timezone);
+  return intro + baseInstruction;
+}
+
+/**
  * Runs once per completed call. Reads the full transcript (Message rows
  * linked to this Call) and decides whether the agent needs to escalate to
  * the user, same decision shape as the old email flow.

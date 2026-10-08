@@ -21,7 +21,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { prisma } from "@workspace/db-prisma";
 import { browserPayloadToPcm16, pcm16ToBrowserPayload } from "../lib/audioCodec";
 import { openGeminiLiveSession, type GeminiVoiceSession } from "./geminiVoiceSession";
-import { buildOutboundCallSystemInstruction } from "./callAnalysis";
+import { buildAgentCallSystemInstruction } from "./callAnalysis";
 import { getOrCreateActiveConversation } from "./conversations";
 import { createCallLifecycle } from "./callLifecycle";
 import { logger } from "../lib/logger";
@@ -131,11 +131,16 @@ export function createBrowserVoiceStream(): WebSocketServer {
             // Get the user's name and timezone (the person making the call)
             const user = await prisma.account.findUnique({
               where: { id: contact.ownerId ?? undefined },
-              select: { name: true, timezone: true },
+              select: { name: true, timezone: true, isService: true },
             });
 
             if (!user) {
               throw new Error("User account not found for contact");
+            }
+
+            // Browser test calls are only available to individual accounts
+            if (user.isService) {
+              throw new Error("Browser test calls are only available to individual accounts");
             }
 
             const startedAt = new Date();
@@ -150,6 +155,8 @@ export function createBrowserVoiceStream(): WebSocketServer {
                 to: "browser",
                 startedAt,
                 taskId: taskContext ? taskId : null,
+                individualId: contact.ownerId,
+                initiatedBy: "individual",
               },
             });
 
@@ -171,13 +178,14 @@ export function createBrowserVoiceStream(): WebSocketServer {
             });
 
             gemini = await openGeminiLiveSession({
-              systemInstructionText: buildOutboundCallSystemInstruction(
-                user.name,
-                contact.name,
+              systemInstructionText: buildAgentCallSystemInstruction({
+                individualName: user.name,
+                businessName: contact.name,
+                direction: "outbound",
                 knowledgeFacts,
                 taskContext,
-                tz
-              ),
+                timezone: tz,
+              }),
               onAudioOut: (pcm24k) => {
                 lifecycle?.noteAudioOut(pcm24k);
                 browserWs.send(JSON.stringify({ type: "audio", payload: pcm16ToBrowserPayload(pcm24k) }));

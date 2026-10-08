@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'wouter';
 import * as api from '@/lib/api';
 import type { Contact } from '@/lib/api';
-import { AppLayout } from '@/components/layout';
+import { AppLayout } from '@/individual/components/layout';
 import { useSharedState } from '@/hooks/useSharedState';
 import { useAuth } from '@/hooks/useAuth';
 import { usePresence } from '@/hooks/usePresence';
 import { Avatar, CallButton } from '@/components/shared';
-import { ContactTasksCard } from '@/components/contact/ContactTasksCard';
-import { ContactQuestionsCard } from '@/components/contact/ContactQuestionsCard';
-import { ContactFilesCard } from '@/components/contact/ContactFilesCard';
-import { BusinessHoursCard } from '@/components/contact/BusinessHoursCard';
-import { TestCallWidget } from '@/components/TestCallWidget';
-import { CallerCallWidget } from '@/components/calls/CallerCallWidget';
+import { ContactTasksCard } from '@/individual/components/contact/ContactTasksCard';
+import { ContactQuestionsCard } from '@/individual/components/contact/ContactQuestionsCard';
+import { ContactFilesCard } from '@/individual/components/contact/ContactFilesCard';
+import { BusinessHoursCard } from '@/individual/components/contact/BusinessHoursCard';
+import { TestCallWidget } from '@/individual/components/TestCallWidget';
+import { CallObserverWidget } from '@/individual/components/CallObserverWidget';
 import { dialCall } from '@/lib/api/calls';
 
 export function ContactDetailPage() {
@@ -161,9 +161,10 @@ export function ContactDetailPage() {
         )}
 
         {callerCallId && (
-          <CallerCallWidget
+          <CallObserverWidget
             callId={callerCallId}
-            contactName={contact?.name}
+            businessName={contact?.name ?? 'Business'}
+            mode="outgoing"
             onClose={() => { setCallerCallId(null); setCallStatus('idle'); }}
           />
         )}

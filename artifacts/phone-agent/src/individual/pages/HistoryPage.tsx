@@ -1,7 +1,7 @@
-import { AppLayout } from '@/components/layout';
+import { AppLayout } from '@/individual/components/layout';
 import { useSharedState } from '@/hooks/useSharedState';
-import { TasksListSection } from '@/components/history/TasksListSection';
-import { CalendarSection } from '@/components/calendar/CalendarSection';
+import { TasksListSection } from '@/individual/components/history/TasksListSection';
+import { CalendarSection } from '@/individual/components/calendar/CalendarSection';
 
 export function HistoryPage() {
   const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Check, ListTodo, LoaderCircle, Phone, Plus, RefreshCw } from 'lucide-react';
 import * as api from '@/lib/api';
-import { TestCallWidget } from '@/components/TestCallWidget';
+import { TestCallWidget } from '@/individual/components/TestCallWidget';
 import { useAuth } from '@/hooks/useAuth';
 import { dialCall } from '@/lib/api/calls';
 

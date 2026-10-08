@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ListTodo, LoaderCircle, RefreshCw } from 'lucide-react';
 import { Link } from 'wouter';
 import * as api from '@/lib/api';
-import { TaskRowWithContact, ACTIVE_STATUSES } from '@/components/tasks';
+import { TaskRowWithContact, ACTIVE_STATUSES } from '@/individual/components/tasks';
 
 /**
  * Task list section of the History ("Tasks") page: filter tabs, refresh,

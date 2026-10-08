@@ -1,19 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import * as api from '@/lib/api';
-import { useAuth } from '@/hooks/useAuth';
 
-export function CallRow({ call, expanded, onToggle }: {
+export function CallRow({ call, expanded, onToggle, loadMessages = api.fetchCallMessages }: {
   call: api.Call;
   expanded: boolean;
   onToggle: () => void;
+  loadMessages?: (callId: string) => Promise<api.Message[]>;
 }) {
-  const { user } = useAuth();
   const [callMessages, setCallMessages] = useState<api.Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const hasLoaded = useRef(false);
-  
-  const userName = user?.name || 'You';
-  const otherPartyName = call.otherPartyName || 'Agent';
 
   const isInbound = call.direction === 'inbound';
   const statusColor = call.status === 'completed' ? 'text-[#3f8274]' :
@@ -24,7 +20,7 @@ export function CallRow({ call, expanded, onToggle }: {
     if (hasLoaded.current) return;
     setLoadingMessages(true);
     try {
-      const messages = await api.fetchCallMessages(call.id);
+      const messages = await loadMessages(call.id);
       setCallMessages(messages);
       hasLoaded.current = true;
     } catch (e) {
@@ -54,7 +50,7 @@ export function CallRow({ call, expanded, onToggle }: {
             </span>
           </div>
           <h3 className="mt-1 font-bold">
-            {isInbound ? `Inbound call from ${otherPartyName}` : `Outbound call to ${otherPartyName}`}
+            {isInbound ? `Inbound call from ${call.contact?.name}` : `Outbound call to ${call.contact?.name}`}
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {call.durationSec != null ? `${Math.floor(call.durationSec / 60)}m ${call.durationSec % 60}s` : 'In progress'}
@@ -77,7 +73,7 @@ export function CallRow({ call, expanded, onToggle }: {
               >
                 {call.contact.initials.slice(0, 1)}
               </span>
-              <span className="text-[10px] font-bold text-[#3159c4]">{otherPartyName}</span>
+              <span className="text-[10px] font-bold text-[#3159c4]">{call.contact.name}</span>
             </div>
           )}
           <button
@@ -98,22 +94,27 @@ export function CallRow({ call, expanded, onToggle }: {
             <div className="text-center text-xs text-muted-foreground">No transcript available</div>
           ) : (
             <div className="space-y-3">
-              {callMessages.map((message) => (
-                <div key={message.id} className="flex gap-3">
-                  <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                    message.role === 'assistant' ? 'bg-[#3f8274] text-white' : 'bg-[#697a73] text-white'
-                  }`}>
-                    {message.role === 'assistant' ? otherPartyName.charAt(0).toUpperCase() : userName.charAt(0).toUpperCase()}
+              {callMessages.map((message) => {
+                const speakerName = message.speakerName || (message.speaker === 'agent' ? 'AI Agent' : 'Business');
+                const speakerInitial = speakerName.charAt(0).toUpperCase();
+                const isAgent = message.speaker === 'agent';
+                return (
+                  <div key={message.id} className="flex gap-3">
+                    <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                      isAgent ? 'bg-[#3f8274] text-white' : 'bg-[#697a73] text-white'
+                    }`}>
+                      {speakerInitial}
+                    </div>
+                    <div className="flex-1 rounded-lg bg-muted px-3 py-2 text-sm">
+                      <p className="text-xs font-bold text-muted-foreground mb-1">
+                        {speakerName}
+                      </p>
+                      <p className="text-foreground">{message.content}</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">{message.time}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 rounded-lg bg-muted px-3 py-2 text-sm">
-                    <p className="text-xs font-bold text-muted-foreground mb-1">
-                      {message.role === 'assistant' ? otherPartyName : userName}
-                    </p>
-                    <p className="text-foreground">{message.content}</p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">{message.time}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

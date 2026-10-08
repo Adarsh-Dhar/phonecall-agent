@@ -3,11 +3,11 @@ import { LoaderCircle, Mic, Phone as PhoneIcon, RefreshCw, X } from 'lucide-reac
 import { Link } from 'wouter';
 import * as api from '@/lib/api';
 import type { Contact } from '@/lib/api';
-import { AppLayout } from '@/components/layout';
+import { AppLayout } from '@/individual/components/layout';
 import { useSharedState } from '@/hooks/useSharedState';
 import { CallRow } from '@/components/calls';
-import { TestCallWidget } from '@/components/TestCallWidget';
-import { CallerCallWidget } from '@/components/calls/CallerCallWidget';
+import { TestCallWidget } from '@/individual/components/TestCallWidget';
+import { CallObserverWidget } from '@/individual/components/CallObserverWidget';
 import { dialCall } from '@/lib/api/calls';
 
 export function CallsPage() {
@@ -226,9 +226,10 @@ export function CallsPage() {
       )}
 
       {callerCallId && (
-        <CallerCallWidget
+        <CallObserverWidget
           callId={callerCallId}
-          contactName={contacts.find(c => c.id === selectedContactId)?.name}
+          businessName={contacts.find(c => c.id === selectedContactId)?.name ?? 'Business'}
+          mode="outgoing"
           onClose={() => { setCallerCallId(null); setCallStatus('idle'); void loadCalls(); }}
         />
       )}

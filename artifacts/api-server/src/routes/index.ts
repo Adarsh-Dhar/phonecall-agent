@@ -12,7 +12,9 @@ import questionsRouter from "./questions";
 import knowledgeRouter from "./knowledge";
 import callsRouter from "./calls";
 import calendarEventsRouter from "./calendarEvents";
+import businessRouter from "./business";
 import { requireAuth } from "../lib/authMiddleware";
+import { requireBusiness, requireIndividual } from "../lib/roles";
 
 const router: IRouter = Router();
 
@@ -23,6 +25,12 @@ router.use(pushRouter);
 
 // ── Protected routes (require authentication) ─────────────────────────────
 router.use(requireAuth);
+
+// ── Business-only routes ──────────────────────────────────────────────────
+router.use("/business", requireBusiness, businessRouter);
+
+// ── Individual-only routes ────────────────────────────────────────────────
+router.use(requireIndividual);
 router.use(orchestratorRouter);
 router.use(contactsRouter);
 router.use(conversationsRouter);

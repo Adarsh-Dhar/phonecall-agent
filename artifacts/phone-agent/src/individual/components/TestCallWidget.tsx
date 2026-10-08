@@ -1,5 +1,5 @@
 import { Mic, PhoneOff, X, LoaderCircle } from 'lucide-react';
-import { useBrowserVoiceCall } from '@/hooks/useBrowserVoiceCall';
+import { useBrowserVoiceCall } from '@/individual/hooks/useBrowserVoiceCall';
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useState } from 'react';
 import * as api from '@/lib/api';

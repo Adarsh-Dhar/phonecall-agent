@@ -26,6 +26,7 @@ export type Call = {
   // viewer is the callee (inbound), or the callee's name when the viewer is
   // the caller (outbound). Use this instead of `contact.name` for display.
   otherPartyName: string;
+  viewerRole?: 'individual' | 'business';
   contact?: {
     id: string;
     name: string;

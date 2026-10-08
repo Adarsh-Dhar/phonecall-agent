@@ -3,10 +3,10 @@ import { Link } from 'wouter';
 import { UserPlus } from 'lucide-react';
 import * as api from '@/lib/api';
 import type { Contact } from '@/lib/api';
-import { AppLayout } from '@/components/layout';
+import { AppLayout } from '@/individual/components/layout';
 import { useSharedState } from '@/hooks/useSharedState';
 import { Avatar } from '@/components/shared';
-import { AddContactModal } from '@/components/contact/AddContactModal';
+import { AddContactModal } from '@/individual/components/contact/AddContactModal';
 
 export function ContactsPage() {
   const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();

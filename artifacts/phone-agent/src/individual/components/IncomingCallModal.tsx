@@ -1,6 +1,6 @@
 import { Phone, PhoneOff, X } from 'lucide-react';
 import { useState } from 'react';
-import { ServiceCallWidget } from './ServiceCallWidget';
+import { CallObserverWidget } from './CallObserverWidget';
 import { acceptCall, declineCall } from '@/lib/api/calls';
 
 interface IncomingCallData {
@@ -26,10 +26,11 @@ export function IncomingCallModal({
 
   if (activeCallId) {
     return (
-      <ServiceCallWidget
+      <CallObserverWidget
         callId={activeCallId}
-        callerName={incomingCall.callerName}
-        onClose={() => setActiveCallId(null)}
+        businessName={incomingCall.callerName || 'Business'}
+        mode="incoming"
+        onClose={() => { setActiveCallId(null); onClose(); }}
       />
     );
   }
@@ -75,6 +76,8 @@ export function IncomingCallModal({
             <X size={14} />
           </button>
         </div>
+
+        <p className="mb-4 text-xs text-muted-foreground">Your AI agent will take the call for you</p>
 
         {incomingCall.taskContext && (
           <div className="mb-6 rounded-lg bg-muted/30 p-3">

@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { apiFetch } from '@/lib/api/shared';
-import { usePushSubscription } from '@/hooks/usePushSubscription';
+import { usePushSubscription } from '@/individual/hooks/usePushSubscription';
 
 type Pref = { id: string; label: string; description: string; enabled: boolean };
 
