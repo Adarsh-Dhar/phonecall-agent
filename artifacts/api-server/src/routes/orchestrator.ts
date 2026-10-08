@@ -7,7 +7,7 @@ const router: IRouter = Router();
 // Demo chat runs on the orchestrator's text model (Nebius Token Factory,
 // NVIDIA open model) — not the live voice call, which stays on Gemini Live.
 // See services/nebiusText.ts for the shared version of this pattern.
-const REQUESTED_MODEL = process.env.NEBIUS_MODEL ?? "nvidia/llama-3_1-nemotron-ultra-253b-v1";
+const REQUESTED_MODEL = process.env.NEBIUS_MODEL ?? "nvidia/Nemotron-3_5-Lightning";
 const COMPATIBLE_MODEL = "meta-llama/Llama-3.3-70B-Instruct-fast";
 const BASE_URL = (process.env.NEBIUS_BASE_URL ?? "https://api.tokenfactory.nebius.com/v1").replace(/\/+$/, "");
 

@@ -11,11 +11,13 @@ export function ServiceCallWidget({
   callerName?: string;
   onClose: () => void;
 }) {
-  const { user } = useAuth();
   const { status, errorMessage, transcript, start, stop } = useServiceVoiceCall(callId);
-  
-  const userName = user?.name || 'You';
-  const agentName = callerName || 'Agent';
+
+  // In a service call:
+  // - user role = the contact being called (person at the other end)
+  // - assistant role = the AI agent speaking on behalf of the service account
+  const contactName = 'Contact'; // Would need to fetch actual contact name from API
+  const agentName = callerName || 'AI';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

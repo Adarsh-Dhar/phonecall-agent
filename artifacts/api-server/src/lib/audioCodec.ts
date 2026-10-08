@@ -200,6 +200,17 @@ export function browserPayloadToPcm16(
 ): Int16Array {
   const buf = Buffer.from(base64Payload, "base64");
   const pcm16k = new Int16Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 2));
+  // Check if the decoded data is all zeros (silence)
+  let hasSignal = false;
+  for (let i = 0; i < Math.min(pcm16k.length, 100); i++) {
+    if (Math.abs(pcm16k[i]) > 100) {
+      hasSignal = true;
+      break;
+    }
+  }
+  if (!hasSignal && pcm16k.length > 0) {
+    console.warn('[audioCodec] Decoded audio appears to be silent, length:', pcm16k.length);
+  }
   return resamplePcm16(pcm16k, inputRate, outputRate);
 }
 

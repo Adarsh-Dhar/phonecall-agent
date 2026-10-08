@@ -93,9 +93,9 @@ export function Preferences({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] p-6 shadow-xl">
+      <div className="w-full max-w-md rounded-2xl border border-[hsl(var(--card-border))] bg-[hsl(var(--card))] shadow-xl flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="px-6 pt-6 pb-4 flex items-center justify-between flex-shrink-0">
           <h2 className="text-lg font-bold">Your preferences</h2>
           <button
             type="button"
@@ -107,126 +107,131 @@ export function Preferences({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <p className="mb-5 text-sm text-[hsl(var(--muted-foreground))]">
-          I'll help you think things through and keep the next step clear. I'm your
-          personal admin assistant, ready to help with everyday tasks.
-        </p>
-
-        {/* Toggle rows */}
-        <div className="space-y-4">
-          {prefs.map((pref) => (
-            <div
-              key={pref.id}
-              className="flex items-center justify-between gap-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3"
-            >
-              <div className="flex-1">
-                <Label
-                  htmlFor={`pref-${pref.id}`}
-                  className="cursor-pointer text-sm font-medium leading-none"
-                >
-                  {pref.label}
-                </Label>
-                <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-                  {pref.description}
-                </p>
-              </div>
-              <Switch
-                id={`pref-${pref.id}`}
-                checked={pref.enabled}
-                onCheckedChange={() => toggle(pref.id)}
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Timezone selector */}
-        <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
-          <Label htmlFor="timezone" className="text-sm font-medium leading-none">
-            Timezone
-          </Label>
-          <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-            Used for date/time resolution in calls and task extraction
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto px-6">
+          <p className="mb-5 text-sm text-[hsl(var(--muted-foreground))]">
+            I'll help you think things through and keep the next step clear. I'm your
+            personal admin assistant, ready to help with everyday tasks.
           </p>
-          <select
-            id="timezone"
-            value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-            className="mt-2 w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
-          >
-            {timezones.map((tz) => (
-              <option key={tz} value={tz}>
-                {tz}
-              </option>
-            ))}
-          </select>
-        </div>
 
-        {/* Quiet hours selector */}
-        <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
-          <Label className="text-sm font-medium leading-none">
-            Quiet hours
-          </Label>
-          <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-            Don't trigger call notifications during these hours (0-23). Leave empty to disable.
-          </p>
-          <div className="mt-2 flex gap-2">
-            <div className="flex-1">
-              <Label htmlFor="quiet-start" className="text-xs">Start hour</Label>
-              <input
-                id="quiet-start"
-                type="number"
-                min="0"
-                max="23"
-                value={quietHoursStart ?? ''}
-                onChange={(e) => setQuietHoursStart(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
-                placeholder="e.g., 22"
-              />
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="quiet-end" className="text-xs">End hour</Label>
-              <input
-                id="quiet-end"
-                type="number"
-                min="0"
-                max="23"
-                value={quietHoursEnd ?? ''}
-                onChange={(e) => setQuietHoursEnd(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
-                placeholder="e.g., 8"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Save */}
-        <button
-          type="button"
-          data-testid="button-save-preferences"
-          onClick={handleSave}
-          className="mt-6 w-full rounded-xl bg-[#2854cc] py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#2148b4] active:translate-y-0"
-        >
-          Save preferences
-        </button>
-
-        {/* Push notification subscription */}
-        {prefs.find((p) => p.id === 'notifications')?.enabled && (
-          <div className="mt-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
-            <p className="text-sm font-medium">Push notifications</p>
-            <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-              {permission === 'granted' ? 'Notifications enabled' : permission === 'denied' ? 'Notifications blocked' : 'Enable notifications'}
-            </p>
-            {permission !== 'granted' && (
-              <button
-                type="button"
-                onClick={() => subscribe()}
-                className="mt-2 rounded-lg bg-[#2854cc] px-4 py-2 text-xs font-bold text-white hover:bg-[#2148b4]"
+          {/* Toggle rows */}
+          <div className="space-y-4">
+            {prefs.map((pref) => (
+              <div
+                key={pref.id}
+                className="flex items-center justify-between gap-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3"
               >
-                Enable
-              </button>
-            )}
+                <div className="flex-1">
+                  <Label
+                    htmlFor={`pref-${pref.id}`}
+                    className="cursor-pointer text-sm font-medium leading-none"
+                  >
+                    {pref.label}
+                  </Label>
+                  <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                    {pref.description}
+                  </p>
+                </div>
+                <Switch
+                  id={`pref-${pref.id}`}
+                  checked={pref.enabled}
+                  onCheckedChange={() => toggle(pref.id)}
+                />
+              </div>
+            ))}
           </div>
-        )}
+
+          {/* Timezone selector */}
+          <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
+            <Label htmlFor="timezone" className="text-sm font-medium leading-none">
+              Timezone
+            </Label>
+            <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+              Used for date/time resolution in calls and task extraction
+            </p>
+            <select
+              id="timezone"
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              className="mt-2 w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
+            >
+              {timezones.map((tz) => (
+                <option key={tz} value={tz}>
+                  {tz}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Quiet hours selector */}
+          <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
+            <Label className="text-sm font-medium leading-none">
+              Quiet hours
+            </Label>
+            <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+              Don't trigger call notifications during these hours (0-23). Leave empty to disable.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <div className="flex-1">
+                <Label htmlFor="quiet-start" className="text-xs">Start hour</Label>
+                <input
+                  id="quiet-start"
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={quietHoursStart ?? ''}
+                  onChange={(e) => setQuietHoursStart(e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
+                  placeholder="e.g., 22"
+                />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="quiet-end" className="text-xs">End hour</Label>
+                <input
+                  id="quiet-end"
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={quietHoursEnd ?? ''}
+                  onChange={(e) => setQuietHoursEnd(e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
+                  placeholder="e.g., 8"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Push notification subscription */}
+          {prefs.find((p) => p.id === 'notifications')?.enabled && (
+            <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
+              <p className="text-sm font-medium">Push notifications</p>
+              <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                {permission === 'granted' ? 'Notifications enabled' : permission === 'denied' ? 'Notifications blocked' : 'Enable notifications'}
+              </p>
+              {permission !== 'granted' && (
+                <button
+                  type="button"
+                  onClick={() => subscribe()}
+                  className="mt-2 rounded-lg bg-[#2854cc] px-4 py-2 text-xs font-bold text-white hover:bg-[#2148b4]"
+                >
+                  Enable
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Fixed bottom section with Save button */}
+        <div className="px-6 py-6 flex-shrink-0 border-t border-[hsl(var(--border))]">
+          <button
+            type="button"
+            data-testid="button-save-preferences"
+            onClick={handleSave}
+            className="w-full rounded-xl bg-[#2854cc] py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#2148b4] active:translate-y-0"
+          >
+            Save preferences
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import type { ExistingTask, NewMessage, TaskAction, KnowledgeAction } from "./ty
 // Orchestrator extraction call (Nebius Token Factory, NVIDIA open model)
 // ---------------------------------------------------------------------------
 
-const REQUESTED_MODEL = process.env.NEBIUS_MODEL ?? "nvidia/llama-3_1-nemotron-ultra-253b-v1";
+const REQUESTED_MODEL = process.env.NEBIUS_MODEL ?? "nvidia/Nemotron-3_5-Lightning";
 const BASE_URL = (process.env.NEBIUS_BASE_URL ?? "https://api.tokenfactory.nebius.com/v1").replace(/\/+$/, "");
 
 export function resolveTodayISO(timezone?: string, now = new Date()): string {

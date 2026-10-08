@@ -123,20 +123,46 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
 
   logger.info({ userId: req.userId, contactId, taskId }, "dial: received call request");
 
-  // Load the mirror contact account
-  const contact = await prisma.account.findFirst({
-    where: {
-      id: String(contactId),
-      ownerId: req.userId!,
-      isService: true,
-    },
-    select: { linkedAccountId: true, name: true },
+  // Get the current user's account to check if they're a service account
+  const currentUser = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { isService: true, linkedAccountId: true },
   });
 
-  logger.info({ userId: req.userId, contactId, contactFound: !!contact, contact }, "dial: contact lookup result");
+  let contact;
+  let callerIsService = false;
+
+  // Case 1: Personal user calling a service account (mirror contact they own)
+  if (!currentUser?.isService) {
+    contact = await prisma.account.findFirst({
+      where: {
+        id: String(contactId),
+        ownerId: req.userId!,
+        isService: true,
+      },
+      select: { linkedAccountId: true, name: true, ownerId: true },
+    });
+  }
+  // Case 2: Service account calling through a contact they own
+  else if (currentUser?.isService) {
+    // The service account is calling using a contact they own
+    // This contact should have a linkedAccountId pointing to the owner
+    contact = await prisma.account.findFirst({
+      where: {
+        id: String(contactId),
+        ownerId: req.userId!,
+        isService: true,
+      },
+      select: { linkedAccountId: true, name: true, ownerId: true },
+    });
+    callerIsService = true;
+  }
+
+  logger.info({ userId: req.userId, contactId, contactFound: !!contact, contact, callerIsService, currentUser }, "dial: contact lookup result");
 
   if (!contact) {
-    res.status(404).json({ error: "Contact not found" });
+    logger.warn({ userId: req.userId, contactId, currentUser }, "dial: contact not found - user may not own this contact");
+    res.status(404).json({ error: "Contact not found or you don't have permission to call this contact" });
     return;
   }
 
@@ -152,9 +178,13 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
     }
   }
 
-  if (!contact.linkedAccountId) {
-    logger.warn({ userId: req.userId, contactId, contact }, "dial: contact has no linkedAccountId, falling back to browser call");
-    res.status(400).json({ error: "This contact isn't a real, callable account yet" });
+  // For service accounts calling, the callee is the linkedAccountId (the owner)
+  // For personal users calling service accounts, the callee is the linkedAccountId (the service account)
+  const calleeAccountId = contact.linkedAccountId;
+
+  if (!calleeAccountId) {
+    logger.warn({ userId: req.userId, contactId, contact }, "dial: no valid calleeAccountId found");
+    res.status(400).json({ error: "This contact isn't linked to a callable account yet" });
     return;
   }
 
@@ -173,8 +203,8 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
     });
   }
 
-  // Check if the real service account is online
-  const online = isOnline(contact.linkedAccountId);
+  // Check if the callee is online
+  const online = isOnline(calleeAccountId);
 
   if (!online) {
     // Create a missed call record
@@ -182,15 +212,15 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
       data: {
         status: "missed",
         contactId: String(contactId),
-        calleeAccountId: contact.linkedAccountId,
+        calleeAccountId: calleeAccountId,
         conversationId: conversation.id,
         from: "agent",
-        to: contact.linkedAccountId,
+        to: calleeAccountId,
         taskId: taskId ? String(taskId) : null,
       },
     });
 
-    logger.info({ contactId, calleeAccountId: contact.linkedAccountId }, "Call missed - service offline");
+    logger.info({ contactId, calleeAccountId }, "Call missed - callee offline");
     res.status(202).json({ callId: call.id, status: "missed" });
     return;
   }
@@ -201,27 +231,32 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
       status: "ringing",
       ringingAt: new Date(),
       contactId: String(contactId),
-      calleeAccountId: contact.linkedAccountId,
+      calleeAccountId: calleeAccountId,
       conversationId: conversation.id,
       from: "agent",
-      to: contact.linkedAccountId,
+      to: calleeAccountId,
       taskId: taskId ? String(taskId) : null,
     },
   });
 
-  // Get the personal user's name for the caller identity
+  // Get the caller's name for the caller identity
   const caller = await prisma.account.findUnique({
     where: { id: req.userId! },
     select: { name: true },
   });
 
-  // Send incoming call notification to the service account
+  // Send incoming call notification to the callee
   const taskContext = taskId ? await prisma.task.findUnique({
     where: { id: String(taskId) },
     select: { id: true, title: true, description: true },
   }) : null;
 
-  const delivered = sendToAccount(contact.linkedAccountId, {
+  logger.info(
+    { callId: call.id, calleeAccountId, callerName: caller?.name },
+    "dial: sending incoming_call notification"
+  );
+
+  const delivered = sendToAccount(calleeAccountId, {
     type: "incoming_call",
     callId: call.id,
     callerName: caller?.name || "Unknown",
@@ -232,9 +267,18 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
     } : null,
   });
   logger.info(
-    { callId: call.id, calleeAccountId: contact.linkedAccountId, delivered },
+    { callId: call.id, calleeAccountId, delivered, status: call.status },
     "dial: incoming_call push result"
   );
+
+  if (!delivered) {
+    logger.warn(
+      { callId: call.id, calleeAccountId },
+      "dial: failed to deliver incoming_call notification - callee may be offline"
+    );
+  }
+
+  logger.info({ callId: call.id, status: call.status, calleeAccountId }, "dial: call created successfully, returning to caller");
 
   // Start a timeout to automatically mark as missed after ~25 seconds
   setTimeout(async () => {
@@ -243,13 +287,14 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
       select: { status: true },
     });
 
+    // Only mark as missed if still ringing (not in-progress, completed, etc.)
     if (updatedCall?.status === "ringing") {
       await prisma.call.update({
         where: { id: call.id },
         data: { status: "missed" },
       });
 
-      // Notify the personal user that the call was missed
+      // Notify the caller that the call was missed
       sendToAccount(req.userId!, {
         type: "call_status",
         callId: call.id,
@@ -260,7 +305,7 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
     }
   }, 25000);
 
-  logger.info({ contactId, calleeAccountId: contact.linkedAccountId }, "Call initiated - ringing");
+  logger.info({ contactId, calleeAccountId }, "Call initiated - ringing");
   res.status(200).json({ callId: call.id, status: "ringing" });
 }, "Failed to dial call"));
 
@@ -271,35 +316,45 @@ router.post("/calls/dial", requireAuth, asyncHandler(async (req, res) => {
 router.post("/calls/:id/accept", requireAuth, asyncHandler(async (req, res) => {
   const { id } = req.params;
 
+  logger.info({ callId: id, userId: req.userId }, "calls: accept request received");
+
   const call = await prisma.call.findUnique({
     where: { id: String(id) },
-    select: { calleeAccountId: true, status: true, conversationId: true },
+    select: { calleeAccountId: true, status: true, conversationId: true, startedAt: true },
   });
 
   if (!call) {
+    logger.warn({ callId: id }, "calls: call not found");
     res.status(404).json({ error: "Call not found" });
     return;
   }
 
   if (call.calleeAccountId !== req.userId!) {
+    logger.warn({ callId: id, userId: req.userId, calleeAccountId: call.calleeAccountId }, "calls: user not authorized to accept");
     res.status(403).json({ error: "You can only accept calls directed at you" });
     return;
   }
 
-  if (call.status !== "ringing") {
-    res.status(400).json({ error: "Call is not in ringing state" });
+  // Allow accepting if status is "ringing" (normal case) or "in-progress" (caller already connected)
+  if (call.status !== "ringing" && call.status !== "in-progress") {
+    logger.warn({ callId: id, status: call.status }, "calls: call not in ringing or in-progress state");
+    res.status(400).json({ error: `Call is not in ringing state (status: ${call.status})` });
     return;
   }
 
+  logger.info({ callId: id, currentStatus: call.status }, "calls: updating call to in-progress");
+
+  // Update to in-progress (no-op if already in-progress)
   await prisma.call.update({
     where: { id: String(id) },
     data: {
       status: "in-progress",
       acceptedAt: new Date(),
+      startedAt: call.startedAt || new Date(), // Set startedAt if not already set
     },
   });
 
-  // Notify the personal user that the call was accepted
+  // Notify the caller that the call was accepted
   const conversation = await prisma.conversation.findUnique({
     where: { id: call.conversationId },
     select: { contact: { select: { ownerId: true } } },
@@ -311,6 +366,7 @@ router.post("/calls/:id/accept", requireAuth, asyncHandler(async (req, res) => {
       callId: String(id),
       status: "in-progress",
     });
+    logger.info({ callId: id, callerId: conversation.contact.ownerId }, "Call accepted - notified caller");
   }
 
   logger.info({ callId: id }, "Call accepted");

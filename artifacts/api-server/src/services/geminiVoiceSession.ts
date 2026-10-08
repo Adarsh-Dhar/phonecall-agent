@@ -1,7 +1,7 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { logger } from "../lib/logger";
 
-const MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-2.0-flash-exp";
+const MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-3.8-live";
 const LANGUAGE_CODE = process.env.GEMINI_LIVE_LANGUAGE_CODE ?? "en-US";
 
 interface EndCallArgs {

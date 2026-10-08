@@ -10,8 +10,8 @@
  * path and stays on Gemini Live — see services/geminiVoiceSession.ts.
  */
 
-const REQUESTED_MODEL = process.env.NEBIUS_MODEL ?? "nvidia/llama-3_1-nemotron-ultra-253b-v1";
-const COMPATIBLE_MODEL = "meta-llama/Llama-3.3-70B-Instruct-fast";
+const REQUESTED_MODEL = process.env.NEBIUS_MODEL ?? "nvidia/Nemotron-3_5-Lightning";
+const COMPATIBLE_MODEL = "Qwen/Qwen3.5-397B-A17B";
 const BASE_URL = (process.env.NEBIUS_BASE_URL ?? "https://api.tokenfactory.nebius.com/v1").replace(/\/+$/, "");
 
 function chatCompletionsUrl() {
