@@ -51,6 +51,9 @@ export async function reconcileTaskActions(
           conversationId,
           contactId,
           kind: action.kind ?? "call",
+          nextAttemptAt: action.dueDate ? new Date(action.dueDate) : null,
+          callAttempts: 0,
+          schedulerStatus: action.dueDate ? "pending" : "pending",
         },
       });
       created.push(task.id);
@@ -84,18 +87,25 @@ export async function reconcileTaskActions(
         }
       }
     } else if (action.type === "update" && action.taskId) {
+      const updateData: any = {
+        ...(action.title ? { title: action.title } : {}),
+        ...(action.description !== undefined
+          ? { description: action.description }
+          : {}),
+        ...(action.priority ? { priority: action.priority } : {}),
+      };
+
+      // Handle dueDate changes with scheduler re-arm
+      if (action.dueDate !== undefined) {
+        updateData.dueDate = new Date(action.dueDate);
+        updateData.nextAttemptAt = new Date(action.dueDate);
+        updateData.callAttempts = 0;
+        updateData.schedulerStatus = "pending";
+      }
+
       const updatedTask = await tx.task.update({
         where: { id: action.taskId },
-        data: {
-          ...(action.title ? { title: action.title } : {}),
-          ...(action.description !== undefined
-            ? { description: action.description }
-            : {}),
-          ...(action.priority ? { priority: action.priority } : {}),
-          ...(action.dueDate
-            ? { dueDate: new Date(action.dueDate) }
-            : {}),
-        },
+        data: updateData,
       });
       updated.push(action.taskId);
 

@@ -86,11 +86,121 @@ export interface Query {
   callId?: string | null;
 }
 
+export type TaskStatus = typeof TaskStatus[keyof typeof TaskStatus];
+
+
+export const TaskStatus = {
+  suggested: 'suggested',
+  open: 'open',
+  in_progress: 'in_progress',
+  done: 'done',
+  cancelled: 'cancelled',
+} as const;
+
+export type TaskPriority = typeof TaskPriority[keyof typeof TaskPriority];
+
+
+export const TaskPriority = {
+  low: 'low',
+  normal: 'normal',
+  high: 'high',
+} as const;
+
+export type TaskKind = typeof TaskKind[keyof typeof TaskKind];
+
+
+export const TaskKind = {
+  call: 'call',
+  reminder: 'reminder',
+} as const;
+
+export type TaskSchedulerStatus = typeof TaskSchedulerStatus[keyof typeof TaskSchedulerStatus];
+
+
+export const TaskSchedulerStatus = {
+  pending: 'pending',
+  claimed: 'claimed',
+  done: 'done',
+  exhausted: 'exhausted',
+  stale: 'stale',
+} as const;
+
+export interface Task {
+  id: string;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  /** @nullable */
+  dueDate?: string | null;
+  confidence: number;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+  kind: TaskKind;
+  callAttempts: number;
+  /** @nullable */
+  lastAttemptAt?: string | null;
+  /** @nullable */
+  nextAttemptAt?: string | null;
+  schedulerStatus: TaskSchedulerStatus;
+}
+
 export type GoogleAuthDisconnect200 = {
   success?: boolean;
 };
 
 export type GoogleAuthCallbackParams = {
 code: string;
+};
+
+export type GetUserTimezone200 = {
+  /** @nullable */
+  timezone?: string | null;
+};
+
+export type UpdateUserTimezoneBody = {
+  timezone: string;
+};
+
+export type UpdateUserTimezone200 = {
+  success?: boolean;
+};
+
+export type GetUserQuietHours200 = {
+  /**
+     * @minimum 0
+     * @maximum 23
+     * @nullable
+     */
+  quietHoursStart?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 23
+     * @nullable
+     */
+  quietHoursEnd?: number | null;
+};
+
+export type UpdateUserQuietHoursBody = {
+  /**
+     * @minimum 0
+     * @maximum 23
+     * @nullable
+     */
+  quietHoursStart?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 23
+     * @nullable
+     */
+  quietHoursEnd?: number | null;
+};
+
+export type UpdateUserQuietHours200 = {
+  success?: boolean;
 };
 

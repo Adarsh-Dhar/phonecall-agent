@@ -124,6 +124,9 @@ router.post("/tasks", asyncHandler(async (req, res) => {
       confidence:  1.0,
       conversationId,
       contactId,
+      nextAttemptAt: dueDate ? new Date(dueDate) : null,
+      callAttempts: 0,
+      schedulerStatus: dueDate ? "pending" : "pending",
     },
     include: { ...sourcesInclude, contact: true },
   });
@@ -166,18 +169,36 @@ router.patch("/tasks/:id", asyncHandler(async (req, res) => {
   }
 
   const isCompleting = status === "done" && existing.status !== "done";
+  const isCancelling = status === "cancelled" && existing.status !== "cancelled";
+  const dueDateChanged = dueDate !== undefined && existing.dueDate?.getTime() !== (dueDate ? new Date(dueDate).getTime() : null);
+
+  const updateData: any = {
+    ...(status      !== undefined ? { status }                               : {}),
+    ...(title       !== undefined ? { title }                                : {}),
+    ...(description !== undefined ? { description }                          : {}),
+    ...(priority    !== undefined ? { priority }                             : {}),
+    ...(kind        !== undefined ? { kind }                                 : {}),
+    ...(isCompleting              ? { completedAt: new Date() }              : {}),
+  };
+
+  // Handle dueDate changes with scheduler re-arm
+  if (dueDate !== undefined) {
+    updateData.dueDate = dueDate ? new Date(dueDate) : null;
+    if (dueDateChanged) {
+      updateData.nextAttemptAt = dueDate ? new Date(dueDate) : null;
+      updateData.callAttempts = 0;
+      updateData.schedulerStatus = dueDate ? "pending" : "pending";
+    }
+  }
+
+  // Handle completion/cancellation
+  if (isCompleting || isCancelling) {
+    updateData.schedulerStatus = "done";
+  }
 
   const task = await prisma.task.update({
     where: { id: String(id) },
-    data: {
-      ...(status      !== undefined ? { status }                               : {}),
-      ...(title       !== undefined ? { title }                                : {}),
-      ...(description !== undefined ? { description }                          : {}),
-      ...(dueDate     !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
-      ...(priority    !== undefined ? { priority }                             : {}),
-      ...(kind        !== undefined ? { kind }                                 : {}),
-      ...(isCompleting              ? { completedAt: new Date() }              : {}),
-    },
+    data: updateData,
     include: { ...sourcesInclude, contact: true },
   });
 

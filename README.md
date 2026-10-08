@@ -17,7 +17,7 @@ Tests run against a real PostgreSQL database. All commands from the **repo root*
 `vitest.setup.ts` refuses to run unless `TEST_DATABASE_URL` is set and its database name ends in `_test`,
 and it overrides `DATABASE_URL` with it, so tests can never touch your dev or prod database.
 
-## Environment Variables
+## Settings
 
 ### Scheduler Configuration
 
@@ -30,3 +30,41 @@ and it overrides `DATABASE_URL` with it, so tests can never touch your dev or pr
 ### Timezone Settings
 
 - `DEFAULT_TIMEZONE` (default: Asia/Kolkata) - Default timezone for date/time resolution when user timezone is not set
+
+## Environment Variables
+
+### API Keys
+
+- `GEMINI_API_KEY` - Google Gemini API key for voice processing
+- `GEMINI_LIVE_MODEL` - Model to use for live voice calls
+- `NEBIUS_API_KEY` - Nebius API key for task extraction
+- `NEBIUS_BASE_URL` - Nebius API base URL
+- `NEBIUS_MODEL` - Nebius model to use for extraction
+
+### Google Calendar
+
+- `GOOGLE_CLIENT_ID` - Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
+- `GOOGLE_REDIRECT_URI` - Google OAuth redirect URI
+- `GOOGLE_CALENDAR_ID` - Google Calendar ID to sync tasks to
+
+### Push Notifications
+
+- `VAPID_PUBLIC_KEY` - VAPID public key for web push
+- `VAPID_PRIVATE_KEY` - VAPID private key for web push
+- `VAPID_SUBJECT` - VAPID subject (contact email)
+
+### Exotel Telephony (Optional)
+
+- `EXOTEL_SID` - Exotel SID
+- `EXOTEL_API_KEY` - Exotel API key
+- `EXOTEL_API_TOKEN` - Exotel API token
+- `EXOTEL_SUBDOMAIN` - Exotel subdomain
+- `EXOTEL_CALLER_ID` - Exotel caller ID
+- `EXOTEL_APP_ID` - Exotel app ID
+- `EXOTEL_PASSTHRU_SECRET` - Exotel passthrough secret for webhooks
+
+### Other
+
+- `ASK_USER_TIMEOUT_MS` (default: 45000) - Timeout in milliseconds for user response during calls
+- `PUBLIC_WS_URL` - Public WebSocket URL for the frontend

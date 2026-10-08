@@ -10,9 +10,14 @@ import {
   useQuery
 } from '@tanstack/react-query';
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
   MutationFunction,
+  QueryClient,
   QueryFunction,
   QueryKey,
+  UndefinedInitialDataOptions,
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
@@ -21,14 +26,20 @@ import type {
 
 import type {
   CalendarSyncResult,
+  GetUserQuietHours200,
+  GetUserTimezone200,
   GoogleAuthCallbackParams,
   GoogleAuthDisconnect200,
   GoogleAuthStatus,
-  HealthStatus
+  HealthStatus,
+  UpdateUserQuietHours200,
+  UpdateUserQuietHoursBody,
+  UpdateUserTimezone200,
+  UpdateUserTimezoneBody
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
-import type { ErrorType } from '../custom-fetch';
+import type { ErrorType , BodyType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -88,7 +99,7 @@ export const getHealthCheckQueryKey = () => {
     }
 
 
-export const getHealthCheckQueryOptions = <TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getHealthCheckQueryOptions = <TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -103,25 +114,49 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
 export type HealthCheckQueryResult = NonNullable<Awaited<ReturnType<typeof healthCheck>>>
 export type HealthCheckQueryError = ErrorType<unknown>
 
 
+export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof healthCheck>>,
+          TError,
+          Awaited<ReturnType<typeof healthCheck>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof healthCheck>>,
+          TError,
+          Awaited<ReturnType<typeof healthCheck>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Health check
  */
 
 export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
   return withQueryKey(query, queryOptions.queryKey);
 }
@@ -166,7 +201,7 @@ export const getGoogleAuthRedirectQueryKey = () => {
     }
 
 
-export const getGoogleAuthRedirectQueryOptions = <TData = Awaited<ReturnType<typeof googleAuthRedirect>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof googleAuthRedirect>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGoogleAuthRedirectQueryOptions = <TData = Awaited<ReturnType<typeof googleAuthRedirect>>, TError = ErrorType<void>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthRedirect>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -181,25 +216,49 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof googleAuthRedirect>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof googleAuthRedirect>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
 export type GoogleAuthRedirectQueryResult = NonNullable<Awaited<ReturnType<typeof googleAuthRedirect>>>
 export type GoogleAuthRedirectQueryError = ErrorType<void>
 
 
+export function useGoogleAuthRedirect<TData = Awaited<ReturnType<typeof googleAuthRedirect>>, TError = ErrorType<void>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthRedirect>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof googleAuthRedirect>>,
+          TError,
+          Awaited<ReturnType<typeof googleAuthRedirect>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGoogleAuthRedirect<TData = Awaited<ReturnType<typeof googleAuthRedirect>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthRedirect>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof googleAuthRedirect>>,
+          TError,
+          Awaited<ReturnType<typeof googleAuthRedirect>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGoogleAuthRedirect<TData = Awaited<ReturnType<typeof googleAuthRedirect>>, TError = ErrorType<void>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthRedirect>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Redirect to Google OAuth
  */
 
 export function useGoogleAuthRedirect<TData = Awaited<ReturnType<typeof googleAuthRedirect>>, TError = ErrorType<void>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof googleAuthRedirect>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthRedirect>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGoogleAuthRedirectQueryOptions(options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
   return withQueryKey(query, queryOptions.queryKey);
 }
@@ -276,13 +335,13 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  */
 export const useGoogleAuthDisconnect = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof googleAuthDisconnect>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof googleAuthDisconnect>>,
         TError,
         void,
         TContext
       > => {
-      return useMutation(getGoogleAuthDisconnectMutationOptions(options));
+      return useMutation(getGoogleAuthDisconnectMutationOptions(options), queryClient);
     }
 
 export const getGoogleAuthCallbackUrl = (params: GoogleAuthCallbackParams,) => {
@@ -326,7 +385,7 @@ export const getGoogleAuthCallbackQueryKey = (params?: GoogleAuthCallbackParams,
     }
 
 
-export const getGoogleAuthCallbackQueryOptions = <TData = Awaited<ReturnType<typeof googleAuthCallback>>, TError = ErrorType<void>>(params: GoogleAuthCallbackParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof googleAuthCallback>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGoogleAuthCallbackQueryOptions = <TData = Awaited<ReturnType<typeof googleAuthCallback>>, TError = ErrorType<void>>(params: GoogleAuthCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthCallback>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -341,25 +400,49 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof googleAuthCallback>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof googleAuthCallback>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
 export type GoogleAuthCallbackQueryResult = NonNullable<Awaited<ReturnType<typeof googleAuthCallback>>>
 export type GoogleAuthCallbackQueryError = ErrorType<void>
 
 
+export function useGoogleAuthCallback<TData = Awaited<ReturnType<typeof googleAuthCallback>>, TError = ErrorType<void>>(
+ params: GoogleAuthCallbackParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthCallback>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof googleAuthCallback>>,
+          TError,
+          Awaited<ReturnType<typeof googleAuthCallback>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGoogleAuthCallback<TData = Awaited<ReturnType<typeof googleAuthCallback>>, TError = ErrorType<void>>(
+ params: GoogleAuthCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthCallback>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof googleAuthCallback>>,
+          TError,
+          Awaited<ReturnType<typeof googleAuthCallback>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGoogleAuthCallback<TData = Awaited<ReturnType<typeof googleAuthCallback>>, TError = ErrorType<void>>(
+ params: GoogleAuthCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthCallback>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Google OAuth callback
  */
 
 export function useGoogleAuthCallback<TData = Awaited<ReturnType<typeof googleAuthCallback>>, TError = ErrorType<void>>(
- params: GoogleAuthCallbackParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof googleAuthCallback>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ params: GoogleAuthCallbackParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthCallback>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGoogleAuthCallbackQueryOptions(params,options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
   return withQueryKey(query, queryOptions.queryKey);
 }
@@ -404,7 +487,7 @@ export const getGoogleAuthStatusQueryKey = () => {
     }
 
 
-export const getGoogleAuthStatusQueryOptions = <TData = Awaited<ReturnType<typeof googleAuthStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof googleAuthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGoogleAuthStatusQueryOptions = <TData = Awaited<ReturnType<typeof googleAuthStatus>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -419,25 +502,49 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 
 
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof googleAuthStatus>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof googleAuthStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
 export type GoogleAuthStatusQueryResult = NonNullable<Awaited<ReturnType<typeof googleAuthStatus>>>
 export type GoogleAuthStatusQueryError = ErrorType<unknown>
 
 
+export function useGoogleAuthStatus<TData = Awaited<ReturnType<typeof googleAuthStatus>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof googleAuthStatus>>,
+          TError,
+          Awaited<ReturnType<typeof googleAuthStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGoogleAuthStatus<TData = Awaited<ReturnType<typeof googleAuthStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof googleAuthStatus>>,
+          TError,
+          Awaited<ReturnType<typeof googleAuthStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGoogleAuthStatus<TData = Awaited<ReturnType<typeof googleAuthStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Google Calendar connection status
  */
 
 export function useGoogleAuthStatus<TData = Awaited<ReturnType<typeof googleAuthStatus>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof googleAuthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof googleAuthStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGoogleAuthStatusQueryOptions(options)
 
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
   return withQueryKey(query, queryOptions.queryKey);
 }
@@ -514,12 +621,394 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  */
 export const useCalendarSync = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof calendarSync>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof calendarSync>>,
         TError,
         void,
         TContext
       > => {
-      return useMutation(getCalendarSyncMutationOptions(options));
+      return useMutation(getCalendarSyncMutationOptions(options), queryClient);
+    }
+
+export const getGetUserTimezoneUrl = () => {
+
+
+
+
+  return `/api/user/timezone`
+}
+
+/**
+ * Returns the user's timezone setting
+ * @summary Get user timezone
+ */
+export const getUserTimezone = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetUserTimezone200> => {
+
+  return customFetch<GetUserTimezone200>(getGetUserTimezoneUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUserTimezoneQueryKey = () => {
+    return [
+    `/api/user/timezone`
+    ] as const;
+    }
+
+
+export const getGetUserTimezoneQueryOptions = <TData = Awaited<ReturnType<typeof getUserTimezone>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserTimezone>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUserTimezoneQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserTimezone>>> = ({ signal }) => getUserTimezone({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUserTimezone>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetUserTimezoneQueryResult = NonNullable<Awaited<ReturnType<typeof getUserTimezone>>>
+export type GetUserTimezoneQueryError = ErrorType<unknown>
+
+
+export function useGetUserTimezone<TData = Awaited<ReturnType<typeof getUserTimezone>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserTimezone>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUserTimezone>>,
+          TError,
+          Awaited<ReturnType<typeof getUserTimezone>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetUserTimezone<TData = Awaited<ReturnType<typeof getUserTimezone>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserTimezone>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUserTimezone>>,
+          TError,
+          Awaited<ReturnType<typeof getUserTimezone>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetUserTimezone<TData = Awaited<ReturnType<typeof getUserTimezone>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserTimezone>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get user timezone
+ */
+
+export function useGetUserTimezone<TData = Awaited<ReturnType<typeof getUserTimezone>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserTimezone>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetUserTimezoneQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateUserTimezoneUrl = () => {
+
+
+
+
+  return `/api/user/timezone`
+}
+
+/**
+ * Updates the user's timezone setting
+ * @summary Update user timezone
+ */
+export const updateUserTimezone = async (updateUserTimezoneBody: UpdateUserTimezoneBody, options?: Parameters<typeof customFetch>[1]): Promise<UpdateUserTimezone200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<UpdateUserTimezone200>(getUpdateUserTimezoneUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateUserTimezoneBody)
+  }
+);}
+
+
+
+
+
+export const getUpdateUserTimezoneMutationKey = () => ['updateUserTimezone'] as const;
+
+export const getUpdateUserTimezoneMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUserTimezone>>, TError,UpdateUserTimezoneMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateUserTimezone>>, TError,UpdateUserTimezoneMutationVariables, TContext> => {
+
+const mutationKey = getUpdateUserTimezoneMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUserTimezone>>, UpdateUserTimezoneMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateUserTimezone(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateUserTimezoneMutationResult = NonNullable<Awaited<ReturnType<typeof updateUserTimezone>>>
+    export type UpdateUserTimezoneMutationBody = BodyType<UpdateUserTimezoneBody>
+    export type UpdateUserTimezoneMutationError = ErrorType<unknown>
+    export type UpdateUserTimezoneMutationVariables = {data: BodyType<UpdateUserTimezoneBody>}
+
+    /**
+ * @summary Update user timezone
+ */
+export const useUpdateUserTimezone = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUserTimezone>>, TError,UpdateUserTimezoneMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateUserTimezone>>,
+        TError,
+        UpdateUserTimezoneMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateUserTimezoneMutationOptions(options), queryClient);
+    }
+
+export const getGetUserQuietHoursUrl = () => {
+
+
+
+
+  return `/api/user/quiet-hours`
+}
+
+/**
+ * Returns the user's quiet hours setting
+ * @summary Get user quiet hours
+ */
+export const getUserQuietHours = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetUserQuietHours200> => {
+
+  return customFetch<GetUserQuietHours200>(getGetUserQuietHoursUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUserQuietHoursQueryKey = () => {
+    return [
+    `/api/user/quiet-hours`
+    ] as const;
+    }
+
+
+export const getGetUserQuietHoursQueryOptions = <TData = Awaited<ReturnType<typeof getUserQuietHours>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserQuietHours>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUserQuietHoursQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserQuietHours>>> = ({ signal }) => getUserQuietHours({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUserQuietHours>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetUserQuietHoursQueryResult = NonNullable<Awaited<ReturnType<typeof getUserQuietHours>>>
+export type GetUserQuietHoursQueryError = ErrorType<unknown>
+
+
+export function useGetUserQuietHours<TData = Awaited<ReturnType<typeof getUserQuietHours>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserQuietHours>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUserQuietHours>>,
+          TError,
+          Awaited<ReturnType<typeof getUserQuietHours>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetUserQuietHours<TData = Awaited<ReturnType<typeof getUserQuietHours>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserQuietHours>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUserQuietHours>>,
+          TError,
+          Awaited<ReturnType<typeof getUserQuietHours>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetUserQuietHours<TData = Awaited<ReturnType<typeof getUserQuietHours>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserQuietHours>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get user quiet hours
+ */
+
+export function useGetUserQuietHours<TData = Awaited<ReturnType<typeof getUserQuietHours>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserQuietHours>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetUserQuietHoursQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateUserQuietHoursUrl = () => {
+
+
+
+
+  return `/api/user/quiet-hours`
+}
+
+/**
+ * Updates the user's quiet hours setting (hours 0-23, or null to disable)
+ * @summary Update user quiet hours
+ */
+export const updateUserQuietHours = async (updateUserQuietHoursBody: UpdateUserQuietHoursBody, options?: Parameters<typeof customFetch>[1]): Promise<UpdateUserQuietHours200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<UpdateUserQuietHours200>(getUpdateUserQuietHoursUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateUserQuietHoursBody)
+  }
+);}
+
+
+
+
+
+export const getUpdateUserQuietHoursMutationKey = () => ['updateUserQuietHours'] as const;
+
+export const getUpdateUserQuietHoursMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUserQuietHours>>, TError,UpdateUserQuietHoursMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateUserQuietHours>>, TError,UpdateUserQuietHoursMutationVariables, TContext> => {
+
+const mutationKey = getUpdateUserQuietHoursMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUserQuietHours>>, UpdateUserQuietHoursMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateUserQuietHours(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateUserQuietHoursMutationResult = NonNullable<Awaited<ReturnType<typeof updateUserQuietHours>>>
+    export type UpdateUserQuietHoursMutationBody = BodyType<UpdateUserQuietHoursBody>
+    export type UpdateUserQuietHoursMutationError = ErrorType<unknown>
+    export type UpdateUserQuietHoursMutationVariables = {data: BodyType<UpdateUserQuietHoursBody>}
+
+    /**
+ * @summary Update user quiet hours
+ */
+export const useUpdateUserQuietHours = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUserQuietHours>>, TError,UpdateUserQuietHoursMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateUserQuietHours>>,
+        TError,
+        UpdateUserQuietHoursMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateUserQuietHoursMutationOptions(options), queryClient);
     }
 

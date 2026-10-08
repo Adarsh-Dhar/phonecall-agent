@@ -30,12 +30,27 @@ export default defineConfig({
       clean: true,
       prettier: true,
       override: {
+        query: {
+          version: 5,
+        },
         fetch: {
           includeHttpResponseReturnType: false,
         },
         mutator: {
           path: path.resolve(apiClientReactSrc, "custom-fetch.ts"),
           name: "customFetch",
+        },
+        operations: {
+          updateUserTimezone: {
+            query: {
+              method: "PATCH",
+            },
+          },
+          updateUserQuietHours: {
+            query: {
+              method: "PATCH",
+            },
+          },
         },
       },
     },
@@ -51,19 +66,11 @@ export default defineConfig({
       workspace: apiZodSrc,
       client: "zod",
       target: "generated",
-      schemas: { path: "generated/types", type: "typescript" },
       mode: "split",
       clean: true,
       prettier: true,
       override: {
-        zod: {
-          coerce: {
-            query: ['boolean', 'number', 'string'],
-            param: ['boolean', 'number', 'string'],
-            body: ['bigint', 'date'],
-            response: ['bigint', 'date'],
-          },
-        },
+        schemas: false,
         useDates: true,
         useBigInt: true,
       },

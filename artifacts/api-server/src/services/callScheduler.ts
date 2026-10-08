@@ -29,6 +29,7 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
 import { broadcastCallDue } from "./notifications";
+import { sendPushToAccount } from "./push";
 import { computeNextAttempt, isWithinAllowedWindow, MAX_ATTEMPTS } from "./schedulerPolicy";
 import { placeCall, isAutoDialEnabled } from "./telephony";
 
@@ -123,7 +124,7 @@ async function checkDueTasks(): Promise<void> {
 
     logger.info({ count: claimed.count }, "callScheduler: claimed tasks for processing");
 
-    // Fetch the claimed tasks
+    // Fetch the claimed tasks with owner account
     const tasks = await prisma.task.findMany({
       where: {
         kind: "call",
@@ -137,9 +138,7 @@ async function checkDueTasks(): Promise<void> {
             id: true,
             name: true,
             ownerId: true,
-            timezone: true,
-            quietHoursStart: true,
-            quietHoursEnd: true,
+            phone: true,
             businessHoursJson: true,
           },
         },
@@ -179,14 +178,36 @@ async function processTask(task: any, now: Date): Promise<void> {
       return;
     }
 
+    // Load owner account for timezone and quiet hours
+    const owner = await prisma.account.findUnique({
+      where: { id: contact.ownerId },
+      select: {
+        timezone: true,
+        quietHoursStart: true,
+        quietHoursEnd: true,
+      },
+    });
+
+    if (!owner) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { schedulerStatus: "exhausted" },
+      });
+      logger.warn(
+        { taskId: task.id, ownerId: contact.ownerId },
+        "callScheduler: owner account not found, marking as exhausted"
+      );
+      return;
+    }
+
     // Check if within allowed window (quiet hours, business hours)
-    const ownerTz = contact.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
+    const ownerTz = owner.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
     const businessHours = contact.businessHoursJson ? JSON.parse(contact.businessHoursJson) : null;
     const windowCheck = isWithinAllowedWindow(
       now,
       ownerTz,
-      contact.quietHoursStart,
-      contact.quietHoursEnd,
+      owner.quietHoursStart,
+      owner.quietHoursEnd,
       businessHours
     );
 
@@ -202,6 +223,30 @@ async function processTask(task: any, now: Date): Promise<void> {
       logger.info(
         { taskId: task.id, nextAttemptAt: windowCheck.nextAllowedTime },
         "callScheduler: task outside allowed window, deferring"
+      );
+      return;
+    }
+
+    // Check if there's already a call in flight for this task
+    const inFlightCall = await prisma.call.findFirst({
+      where: {
+        taskId: task.id,
+        status: { in: ["initiated", "ringing", "in-progress"] },
+      },
+    });
+
+    if (inFlightCall) {
+      // Skip this task - there's already a call in progress
+      await prisma.task.update({
+        where: { id: task.id },
+        data: {
+          schedulerStatus: "pending",
+          schedulerClaimedAt: null,
+        },
+      });
+      logger.info(
+        { taskId: task.id, callId: inFlightCall.id },
+        "callScheduler: task has in-flight call, skipping"
       );
       return;
     }
@@ -271,7 +316,7 @@ async function processTask(task: any, now: Date): Promise<void> {
     const nextAttemptTime = computeNextAttempt(newAttempts, now);
 
     if (newAttempts >= MAX_ATTEMPTS) {
-      // Exhausted attempts - mark as exhausted
+      // Exhausted attempts - mark as exhausted and notify owner
       await prisma.task.update({
         where: { id: task.id },
         data: {
@@ -280,6 +325,25 @@ async function processTask(task: any, now: Date): Promise<void> {
           schedulerStatus: "exhausted",
         },
       });
+
+      // Send "couldn't reach" notification
+      await broadcastCallDue({
+        type: "call_due",
+        taskId: task.id,
+        contactId: task.contactId,
+        contactName: contact.name,
+        title: task.title,
+        description: task.description,
+        ownerId: contact.ownerId,
+      });
+
+      // Also send push notification for exhausted tasks
+      await sendPushToAccount(contact.ownerId, {
+        title: "Could not reach contact",
+        body: `Couldn't reach ${contact.name} about ${task.title} after ${MAX_ATTEMPTS} attempts`,
+        url: `/tasks/${task.id}`,
+      });
+
       logger.info(
         { taskId: task.id, attempts: newAttempts },
         "callScheduler: task exhausted after max attempts"

@@ -95,10 +95,11 @@ export function isWithinAllowedWindow(
 
 /**
  * Gets the hour (0-23) of a date in a specific timezone.
+ * Uses hourCycle: 'h23' to ensure 0-23 range (24 at midnight becomes 0).
  */
 function getHourInTimezone(date: Date, timezone: string): number {
   return parseInt(
-    date.toLocaleString("en-US", { timeZone: timezone, hour12: false, hour: "numeric" })
+    date.toLocaleString("en-US", { timeZone: timezone, hour12: false, hour: "numeric", hourCycle: "h23" })
   );
 }
 
@@ -117,6 +118,7 @@ function isHourInRange(hour: number, start: number, end: number): boolean {
 
 /**
  * Finds the next time outside quiet hours.
+ * Computes the next boundary in the owner's timezone using formatter parts.
  */
 function findNextTimeOutsideQuietHours(
   now: Date,
@@ -127,18 +129,33 @@ function findNextTimeOutsideQuietHours(
   const ownerHour = getHourInTimezone(now, timezone);
   const nextHour = findNextHourOutsideRange(ownerHour, quietStart, quietEnd);
 
+  // Get date parts in owner's timezone
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    hour12: false,
+    hourCycle: "h23",
+  });
+
+  const parts = formatter.formatToParts(now);
+  const getPart = (type: string) => parts.find(p => p.type === type)?.value;
+
+  let year = Number(getPart("year"));
+  let month = Number(getPart("month")) - 1; // JS months are 0-indexed
+  let day = Number(getPart("day"));
+
   // If next hour is in the future today, use it
   if (nextHour > ownerHour) {
-    const next = new Date(now);
-    next.setHours(nextHour, 0, 0, 0);
-    return next;
+    return new Date(year, month, day, nextHour, 0, 0);
   }
 
   // Otherwise, next allowed time is tomorrow at quietEnd
-  const next = new Date(now);
-  next.setDate(next.getDate() + 1);
-  next.setHours(quietEnd, 0, 0, 0);
-  return next;
+  // Add one day
+  const tomorrow = new Date(year, month, day + 1, quietEnd, 0, 0);
+  return tomorrow;
 }
 
 /**
@@ -173,10 +190,10 @@ function checkBusinessHours(now: Date, timezone: string, businessHours: any): bo
 
 /**
  * Finds the next time business hours are open.
- * Placeholder implementation.
+ * Placeholder implementation - returns 1 hour from now.
+ * TODO: Implement based on your business hours JSON schema.
  */
 function findNextBusinessHoursOpen(now: Date, timezone: string, businessHours: any): Date {
-  // TODO: Implement based on your business hours JSON schema
   // For now, return 1 hour from now
   return new Date(now.getTime() + 60 * 60 * 1000);
 }

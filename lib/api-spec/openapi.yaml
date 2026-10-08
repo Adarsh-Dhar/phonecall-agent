@@ -91,6 +91,105 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CalendarSyncResult"
+  /user/timezone:
+    get:
+      operationId: getUserTimezone
+      tags: [calendar]
+      summary: Get user timezone
+      description: Returns the user's timezone setting
+      responses:
+        "200":
+          description: Timezone setting
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timezone:
+                    type: string
+                    nullable: true
+    patch:
+      operationId: updateUserTimezone
+      tags: [calendar]
+      summary: Update user timezone
+      description: Updates the user's timezone setting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timezone:
+                  type: string
+              required:
+                - timezone
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+  /user/quiet-hours:
+    get:
+      operationId: getUserQuietHours
+      tags: [calendar]
+      summary: Get user quiet hours
+      description: Returns the user's quiet hours setting
+      responses:
+        "200":
+          description: Quiet hours setting
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quietHoursStart:
+                    type: number
+                    nullable: true
+                    minimum: 0
+                    maximum: 23
+                  quietHoursEnd:
+                    type: number
+                    nullable: true
+                    minimum: 0
+                    maximum: 23
+    patch:
+      operationId: updateUserQuietHours
+      tags: [calendar]
+      summary: Update user quiet hours
+      description: Updates the user's quiet hours setting (hours 0-23, or null to disable)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quietHoursStart:
+                  type: number
+                  nullable: true
+                  minimum: 0
+                  maximum: 23
+                quietHoursEnd:
+                  type: number
+                  nullable: true
+                  minimum: 0
+                  maximum: 23
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
 components:
   schemas:
     HealthStatus:
@@ -187,4 +286,67 @@ components:
         - status
         - isKnowledgeGap
         - urgent
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [suggested, open, in_progress, done, cancelled]
+        priority:
+          type: string
+          enum: [low, normal, high]
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        confidence:
+          type: number
+          format: float
+        source:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        kind:
+          type: string
+          enum: [call, reminder]
+        callAttempts:
+          type: integer
+        lastAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        nextAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        schedulerStatus:
+          type: string
+          enum: [pending, claimed, done, exhausted, stale]
+      required:
+        - id
+        - title
+        - status
+        - priority
+        - confidence
+        - source
+        - createdAt
+        - updatedAt
+        - kind
+        - callAttempts
+        - schedulerStatus
 

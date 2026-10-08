@@ -38,7 +38,7 @@ export const GoogleAuthDisconnectResponse = zod.object({
  * @summary Google OAuth callback
  */
 export const GoogleAuthCallbackQueryParams = zod.object({
-  "code": zod.coerce.string()
+  "code": zod.string()
 })
 
 export const GoogleAuthCallbackResponse = zod.void()
@@ -62,6 +62,68 @@ export const GoogleAuthStatusResponse = zod.object({
 export const CalendarSyncResponse = zod.object({
   "synced": zod.number(),
   "errors": zod.number()
+})
+
+
+/**
+ * Returns the user's timezone setting
+ * @summary Get user timezone
+ */
+export const GetUserTimezoneResponse = zod.object({
+  "timezone": zod.string().nullish()
+})
+
+
+/**
+ * Updates the user's timezone setting
+ * @summary Update user timezone
+ */
+export const UpdateUserTimezoneBody = zod.object({
+  "timezone": zod.string()
+})
+
+export const UpdateUserTimezoneResponse = zod.object({
+  "success": zod.boolean().optional()
+})
+
+
+/**
+ * Returns the user's quiet hours setting
+ * @summary Get user quiet hours
+ */
+export const getUserQuietHoursResponseQuietHoursStartMin = 0;
+export const getUserQuietHoursResponseQuietHoursStartMax = 23;
+
+export const getUserQuietHoursResponseQuietHoursEndMin = 0;
+export const getUserQuietHoursResponseQuietHoursEndMax = 23;
+
+
+
+export const GetUserQuietHoursResponse = zod.object({
+  "quietHoursStart": zod.number().min(getUserQuietHoursResponseQuietHoursStartMin).max(getUserQuietHoursResponseQuietHoursStartMax).nullish(),
+  "quietHoursEnd": zod.number().min(getUserQuietHoursResponseQuietHoursEndMin).max(getUserQuietHoursResponseQuietHoursEndMax).nullish()
+})
+
+
+/**
+ * Updates the user's quiet hours setting (hours 0-23, or null to disable)
+ * @summary Update user quiet hours
+ */
+export const updateUserQuietHoursBodyQuietHoursStartMin = 0;
+export const updateUserQuietHoursBodyQuietHoursStartMax = 23;
+
+export const updateUserQuietHoursBodyQuietHoursEndMin = 0;
+export const updateUserQuietHoursBodyQuietHoursEndMax = 23;
+
+
+
+export const UpdateUserQuietHoursBody = zod.object({
+  "quietHoursStart": zod.number().min(updateUserQuietHoursBodyQuietHoursStartMin).max(updateUserQuietHoursBodyQuietHoursStartMax).nullish(),
+  "quietHoursEnd": zod.number().min(updateUserQuietHoursBodyQuietHoursEndMin).max(updateUserQuietHoursBodyQuietHoursEndMax).nullish()
+})
+
+export const UpdateUserQuietHoursResponse = zod.object({
+  "success": zod.boolean().optional()
 })
 
 
