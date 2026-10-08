@@ -46,6 +46,12 @@ export type Task = {
   googleEventId: string | null;
   googleEtag: string | null;
   lastSyncedAt: string | null;
+  // Scheduler fields
+  kind: 'call' | 'reminder';
+  callAttempts: number;
+  lastAttemptAt: string | null;
+  nextAttemptAt: string | null;
+  schedulerStatus: 'pending' | 'claimed' | 'done' | 'exhausted' | 'stale';
 };
 
 // ─── Task API helpers ────────────────────────────────────────────────────────

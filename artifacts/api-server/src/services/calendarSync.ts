@@ -211,6 +211,9 @@ async function processEventChange(event: {
     title?: string;
     dueDate?: Date | null;
     lastSyncedAt: Date;
+    nextAttemptAt?: Date | null;
+    callAttempts?: number;
+    schedulerStatus?: string;
   } = {
     lastSyncedAt: new Date(),
   };
