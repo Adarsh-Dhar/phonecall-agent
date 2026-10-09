@@ -9,9 +9,11 @@ import { CallRow } from '@/components/calls';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 import { CallObserverWidget } from '@/individual/components/CallObserverWidget';
 import { dialCall } from '@/lib/api/calls';
+import { useToast } from '@/hooks/use-toast';
 
 export function CallsPage() {
   const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();
+  const { toast } = useToast();
   const [calls, setCalls] = useState<api.Call[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +75,7 @@ export function CallsPage() {
         }
       } catch (error) {
         console.error('Error dialing call:', error);
+        toast({ variant: 'destructive', description: (error as Error).message });
         setCallStatus('idle');
       }
     } else {

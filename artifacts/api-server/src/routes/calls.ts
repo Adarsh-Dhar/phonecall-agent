@@ -28,6 +28,7 @@ import {
   acceptCallAs,
   declineCallAs,
   type CallRole,
+  NotInContactsError,
 } from '../services/callSignaling';
 import { logger } from '../lib/logger';
 
@@ -111,9 +112,15 @@ export function createCallsRouter(role: CallRole): IRouter {
       );
 
       res.status(200).json({ callId: result.call.id, status: 'ringing' });
+      return;
     } catch (e) {
       logger.error({ error: e }, 'dial: failed to create call');
+      if (e instanceof NotInContactsError) {
+        res.status(403).json({ error: e.message, code: 'NOT_IN_CONTACTS' });
+        return;
+      }
       res.status(400).json({ error: e instanceof Error ? e.message : 'Failed to dial call' });
+      return;
     }
   }, 'Failed to dial call'));
 
@@ -130,9 +137,11 @@ export function createCallsRouter(role: CallRole): IRouter {
       const result = await acceptCallAs(String(id), req.userId!, role);
       logger.info({ callId: id, status: result.status }, 'Call accepted');
       res.json({ status: result.status });
+      return;
     } catch (e) {
       logger.error({ error: e }, 'calls: failed to accept call');
       res.status(400).json({ error: e instanceof Error ? e.message : 'Failed to accept call' });
+      return;
     }
   }, 'Failed to accept call'));
 
@@ -147,9 +156,11 @@ export function createCallsRouter(role: CallRole): IRouter {
       const result = await declineCallAs(String(id), req.userId!, role);
       logger.info({ callId: id, status: result.status }, 'Call declined');
       res.json({ status: result.status });
+      return;
     } catch (e) {
       logger.error({ error: e }, 'calls: failed to decline call');
       res.status(400).json({ error: e instanceof Error ? e.message : 'Failed to decline call' });
+      return;
     }
   }, 'Failed to decline call'));
 

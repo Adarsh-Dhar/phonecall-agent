@@ -6,6 +6,7 @@ import { AppLayout } from '@/individual/components/layout';
 import { useSharedState } from '@/hooks/useSharedState';
 import { useAuth } from '@/hooks/useAuth';
 import { usePresence } from '@/hooks/usePresence';
+import { useToast } from '@/hooks/use-toast';
 import { Avatar, CallButton } from '@/components/shared';
 import { ContactTasksCard } from '@/individual/components/contact/ContactTasksCard';
 import { ContactQuestionsCard } from '@/individual/components/contact/ContactQuestionsCard';
@@ -19,6 +20,7 @@ export function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { prefsOpen, setPrefsOpen, currentDate } = useSharedState();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -76,6 +78,7 @@ export function ContactDetailPage() {
         }
       } catch (error) {
         console.error('Error dialing call:', error);
+        toast({ variant: 'destructive', description: (error as Error).message });
         setCallStatus('idle');
       }
     } else {

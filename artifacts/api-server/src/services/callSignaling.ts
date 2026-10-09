@@ -4,6 +4,35 @@ import { logger } from '../lib/logger';
 
 export type CallRole = 'individual' | 'business';
 
+export class NotInContactsError extends Error {
+  constructor(message = "You are not in the receiver's contact list") {
+    super(message);
+    this.name = 'NotInContactsError';
+  }
+}
+
+/**
+ * Does `ownerId` have `targetId` saved as a contact?
+ */
+async function hasContact(ownerId: string, targetId: string): Promise<boolean> {
+  const row = await prisma.account.findFirst({
+    where: { ownerId, linkedAccountId: targetId, isService: true },
+    select: { id: true },
+  });
+  return row !== null;
+}
+
+/**
+ * True only if BOTH accounts have each other saved.
+ */
+export async function isContact(callerId: string, receiverId: string): Promise<boolean> {
+  const [callerHasReceiver, receiverHasCaller] = await Promise.all([
+    hasContact(callerId, receiverId),
+    hasContact(receiverId, callerId),
+  ]);
+  return callerHasReceiver && receiverHasCaller;
+}
+
 /**
  * Determine which role initiated the call.
  */
@@ -66,15 +95,11 @@ export async function listCallsFor(accountId: string, role: CallRole) {
     },
   });
 
-  logger.info({ role, callCount: calls.length }, 'listCallsFor: fetching calls');
-
   // For business accounts, resolve the individual's name from individualId
   if (role === 'business') {
     const individualIds = calls
       .map(c => c.individualId)
       .filter((id): id is string => id !== null);
-    
-    logger.info({ individualIds }, 'listCallsFor: resolving individual names');
 
     const individuals = individualIds.length > 0
       ? await prisma.account.findMany({
@@ -89,13 +114,6 @@ export async function listCallsFor(accountId: string, role: CallRole) {
       const displayName = call.individualId
         ? individualMap.get(call.individualId) || call.contact.name
         : call.contact.name;
-      
-      logger.info({ 
-        callId: call.id, 
-        contactName: call.contact.name, 
-        individualId: call.individualId,
-        displayName 
-      }, 'listCallsFor: resolved display name');
 
       return {
         ...call,
@@ -243,6 +261,11 @@ export async function dialCallAs(
   const other = await prisma.account.findUnique({ where: { id: otherId }, select: { isService: true } });
   if (!other) throw new Error('Linked account not found');
 
+  // Check if both accounts have each other saved as contacts
+  if (!(await isContact(dialerId, otherId))) {
+    throw new NotInContactsError();
+  }
+
   let individualId: string | null = null;
   let businessId: string | null = null;
   let calleeAccountId: string | null = null;
@@ -261,28 +284,13 @@ export async function dialCallAs(
     individualId = otherId;
     calleeAccountId = otherId;
 
-    // Find or create the individual's own mirror of this business
-    let mirror = await prisma.account.findFirst({
+    // Find the individual's own mirror of this business (must exist since isContact passed)
+    const mirror = await prisma.account.findFirst({
       where: { ownerId: individualId, linkedAccountId: businessId, isService: true },
       include: { conversations: true },
     });
     if (!mirror) {
-      const biz = await prisma.account.findUnique({ where: { id: businessId } });
-      mirror = await prisma.account.create({
-        data: {
-          isService: true,
-          ownerId: individualId,
-          linkedAccountId: businessId,
-          name: biz!.name,
-          business: biz!.business ?? '',
-          category: biz!.category ?? 'Other',
-          phone: biz!.phone ?? '',
-          initials: biz!.initials,
-          color: biz!.color,
-          conversations: { create: { title: `Chat with ${biz!.name}` } },
-        },
-        include: { conversations: true },
-      });
+      throw new NotInContactsError();
     }
     callContactId = mirror.id;
     callConversationId = mirror.conversations[0]?.id ?? null;
@@ -442,6 +450,13 @@ export async function acceptCallAs(callId: string, accountId: string, role: Call
     throw new Error('You can only accept calls directed at you');
   }
 
+  // Re-check that both parties still have each other as contacts
+  // (covers case where contact was deleted while call was ringing)
+  const initiatorId = initiatorIdOf(call);
+  if (initiatorId && !(await isContact(initiatorId, accountId))) {
+    throw new NotInContactsError();
+  }
+
   if (call.status !== 'ringing' && call.status !== 'in-progress') {
     throw new Error(`Call is not in ringing state (status: ${call.status})`);
   }
@@ -457,7 +472,6 @@ export async function acceptCallAs(callId: string, accountId: string, role: Call
   });
 
   // Notify the initiator
-  const initiatorId = initiatorIdOf(call);
   if (initiatorId) {
     sendToAccount(initiatorId, {
       type: 'call_status',

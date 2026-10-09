@@ -28,36 +28,40 @@ export async function getAccountRole(req: Request): Promise<AccountRole | null> 
  * Middleware to ensure the authenticated account is an individual.
  * Returns 401 if not authenticated, 403 if the account is a business.
  */
-export async function requireIndividual(req: Request, res: Response, next: NextFunction) {
-  if (!req.user) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+export const requireIndividual = (req: Request, res: Response, next: NextFunction) => {
+  (async () => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
 
-  const role = await getAccountRole(req);
-  if (role !== 'individual') {
-    res.status(403).json({ error: 'Forbidden: individual-only endpoint' });
-    return;
-  }
+    const role = await getAccountRole(req);
+    if (role !== 'individual') {
+      res.status(403).json({ error: 'Forbidden: individual-only endpoint' });
+      return;
+    }
 
-  next();
-}
+    next();
+  })().catch(next);
+};
 
 /**
  * Middleware to ensure the authenticated account is a business.
  * Returns 401 if not authenticated, 403 if the account is an individual.
  */
-export async function requireBusiness(req: Request, res: Response, next: NextFunction) {
-  if (!req.user) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+export const requireBusiness = (req: Request, res: Response, next: NextFunction) => {
+  (async () => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
 
-  const role = await getAccountRole(req);
-  if (role !== 'business') {
-    res.status(403).json({ error: 'Forbidden: business-only endpoint' });
-    return;
-  }
+    const role = await getAccountRole(req);
+    if (role !== 'business') {
+      res.status(403).json({ error: 'Forbidden: business-only endpoint' });
+      return;
+    }
 
-  next();
-}
+    next();
+  })().catch(next);
+};

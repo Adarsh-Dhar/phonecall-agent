@@ -3,6 +3,7 @@ import { Check, ListTodo, LoaderCircle, Phone, Plus, RefreshCw } from 'lucide-re
 import * as api from '@/lib/api';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import { dialCall } from '@/lib/api/calls';
 
 /**
@@ -13,6 +14,7 @@ import { dialCall } from '@/lib/api/calls';
  */
 export function ContactTasksCard({ contactId }: { contactId: string | undefined }) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [tasks, setTasks] = useState<api.Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -80,6 +82,7 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
         }
       } catch (error) {
         console.error('Error dialing call:', error);
+        toast({ variant: 'destructive', description: (error as Error).message });
         setCallStatus('idle');
       }
     } else {

@@ -15,7 +15,15 @@ export function ContactsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
-    api.fetchContacts().then(setContacts).catch(console.error).finally(() => setLoading(false));
+    api.fetchContacts()
+      .then(contacts => {
+        console.log('[ContactsPage] Fetched contacts:', contacts);
+        setContacts(contacts);
+      })
+      .catch(error => {
+        console.error('[ContactsPage] Failed to fetch contacts:', error);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const handleContactAdded = (contact: Contact) => {

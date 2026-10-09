@@ -124,6 +124,7 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
   });
 
   res.json(ranked.slice(0, 8));
+  return;
 }, "Failed to search accounts"));
 
 // ---------------------------------------------------------------------------
@@ -214,6 +215,7 @@ router.post("/contacts/from-account/:accountId", asyncHandler(async (req, res) =
   });
 
   res.status(201).json(contact);
+  return;
 }, "Failed to add contact from account"));
 router.get("/contacts", asyncHandler(async (req, res) => {
   const { category } = req.query;
@@ -253,6 +255,7 @@ router.get("/contacts", asyncHandler(async (req, res) => {
   }));
 
   res.json(contactsWithLiveOnline);
+  return;
 }, "Failed to fetch contacts"));
 
 // Create a new service account (contact).
@@ -278,6 +281,7 @@ router.post("/contacts", asyncHandler(async (req, res) => {
     include: { conversations: true },
   });
   res.json(contact);
+  return;
 }, "Failed to create contact"));
 
 // Get the active conversation for a contact
@@ -306,6 +310,7 @@ router.get("/contacts/:id/conversation", asyncHandler(async (req, res) => {
     return;
   }
   res.json(conversation);
+  return;
 }, "Failed to fetch contact conversation"));
 
 // Update a contact
@@ -349,6 +354,7 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
     },
   });
   res.json(contact);
+  return;
 }, "Failed to update contact"));
 
 // Delete a contact (cascades to conversations, tasks, knowledge, etc.)
@@ -364,6 +370,7 @@ router.delete("/contacts/:id", asyncHandler(async (req, res) => {
   }
   await prisma.account.delete({ where: { id: String(id) } });
   res.json({ success: true });
+  return;
 }, "Failed to delete contact"));
 
 export default router;
