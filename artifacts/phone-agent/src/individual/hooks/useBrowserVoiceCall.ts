@@ -19,6 +19,11 @@ export type BrowserVoiceCallStatus = 'idle' | 'connecting' | 'active' | 'error';
 // operates on Float32Array from the Web Audio API instead of Node buffers.)
 
 function downsampleTo16k(input: Float32Array, inputSampleRate: number): Int16Array {
+  // Handle NaN or invalid sample rates
+  if (!inputSampleRate || isNaN(inputSampleRate) || inputSampleRate <= 0) {
+    inputSampleRate = 16000; // Fallback to 16kHz
+  }
+
   // If already at 16kHz, just convert without resampling
   if (inputSampleRate === 16000) {
     const out = new Int16Array(input.length);
@@ -103,7 +108,11 @@ export function useBrowserVoiceCall(contactId?: string, taskId?: string) {
       const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
       micStreamRef.current = mic;
 
-      const audioCtx = new AudioContext({ sampleRate: 16000 });
+      // Safari requires AudioContext to be resumed after user interaction
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
       audioCtxRef.current = audioCtx;
       playbackTimeRef.current = audioCtx.currentTime;
       console.log('AudioContext created with sample rate:', audioCtx.sampleRate);

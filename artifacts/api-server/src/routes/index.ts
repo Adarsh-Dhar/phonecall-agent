@@ -26,20 +26,19 @@ router.use(pushRouter);
 // ── Protected routes (require authentication) ─────────────────────────────
 router.use(requireAuth);
 
-// ── Business-only routes ──────────────────────────────────────────────────
-router.use("/business", requireBusiness, businessRouter);
+// ── Business routes (protected at route level, calls accessible to both) ───
+router.use("/business", businessRouter);
 
-// ── Individual-only routes ────────────────────────────────────────────────
-router.use(requireIndividual);
-router.use(orchestratorRouter);
-router.use(contactsRouter);
-router.use(conversationsRouter);
-router.use(messagesRouter);
-router.use(historyRouter);
-router.use(tasksRouter);
-router.use(questionsRouter);
-router.use(knowledgeRouter);
-router.use(callsRouter);
-router.use(calendarEventsRouter);
+// ── Individual-only routes (mount each with requireIndividual separately) ───
+router.use("/orchestrator", requireIndividual, orchestratorRouter);
+router.use("/contacts", requireIndividual, contactsRouter);
+router.use("/conversations", requireIndividual, conversationsRouter);
+router.use("/messages", requireIndividual, messagesRouter);
+router.use("/history", requireIndividual, historyRouter);
+router.use("/tasks", requireIndividual, tasksRouter);
+router.use("/questions", requireIndividual, questionsRouter);
+router.use("/knowledge", requireIndividual, knowledgeRouter);
+router.use("/calls", requireIndividual, callsRouter);
+router.use("/calendarEvents", requireIndividual, calendarEventsRouter);
 
 export default router;

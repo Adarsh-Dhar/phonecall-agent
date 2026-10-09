@@ -54,6 +54,8 @@ export interface Call {
     category: string;
     isService: boolean;
     ownerId: string;
+    linkedAccountId: string | null;
+    displayName?: string;
   };
   viewerRole: 'business';
 }
@@ -77,7 +79,10 @@ export async function addContactFromAccount(accountId: string): Promise<Contact>
   const res = await fetch(`${API_BASE}/contacts/from-account/${accountId}`, {
     method: 'POST',
   });
-  if (!res.ok) throw new Error('Failed to add contact');
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || 'Failed to add contact');
+  }
   return res.json();
 }
 
@@ -102,12 +107,18 @@ export async function getCall(callId: string): Promise<Call> {
 }
 
 export async function dialCall(contactId: string, taskId?: string): Promise<{ callId: string; status: string }> {
+  console.log('[business api] dialCall called with contactId:', contactId, 'taskId:', taskId);
   const res = await fetch(`${API_BASE}/calls/dial`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ contactId, taskId }),
   });
-  if (!res.ok) throw new Error('Failed to dial call');
+  console.log('[business api] dialCall response status:', res.status);
+  if (!res.ok) {
+    const error = await res.json();
+    console.error('[business api] dialCall error:', error);
+    throw new Error(error.error || 'Failed to dial call');
+  }
   return res.json();
 }
 
@@ -115,7 +126,10 @@ export async function acceptCall(callId: string): Promise<{ status: string }> {
   const res = await fetch(`${API_BASE}/calls/${callId}/accept`, {
     method: 'POST',
   });
-  if (!res.ok) throw new Error('Failed to accept call');
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || 'Failed to accept call');
+  }
   return res.json();
 }
 
@@ -123,7 +137,10 @@ export async function declineCall(callId: string): Promise<{ status: string }> {
   const res = await fetch(`${API_BASE}/calls/${callId}/decline`, {
     method: 'POST',
   });
-  if (!res.ok) throw new Error('Failed to decline call');
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || 'Failed to decline call');
+  }
   return res.json();
 }
 

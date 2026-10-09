@@ -45,7 +45,8 @@ function RootRedirect() {
   // New account coming straight from OAuth callback
   if (isSetup || user?.needsRoleSetup) return <Redirect to="/role" />;
 
-  return <Redirect to="/" />;
+  // Signed in with role set - redirect to appropriate app
+  return <Redirect to={user?.isService ? "/calls" : "/contacts"} />;
 }
 
 function SignedInApp() {

@@ -34,6 +34,7 @@ export function BusinessAddContactModal({ onContactAdded }: BusinessAddContactMo
   };
 
   const handleAddContact = async (accountId: string) => {
+    console.log('[BusinessAddContactModal] Adding contact with accountId:', accountId);
     try {
       await addContactFromAccount(accountId);
       setOpen(false);
@@ -42,6 +43,8 @@ export function BusinessAddContactModal({ onContactAdded }: BusinessAddContactMo
       onContactAdded();
     } catch (error) {
       console.error('Failed to add contact:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add contact';
+      alert(errorMessage);
     }
   };
 

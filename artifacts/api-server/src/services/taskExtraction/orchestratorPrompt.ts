@@ -158,8 +158,38 @@ Return the JSON object with taskActions and knowledgeActions now.`;
 
   if (!raw) return empty;
 
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
-  if (typeof parsed !== "object" || parsed === null) return empty;
+  // Try to extract JSON from the response - handle cases where the model
+  // wraps JSON in markdown code blocks or adds conversational text
+  let jsonStr = raw;
+
+  // Try to find JSON in markdown code blocks
+  const codeBlockMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    jsonStr = codeBlockMatch[1].trim();
+  }
+
+  // Try to find a JSON object in the text (find first { and last })
+  const firstBrace = jsonStr.indexOf('{');
+  const lastBrace = jsonStr.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+  }
+
+  try {
+    const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+    if (typeof parsed !== "object" || parsed === null) return empty;
+    return parseActions(parsed);
+  } catch (e) {
+    // If direct parsing fails, log the error and return empty
+    console.error('Failed to parse orchestrator response:', raw);
+    console.error('Attempted to parse:', jsonStr);
+    console.error('Error:', e);
+    return empty;
+  }
+}
+
+function parseActions(parsed: Record<string, unknown>) {
+  const empty = { taskActions: [], knowledgeActions: [] };
 
   const taskActions = Array.isArray(parsed.taskActions)
     ? (parsed.taskActions as unknown[]).filter(

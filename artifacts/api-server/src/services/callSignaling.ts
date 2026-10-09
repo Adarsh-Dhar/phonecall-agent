@@ -60,10 +60,55 @@ export async function listCallsFor(accountId: string, role: CallRole) {
           category: true,
           isService: true,
           ownerId: true,
+          linkedAccountId: true,
         },
       },
     },
   });
+
+  logger.info({ role, callCount: calls.length }, 'listCallsFor: fetching calls');
+
+  // For business accounts, resolve the individual's name from individualId
+  if (role === 'business') {
+    const individualIds = calls
+      .map(c => c.individualId)
+      .filter((id): id is string => id !== null);
+    
+    logger.info({ individualIds }, 'listCallsFor: resolving individual names');
+
+    const individuals = individualIds.length > 0
+      ? await prisma.account.findMany({
+          where: { id: { in: individualIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+
+    const individualMap = new Map(individuals.map(a => [a.id, a.name]));
+
+    const result = calls.map(call => {
+      const displayName = call.individualId
+        ? individualMap.get(call.individualId) || call.contact.name
+        : call.contact.name;
+      
+      logger.info({ 
+        callId: call.id, 
+        contactName: call.contact.name, 
+        individualId: call.individualId,
+        displayName 
+      }, 'listCallsFor: resolved display name');
+
+      return {
+        ...call,
+        viewerRole: role,
+        contact: {
+          ...call.contact,
+          displayName,
+        },
+      };
+    });
+
+    return result;
+  }
 
   return calls.map(call => ({
     ...call,
@@ -190,54 +235,92 @@ export async function dialCallAs(
     throw new Error('Contact not found');
   }
 
-  // Determine the parties
+  // Determine the parties using linkedAccountId
+  if (contact.ownerId !== dialerId) throw new Error('Contact not found');
+  const otherId = contact.linkedAccountId;
+  if (!otherId) throw new Error('This contact is not linked to an account');
+
+  const other = await prisma.account.findUnique({ where: { id: otherId }, select: { isService: true } });
+  if (!other) throw new Error('Linked account not found');
+
   let individualId: string | null = null;
   let businessId: string | null = null;
   let calleeAccountId: string | null = null;
+  let callContactId = contactId;
+  let callConversationId: string | null = null;
 
   if (dialerRole === 'individual') {
-    // Individual dialing a business
-    if (!contact.isService) {
-      throw new Error('Individuals can only call business accounts');
-    }
+    if (!other.isService) throw new Error('Individuals can only call business accounts');
     individualId = dialerId;
-    businessId = contact.id;
-    calleeAccountId = contact.linkedAccountId || contact.ownerId;
+    businessId = otherId;
+    calleeAccountId = otherId;
+    // Individual's contact is already their own mirror
   } else {
-    // Business dialing an individual
-    if (contact.isService) {
-      throw new Error('Businesses can only call individual accounts');
-    }
+    if (other.isService) throw new Error('Businesses can only call individual accounts');
     businessId = dialerId;
-    individualId = contact.id;
-    calleeAccountId = contact.id;
+    individualId = otherId;
+    calleeAccountId = otherId;
+
+    // Find or create the individual's own mirror of this business
+    let mirror = await prisma.account.findFirst({
+      where: { ownerId: individualId, linkedAccountId: businessId, isService: true },
+      include: { conversations: true },
+    });
+    if (!mirror) {
+      const biz = await prisma.account.findUnique({ where: { id: businessId } });
+      mirror = await prisma.account.create({
+        data: {
+          isService: true,
+          ownerId: individualId,
+          linkedAccountId: businessId,
+          name: biz!.name,
+          business: biz!.business ?? '',
+          category: biz!.category ?? 'Other',
+          phone: biz!.phone ?? '',
+          initials: biz!.initials,
+          color: biz!.color,
+          conversations: { create: { title: `Chat with ${biz!.name}` } },
+        },
+        include: { conversations: true },
+      });
+    }
+    callContactId = mirror.id;
+    callConversationId = mirror.conversations[0]?.id ?? null;
   }
 
   if (!calleeAccountId) {
     throw new Error('No valid callee account found');
   }
 
-  // Validate taskId if provided
+  // Validate taskId if provided (compare against the actual contact used for the call)
   if (taskId) {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
       select: { contactId: true },
     });
-    if (!task || task.contactId !== contactId) {
+    if (!task || task.contactId !== callContactId) {
       throw new Error('Task does not belong to this contact');
     }
   }
 
-  // Get or create conversation
-  let conversation = await prisma.conversation.findFirst({
-    where: { contactId },
-    select: { id: true },
-  });
-
+  // Get or create conversation (use mirror's conversation if business dialing)
+  let conversation;
+  if (callConversationId) {
+    conversation = await prisma.conversation.findUnique({
+      where: { id: callConversationId },
+      select: { id: true },
+    });
+  }
+  if (!conversation) {
+    conversation = await prisma.conversation.findFirst({
+      where: { contactId: callContactId },
+      select: { id: true },
+    });
+  }
   if (!conversation) {
     conversation = await prisma.conversation.create({
       data: {
-        contactId,
+        contactId: callContactId,
         title: `Chat with ${contact.name}`,
       },
     });
@@ -251,7 +334,7 @@ export async function dialCallAs(
     const call = await prisma.call.create({
       data: {
         status: 'missed',
-        contactId,
+        contactId: callContactId,
         calleeAccountId,
         conversationId: conversation.id,
         from: dialerRole === 'individual' ? 'agent' : calleeAccountId,
@@ -271,7 +354,7 @@ export async function dialCallAs(
     data: {
       status: 'ringing',
       ringingAt: new Date(),
-      contactId,
+      contactId: callContactId,
       calleeAccountId,
       conversationId: conversation.id,
       from: dialerRole === 'individual' ? 'agent' : calleeAccountId,
@@ -354,9 +437,8 @@ export async function acceptCallAs(callId: string, accountId: string, role: Call
     throw new Error('Call not found');
   }
 
-  // Verify the account is the recipient
-  const recipientId = recipientIdOf(call);
-  if (recipientId !== accountId) {
+  // Verify the account is the recipient using calleeAccountId
+  if (call.calleeAccountId !== accountId) {
     throw new Error('You can only accept calls directed at you');
   }
 

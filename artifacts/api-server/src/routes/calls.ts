@@ -38,7 +38,7 @@ export function createCallsRouter(role: CallRole): IRouter {
   // GET /api/calls — list all calls for the role
   // ---------------------------------------------------------------------------
 
-  router.get('/calls', asyncHandler(async (req, res) => {
+  router.get('/', asyncHandler(async (req, res) => {
     const calls = await listCallsFor(req.userId!, role);
     res.json(calls);
   }, 'Failed to list calls'));
@@ -47,7 +47,7 @@ export function createCallsRouter(role: CallRole): IRouter {
   // GET /api/calls/:id — poll call status / details
   // ---------------------------------------------------------------------------
 
-  router.get('/calls/:id', asyncHandler(async (req, res) => {
+  router.get('/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
     const call = await getCallFor(String(id), req.userId!, role);
     if (!call) {
@@ -61,7 +61,7 @@ export function createCallsRouter(role: CallRole): IRouter {
   // GET /api/calls/:callId/messages — get transcript for a call
   // ---------------------------------------------------------------------------
 
-  router.get('/calls/:callId/messages', asyncHandler(async (req, res) => {
+  router.get('/:callId/messages', asyncHandler(async (req, res) => {
     const { callId } = req.params;
     const messages = await getTranscriptFor(String(callId), req.userId!, role);
     if (messages === null) {
@@ -87,7 +87,7 @@ export function createCallsRouter(role: CallRole): IRouter {
   // POST /api/calls/dial — initiate a call
   // ---------------------------------------------------------------------------
 
-  router.post('/calls/dial', asyncHandler(async (req, res) => {
+  router.post('/dial', asyncHandler(async (req, res) => {
     const { contactId, taskId } = req.body;
 
     if (!contactId) {
@@ -97,47 +97,60 @@ export function createCallsRouter(role: CallRole): IRouter {
 
     logger.info({ userId: req.userId, contactId, taskId, role }, 'dial: received call request');
 
-    const result = await dialCallAs(String(contactId), taskId ? String(taskId) : null, req.userId!, role);
+    try {
+      const result = await dialCallAs(String(contactId), taskId ? String(taskId) : null, req.userId!, role);
 
-    if (result.status === 'missed') {
-      res.status(202).json({ callId: result.call.id, status: 'missed' });
-      return;
+      if (result.status === 'missed') {
+        res.status(202).json({ callId: result.call.id, status: 'missed' });
+        return;
+      }
+
+      logger.info(
+        { callId: result.call.id, status: result.status, delivered: result.delivered },
+        'dial: call created successfully'
+      );
+
+      res.status(200).json({ callId: result.call.id, status: 'ringing' });
+    } catch (e) {
+      logger.error({ error: e }, 'dial: failed to create call');
+      res.status(400).json({ error: e instanceof Error ? e.message : 'Failed to dial call' });
     }
-
-    logger.info(
-      { callId: result.call.id, status: result.status, delivered: result.delivered },
-      'dial: call created successfully'
-    );
-
-    res.status(200).json({ callId: result.call.id, status: 'ringing' });
   }, 'Failed to dial call'));
 
   // ---------------------------------------------------------------------------
   // POST /api/calls/:id/accept — accept an incoming call
   // ---------------------------------------------------------------------------
 
-  router.post('/calls/:id/accept', asyncHandler(async (req, res) => {
+  router.post('/:id/accept', asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     logger.info({ callId: id, userId: req.userId, role }, 'calls: accept request received');
 
-    const result = await acceptCallAs(String(id), req.userId!, role);
-
-    logger.info({ callId: id, status: result.status }, 'Call accepted');
-    res.json({ status: result.status });
+    try {
+      const result = await acceptCallAs(String(id), req.userId!, role);
+      logger.info({ callId: id, status: result.status }, 'Call accepted');
+      res.json({ status: result.status });
+    } catch (e) {
+      logger.error({ error: e }, 'calls: failed to accept call');
+      res.status(400).json({ error: e instanceof Error ? e.message : 'Failed to accept call' });
+    }
   }, 'Failed to accept call'));
 
   // ---------------------------------------------------------------------------
   // POST /api/calls/:id/decline — decline an incoming call
   // ---------------------------------------------------------------------------
 
-  router.post('/calls/:id/decline', asyncHandler(async (req, res) => {
+  router.post('/:id/decline', asyncHandler(async (req, res) => {
     const { id } = req.params;
 
-    const result = await declineCallAs(String(id), req.userId!, role);
-
-    logger.info({ callId: id, status: result.status }, 'Call declined');
-    res.json({ status: result.status });
+    try {
+      const result = await declineCallAs(String(id), req.userId!, role);
+      logger.info({ callId: id, status: result.status }, 'Call declined');
+      res.json({ status: result.status });
+    } catch (e) {
+      logger.error({ error: e }, 'calls: failed to decline call');
+      res.status(400).json({ error: e instanceof Error ? e.message : 'Failed to decline call' });
+    }
   }, 'Failed to decline call'));
 
   return router;
