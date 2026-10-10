@@ -16,7 +16,7 @@ export function CalendarSection() {
   const [calendarItems, setCalendarItems] = useState<api.Task[]>([]);
   const [googleCalendarEvents, setGoogleCalendarEvents] = useState<api.GoogleCalendarEvent[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(true);
-  const [googleAuthStatus, setGoogleAuthStatus] = useState<api.GoogleAuthStatus | null>(null);
+
   const [syncing, setSyncing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [callingTask, setCallingTask] = useState<api.Task | null>(null);
@@ -24,30 +24,30 @@ export function CalendarSection() {
   const loadCalendar = useCallback(async () => {
     setCalendarLoading(true);
     try {
-      // Load tasks with due dates
-      const allTasks = await api.fetchTasks();
-      const dated = allTasks
-        .filter((t) => t.dueDate && t.status !== 'cancelled')
-        .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+      // Load tasks with due dates (handle 404 gracefully if no contacts exist)
+      let dated: api.Task[] = [];
+      try {
+        const allTasks = await api.fetchTasks();
+        dated = allTasks
+          .filter((t) => t.dueDate && t.status !== 'cancelled')
+          .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+        console.log('[CalendarSection] Loaded calendar items:', dated.length);
+      } catch (err) {
+        console.log('[CalendarSection] No tasks found or no contacts yet');
+        dated = [];
+      }
       setCalendarItems(dated);
-      console.log('[CalendarSection] Loaded calendar items:', dated.length);
 
-      // Load Google Calendar events if connected
-      const status = await api.fetchGoogleAuthStatus();
-      setGoogleAuthStatus(status);
-      console.log('[CalendarSection] Google auth status:', status);
-
-      if (status.connected) {
-        try {
-          const { events } = await api.fetchGoogleCalendarEvents();
-          console.log('[CalendarSection] Loaded Google Calendar events:', events.length);
-          setGoogleCalendarEvents(events);
-        } catch (err) {
-          console.error('[CalendarSection] Failed to load Google Calendar events:', err);
-          setGoogleCalendarEvents([]);
-        }
-      } else {
-        console.log('[CalendarSection] Google Calendar not connected');
+      // Load Google Calendar events (all users are connected via Google OAuth)
+      try {
+        const { events } = await api.fetchGoogleCalendarEvents();
+        console.log('[CalendarSection] Loaded Google Calendar events:', events.length);
+        setGoogleCalendarEvents(events);
+      } catch (err: any) {
+        console.error('[CalendarSection] Failed to load Google Calendar events:', err);
+        console.error('[CalendarSection] Error details:', err.message, err?.response?.status);
+        // If unauthorized (401), it means the session expired - don't show error
+        // If other error, still show empty calendar
         setGoogleCalendarEvents([]);
       }
     } catch (err) {
@@ -57,27 +57,13 @@ export function CalendarSection() {
     }
   }, []);
 
-  const loadGoogleAuthStatus = useCallback(async () => {
-    try {
-      const status = await api.fetchGoogleAuthStatus();
-      setGoogleAuthStatus(status);
-    } catch (err) {
-      console.error('[CalendarSection] Failed to load Google auth status:', err);
-    }
-  }, []);
-
   useEffect(() => { void loadCalendar(); }, [loadCalendar]);
-
-  const handleConnectGoogleCalendar = async () => {
-    await api.connectGoogleCalendar();
-  };
 
   const handleSyncCalendar = async () => {
     setSyncing(true);
     try {
       await api.syncCalendar();
       await loadCalendar();
-      await loadGoogleAuthStatus();
     } catch (err) {
       console.error('[CalendarSection] Failed to sync calendar:', err);
     } finally {
@@ -88,7 +74,7 @@ export function CalendarSection() {
   const handleDisconnectGoogleCalendar = async () => {
     try {
       await api.disconnectGoogleCalendar();
-      setGoogleAuthStatus(null);
+      await loadCalendar();
     } catch (err) {
       console.error('[CalendarSection] Failed to disconnect Google Calendar:', err);
     }
@@ -151,34 +137,21 @@ export function CalendarSection() {
           <p className="text-[10px] text-[#af5c1c]">{calendarItems.filter((t) => t.status !== 'done').length + googleCalendarEvents.length} upcoming</p>
         </div>
         <div className="ml-auto flex items-center gap-1">
-          {!googleAuthStatus?.connected ? (
-            <button
-              type="button"
-              onClick={handleConnectGoogleCalendar}
-              className="flex items-center gap-1.5 rounded-full bg-[#3f8274] px-3 py-1.5 text-[10px] font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#356c61]"
-            >
-              <CalendarIcon size={11} />
-              Connect Google Calendar
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={handleSyncCalendar}
-                disabled={syncing}
-                className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-50"
-              >
-                <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-              </button>
-              <button
-                type="button"
-                onClick={handleDisconnectGoogleCalendar}
-                className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
-              >
-                Disconnect
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            onClick={handleSyncCalendar}
+            disabled={syncing}
+            className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+          </button>
+          <button
+            type="button"
+            onClick={handleDisconnectGoogleCalendar}
+            className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
+          >
+            Disconnect
+          </button>
         </div>
       </div>
 

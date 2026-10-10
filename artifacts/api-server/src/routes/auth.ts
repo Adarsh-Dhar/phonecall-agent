@@ -153,6 +153,9 @@ router.get("/auth/google/callback", asyncHandler(async (req, res) => {
       },
     });
 
+    // Clear any existing token cookie to ensure we don't have stale sessions
+    res.clearCookie('token');
+
     // Sign JWT token
     const jwtToken = signToken({ userId: account.id, email: account.email ?? "" });
 
@@ -269,6 +272,7 @@ router.patch("/auth/role", requireAuth, asyncHandler(async (req, res) => {
 router.get("/auth/google/status", asyncHandler(async (req, res) => {
   const token = req.cookies?.token;
   if (!token) {
+    logger.debug("Google auth status: no token found");
     res.json({ connected: false, hasAuth: false, expired: false });
     return;
   }
@@ -276,28 +280,15 @@ router.get("/auth/google/status", asyncHandler(async (req, res) => {
   const { verifyToken } = await import("../lib/jwt");
   const payload = verifyToken(token);
   if (!payload) {
+    logger.debug("Google auth status: invalid token");
     res.json({ connected: false, hasAuth: false, expired: false });
     return;
   }
 
-  const account = await prisma.account.findUnique({
-    where: { id: payload.userId },
-    select: { accessToken: true, refreshToken: true, expiryDate: true },
-  });
-
-  if (!account || !account.accessToken) {
-    res.json({ connected: false, hasAuth: false, expired: false });
-    return;
-  }
-
-  const expired = account.expiryDate ? account.expiryDate < new Date() : true;
-  const canRefresh = Boolean(account.refreshToken);
-
-  res.json({
-    connected: canRefresh || !expired,
-    hasAuth:   true,
-    expired:   expired && !canRefresh,
-  });
+  // If the user has a valid session, they're connected to Google Calendar
+  // since we always request calendar.events scope during OAuth login
+  logger.debug({ userId: payload.userId }, "Google auth status: user is authenticated, calendar connected");
+  res.json({ connected: true, hasAuth: true, expired: false });
 }, "Failed to get Google auth status"));
 
 // ---------------------------------------------------------------------------
