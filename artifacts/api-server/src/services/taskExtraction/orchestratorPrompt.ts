@@ -62,21 +62,21 @@ KNOWLEDGE action types:
   - "invalidate": an existing fact (matched by key) that is no longer true
 
 Rules for tasks:
-|- For task "update", "complete", "cancel" — include taskId of the existing task.
-|- confidence is a float 0.0–1.0 reflecting certainty.
-|- dueDate: only set this if the conversation states (or unambiguously implies) BOTH a specific date AND a
+- For task "update", "complete", "cancel" — include taskId of the existing task.
+- confidence is a float 0.0–1.0 reflecting certainty.
+- dueDate: only set this if the conversation states (or unambiguously implies) BOTH a specific date AND a
   specific time — e.g. "Tuesday the 9th at 3pm" is fine, but "sometime next week" or "in the morning" is
   not specific enough. Never invent or guess a time of day that wasn't actually given. If only a vague
   timeframe was mentioned, leave dueDate unset entirely rather than picking an arbitrary time — a task
   with no due date is far better than one with a fabricated one.
-|- kind: "call" if the task involves contacting the external person (phone call, email, etc.), "reminder" if it's a personal note or internal task that doesn't require contacting them. Default to "call" when in doubt.
-|- sourceMessageIds is the array of message IDs from new_messages that support this action.
+- kind: "call" if the task involves contacting the external person (phone call, email, etc.), "reminder" if it's a personal note or internal task that doesn't require contacting them. Default to "call" when in doubt.
+- sourceMessageIds is the array of message IDs from new_messages that support this action.
 
 Rules for knowledge:
-|- key must be a short, stable snake_case label (e.g. "preferred_contact_time").
+- key must be a short, stable snake_case label (e.g. "preferred_contact_time").
   Reuse the same key when updating a fact you already know, so it overwrites rather than duplicates.
-|- category is one of: preference | fact | history | constraint | contact_info
-|- Only extract facts likely to matter in a future, unrelated conversation.
+- category is one of: preference | fact | history | constraint | contact_info
+- Only extract facts likely to matter in a future, unrelated conversation.
 
 If nothing actionable, return empty arrays.
 Return ONLY valid JSON — no markdown fences, no explanation.

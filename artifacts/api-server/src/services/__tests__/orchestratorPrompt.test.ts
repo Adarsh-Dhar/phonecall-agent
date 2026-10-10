@@ -71,6 +71,8 @@ describe('callOrchestratorExtraction', () => {
     expect(arg.turns[0].content).toContain('Test Clinic');
     // conversationId is for log correlation only — never sent to the model.
     expect(JSON.stringify(arg)).not.toContain('conv-1');
+    // Guard against prompt corruption (lines starting with |)
+    expect(arg.systemInstructionText).not.toMatch(/^\|/m);
   });
 
   it('parses valid JSON and drops malformed actions', async () => {
@@ -83,7 +85,7 @@ describe('callOrchestratorExtraction', () => {
   });
 
   it('parses JSON wrapped in a markdown fence', async () => {
-    modelReturns('`json\n' + JSON.stringify(validPayload) + '\n`');
+    modelReturns('```json\n' + JSON.stringify(validPayload) + '\n```');
     const result = await callOrchestratorExtraction(context);
     expect(result.taskActions).toHaveLength(1);
   });
