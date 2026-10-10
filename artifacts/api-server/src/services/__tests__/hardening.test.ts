@@ -9,7 +9,7 @@ const NOW = new Date('2026-10-10T08:00:00.000Z');
 describe('extractJsonObject', () => {
   it.each([
     ['{"a":1}'],
-    ['`json\n{"a":1}\n`'],
+    ['```json\n{"a":1}\n```'],
     ['Sure! Here you go:\n{"a":1}\nHope that helps'],
   ])('parses %j', (raw) => {
     expect(extractJsonObject(raw)).toEqual({ a: 1 });

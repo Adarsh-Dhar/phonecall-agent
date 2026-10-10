@@ -110,6 +110,7 @@ export function createCallLifecycle(opts: {
           },
         })
       )
+      .then(() => undefined)
       // Deliberately NO scheduleExtraction here: extracting mid-call acts on
       // half-finished conversations (tasks + Calendar events from a sentence
       // the contact is about to correct). end() schedules it once.

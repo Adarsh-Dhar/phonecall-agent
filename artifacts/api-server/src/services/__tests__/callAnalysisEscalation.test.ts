@@ -41,7 +41,7 @@ describe('analyzeCallForEscalation with a real DB', () => {
     await prisma.account.deleteMany({ where: { id: { in: created.accounts } } });
   });
 
-  it('parse failure on both attempts leaves isEnoughKnowledge null and creates no query', async () => {
+  it('parse failure on both attempts escalates for manual review instead of leaving the call unreviewed', async () => {
     const { call } = await seedCall();
     vi.mocked(generateOrchestratorText).mockResolvedValue({ text: 'not json' } as any);
 
@@ -49,8 +49,10 @@ describe('analyzeCallForEscalation with a real DB', () => {
 
     expect(generateOrchestratorText).toHaveBeenCalledTimes(2); // retried once
     const after = await prisma.call.findUnique({ where: { id: call.id } });
-    expect(after?.isEnoughKnowledge).toBeNull();
-    expect(await prisma.query.count({ where: { callId: call.id } })).toBe(0);
+    expect(after?.isEnoughKnowledge).toBe(false);
+    const queries = await prisma.query.findMany({ where: { callId: call.id } });
+    expect(queries).toHaveLength(1);
+    expect(queries[0].status).toBe('pending');
   });
 
   it('an existing live query for the call prevents a duplicate post-call query', async () => {

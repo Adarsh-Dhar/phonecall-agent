@@ -6,7 +6,7 @@
  */
 export function extractJsonObject(raw: string): Record<string, unknown> {
   let s = raw.trim();
-  const fenced = s.match(/`(?:json)?\s*([\s\S]*?)`/i);
+  const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fenced) s = fenced[1].trim();
   const first = s.indexOf("{");
   const last = s.lastIndexOf("}");
@@ -15,10 +15,10 @@ export function extractJsonObject(raw: string): Record<string, unknown> {
   try {
     parsed = JSON.parse(s);
   } catch {
-    throw new Error("model reply was not valid JSON");
+    throw new SyntaxError("model reply was not valid JSON");
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("model reply was not a JSON object");
+    throw new SyntaxError("model reply was not a JSON object");
   }
   return parsed as Record<string, unknown>;
 }
