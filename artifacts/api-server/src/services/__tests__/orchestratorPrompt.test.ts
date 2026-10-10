@@ -103,7 +103,7 @@ describe('callOrchestratorExtraction', () => {
   });
 
   it('treats an empty model reply as "nothing to extract" without throwing', async () => {
-    vi.mocked(generateOrchestratorText).mockRejectedValueOnce(new OrchestratorEmptyResponseError());
+    vi.mocked(generateOrchestratorText).mockRejectedValueOnce(new OrchestratorEmptyResponseError("empty"));
     await expect(callOrchestratorExtraction(context)).resolves.toEqual({ taskActions: [], knowledgeActions: [] });
   });
 

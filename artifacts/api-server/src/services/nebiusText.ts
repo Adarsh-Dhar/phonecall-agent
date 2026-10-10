@@ -14,6 +14,17 @@
  * open model. The live phone call itself is a separate, latency-sensitive
  * path and stays on Gemini Live — see services/geminiVoiceSession.ts.
  *
+ * Answer policy: only `message.content` is ever returned as the answer. The
+ * model's reasoning (`reasoning_content`, or inline <think blocks>) is never
+ * promoted to an answer; a reply with no real content throws
+ * OrchestratorEmptyResponseError with a `reason` so callers can tell "nothing
+ * to say" from "the model only reasoned / ran out of tokens".
+ *
+ * Fallback policy: the fallback model is used ONLY when the provider says the
+ * requested model itself is unknown/unavailable (see isModelRejection). Any
+ * other 4xx surfaces as a NebiusApiError. Every fallback is logged, counted
+ * (getNebiusModelStatus) and flagged on the result (`fellBack`).
+ *
  * Logging policy: this module never logs or embeds prompts, transcripts or
  * raw model output (they are derived from call transcripts). Errors carry
  * only the provider's own (truncated) message and HTTP status.
@@ -49,10 +60,11 @@ type NebiusMessage = { role: "system" | "user" | "assistant"; content: string };
 type NebiusChoice = {
   message?: {
     content?: string | null;
-    // Some Nemotron reasoning models return their answer here instead of
-    // `content` when the model is left in its default reasoning mode.
+    // Reasoning models may put their chain of thought here. It is NOT the
+    // answer and is never returned to callers.
     reasoning_content?: string | null;
   };
+  finish_reason?: string | null;
 };
 
 type NebiusPayload = {
@@ -73,11 +85,114 @@ export class NebiusApiError extends Error {
   }
 }
 
-/** Thrown when Nebius answers 2xx but with no usable text. */
+export type EmptyResponseReason = "empty" | "reasoning_only" | "truncated";
+
+/**
+ * Thrown when Nebius answers 2xx but with no usable answer text.
+ *  - "empty":          the model genuinely produced nothing.
+ *  - "reasoning_only": only reasoning came back (reasoning mode misconfigured).
+ *  - "truncated":      cut off by max_tokens (finish_reason "length").
+ * Callers that treat "empty" as "nothing to do" must NOT do so for the others.
+ */
 export class OrchestratorEmptyResponseError extends Error {
-  constructor() {
-    super("Nebius returned an empty response.");
+  readonly reason: EmptyResponseReason;
+
+  constructor(reason: EmptyResponseReason = "empty") {
+    super(
+      reason === "reasoning_only"
+        ? "Nebius returned reasoning but no answer."
+        : reason === "truncated"
+          ? "Nebius response was cut off before any answer (max_tokens)."
+          : "Nebius returned an empty response."
+    );
     this.name = "OrchestratorEmptyResponseError";
+    this.reason = reason;
+  }
+}
+
+export type GenerateResult = {
+  text: string;
+  /** Model that actually produced `text`. */
+  model: string;
+  /** Model that was asked for first (NEBIUS_MODEL). */
+  requestedModel: string;
+  /** True when the fallback model answered instead of the requested one. */
+  fellBack: boolean;
+  /** Provider finish_reason; "length" means `text` may be cut off. */
+  finishReason: string | null;
+};
+
+// ---------------------------------------------------------------------------
+// Model fallback bookkeeping (process-local; surfaced by GET /healthz/nebius)
+// ---------------------------------------------------------------------------
+
+const modelStatus = {
+  fallbackCount: 0,
+  lastFallbackAt: null as string | null,
+  lastRequestedModel: null as string | null,
+  lastFallbackModel: null as string | null,
+  lastRejectionStatus: null as number | null,
+  lastRejectionMessage: null as string | null,
+};
+
+export function getNebiusModelStatus() {
+  return { ...modelStatus };
+}
+
+export function resetNebiusModelStatus() {
+  modelStatus.fallbackCount = 0;
+  modelStatus.lastFallbackAt = null;
+  modelStatus.lastRequestedModel = null;
+  modelStatus.lastFallbackModel = null;
+  modelStatus.lastRejectionStatus = null;
+  modelStatus.lastRejectionMessage = null;
+}
+
+/**
+ * True only when the provider is complaining about the MODEL itself. A bare
+ * 400/404 is not enough: a 400 for an unsupported `response_format` or a 404
+ * for a wrong base URL must surface, not be papered over by another model.
+ *
+ * NOTE: Nebius's exact error text for an unknown model is not documented in
+ * what we have. If a genuinely bad model name stops falling back (and shows
+ * up as a NebiusApiError instead), widen MODEL_REJECTION_REASON — failing
+ * loudly is the intended direction.
+ */
+const MODEL_REJECTION_REASON =
+  /(not found|does not exist|doesn't exist|unknown|invalid|unsupported|not supported|no such|unavailable|not available|not deployed|no access)/i;
+
+export function isModelRejection(status: number, message: string): boolean {
+  if (status !== 404 && status !== 400) return false;
+  return /model/i.test(message) && MODEL_REJECTION_REASON.test(message);
+}
+
+/** Remove inline reasoning (some models put in `content`). */
+export function stripReasoning(text: string): string {
+  let out = text.replace(/<think[\s\S]*?<\/think>/gi, "");
+  // An unterminated block means the model never reached its answer.
+  const open = out.search(/<think>/i);
+  if (open !== -1) out = out.slice(0, open);
+  return out.trim();
+}
+
+/**
+ * Optional JSON object merged into every request body, e.g. to switch a
+ * reasoning model into non-thinking mode. The parameter name is
+ * provider/model specific, so it is configuration, not code:
+ *   NEBIUS_EXTRA_BODY='{"chat_template_kwargs":{"enable_thinking":false}}'
+ * Cannot override model/messages/stream.
+ */
+function readExtraBody(): Record<string, unknown> {
+  const raw = process.env.NEBIUS_EXTRA_BODY;
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
+    const { model: _m, messages: _msgs, stream: _s, ...rest } = parsed as Record<string, unknown>;
+    return rest;
+  } catch {
+    logger.warn("nebius: NEBIUS_EXTRA_BODY is not a valid JSON object, ignoring it");
+    return {};
   }
 }
 
@@ -95,7 +210,7 @@ export async function generateOrchestratorText(params: {
   temperature?: number;
   /** Defaults to 8192. */
   maxTokens?: number;
-}): Promise<{ text: string; model: string }> {
+}): Promise<GenerateResult> {
   const { apiKey, baseUrl, model: requestedModel, fallbackModel } = getNebiusConfig();
   if (!apiKey) {
     throw new Error("NEBIUS_API_KEY is not configured.");
@@ -119,6 +234,7 @@ export async function generateOrchestratorText(params: {
 
   async function request(model: string) {
     const body: Record<string, unknown> = {
+      ...readExtraBody(),
       model,
       messages,
       temperature: params.temperature ?? DEFAULT_TEMPERATURE,
@@ -139,29 +255,56 @@ export async function generateOrchestratorText(params: {
 
   let response = await request(requestedModel);
   let modelUsed = requestedModel;
-  if (!response.ok && (response.status === 404 || response.status === 400)) {
-    logger.warn(
-      { status: response.status, requestedModel, fallbackModel },
-      "nebius: requested model rejected, retrying with fallback model"
-    );
-    response = await request(fallbackModel);
-    modelUsed = fallbackModel;
-  }
+  let payload = await readPayload(response);
 
-  // A provider/proxy error page may not be JSON — don't let that mask the
-  // real HTTP status with a SyntaxError.
-  const payload = (await response.json().catch(() => ({}))) as NebiusPayload;
+  const canFallBack = Boolean(fallbackModel) && fallbackModel !== requestedModel;
+  if (!response.ok && canFallBack) {
+    const rejection = providerMessage(payload, response.status);
+    if (isModelRejection(response.status, rejection)) {
+      modelStatus.fallbackCount += 1;
+      modelStatus.lastFallbackAt = new Date().toISOString();
+      modelStatus.lastRequestedModel = requestedModel;
+      modelStatus.lastFallbackModel = fallbackModel;
+      modelStatus.lastRejectionStatus = response.status;
+      modelStatus.lastRejectionMessage = rejection;
+      logger.warn(
+        { status: response.status, requestedModel, fallbackModel, reason: rejection, fallbackCount: modelStatus.fallbackCount },
+        "nebius: requested model rejected, retrying with fallback model — check NEBIUS_MODEL"
+      );
+      response = await request(fallbackModel);
+      modelUsed = fallbackModel;
+      payload = await readPayload(response);
+    }
+  }
 
   if (!response.ok) {
     throw new NebiusApiError(providerMessage(payload, response.status), response.status, modelUsed);
   }
 
-  const message = payload.choices?.[0]?.message;
-  const text = (message?.content || message?.reasoning_content || "").trim();
+  const choice = payload.choices?.[0];
+  const message = choice?.message;
+  const finishReason = choice?.finish_reason ?? null;
+  const text = stripReasoning(message?.content ?? "");
 
   if (!text) {
-    throw new OrchestratorEmptyResponseError();
+    const reason: EmptyResponseReason =
+      finishReason === "length"
+        ? "truncated"
+        : message?.reasoning_content?.trim() || (message?.content ?? "").trim()
+          ? "reasoning_only"
+          : "empty";
+    if (reason !== "empty") {
+      // Metadata only — never the reasoning text itself.
+      logger.warn({ model: modelUsed, reason, finishReason }, "nebius: reply had no answer text");
+    }
+    throw new OrchestratorEmptyResponseError(reason);
   }
 
-  return { text, model: modelUsed };
+  return { text, model: modelUsed, requestedModel, fellBack: modelUsed !== requestedModel, finishReason };
+}
+
+// A provider/proxy error page may not be JSON — don't let that mask the real
+// HTTP status with a SyntaxError.
+async function readPayload(response: Response): Promise<NebiusPayload> {
+  return (await response.json().catch(() => ({}))) as NebiusPayload;
 }

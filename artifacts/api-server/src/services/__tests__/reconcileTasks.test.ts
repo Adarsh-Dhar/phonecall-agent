@@ -67,7 +67,7 @@ describe('parseModelDueDate', () => {
     ['2028-01-01T10:00:00Z', 'beyond the 365-day horizon'],
     [undefined, 'missing'],
     [12345, 'not a string'],
-  ])('rejects %s (%s)', (v) => {
+  ])('rejects %s (%s)', (v, _desc) => {
     expect(parseModelDueDate(v as any, NOW)).toBeNull();
   });
   it('accepts a future date with a time', () => {
