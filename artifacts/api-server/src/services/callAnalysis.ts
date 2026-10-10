@@ -35,7 +35,7 @@ function buildBaseCallInstruction(
     knowledgeFacts.length > 0
       ? "\n\nWhat you already know about this contact:\n" +
         knowledgeFacts.map((f) => `- (${f.category}) ${f.key}: ${f.value}`).join("\n") +
-        "\n\nUse these facts directly — do not say you'll need to check on information that is already listed above."
+        "\n\nUse these facts when relevant instead of asking the other person to repeat them. They were noted from earlier conversations and may be out of date: if the other person contradicts one, accept their version, do not argue, and mention the discrepancy in your end_call summary."
       : "";
 
   const taskBlock = taskContext

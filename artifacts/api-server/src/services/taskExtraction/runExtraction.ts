@@ -156,6 +156,7 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
       result.completed = taskOutcome.completed;
       result.cancelled = taskOutcome.cancelled;
       tasksToSync = taskOutcome.tasksToSync;
+      result.skipped.push(...taskOutcome.skipped);
 
       const knowledgeOutcome = await reconcileKnowledgeActions(tx, {
         knowledgeActions,
@@ -163,7 +164,9 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
         deltaMessages,
       });
       result.knowledgeUpserted = knowledgeOutcome.knowledgeUpserted;
+      result.knowledgeSuggested = knowledgeOutcome.knowledgeSuggested;
       result.knowledgeInvalidated = knowledgeOutcome.knowledgeInvalidated;
+      result.skipped.push(...knowledgeOutcome.skipped);
 
       // Advance cursor inside the same transaction
       await advanceCursor(tx, conversationId, deltaMessages);
@@ -197,23 +200,16 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
         completed: result.completed.length,
         cancelled: result.cancelled.length,
         knowledgeUpserted: result.knowledgeUpserted.length,
+        knowledgeSuggested: result.knowledgeSuggested.length,
         knowledgeInvalidated: result.knowledgeInvalidated.length,
+        skipped: result.skipped.length,
+        skippedReasons: result.skipped.map((s) => `${s.kind}:${s.type}:${s.reason}`),
       },
       "extraction: complete"
     );
 
     // Auto-end conversation if all tasks are completed and no pending queries
     await checkAndAutoEndConversation(conversationId);
-
-    logger.info({ 
-      conversationId,
-      created: result.created.length,
-      updated: result.updated.length,
-      completed: result.completed.length,
-      cancelled: result.cancelled.length,
-      knowledgeUpserted: result.knowledgeUpserted.length,
-      knowledgeInvalidated: result.knowledgeInvalidated.length,
-    }, "extraction: completed successfully");
 
     return result;
   } catch (err) {

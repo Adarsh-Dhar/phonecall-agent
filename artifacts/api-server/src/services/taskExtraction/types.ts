@@ -51,13 +51,33 @@ export type TaskToSync = {
   contact: { name: string; business: string | null };
 };
 
+/** A model action that was NOT applied, and why. Never contains transcript text. */
+export type SkippedAction = {
+  kind: "task" | "knowledge";
+  type: string;
+  /** taskId for tasks, key for knowledge. */
+  ref?: string;
+  reason:
+    | "low_confidence"
+    | "unknown_task"
+    | "no_source_message"
+    | "invalid_due_date"
+    | "would_overwrite_active_fact"
+    | "unknown_fact"
+    | "invalid_value";
+};
+
 export type ExtractionResult = {
   created: string[];
   updated: string[];
   completed: string[];
   cancelled: string[];
+  /** Facts stored as "active" (used on live calls). */
   knowledgeUpserted: string[];
+  /** Low-confidence facts stored as "suggested" (NOT used until approved). */
+  knowledgeSuggested: string[];
   knowledgeInvalidated: string[];
+  skipped: SkippedAction[];
 };
 
 export function emptyExtractionResult(): ExtractionResult {
@@ -67,6 +87,8 @@ export function emptyExtractionResult(): ExtractionResult {
     completed: [],
     cancelled: [],
     knowledgeUpserted: [],
+    knowledgeSuggested: [],
     knowledgeInvalidated: [],
+    skipped: [],
   };
 }

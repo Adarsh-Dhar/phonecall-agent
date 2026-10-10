@@ -69,6 +69,9 @@ Rules for tasks:
   not specific enough. Never invent or guess a time of day that wasn't actually given. If only a vague
   timeframe was mentioned, leave dueDate unset entirely rather than picking an arbitrary time — a task
   with no due date is far better than one with a fabricated one.
+- complete / cancel: only when a message in the NEW messages explicitly says the task is done or no longer
+  wanted. Do not infer it from silence or from a related topic. If you are inferring rather than reading it
+  directly, use confidence below 0.7. Always cite the message(s) that say so in sourceMessageIds.
 - kind: "call" if the task involves contacting the external person (phone call, email, etc.), "reminder" if it's a personal note or internal task that doesn't require contacting them. Default to "call" when in doubt.
 - sourceMessageIds is the array of message IDs from new_messages that support this action.
 
@@ -77,6 +80,9 @@ Rules for knowledge:
   Reuse the same key when updating a fact you already know, so it overwrites rather than duplicates.
 - category is one of: preference | fact | history | constraint | contact_info
 - Only extract facts likely to matter in a future, unrelated conversation.
+- Only extract a fact that a participant actually STATED. Never infer, guess or complete a fact. If you are
+  not sure it was said, leave it out or give it confidence below 0.7. Facts you are unsure of are not used
+  on live phone calls until a person approves them.
 
 If nothing actionable, return empty arrays.
 Return ONLY valid JSON — no markdown fences, no explanation.
@@ -128,11 +134,21 @@ Return the JSON object with taskActions and knowledgeActions now.`;
       maxTokens: 4096,
     });
     raw = result.text;
+    if (result.fellBack) {
+      logger.warn(
+        { conversationId: context.conversationId, model: result.model, requestedModel: result.requestedModel },
+        "orchestrator extraction: answered by the fallback model"
+      );
+    }
+    // Cut-off JSON would otherwise fail to parse and be treated as "nothing
+    // to extract", silently skipping these messages.
+    if (result.finishReason === "length") throw new OrchestratorEmptyResponseError("truncated");
   } catch (err) {
-    // An empty reply means "nothing to extract" (the caller advances the
-    // cursor). Any other failure (HTTP error, network, missing key) is
-    // rethrown so the cursor stays put and the next cycle retries.
-    if (err instanceof OrchestratorEmptyResponseError) return empty;
+    // Only a genuinely empty reply means "nothing to extract" (the caller
+    // advances the cursor). A reasoning-only or truncated reply means the
+    // model did NOT look at the messages properly, so — like any HTTP/network
+    // failure — it is rethrown and the cursor stays put for a retry.
+    if (err instanceof OrchestratorEmptyResponseError && err.reason === "empty") return empty;
     throw err;
   }
 

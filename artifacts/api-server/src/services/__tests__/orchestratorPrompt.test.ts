@@ -38,7 +38,13 @@ const validPayload = {
 };
 
 function modelReturns(text: string) {
-  vi.mocked(generateOrchestratorText).mockResolvedValueOnce({ text, model: 'm' });
+  vi.mocked(generateOrchestratorText).mockResolvedValueOnce({
+    text,
+    model: 'm',
+    requestedModel: 'm',
+    fellBack: false,
+    finishReason: 'stop',
+  });
 }
 
 describe('callOrchestratorExtraction', () => {
@@ -99,6 +105,25 @@ describe('callOrchestratorExtraction', () => {
   it('treats an empty model reply as "nothing to extract" without throwing', async () => {
     vi.mocked(generateOrchestratorText).mockRejectedValueOnce(new OrchestratorEmptyResponseError());
     await expect(callOrchestratorExtraction(context)).resolves.toEqual({ taskActions: [], knowledgeActions: [] });
+  });
+
+  it.each(['reasoning_only', 'truncated'] as const)(
+    'rethrows an empty reply with reason %s so the cursor is not advanced',
+    async (reason) => {
+      vi.mocked(generateOrchestratorText).mockRejectedValueOnce(new OrchestratorEmptyResponseError(reason));
+      await expect(callOrchestratorExtraction(context)).rejects.toBeInstanceOf(OrchestratorEmptyResponseError);
+    }
+  );
+
+  it('rethrows when the JSON was cut off by max_tokens instead of treating it as "nothing to extract"', async () => {
+    vi.mocked(generateOrchestratorText).mockResolvedValueOnce({
+      text: '{"taskActions": [',
+      model: 'm',
+      requestedModel: 'm',
+      fellBack: false,
+      finishReason: 'length',
+    });
+    await expect(callOrchestratorExtraction(context)).rejects.toMatchObject({ reason: 'truncated' });
   });
 
   it('rethrows provider failures so the caller leaves the cursor in place', async () => {

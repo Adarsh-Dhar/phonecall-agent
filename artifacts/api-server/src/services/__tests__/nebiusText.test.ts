@@ -8,11 +8,15 @@ import { logger } from '../../lib/logger';
 import {
   generateOrchestratorText,
   getNebiusConfig,
+  getNebiusModelStatus,
+  isModelRejection,
   NebiusApiError,
   OrchestratorEmptyResponseError,
+  resetNebiusModelStatus,
+  stripReasoning,
 } from '../nebiusText';
 
-const ENV_KEYS = ['NEBIUS_API_KEY', 'NEBIUS_BASE_URL', 'NEBIUS_MODEL', 'NEBIUS_FALLBACK_MODEL'] as const;
+const ENV_KEYS = ['NEBIUS_API_KEY', 'NEBIUS_BASE_URL', 'NEBIUS_MODEL', 'NEBIUS_FALLBACK_MODEL', 'NEBIUS_EXTRA_BODY'] as const;
 const savedEnv: Record<string, string | undefined> = {};
 
 function reply(status: number, body: unknown) {
@@ -42,6 +46,7 @@ describe('nebiusText (the single Nebius client)', () => {
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     vi.mocked(logger.warn).mockClear();
+    resetNebiusModelStatus();
   });
 
   afterEach(() => {
@@ -87,7 +92,13 @@ describe('nebiusText (the single Nebius client)', () => {
       turns: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(result).toEqual({ text: 'hello', model: 'nvidia/Nemotron-3_5-Lightning' });
+    expect(result).toEqual({
+      text: 'hello',
+      model: 'nvidia/Nemotron-3_5-Lightning',
+      requestedModel: 'nvidia/Nemotron-3_5-Lightning',
+      fellBack: false,
+      finishReason: null,
+    });
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('http://localhost:9999/v1/chat/completions');
     expect(init.method).toBe('POST');
@@ -144,7 +155,7 @@ describe('nebiusText (the single Nebius client)', () => {
       turns: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(result).toEqual({ text: 'from fallback', model: 'my/fallback' });
+    expect(result).toMatchObject({ text: 'from fallback', model: 'my/fallback', fellBack: true });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(sentBody(0).model).toBe('nvidia/Nemotron-3_5-Lightning');
     expect(sentBody(1).model).toBe('my/fallback');
@@ -167,7 +178,7 @@ describe('nebiusText (the single Nebius client)', () => {
 
   it('throws NebiusApiError for the fallback response when both models fail', async () => {
     fetchMock
-      .mockResolvedValueOnce(reply(404, { error: 'primary missing' }))
+      .mockResolvedValueOnce(reply(404, { error: 'model primary not found' }))
       .mockResolvedValueOnce(reply(500, { error: 'fallback broke' }));
 
     const err = await generateOrchestratorText({
@@ -216,16 +227,154 @@ describe('nebiusText (the single Nebius client)', () => {
     expect(JSON.stringify(vi.mocked(logger.warn).mock.calls)).not.toContain(secret);
   });
 
-  it('prefers content, falls back to reasoning_content, and trims', async () => {
+  it('returns trimmed content and never promotes reasoning_content to the answer', async () => {
     fetchMock.mockResolvedValueOnce(ok('  the answer  ', { reasoning_content: 'thinking' }));
     expect((await generateOrchestratorText({ systemInstructionText: 's', turns: [{ role: 'user', content: 'x' }] })).text).toBe(
       'the answer'
     );
+  });
 
-    fetchMock.mockResolvedValueOnce(ok('', { reasoning_content: ' only reasoning ' }));
-    expect((await generateOrchestratorText({ systemInstructionText: 's', turns: [{ role: 'user', content: 'x' }] })).text).toBe(
-      'only reasoning'
+  it('throws reason "reasoning_only" (not the reasoning text) when only reasoning_content is present', async () => {
+    fetchMock.mockResolvedValueOnce(ok('', { reasoning_content: 'SECRET-CHAIN-OF-THOUGHT' }));
+    const err = await generateOrchestratorText({
+      systemInstructionText: 's',
+      turns: [{ role: 'user', content: 'x' }],
+    }).catch((e) => e);
+    expect(err).toBeInstanceOf(OrchestratorEmptyResponseError);
+    expect(err.reason).toBe('reasoning_only');
+    expect(String(err.message)).not.toContain('SECRET-CHAIN-OF-THOUGHT');
+    expect(JSON.stringify(vi.mocked(logger.warn).mock.calls)).not.toContain('SECRET-CHAIN-OF-THOUGHT');
+  });
+
+  it('throws reason "truncated" when max_tokens cut the reply off before any answer', async () => {
+    fetchMock.mockResolvedValueOnce(
+      reply(200, { choices: [{ message: { content: '', reasoning_content: 'still thinking' }, finish_reason: 'length' }] })
     );
+    const err = await generateOrchestratorText({
+      systemInstructionText: 's',
+      turns: [{ role: 'user', content: 'x' }],
+    }).catch((e) => e);
+    expect(err.reason).toBe('truncated');
+  });
+
+  it('reports finishReason "length" when a partial answer came back', async () => {
+    fetchMock.mockResolvedValueOnce(reply(200, { choices: [{ message: { content: '{"a":' }, finish_reason: 'length' }] }));
+    const r = await generateOrchestratorText({ systemInstructionText: 's', turns: [{ role: 'user', content: 'x' }] });
+    expect(r.finishReason).toBe('length');
+  });
+
+  it('strips inline <think> blocks from content', async () => {
+    fetchMock.mockResolvedValueOnce(ok('<think>internal plan</think>\n continuation '));
+    const r = await generateOrchestratorText({ systemInstructionText: 's', turns: [{ role: 'user', content: 'x' }] });
+    expect(r.text).toBe('continuation');
+  });
+
+  it('treats content that is only an (unterminated) <think> block as reasoning_only', async () => {
+    fetchMock.mockResolvedValueOnce(ok('<think>never finished'));
+    const err = await generateOrchestratorText({
+      systemInstructionText: 's',
+      turns: [{ role: 'user', content: 'x' }],
+    }).catch((e) => e);
+    expect(err.reason).toBe('reasoning_only');
+  });
+
+  it('stripReasoning leaves ordinary text alone', () => {
+    expect(stripReasoning('  hello  ')).toBe('hello');
+  });
+
+  describe('model fallback gating', () => {
+    it.each([
+      [404, 'The model `foo` does not exist', true],
+      [400, 'Unknown model: foo', true],
+      [404, 'model not found', true],
+      [400, 'response_format json_object is not supported', false],
+      [400, 'max_tokens must be less than 4096', false],
+      [404, 'Not Found', false],
+      [401, 'invalid model key', false],
+      [500, 'model unavailable', false],
+    ])('isModelRejection(%i, %s) -> %s', (status, message, expected) => {
+      expect(isModelRejection(status as number, message as string)).toBe(expected);
+    });
+
+    it('does NOT fall back on a 400 that is not about the model, and surfaces it', async () => {
+      fetchMock.mockResolvedValueOnce(reply(400, { error: { message: 'response_format is not supported here' } }));
+      const err = await generateOrchestratorText({
+        systemInstructionText: 's',
+        turns: [{ role: 'user', content: 'x' }],
+        jsonResponse: true,
+      }).catch((e) => e);
+      expect(err).toBeInstanceOf(NebiusApiError);
+      expect(err.status).toBe(400);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(getNebiusModelStatus().fallbackCount).toBe(0);
+    });
+
+    it('does NOT fall back on a bare 404 (e.g. wrong base URL)', async () => {
+      fetchMock.mockResolvedValueOnce(reply(404, '<html>Not Found</html>'));
+      const err = await generateOrchestratorText({
+        systemInstructionText: 's',
+        turns: [{ role: 'user', content: 'x' }],
+      }).catch((e) => e);
+      expect(err).toBeInstanceOf(NebiusApiError);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('records every fallback in the model status and flags the result', async () => {
+      process.env.NEBIUS_MODEL = 'typo/model';
+      process.env.NEBIUS_FALLBACK_MODEL = 'good/model';
+      fetchMock
+        .mockResolvedValueOnce(reply(404, { error: { message: 'model typo/model not found' } }))
+        .mockResolvedValueOnce(ok('ok'));
+      const r = await generateOrchestratorText({ systemInstructionText: 's', turns: [{ role: 'user', content: 'x' }] });
+      expect(r).toMatchObject({ model: 'good/model', requestedModel: 'typo/model', fellBack: true });
+      expect(getNebiusModelStatus()).toMatchObject({
+        fallbackCount: 1,
+        lastRequestedModel: 'typo/model',
+        lastFallbackModel: 'good/model',
+        lastRejectionStatus: 404,
+      });
+    });
+
+    it('does not retry when the fallback is disabled (empty) or equals the requested model', async () => {
+      process.env.NEBIUS_FALLBACK_MODEL = '';
+      fetchMock.mockResolvedValueOnce(reply(404, { error: { message: 'model not found' } }));
+      const err = await generateOrchestratorText({
+        systemInstructionText: 's',
+        turns: [{ role: 'user', content: 'x' }],
+      }).catch((e) => e);
+      expect(err).toBeInstanceOf(NebiusApiError);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      process.env.NEBIUS_MODEL = 'same/model';
+      process.env.NEBIUS_FALLBACK_MODEL = 'same/model';
+      fetchMock.mockResolvedValueOnce(reply(404, { error: { message: 'model not found' } }));
+      await generateOrchestratorText({ systemInstructionText: 's', turns: [{ role: 'user', content: 'x' }] }).catch(() => {});
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('NEBIUS_EXTRA_BODY', () => {
+    it('merges extra fields but cannot override model/messages', async () => {
+      process.env.NEBIUS_EXTRA_BODY = JSON.stringify({
+        chat_template_kwargs: { enable_thinking: false },
+        model: 'evil/model',
+        messages: [],
+      });
+      fetchMock.mockResolvedValueOnce(ok('hi'));
+      await generateOrchestratorText({ systemInstructionText: 's', turns: [{ role: 'user', content: 'x' }] });
+      const body = sentBody();
+      expect(body.chat_template_kwargs).toEqual({ enable_thinking: false });
+      expect(body.model).toBe('nvidia/Nemotron-3_5-Lightning');
+      expect(body.messages).toHaveLength(2);
+    });
+
+    it('ignores invalid JSON with a warning', async () => {
+      process.env.NEBIUS_EXTRA_BODY = '{nope';
+      fetchMock.mockResolvedValueOnce(ok('hi'));
+      await generateOrchestratorText({ systemInstructionText: 's', turns: [{ role: 'user', content: 'x' }] });
+      expect(sentBody()).not.toHaveProperty('chat_template_kwargs');
+      expect(logger.warn).toHaveBeenCalled();
+    });
   });
 
   it('throws OrchestratorEmptyResponseError when there is no usable text', async () => {
