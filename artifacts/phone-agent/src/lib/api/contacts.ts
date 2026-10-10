@@ -53,6 +53,14 @@ export const createContact = async (
   return response.json();
 };
 
+export const deleteContact = async (contactId: string): Promise<{ success: boolean }> => {
+  const response = await apiFetch(`${API_BASE_URL}/contacts/${contactId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete contact');
+  return response.json();
+};
+
 // ── Account search + link ─────────────────────────────────────────────────
 
 export class ApiError extends Error {

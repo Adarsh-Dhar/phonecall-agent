@@ -313,6 +313,13 @@ router.post('/contacts/from-account/:accountId', requireBusiness, asyncHandler(a
     return;
   }
 
+  // Ensure the contact has a valid business/email field
+  const businessField = target.business ?? target.email;
+  if (!businessField) {
+    res.status(400).json({ error: 'Contact must have a business name or email' });
+    return;
+  }
+
   // Derive display initials from name if the target hasn't set them
   const initials = target.initials
     ?? target.name
@@ -331,7 +338,7 @@ router.post('/contacts/from-account/:accountId', requireBusiness, asyncHandler(a
       ownerId: req.userId!,
       linkedAccountId: target.id,
       name: target.name,
-      business: target.business ?? target.email ?? '',
+      business: businessField,
       category: target.category ?? 'Other',
       phone: target.phone ?? '',
       initials,

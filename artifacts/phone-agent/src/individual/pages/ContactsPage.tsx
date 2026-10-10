@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Trash2 } from 'lucide-react';
 import * as api from '@/lib/api';
 import type { Contact } from '@/lib/api';
 import { AppLayout } from '@/individual/components/layout';
@@ -28,6 +28,23 @@ export function ContactsPage() {
 
   const handleContactAdded = (contact: Contact) => {
     setContacts((prev) => [contact, ...prev]);
+  };
+
+  const handleDeleteContact = async (contactId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!confirm('Are you sure you want to delete this contact?')) {
+      return;
+    }
+
+    try {
+      await api.deleteContact(contactId);
+      setContacts((prev) => prev.filter((c) => c.id !== contactId));
+    } catch (error) {
+      console.error('[ContactsPage] Failed to delete contact:', error);
+      alert('Failed to delete contact');
+    }
   };
 
   return (
@@ -85,15 +102,25 @@ export function ContactsPage() {
                   <h3 className="font-bold">{contact.name}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">{contact.business}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      contact.online ? 'bg-[#5bc4a3]' : 'bg-[#879a94]'
-                    }`}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {contact.online ? 'Online' : 'Offline'}
-                  </span>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        contact.online ? 'bg-[#5bc4a3]' : 'bg-[#879a94]'
+                      }`}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {contact.online ? 'Online' : 'Offline'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteContact(contact.id, e)}
+                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    title="Delete contact"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </Link>
             ))}

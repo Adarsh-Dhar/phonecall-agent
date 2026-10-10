@@ -182,6 +182,13 @@ router.post("/contacts/from-account/:accountId", asyncHandler(async (req, res) =
     return;
   }
 
+  // Ensure the contact has a valid business/email field
+  const businessField = target.business ?? target.email;
+  if (!businessField) {
+    res.status(400).json({ error: "Contact must have a business name or email" });
+    return;
+  }
+
   // Derive display initials from name if the target hasn't set them
   const initials = target.initials
     ?? target.name
@@ -200,7 +207,7 @@ router.post("/contacts/from-account/:accountId", asyncHandler(async (req, res) =
       ownerId:         req.userId!,
       linkedAccountId: target.id,
       name:            target.name,
-      business:        target.business ?? target.email ?? "",
+      business:        businessField,
       category:        target.category ?? "Other",
       phone:           target.phone ?? "",
       initials,
@@ -262,6 +269,18 @@ router.get("/contacts", asyncHandler(async (req, res) => {
 // If `withConversation` is truthy, also creates the first chat thread.
 router.post("/contacts", asyncHandler(async (req, res) => {
   const { name, business, category, phone, initials, color, note, withConversation } = req.body;
+
+  // Validate required fields
+  if (!name) {
+    res.status(400).json({ error: "Name is required" });
+    return;
+  }
+
+  if (!business) {
+    res.status(400).json({ error: "Business name or email is required" });
+    return;
+  }
+
   const contact = await prisma.account.create({
     data: {
       isService: true,

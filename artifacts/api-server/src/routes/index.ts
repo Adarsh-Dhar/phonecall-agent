@@ -31,7 +31,7 @@ router.use("/business", businessRouter);
 
 // ── Individual-only routes (mount each with requireIndividual separately) ───
 router.use("/orchestrator", requireIndividual, orchestratorRouter);
-router.use("/contacts", requireIndividual, contactsRouter);
+router.use("", requireIndividual, contactsRouter);
 router.use("/conversations", requireIndividual, conversationsRouter);
 router.use("/messages", requireIndividual, messagesRouter);
 router.use("/history", requireIndividual, historyRouter);
