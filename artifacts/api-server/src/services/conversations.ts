@@ -121,10 +121,14 @@ New content: "${newContent}"
 Respond with only "continuation" or "new_topic".`,
         },
       ],
+      temperature: 0,
+      maxTokens: 256,
     });
 
-    const response = text.toLowerCase().trim();
-    return response === "continuation";
+    // Tolerate "Continuation.", quotes, or a short explanation. Only an
+    // explicit new_topic splits the conversation; anything ambiguous keeps
+    // it together (the documented fail-safe).
+    return !/new[\s_-]?topic/i.test(text);
   } catch (error) {
     logger.error({ error }, "conversations: topic classification failed, defaulting to continuation");
     // Fail safe: assume continuation on error
@@ -185,6 +189,8 @@ ${conversationText}
 Topic summary:`,
         },
       ],
+      temperature: 0.3,
+      maxTokens: 256,
     });
 
     return text.trim().slice(0, 100);

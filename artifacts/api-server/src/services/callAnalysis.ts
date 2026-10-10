@@ -2,6 +2,7 @@ import { prisma } from "@workspace/db-prisma";
 import { generateOrchestratorText, type OrchestratorTextTurn } from "./nebiusText";
 import { logger } from "../lib/logger";
 import { slugify } from "../lib/utils";
+import { extractJsonObject } from "../lib/extractJson";
 
 export function buildCallTimeContext(tz: string, now = new Date()): string {
   const defaultTz = process.env.DEFAULT_TIMEZONE || "Asia/Kolkata";
@@ -234,19 +235,24 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const { text } = await generateOrchestratorText({
+      const { text, finishReason } = await generateOrchestratorText({
         systemInstructionText: systemText,
         turns: orchestratorTurns,
         jsonResponse: true,
+        temperature: 0.1,
+        maxTokens: 1024,
       });
-      const parsed = JSON.parse(text) as {
+      if (finishReason === "length") throw new Error("decision was cut off (max_tokens)");
+      const parsed = extractJsonObject(text) as {
         isEnoughKnowledge?: boolean;
         escalationQuestion?: string | null;
         knowledgeKey?: string | null;
         knowledgeCategory?: string | null;
         outcome?: string | null;
       };
-      isEnoughKnowledge = parsed.isEnoughKnowledge !== false;
+      // A missing / non-boolean verdict is a bad reply, not "all good".
+      if (typeof parsed.isEnoughKnowledge !== "boolean") throw new Error("decision missing isEnoughKnowledge");
+      isEnoughKnowledge = parsed.isEnoughKnowledge;
       if (!isEnoughKnowledge) {
         escalationQuestion =
           parsed.escalationQuestion?.trim() ||
@@ -263,6 +269,16 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
     } catch (err) {
       logger.warn({ err, callId, attempt }, "callAnalysis: failed to parse escalation decision, retrying");
     }
+  }
+
+  // Both attempts failed: do not silently leave the call unreviewed. Fail
+  // toward a human looking at it (an escalation the user can dismiss).
+  if (isEnoughKnowledge === null) {
+    logger.error({ callId }, "callAnalysis: escalation decision failed twice, escalating for manual review");
+    isEnoughKnowledge = false;
+    escalationQuestion = `The call with ${contact?.name ?? "the contact"} could not be analysed automatically — can you review the transcript?`;
+    knowledgeKey = `review-call-${callId}`;
+    knowledgeCategory = "fact";
   }
 
   await prisma.call.update({

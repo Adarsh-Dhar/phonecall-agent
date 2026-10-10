@@ -1,5 +1,6 @@
 import { logger } from "../../lib/logger";
 import { generateOrchestratorText, OrchestratorEmptyResponseError } from "../nebiusText";
+import { extractJsonObject } from "../../lib/extractJson";
 import type { ExistingTask, NewMessage, TaskAction, KnowledgeAction } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -41,7 +42,8 @@ export async function callOrchestratorExtraction(
 
   const systemPrompt = `Today's date is ${todayISO}. When resolving partial or relative dates (e.g. "7th of September", "next Monday"), always use this date as the reference and infer the correct year.
 
-You review a conversation between a user and their Phone Agent assistant with an external contact.
+You review a conversation between the account OWNER, their Phone Agent assistant, and an external CONTACT.
+Each message has a "speaker": "owner" (the account holder, in chat), "agent" (the assistant), or "contact (on the call)" (the other party on a phone call — NOT the owner). A task is something the AGENT or OWNER must do; never attribute a request made by the contact on a call to the owner unless the agent or owner agreed to it.
 Your job: identify two types of things from the new messages:
 
 1. TASKS — actionable items the assistant needs to do, follow up on, or that the user is waiting on.
@@ -95,7 +97,7 @@ JSON schema:
       "taskId": "<string, required for update/complete/cancel>",
       "title": "<string, required for create; optional for update>",
       "description": "<string, optional>",
-      "dueDate": "<ISO 8601 string, optional>",
+      "dueDate": "<ISO 8601 with date, time AND UTC offset e.g. 2026-10-12T15:00:00+05:30; omit if no exact time was agreed>",
       "priority": "low" | "normal" | "high",
       "kind": "call" | "reminder",
       "confidence": <number 0-1>,
@@ -152,26 +154,8 @@ Return the JSON object with taskActions and knowledgeActions now.`;
     throw err;
   }
 
-  // Try to extract JSON from the response - handle cases where the model
-  // wraps JSON in markdown code blocks or adds conversational text
-  let jsonStr = raw;
-
-  // Try to find JSON in markdown code blocks
-  const codeBlockMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) {
-    jsonStr = codeBlockMatch[1].trim();
-  }
-
-  // Try to find a JSON object in the text (find first { and last })
-  const firstBrace = jsonStr.indexOf('{');
-  const lastBrace = jsonStr.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-  }
-
   try {
-    const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-    if (typeof parsed !== "object" || parsed === null) return empty;
+    const parsed = extractJsonObject(raw);
     return parseActions(parsed);
   } catch (e) {
     // The model output is derived from call transcripts, so it must not be
@@ -183,7 +167,6 @@ Return the JSON object with taskActions and knowledgeActions now.`;
         errorName: e instanceof Error ? e.name : typeof e,
         conversationId: context.conversationId,
         rawChars: raw.length,
-        jsonChars: jsonStr.length,
       },
       "orchestrator extraction: could not parse model response"
     );

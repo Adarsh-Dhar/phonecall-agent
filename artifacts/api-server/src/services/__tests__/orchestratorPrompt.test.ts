@@ -20,8 +20,8 @@ const context = {
   contactBusiness: 'Clinic',
   existingTasks: [],
   newMessages: [
-    { id: 'm1', role: 'user', content: 'Please call me Tuesday at 3pm', time: '10:00' },
-    { id: 'm2', role: 'assistant', content: 'Sure', time: '10:01' },
+    { id: 'm1', speaker: 'contact (on the call)', source: 'phone_call' as const, content: 'Please call me Tuesday at 3pm', time: '10:00' },
+    { id: 'm2', speaker: 'agent (on the call, for the owner)', source: 'phone_call' as const, content: 'Sure', time: '10:01' },
   ],
 };
 

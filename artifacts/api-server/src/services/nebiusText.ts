@@ -161,9 +161,16 @@ export function resetNebiusModelStatus() {
 const MODEL_REJECTION_REASON =
   /(not found|does not exist|doesn't exist|unknown|invalid|unsupported|not supported|no such|unavailable|not available|not deployed|no access)/i;
 
+// Errors that are about the REQUEST (parameters, size), even if the word
+// "model" appears in them. These must surface, never trigger a fallback.
+const REQUEST_ERROR =
+  /(response_format|json_object|json_schema|max_tokens|temperature|messages?\b|context length|context window|too long|too many tokens|maximum context|schema)/i;
+
 export function isModelRejection(status: number, message: string): boolean {
   if (status !== 404 && status !== 400) return false;
-  return /model/i.test(message) && MODEL_REJECTION_REASON.test(message);
+  if (!/model/i.test(message)) return false;
+  if (REQUEST_ERROR.test(message)) return false;
+  return MODEL_REJECTION_REASON.test(message);
 }
 
 /** Remove inline reasoning (some models put in `content`). */

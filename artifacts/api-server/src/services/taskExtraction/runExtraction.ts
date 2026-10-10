@@ -125,7 +125,14 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
       })),
       newMessages: deltaMessages.map((m) => ({
         id: m.id,
-        role: m.role,
+        // In a live call transcript (callId set) role "user" is the OTHER PARTY
+        // on the line and "assistant" is our agent speaking for the owner. In
+        // chat (no callId) "user" is the owner. Label by speaker so the model
+        // never has to guess which side a request came from.
+        speaker: m.callId
+          ? m.role === "assistant" ? "agent (on the call, for the owner)" : "contact (on the call)"
+          : m.role === "assistant" ? "agent" : "owner",
+        source: m.callId ? "phone_call" : "chat",
         content: m.content,
         time: m.time,
       })),

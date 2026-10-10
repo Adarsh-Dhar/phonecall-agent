@@ -110,9 +110,9 @@ export function createCallLifecycle(opts: {
           },
         })
       )
-      .then(() => {
-        scheduleExtraction(currentConversationId);
-      })
+      // Deliberately NO scheduleExtraction here: extracting mid-call acts on
+      // half-finished conversations (tasks + Calendar events from a sentence
+      // the contact is about to correct). end() schedules it once.
       .catch((err) => {
         logger.error({ err, role, currentConversationId }, "callLifecycle: failed to log turn");
       });
@@ -165,6 +165,10 @@ export function createCallLifecycle(opts: {
     await analyzeCallForEscalation(opts.callId).catch((err) =>
       logger.error({ err, callId: opts.callId }, "callLifecycle: post-call analysis failed")
     );
+
+    // Whole transcript is in; extract once (debounced).
+    await turnLogQueue;
+    scheduleExtraction(opts.conversationId);
   }
 
   async function onGeminiClosed() {

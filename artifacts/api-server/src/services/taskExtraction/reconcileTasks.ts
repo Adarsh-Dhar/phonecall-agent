@@ -17,6 +17,9 @@ const ACTIVE_STATUSES = ["suggested", "open", "in_progress"];
  */
 export function parseModelDueDate(value: unknown, now = new Date()): Date | null {
   if (typeof value !== "string" || !/\d{1,2}:\d{2}/.test(value)) return null;
+  // No Z / +hh:mm means JS parses it in the SERVER's timezone — a silently
+  // wrong time. Reject instead of guessing.
+  if (!/(Z|[+-]\d{2}:?\d{2})$/i.test(value.trim())) return null;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
   if (d.getTime() < now.getTime() - DUE_DATE_PAST_TOLERANCE_MS) return null;

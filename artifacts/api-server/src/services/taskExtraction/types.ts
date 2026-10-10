@@ -14,7 +14,9 @@ export type ExistingTask = {
 
 export type NewMessage = {
   id: string;
-  role: string;
+  /** Who said it: owner | agent | "contact (on the call)" | "agent (on the call, for the owner)". */
+  speaker: string;
+  source: "phone_call" | "chat";
   content: string;
   time: string;
 };
