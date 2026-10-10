@@ -1,11 +1,15 @@
+import { logger } from "../../lib/logger";
+import { generateOrchestratorText, OrchestratorEmptyResponseError } from "../nebiusText";
 import type { ExistingTask, NewMessage, TaskAction, KnowledgeAction } from "./types";
 
 // ---------------------------------------------------------------------------
-// Orchestrator extraction call (Nebius Token Factory, NVIDIA open model)
+// Orchestrator extraction call. The Nebius transport (URL, key, model,
+// fallback, error handling) lives in services/nebiusText.ts — this file only
+// owns the extraction prompt and response parsing.
 // ---------------------------------------------------------------------------
 
-const REQUESTED_MODEL = process.env.NEBIUS_MODEL ?? "nvidia/Nemotron-3_5-Lightning";
-const BASE_URL = (process.env.NEBIUS_BASE_URL ?? "https://api.tokenfactory.nebius.com/v1").replace(/\/+$/, "");
+/** Max characters of raw model output included in the opt-in debug log. */
+const RAW_DEBUG_PREVIEW_CHARS = 500;
 
 export function resolveTodayISO(timezone?: string, now = new Date()): string {
   const defaultTz = process.env.DEFAULT_TIMEZONE || "Asia/Kolkata";
@@ -21,13 +25,14 @@ export function resolveTodayISO(timezone?: string, now = new Date()): string {
 }
 
 export async function callOrchestratorExtraction(
-  apiKey: string,
   context: {
     contactName: string;
     contactBusiness: string | null;
     existingTasks: ExistingTask[];
     newMessages: NewMessage[];
     timezone?: string;
+    /** Only used to correlate log lines; never sent to the model. */
+    conversationId?: string;
   }
 ): Promise<{ taskActions: TaskAction[]; knowledgeActions: KnowledgeAction[] }> {
   const empty = { taskActions: [], knowledgeActions: [] };
@@ -57,21 +62,21 @@ KNOWLEDGE action types:
   - "invalidate": an existing fact (matched by key) that is no longer true
 
 Rules for tasks:
-- For task "update", "complete", "cancel" — include taskId of the existing task.
-- confidence is a float 0.0–1.0 reflecting certainty.
-- dueDate: only set this if the conversation states (or unambiguously implies) BOTH a specific date AND a
+|- For task "update", "complete", "cancel" — include taskId of the existing task.
+|- confidence is a float 0.0–1.0 reflecting certainty.
+|- dueDate: only set this if the conversation states (or unambiguously implies) BOTH a specific date AND a
   specific time — e.g. "Tuesday the 9th at 3pm" is fine, but "sometime next week" or "in the morning" is
   not specific enough. Never invent or guess a time of day that wasn't actually given. If only a vague
   timeframe was mentioned, leave dueDate unset entirely rather than picking an arbitrary time — a task
   with no due date is far better than one with a fabricated one.
-- kind: "call" if the task involves contacting the external person (phone call, email, etc.), "reminder" if it's a personal note or internal task that doesn't require contacting them. Default to "call" when in doubt.
-- sourceMessageIds is the array of message IDs from new_messages that support this action.
+|- kind: "call" if the task involves contacting the external person (phone call, email, etc.), "reminder" if it's a personal note or internal task that doesn't require contacting them. Default to "call" when in doubt.
+|- sourceMessageIds is the array of message IDs from new_messages that support this action.
 
 Rules for knowledge:
-- key must be a short, stable snake_case label (e.g. "preferred_contact_time").
+|- key must be a short, stable snake_case label (e.g. "preferred_contact_time").
   Reuse the same key when updating a fact you already know, so it overwrites rather than duplicates.
-- category is one of: preference | fact | history | constraint | contact_info
-- Only extract facts likely to matter in a future, unrelated conversation.
+|- category is one of: preference | fact | history | constraint | contact_info
+|- Only extract facts likely to matter in a future, unrelated conversation.
 
 If nothing actionable, return empty arrays.
 Return ONLY valid JSON — no markdown fences, no explanation.
@@ -113,50 +118,23 @@ ${JSON.stringify(context.newMessages, null, 2)}
 
 Return the JSON object with taskActions and knowledgeActions now.`;
 
-  const body = {
-    model: REQUESTED_MODEL,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userContent },
-    ],
-    temperature: 0.2, // low temperature — we want structured, deterministic output
-    max_tokens: 4096,
-    response_format: { type: "json_object" },
-  };
-
-  const url = `${BASE_URL}/chat/completions`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(
-      `Orchestrator extraction failed: ${response.status} — ${JSON.stringify(err)}`
-    );
+  let raw: string;
+  try {
+    const result = await generateOrchestratorText({
+      systemInstructionText: systemPrompt,
+      turns: [{ role: "user", content: userContent }],
+      jsonResponse: true,
+      temperature: 0.2, // low temperature — we want structured, deterministic output
+      maxTokens: 4096,
+    });
+    raw = result.text;
+  } catch (err) {
+    // An empty reply means "nothing to extract" (the caller advances the
+    // cursor). Any other failure (HTTP error, network, missing key) is
+    // rethrown so the cursor stays put and the next cycle retries.
+    if (err instanceof OrchestratorEmptyResponseError) return empty;
+    throw err;
   }
-
-  const payload = (await response.json()) as {
-    choices?: Array<{
-      message?: {
-        content?: string | null;
-        // Some Nemotron reasoning models put the answer here instead of
-        // `content` when left in their default reasoning mode.
-        reasoning_content?: string | null;
-      };
-    }>;
-  };
-
-  const message = payload.choices?.[0]?.message;
-  const raw = (message?.content || message?.reasoning_content || "").trim();
-
-  if (!raw) return empty;
 
   // Try to extract JSON from the response - handle cases where the model
   // wraps JSON in markdown code blocks or adds conversational text
@@ -180,10 +158,25 @@ Return the JSON object with taskActions and knowledgeActions now.`;
     if (typeof parsed !== "object" || parsed === null) return empty;
     return parseActions(parsed);
   } catch (e) {
-    // If direct parsing fails, log the error and return empty
-    console.error('Failed to parse orchestrator response:', raw);
-    console.error('Attempted to parse:', jsonStr);
-    console.error('Error:', e);
+    // The model output is derived from call transcripts, so it must not be
+    // dumped into logs by default: log only metadata. Do NOT log `e` itself —
+    // V8's JSON.parse messages quote a snippet of the input. A truncated
+    // preview is available for debugging when opted in via LOG_LLM_RAW=1.
+    logger.error(
+      {
+        errorName: e instanceof Error ? e.name : typeof e,
+        conversationId: context.conversationId,
+        rawChars: raw.length,
+        jsonChars: jsonStr.length,
+      },
+      "orchestrator extraction: could not parse model response"
+    );
+    if (process.env.LOG_LLM_RAW === "1") {
+      logger.debug(
+        { conversationId: context.conversationId, rawPreview: raw.slice(0, RAW_DEBUG_PREVIEW_CHARS) },
+        "orchestrator extraction: raw model response (truncated, LOG_LLM_RAW=1)"
+      );
+    }
     return empty;
   }
 }

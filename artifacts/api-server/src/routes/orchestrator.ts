@@ -1,30 +1,29 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
+import {
+  generateOrchestratorText,
+  getNebiusConfig,
+  NebiusApiError,
+  OrchestratorEmptyResponseError,
+} from "../services/nebiusText";
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
 
 // Demo chat runs on the orchestrator's text model (Nebius Token Factory,
 // NVIDIA open model) — not the live voice call, which stays on Gemini Live.
-// See services/nebiusText.ts for the shared version of this pattern.
-const REQUESTED_MODEL = process.env.NEBIUS_MODEL ?? "nvidia/Nemotron-3_5-Lightning";
-const COMPATIBLE_MODEL = "meta-llama/Llama-3.3-70B-Instruct-fast";
-const BASE_URL = (process.env.NEBIUS_BASE_URL ?? "https://api.tokenfactory.nebius.com/v1").replace(/\/+$/, "");
+// All Nebius access (URL, key, model, fallback) lives in services/nebiusText.ts.
 
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
 };
 
-function chatCompletionsUrl() {
-  return `${BASE_URL}/chat/completions`;
-}
-
 // Route path kept as /gemini/chat for frontend/API compatibility even though
 // the implementation now runs on Nebius — see lib/api/orchestrator.ts on the
 // frontend, which still targets this same path.
 router.post("/gemini/chat", async (req, res) => {
-  const apiKey = process.env.NEBIUS_API_KEY;
+  const { apiKey, model: requestedModel } = getNebiusConfig();
   const messages = req.body?.messages as ChatMessage[] | undefined;
   const contactId = req.body?.contactId as string | undefined;
 
@@ -32,8 +31,6 @@ router.post("/gemini/chat", async (req, res) => {
     res.status(503).json({ error: "Orchestrator is not configured yet." });
     return;
   }
-
-  const key = apiKey;
 
   if (
     !Array.isArray(messages) ||
@@ -85,70 +82,28 @@ router.post("/gemini/chat", async (req, res) => {
     "This is a demo app — you don't actually place real bookings, but you should describe the outcome as settled, not pending." +
     knowledgeBlock;
 
-  const chatMessages = [
-    { role: "system" as const, content: systemContent },
-    ...messages.map((m) => ({ role: m.role, content: m.content })),
-  ];
-
-  async function request(model: string) {
-    return fetch(chatCompletionsUrl(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: chatMessages,
-        temperature: 0.7,
-        max_tokens: 8192,
-      }),
-    });
-  }
-
   try {
-    let response = await request(REQUESTED_MODEL);
-    let modelUsed = REQUESTED_MODEL;
+    const { text, model } = await generateOrchestratorText({
+      systemInstructionText: systemContent,
+      turns: messages.map((m) => ({ role: m.role, content: m.content })),
+    });
 
-    // Keep the requested model as the first choice, but fall back when the
-    // account/key doesn't have that model enabled.
-    if (!response.ok && (response.status === 404 || response.status === 400)) {
-      response = await request(COMPATIBLE_MODEL);
-      modelUsed = COMPATIBLE_MODEL;
+    res.json({ message: text, model, requestedModel });
+  } catch (error) {
+    if (error instanceof OrchestratorEmptyResponseError) {
+      res.status(502).json({ error: "Orchestrator returned an empty response.", model: requestedModel });
+      return;
     }
 
-    const payload = (await response.json()) as {
-      choices?: Array<{
-        message?: {
-          content?: string | null;
-          // Some Nemotron reasoning models put the answer here instead of
-          // `content` when left in their default reasoning mode.
-          reasoning_content?: string | null;
-        };
-      }>;
-      error?: { message?: string } | string;
-    };
-
-    if (!response.ok) {
-      req.log.error({ status: response.status, modelUsed }, "Orchestrator request failed");
-      const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+    if (error instanceof NebiusApiError) {
+      req.log.error({ status: error.status, modelUsed: error.model }, "Orchestrator request failed");
       res.status(502).json({
-        error: message ?? "Orchestrator could not answer right now.",
-        model: modelUsed,
+        error: error.message || "Orchestrator could not answer right now.",
+        model: error.model,
       });
       return;
     }
 
-    const message = payload.choices?.[0]?.message;
-    const text = (message?.content || message?.reasoning_content || "").trim();
-
-    if (!text) {
-      res.status(502).json({ error: "Orchestrator returned an empty response.", model: modelUsed });
-      return;
-    }
-
-    res.json({ message: text, model: modelUsed, requestedModel: REQUESTED_MODEL });
-  } catch (error) {
     req.log.error({ err: error }, "Orchestrator request could not be completed");
     res.status(502).json({ error: "Could not reach the orchestrator right now." });
   }

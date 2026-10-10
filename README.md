@@ -81,9 +81,11 @@ Example: `{"days":[1,2,3,4,5],"start":9,"end":17,"tz":"Asia/Kolkata"}` means Mon
 
 - `GEMINI_API_KEY` - Google Gemini API key for voice processing
 - `GEMINI_LIVE_MODEL` - Model to use for live voice calls
-- `NEBIUS_API_KEY` - Nebius API key for task extraction
+- `NEBIUS_API_KEY` - Nebius API key for all orchestrator text calls (task/knowledge extraction, post-call escalation, topic classification/summaries, demo chat)
 - `NEBIUS_BASE_URL` - Nebius API base URL
-- `NEBIUS_MODEL` - Nebius model to use for extraction
+- `NEBIUS_MODEL` - Nebius model to use
+- `NEBIUS_FALLBACK_MODEL` - (optional) model used when `NEBIUS_MODEL` is rejected; defaults to `Qwen/Qwen3.5-397B-A17B`
+- `LOG_LLM_RAW` - (optional) set to `1` to log a truncated preview of an unparseable extraction response at debug level; off by default because it is derived from call transcripts
 
 ### Google Calendar
 

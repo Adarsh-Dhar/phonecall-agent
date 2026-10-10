@@ -2,6 +2,7 @@ import { prisma } from "@workspace/db-prisma";
 import { logger } from "../../lib/logger";
 import { syncTaskToCalendar } from "../googleCalendar";
 import { callOrchestratorExtraction } from "./orchestratorPrompt";
+import { getNebiusConfig } from "../nebiusText";
 import { reconcileTaskActions } from "./reconcileTasks";
 import { reconcileKnowledgeActions } from "./reconcileKnowledge";
 import { advanceCursor } from "./cursor";
@@ -20,8 +21,7 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
   
   const result = emptyExtractionResult();
 
-  const apiKey = process.env.NEBIUS_API_KEY;
-  if (!apiKey) {
+  if (!getNebiusConfig().apiKey) {
     logger.warn({ conversationId }, "extraction: skipped (no API key)");
     return result;
   }
@@ -111,7 +111,8 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
     // ------------------------------------------------------------------
     // 4. Build prompt and call the orchestrator model
     // ------------------------------------------------------------------
-    const { taskActions, knowledgeActions } = await callOrchestratorExtraction(apiKey, {
+    const { taskActions, knowledgeActions } = await callOrchestratorExtraction({
+      conversationId,
       contactName: conversation.contact.name,
       contactBusiness: conversation.contact.business,
       existingTasks: openTasks.map((t) => ({

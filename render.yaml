@@ -19,6 +19,8 @@ services:
         sync: false
       - key: NEBIUS_MODEL
         sync: false
+      - key: NEBIUS_FALLBACK_MODEL
+        sync: false
       - key: EXOTEL_SID
         sync: false
       - key: EXOTEL_API_KEY
@@ -70,6 +72,8 @@ services:
       - key: NEBIUS_BASE_URL
         sync: false
       - key: NEBIUS_MODEL
+        sync: false
+      - key: NEBIUS_FALLBACK_MODEL
         sync: false
       - key: EXOTEL_SID
         sync: false

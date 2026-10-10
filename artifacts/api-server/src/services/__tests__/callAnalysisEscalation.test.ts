@@ -1,6 +1,9 @@
 import { describe, it, expect, afterAll, beforeEach, vi } from 'vitest';
 
-vi.mock('../nebiusText', () => ({ generateOrchestratorText: vi.fn() }));
+vi.mock('../nebiusText', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../nebiusText')>()),
+  generateOrchestratorText: vi.fn(),
+}));
 
 import { prisma } from '@workspace/db-prisma';
 import { generateOrchestratorText } from '../nebiusText';

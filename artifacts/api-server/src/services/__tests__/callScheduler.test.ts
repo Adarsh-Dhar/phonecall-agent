@@ -5,7 +5,10 @@ vi.mock('../notifications', () => ({
   broadcastCallExhausted: vi.fn().mockResolvedValue(true),
 }));
 vi.mock('../push', () => ({ sendPushToAccount: vi.fn().mockResolvedValue(true) }));
-vi.mock('../nebiusText', () => ({ generateOrchestratorText: vi.fn() }));
+vi.mock('../nebiusText', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../nebiusText')>()),
+  generateOrchestratorText: vi.fn(),
+}));
 
 import { prisma } from '@workspace/db-prisma';
 import { broadcastCallDue, broadcastCallExhausted } from '../notifications';
