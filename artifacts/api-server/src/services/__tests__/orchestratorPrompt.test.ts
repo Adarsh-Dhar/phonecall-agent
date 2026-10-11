@@ -91,7 +91,7 @@ describe('callOrchestratorExtraction', () => {
   });
 
   it('parses JSON wrapped in a markdown fence', async () => {
-    modelReturns('```json\n' + JSON.stringify(validPayload) + '\n```');
+    modelReturns('`json\n' + JSON.stringify(validPayload) + '\n`');
     const result = await callOrchestratorExtraction(context);
     expect(result.taskActions).toHaveLength(1);
   });
@@ -146,11 +146,12 @@ describe('callOrchestratorExtraction', () => {
       expect(message).toContain('SECRET');
     });
 
-    it('returns empty results and logs metadata only — no raw output, no console.error', async () => {
+    it('rethrows (cursor stays put) and logs metadata only — no raw output, no console.error', async () => {
       modelReturns(unparseable);
-      const result = await callOrchestratorExtraction(context);
+      const err = await callOrchestratorExtraction(context).catch((e) => e);
 
-      expect(result).toEqual({ taskActions: [], knowledgeActions: [] });
+      expect(err).toBeInstanceOf(SyntaxError);
+      expect((err as Error).message).not.toContain('SECRET');
       expect(consoleError).not.toHaveBeenCalled();
       expect(logger.error).toHaveBeenCalledTimes(1);
 
@@ -169,7 +170,7 @@ describe('callOrchestratorExtraction', () => {
         vi.mocked(logger.info).mock.calls,
         vi.mocked(logger.debug).mock.calls,
       ]);
-      expect(everything).not.toContain(SECRET);
+      expect(everything).not.toContain('SECRET');
       expect(logger.debug).not.toHaveBeenCalled();
     });
 
@@ -177,7 +178,7 @@ describe('callOrchestratorExtraction', () => {
       process.env.LOG_LLM_RAW = '1';
       const long = `{not valid json ${'x'.repeat(2000)}}`;
       modelReturns(long);
-      await callOrchestratorExtraction(context);
+      await callOrchestratorExtraction(context).catch(() => undefined);
 
       expect(consoleError).not.toHaveBeenCalled();
       expect(logger.debug).toHaveBeenCalledTimes(1);

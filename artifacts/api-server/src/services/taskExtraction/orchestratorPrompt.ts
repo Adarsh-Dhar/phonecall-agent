@@ -193,6 +193,8 @@ export async function callOrchestratorExtraction(context: {
     if (process.env.LOG_LLM_RAW === "1") {
       logger.debug({ conversationId: context.conversationId, rawPreview: reply.text.slice(0, 500) }, "extraction: raw model output (LOG_LLM_RAW)");
     }
-    return NOTHING();
+    // Rethrow (generic message, no transcript): the cursor must stay put so the
+    // delta is retried; runExtraction skips it after MAX_DELTA_FAILURES.
+    throw e;
   }
 }
