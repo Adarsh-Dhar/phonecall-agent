@@ -5,7 +5,7 @@ vi.mock("../../lib/logger", () => ({
 }));
 
 import {
-  callNebiusChat, generateOrchestratorText, getNebiusStats, isModelRejection, resetNebiusStats, NebiusError,
+  callNebiusChat, generateOrchestratorText, getNebiusStats, isModelRejection, resetNebiusStats, NebiusApiError,
 } from "../nebiusText";
 
 const ok = (content: string, extra: object = {}) =>
@@ -70,7 +70,7 @@ describe("nebiusText", () => {
 
   it("gives up after maxRetries and throws a retryable NebiusError", async () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => err(500, "boom")));
-    await expect(callNebiusChat({ messages: [{ role: "user", content: "hi" }] })).rejects.toMatchObject({ name: "NebiusError", status: 500, retryable: true });
+    await expect(callNebiusChat({ messages: [{ role: "user", content: "hi" }] })).rejects.toMatchObject({ name: "NebiusApiError", status: 500, retryable: true });
   });
 
   it("retries network errors / timeouts", async () => {
@@ -82,21 +82,31 @@ describe("nebiusText", () => {
   it("checks status before parsing: an HTML error page is a clean error, not a SyntaxError", async () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => new Response("<html>Bad gateway</html>", { status: 502 })));
     const e = await callNebiusChat({ messages: [{ role: "user", content: "hi" }] }).catch((x) => x);
-    expect(e).toBeInstanceOf(NebiusError);
+    expect(e).toBeInstanceOf(NebiusApiError);
     expect(e.status).toBe(502);
   });
 
-  it("a truncated JSON reply is an error", async () => {
+  it("a partial reply cut off by max_tokens is returned with finishReason 'length' (caller decides)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '{"a":' }, finish_reason: "length" }] }), { status: 200 })));
-    await expect(callNebiusChat({ messages: [{ role: "user", content: "hi" }], jsonResponse: true })).rejects.toThrow(/cut off/);
+    const r = await callNebiusChat({ messages: [{ role: "user", content: "hi" }], jsonResponse: true });
+    expect(r.finishReason).toBe("length");
     expect(getNebiusStats().truncated).toBe(1);
   });
 
-  it("empty reply is an error; reasoning_content is used when content is empty", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(ok("")));
-    await expect(callNebiusChat({ messages: [{ role: "user", content: "hi" }] })).rejects.toThrow(/empty/);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: null, reasoning_content: "answer" }, finish_reason: "stop" }] }), { status: 200 })));
-    expect((await callNebiusChat({ messages: [{ role: "user", content: "hi" }] })).text).toBe("answer");
+  it("empty / reasoning-only / cut-off-before-answer replies throw OrchestratorEmptyResponseError with a reason", async () => {
+    const body = (message: object, finish_reason = "stop") => new Response(JSON.stringify({ choices: [{ message, finish_reason }] }), { status: 200 });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(body({ content: "" })));
+    await expect(callNebiusChat({ messages: [{ role: "user", content: "hi" }] })).rejects.toMatchObject({ name: "OrchestratorEmptyResponseError", reason: "empty" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(body({ content: null, reasoning_content: "thinking..." })));
+    await expect(callNebiusChat({ messages: [{ role: "user", content: "hi" }] })).rejects.toMatchObject({ reason: "reasoning_only" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(body({ content: "" }, "length")));
+    await expect(callNebiusChat({ messages: [{ role: "user", content: "hi" }] })).rejects.toMatchObject({ reason: "truncated" });
+  });
+
+  it("reports requestedModel and fellBack", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(err(404, "model req/model does not exist")).mockResolvedValueOnce(ok("x")));
+    const r = await generateOrchestratorText({ systemInstructionText: "s", turns: [{ role: "user", content: "u" }] });
+    expect(r).toMatchObject({ model: "fb/model", requestedModel: "req/model", fellBack: true, finishReason: "stop" });
   });
 
   it("generateOrchestratorText appends a user turn when history ends on the assistant, and forwards temperature/maxTokens", async () => {

@@ -12,13 +12,15 @@ export type ExistingTask = {
   priority: string;
 };
 
-/** Who actually said it. Raw Message.role is ambiguous: on a call, "user" is the
- *  external contact; in the app chat, "user" is the owner. */
-export type Speaker = "owner" | "agent" | "contact";
-
+/**
+ * One transcript line shown to the model. Raw Message.role is ambiguous (on a
+ * call "user" is the external contact; in the app chat it is the owner), so the
+ * speaker is a human-readable label built from role + callId.
+ */
 export type NewMessage = {
   id: string;
-  speaker: Speaker;
+  speaker: string; // e.g. "contact (on the call)", "owner (in the app)"
+  source: "phone_call" | "app_chat";
   content: string;
   time: string;
 };
@@ -89,6 +91,8 @@ export type ExtractionResult = {
   completed: string[];
   cancelled: string[];
   knowledgeUpserted: string[];
+  /** Low-confidence facts stored as "suggested" (not used on calls until approved). */
+  knowledgeSuggested: string[];
   knowledgeInvalidated: string[];
   skipped: SkippedAction[];
 };
@@ -100,6 +104,7 @@ export function emptyExtractionResult(): ExtractionResult {
     completed: [],
     cancelled: [],
     knowledgeUpserted: [],
+    knowledgeSuggested: [],
     knowledgeInvalidated: [],
     skipped: [],
   };

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
-import { callNebiusChat, NebiusError } from "../services/nebiusText";
+import { callNebiusChat, NebiusApiError } from "../services/nebiusText";
 import { buildDemoChatSystemPrompt } from "../services/demoChatPrompt";
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
@@ -80,7 +80,7 @@ router.post("/gemini/chat", async (req, res) => {
     res.json({ message: text, model });
   } catch (error) {
     req.log.error({ err: error }, "Orchestrator request failed");
-    const message = error instanceof NebiusError ? error.message : "Could not reach the orchestrator right now.";
+    const message = error instanceof NebiusApiError ? error.message : "Could not reach the orchestrator right now.";
     res.status(502).json({ error: message });
   }
 });

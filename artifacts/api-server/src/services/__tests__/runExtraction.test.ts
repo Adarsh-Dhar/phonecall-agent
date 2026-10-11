@@ -18,7 +18,7 @@ vi.mock("@workspace/db-prisma", () => ({ prisma: hoisted.prisma }));
 vi.mock("../taskExtraction/orchestratorPrompt", () => ({ callOrchestratorExtraction: hoisted.callModel }));
 
 import { runExtraction } from "../taskExtraction/runExtraction";
-import { NebiusError } from "../nebiusText";
+import { NebiusApiError } from "../nebiusText";
 
 const { state, prisma, callModel } = hoisted;
 
@@ -50,25 +50,25 @@ beforeEach(() => {
 
 describe("runExtraction", () => {
   it("labels speakers by callId/role and passes known facts to the model", async () => {
-    callModel.mockResolvedValue({ taskActions: [], knowledgeActions: [], dropped: 0 });
+    callModel.mockResolvedValue({ taskActions: [], knowledgeActions: [] });
     await runExtraction("c1");
-    const ctx = callModel.mock.calls[0][1];
-    expect(ctx.newMessages.map((m: any) => m.speaker)).toEqual(["contact", "agent"]);
+    const ctx = callModel.mock.calls[0][0];
+    expect(ctx.newMessages.map((m: any) => m.speaker)).toEqual(["contact (on the call)", "agent (on the call, for the owner)"]);
     expect(ctx.existingKnowledge).toEqual([{ key: "k", category: "fact", value: "v" }]);
     expect(state.cursor).toBe("m2");
   });
 
   it("app-chat 'user' rows are the owner, not the contact", async () => {
     state.messages = state.messages.map((m) => ({ ...m, callId: null }));
-    callModel.mockResolvedValue({ taskActions: [], knowledgeActions: [], dropped: 0 });
+    callModel.mockResolvedValue({ taskActions: [], knowledgeActions: [] });
     await runExtraction("c1");
-    expect(callModel.mock.calls[0][1].newMessages[0].speaker).toBe("owner");
+    expect(callModel.mock.calls[0][0].newMessages[0].speaker).toBe("owner (in the app)");
   });
 
   it("two overlapping runs never call the model concurrently; the second becomes a queued re-run", async () => {
     let release!: () => void;
-    callModel.mockImplementationOnce(() => new Promise((res) => { release = () => res({ taskActions: [], knowledgeActions: [], dropped: 0 }); }));
-    callModel.mockResolvedValue({ taskActions: [], knowledgeActions: [], dropped: 0 });
+    callModel.mockImplementationOnce(() => new Promise((res) => { release = () => res({ taskActions: [], knowledgeActions: [] }); }));
+    callModel.mockResolvedValue({ taskActions: [], knowledgeActions: [] });
 
     const first = runExtraction("c1");
     await vi.waitFor(() => expect(callModel).toHaveBeenCalledTimes(1));
@@ -79,7 +79,7 @@ describe("runExtraction", () => {
     release();
     await first;
     expect(callModel).toHaveBeenCalledTimes(2); // re-run picked up the new messages from the moved cursor
-    expect(callModel.mock.calls[1][1].newMessages.map((m: any) => m.id)).toEqual(["m3", "m4"]);
+    expect(callModel.mock.calls[1][0].newMessages.map((m: any) => m.id)).toEqual(["m3", "m4"]);
     expect(state.cursor).toBe("m4");
   });
 
@@ -93,9 +93,9 @@ describe("runExtraction", () => {
   });
 
   it("outages / rate limits / bad keys never count toward skipping a delta", async () => {
-    callModel.mockRejectedValue(new NebiusError("rate limited", 429, true));
+    callModel.mockRejectedValue(new NebiusApiError("rate limited", 429, "m"));
     for (let i = 0; i < 5; i++) await runExtraction("c1");
-    callModel.mockRejectedValue(new NebiusError("unauthorized", 401, false));
+    callModel.mockRejectedValue(new NebiusApiError("unauthorized", 401, "m"));
     for (let i = 0; i < 5; i++) await runExtraction("c1");
     expect(state.cursor).toBeNull();
   });
@@ -103,7 +103,7 @@ describe("runExtraction", () => {
   it("if another instance moved the cursor while the model was thinking, nothing is written", async () => {
     callModel.mockImplementation(async () => {
       state.cursor = "m2"; // someone else extracted meanwhile
-      return { taskActions: [{ type: "create", title: "dup", confidence: 0.9, sourceMessageIds: ["m1"] }], knowledgeActions: [], dropped: 0 };
+      return { taskActions: [{ type: "create", title: "dup", confidence: 0.9, sourceMessageIds: ["m1"] }], knowledgeActions: [] };
     });
     prisma.task.create = vi.fn();
     const r = await runExtraction("c1");

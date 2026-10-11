@@ -1,7 +1,7 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../../lib/logger";
 import { syncTaskToCalendar } from "../googleCalendar";
-import { NebiusError } from "../nebiusText";
+import { NebiusApiError } from "../nebiusText";
 import { callOrchestratorExtraction } from "./orchestratorPrompt";
 import { reconcileTaskActions } from "./reconcileTasks";
 import { reconcileKnowledgeActions } from "./reconcileKnowledge";
@@ -24,7 +24,7 @@ class StaleCursorError extends Error {}
 /** Failures that say nothing about the delta itself: outages, rate limits, auth/config. */
 function isTransientOrConfig(err: unknown): boolean {
   if (err instanceof StaleCursorError) return true;
-  if (err instanceof NebiusError) {
+  if (err instanceof NebiusApiError) {
     if (err.retryable) return true;
     if (err.status === undefined) return true; // e.g. NEBIUS_API_KEY missing
     return [401, 403, 404, 429].includes(err.status);
@@ -32,11 +32,17 @@ function isTransientOrConfig(err: unknown): boolean {
   return false;
 }
 
-function speakerOf(m: { role: string; callId: string | null }): NewMessage["speaker"] {
-  if (m.role === "assistant") return "agent";
+function labelMessage(m: { role: string; callId: string | null }): Pick<NewMessage, "speaker" | "source"> {
   // On a call (phone or browser test), "user" rows are the external contact.
   // In the app chat / query answers, "user" rows are the owner.
-  return m.callId ? "contact" : "owner";
+  if (m.callId) {
+    return m.role === "assistant"
+      ? { speaker: "agent (on the call, for the owner)", source: "phone_call" }
+      : { speaker: "contact (on the call)", source: "phone_call" };
+  }
+  return m.role === "assistant"
+    ? { speaker: "agent (in the app chat)", source: "app_chat" }
+    : { speaker: "owner (in the app)", source: "app_chat" };
 }
 
 /**
@@ -62,7 +68,14 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
     for (let pass = 0; pass < 10; pass++) {
       state.rerun = false;
       const { result, hasMore, ok } = await runExtractionOnce(conversationId);
-      for (const k of Object.keys(total) as Array<keyof ExtractionResult>) total[k].push(...result[k]);
+      total.created.push(...result.created);
+      total.updated.push(...result.updated);
+      total.completed.push(...result.completed);
+      total.cancelled.push(...result.cancelled);
+      total.knowledgeUpserted.push(...result.knowledgeUpserted);
+      total.knowledgeSuggested.push(...result.knowledgeSuggested);
+      total.knowledgeInvalidated.push(...result.knowledgeInvalidated);
+      total.skipped.push(...result.skipped);
       if (!ok) break; // don't hot-loop on a failing delta; next trigger retries
       if (!hasMore && !state.rerun) break;
     }
@@ -138,7 +151,8 @@ async function runExtractionOnce(
     ]);
 
     // 4. Model call
-    const { taskActions, knowledgeActions, dropped } = await callOrchestratorExtraction(apiKey, {
+    const { taskActions, knowledgeActions } = await callOrchestratorExtraction({
+      conversationId,
       contactName: conversation.contact.name,
       contactBusiness: conversation.contact.business,
       existingTasks: openTasks.map((t) => ({
@@ -152,13 +166,12 @@ async function runExtractionOnce(
       existingKnowledge: knowledge,
       newMessages: deltaMessages.map((m) => ({
         id: m.id,
-        speaker: speakerOf(m),
+        ...labelMessage(m),
         content: m.content,
         time: m.time,
       })),
       timezone: owner?.timezone ?? undefined,
     });
-    if (dropped > 0) logger.warn({ conversationId, dropped }, "extraction: model actions failed validation and were dropped");
 
     if (taskActions.length === 0 && knowledgeActions.length === 0) {
       await advanceCursor(prisma, conversationId, deltaMessages);
@@ -199,6 +212,8 @@ async function runExtractionOnce(
           deltaMessages,
         });
         result.knowledgeUpserted = knowledgeOutcome.knowledgeUpserted;
+        result.knowledgeSuggested = knowledgeOutcome.knowledgeSuggested;
+        result.skipped = [...taskOutcome.skipped, ...knowledgeOutcome.skipped];
         result.knowledgeInvalidated = knowledgeOutcome.knowledgeInvalidated;
 
         await advanceCursor(tx, conversationId, deltaMessages);
@@ -222,6 +237,8 @@ async function runExtractionOnce(
         completed: result.completed.length,
         cancelled: result.cancelled.length,
         knowledgeUpserted: result.knowledgeUpserted.length,
+        knowledgeSuggested: result.knowledgeSuggested.length,
+        skipped: result.skipped.length,
         knowledgeInvalidated: result.knowledgeInvalidated.length,
       },
       "extraction: complete",

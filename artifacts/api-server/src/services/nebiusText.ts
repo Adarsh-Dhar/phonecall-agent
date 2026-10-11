@@ -35,14 +35,34 @@ function config() {
 export type OrchestratorTextTurn = { role: "user" | "assistant"; content: string };
 export type NebiusMessage = { role: "system" | "user" | "assistant"; content: string };
 
-export class NebiusError extends Error {
+/** Provider/transport failure. `model` is the model the request targeted. */
+export class NebiusApiError extends Error {
+  readonly retryable: boolean;
   constructor(
     message: string,
     public readonly status?: number,
-    public readonly retryable = false,
+    public readonly model?: string,
+    retryable?: boolean,
   ) {
     super(message);
-    this.name = "NebiusError";
+    this.name = "NebiusApiError";
+    this.retryable = retryable ?? (status !== undefined && (status === 429 || status >= 500));
+  }
+}
+/** Back-compat alias for older imports. */
+export const NebiusError = NebiusApiError;
+export type NebiusError = NebiusApiError;
+
+/**
+ * The provider answered 200 but gave us no usable answer.
+ *  - "empty":          nothing at all
+ *  - "reasoning_only": only chain-of-thought, no answer (never treated as the answer)
+ *  - "truncated":      cut off by max_tokens before any answer
+ */
+export class OrchestratorEmptyResponseError extends Error {
+  constructor(public readonly reason: "empty" | "reasoning_only" | "truncated" | string) {
+    super(`Nebius returned no usable answer (${reason}).`);
+    this.name = "OrchestratorEmptyResponseError";
   }
 }
 
@@ -133,7 +153,7 @@ async function post(model: string, body: Record<string, unknown>, apiKey: string
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** One model, with retries on transient failures. Throws NebiusError on failure. */
+/** One model, with retries on transient failures. Throws NebiusApiError on failure. */
 async function postWithRetry(model: string, body: Record<string, unknown>, apiKey: string): Promise<RawResult> {
   const cfg = config();
   let lastErr: unknown;
@@ -143,18 +163,18 @@ async function postWithRetry(model: string, body: Record<string, unknown>, apiKe
       if (r.ok) return r;
       const transient = r.status === 429 || r.status >= 500;
       if (!transient || attempt === cfg.maxRetries) {
-        throw new NebiusError(errorMessage(r), r.status, transient);
+        throw new NebiusApiError(errorMessage(r), r.status, model, transient);
       }
       stats.retries++;
       const wait = r.retryAfterMs ?? cfg.retryBaseMs * 2 ** attempt + Math.random() * cfg.retryBaseMs;
       logger.warn({ model, status: r.status, attempt, waitMs: Math.round(wait) }, "nebius: transient error, retrying");
       await sleep(wait);
-      lastErr = new NebiusError(errorMessage(r), r.status, true);
+      lastErr = new NebiusApiError(errorMessage(r), r.status, model, true);
     } catch (err) {
-      if (err instanceof NebiusError) throw err;
+      if (err instanceof NebiusApiError) throw err;
       // network error or timeout (AbortError / TimeoutError)
       if (attempt === cfg.maxRetries) {
-        throw new NebiusError(`Nebius request failed: ${(err as Error).message}`, undefined, true);
+        throw new NebiusApiError(`Nebius request failed: ${(err as Error).message}`, undefined, model, true);
       }
       stats.retries++;
       const wait = cfg.retryBaseMs * 2 ** attempt;
@@ -163,7 +183,7 @@ async function postWithRetry(model: string, body: Record<string, unknown>, apiKe
       lastErr = err;
     }
   }
-  throw lastErr instanceof Error ? lastErr : new NebiusError("Nebius request failed");
+  throw lastErr instanceof Error ? lastErr : new NebiusApiError("Nebius request failed", undefined, model, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -172,7 +192,11 @@ async function postWithRetry(model: string, body: Record<string, unknown>, apiKe
 
 export type NebiusChatResult = {
   text: string;
+  /** Model that actually answered. */
   model: string;
+  /** Model we asked for first (differs from `model` only when fellBack). */
+  requestedModel: string;
+  fellBack: boolean;
   finishReason: string | null;
   usage: { promptTokens: number; completionTokens: number } | null;
 };
@@ -186,7 +210,7 @@ export async function callNebiusChat(params: {
   purpose?: string;
 }): Promise<NebiusChatResult> {
   const apiKey = process.env.NEBIUS_API_KEY;
-  if (!apiKey) throw new NebiusError("NEBIUS_API_KEY is not configured.");
+  if (!apiKey) throw new NebiusApiError("NEBIUS_API_KEY is not configured.");
 
   const cfg = config();
   const body: Record<string, unknown> = {
@@ -206,7 +230,7 @@ export async function callNebiusChat(params: {
       raw = await postWithRetry(cfg.requestedModel, body, apiKey);
     } catch (err) {
       if (
-        err instanceof NebiusError &&
+        err instanceof NebiusApiError &&
         err.status !== undefined &&
         cfg.fallbackModel !== cfg.requestedModel &&
         isModelRejection(err.status, err.message)
@@ -225,15 +249,19 @@ export async function callNebiusChat(params: {
 
     const choice = raw.payload?.choices?.[0];
     const message = choice?.message;
-    // Some reasoning models put the answer in reasoning_content.
-    const text = String(message?.content || message?.reasoning_content || "").trim();
+    const text = String(message?.content ?? "").trim();
+    const reasoning = String(message?.reasoning_content ?? "").trim();
     const finishReason: string | null = choice?.finish_reason ?? null;
 
-    if (!text) throw new NebiusError("Nebius returned an empty response.");
-    if (finishReason === "length" && params.jsonResponse) {
-      stats.truncated++;
-      throw new NebiusError("Nebius reply was cut off (max_tokens reached) — JSON is incomplete.");
+    if (finishReason === "length") stats.truncated++;
+    if (!text) {
+      // Chain-of-thought is NOT the answer; never hand it to a JSON parser.
+      throw new OrchestratorEmptyResponseError(
+        finishReason === "length" ? "truncated" : reasoning ? "reasoning_only" : "empty",
+      );
     }
+    // A non-empty reply cut off by max_tokens is returned with finishReason "length";
+    // callers that need complete JSON must check it.
 
     const usage = raw.payload?.usage
       ? { promptTokens: Number(raw.payload.usage.prompt_tokens ?? 0), completionTokens: Number(raw.payload.usage.completion_tokens ?? 0) }
@@ -246,7 +274,7 @@ export async function callNebiusChat(params: {
     if (usage) { stats.promptTokens += usage.promptTokens; stats.completionTokens += usage.completionTokens; }
     logger.info({ purpose: params.purpose, model: modelUsed, latencyMs, finishReason, ...usage }, "nebius: request ok");
 
-    return { text, model: modelUsed, finishReason, usage };
+    return { text, model: modelUsed, requestedModel: cfg.requestedModel, fellBack: modelUsed !== cfg.requestedModel, finishReason, usage };
   } catch (err) {
     stats.failures++;
     stats.lastError = (err as Error).message;
@@ -267,7 +295,7 @@ export async function generateOrchestratorText(params: {
   temperature?: number;
   maxTokens?: number;
   purpose?: string;
-}): Promise<{ text: string; model: string }> {
+}): Promise<{ text: string; model: string; requestedModel: string; fellBack: boolean; finishReason: string | null }> {
   const messages: NebiusMessage[] = [
     { role: "system", content: params.systemInstructionText },
     ...params.turns.map((t) => ({ role: t.role, content: t.content }) as NebiusMessage),
@@ -278,12 +306,12 @@ export async function generateOrchestratorText(params: {
     messages.push({ role: "user", content: "(End of transcript. Respond now, following the instructions above.)" });
   }
 
-  const { text, model } = await callNebiusChat({
+  const r = await callNebiusChat({
     messages,
     temperature: params.temperature,
     maxTokens: params.maxTokens,
     jsonResponse: params.jsonResponse,
     purpose: params.purpose,
   });
-  return { text, model };
+  return { text: r.text, model: r.model, requestedModel: r.requestedModel, fellBack: r.fellBack, finishReason: r.finishReason };
 }

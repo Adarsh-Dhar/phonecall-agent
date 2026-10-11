@@ -21,7 +21,13 @@ export function extractJson(raw: string): unknown {
   const first = s.indexOf("{");
   const last = s.lastIndexOf("}");
   if (first !== -1 && last > first) {
-    return JSON.parse(s.slice(first, last + 1)); // throws SyntaxError if still bad
+    try {
+      return JSON.parse(s.slice(first, last + 1));
+    } catch {
+      // Deliberately generic: V8's own message quotes a snippet of the input,
+      // which here is a call transcript.
+      throw new SyntaxError("Invalid JSON in model reply");
+    }
   }
   throw new SyntaxError("No JSON object found in model reply");
 }
@@ -30,7 +36,7 @@ export function extractJson(raw: string): unknown {
 export function extractJsonObject(raw: string): Record<string, unknown> {
   const parsed = extractJson(raw);
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new SyntaxError("Model reply JSON is not an object");
+    throw new SyntaxError("JSON in model reply is not an object");
   }
   return parsed as Record<string, unknown>;
 }

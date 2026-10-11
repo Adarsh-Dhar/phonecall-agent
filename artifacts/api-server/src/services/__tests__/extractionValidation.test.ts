@@ -84,9 +84,9 @@ describe("extraction prompt", () => {
     const c = buildExtractionUserContent({
       contactName: "Dr Rao", contactBusiness: "Clinic", existingTasks: [],
       existingKnowledge: [{ key: "opening_hours", category: "fact", value: "9-5" }],
-      newMessages: [{ id: "m1", speaker: "contact", content: "send me the form", time: "Now" }],
+      newMessages: [{ id: "m1", speaker: "contact (on the call)", source: "phone_call", content: "send me the form", time: "Now" }],
     });
     expect(c).toContain("opening_hours");
-    expect(c).toContain('"speaker": "contact"');
+    expect(c).toContain('"speaker": "contact (on the call)"');
   });
 });

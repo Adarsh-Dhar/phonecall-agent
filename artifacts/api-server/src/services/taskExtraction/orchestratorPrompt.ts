@@ -1,4 +1,5 @@
-import { callNebiusChat } from "../nebiusText";
+import { generateOrchestratorText, OrchestratorEmptyResponseError } from "../nebiusText";
+import { logger } from "../../lib/logger";
 import { extractJsonObject } from "../../lib/extractJson";
 import { sanitizeExtraction } from "./validate";
 import type { ExistingKnowledge, ExistingTask, KnowledgeAction, NewMessage, TaskAction } from "./types";
@@ -41,7 +42,7 @@ export function buildExtractionPrompt(timezone?: string, now = new Date()): stri
   return `Today's date is ${todayISO} in the owner's timezone ${tz} (UTC${offset}). When resolving partial or relative dates (e.g. "7th of September", "next Monday"), always use this date as the reference and infer the correct year.
 
 You review a conversation between the OWNER (the person who uses this app) and their Phone Agent assistant, which talks to an external CONTACT on the owner's behalf.
-Each message has a "speaker":
+Each message has a "speaker" label and a "source" (phone_call or app_chat). The label starts with who it is:
   - "owner":   the app user. Their requests are tasks for the agent.
   - "agent":   the Phone Agent speaking for the owner.
   - "contact": the external person/business on the other side of the call or email.
@@ -133,37 +134,65 @@ Return the JSON object with taskActions and knowledgeActions now.`;
 }
 
 /**
- * Parse + validate a model reply. THROWS on unparseable JSON so the caller
- * leaves the cursor unmoved and counts a failure — it never silently returns
- * "nothing found" for a reply it couldn't read.
+ * Parse + validate a model reply. Throws SyntaxError on unreadable output.
+ * The error never contains the reply text (it may be a call transcript).
  */
 export function parseExtractionReply(raw: string) {
   return sanitizeExtraction(extractJsonObject(raw));
 }
 
-export async function callOrchestratorExtraction(
-  _apiKey: string, // kept for call-site compatibility; the shared client reads NEBIUS_API_KEY
-  context: {
-    contactName: string;
-    contactBusiness: string | null;
-    existingTasks: ExistingTask[];
-    existingKnowledge?: ExistingKnowledge[];
-    newMessages: NewMessage[];
-    timezone?: string;
-  },
-): Promise<{ taskActions: TaskAction[]; knowledgeActions: KnowledgeAction[]; dropped: number }> {
-  const { text } = await callNebiusChat({
-    purpose: "extraction",
-    messages: [
-      { role: "system", content: buildExtractionPrompt(context.timezone) },
-      {
-        role: "user",
-        content: buildExtractionUserContent({ ...context, existingKnowledge: context.existingKnowledge ?? [] }),
-      },
-    ],
-    temperature: 0.1,
-    maxTokens: 4096,
-    jsonResponse: true,
-  });
-  return parseExtractionReply(text);
+const NOTHING = () => ({ taskActions: [] as TaskAction[], knowledgeActions: [] as KnowledgeAction[] });
+
+export async function callOrchestratorExtraction(context: {
+  /** For log correlation only — never sent to the model. */
+  conversationId: string;
+  contactName: string;
+  contactBusiness: string | null;
+  existingTasks: ExistingTask[];
+  existingKnowledge?: ExistingKnowledge[];
+  newMessages: NewMessage[];
+  timezone?: string;
+}): Promise<{ taskActions: TaskAction[]; knowledgeActions: KnowledgeAction[] }> {
+  let reply: Awaited<ReturnType<typeof generateOrchestratorText>>;
+  try {
+    reply = await generateOrchestratorText({
+      purpose: "extraction",
+      systemInstructionText: buildExtractionPrompt(context.timezone),
+      turns: [
+        {
+          role: "user",
+          content: buildExtractionUserContent({ ...context, existingKnowledge: context.existingKnowledge ?? [] }),
+        },
+      ],
+      temperature: 0.2,
+      maxTokens: 4096,
+      jsonResponse: true,
+    });
+  } catch (err) {
+    // A genuinely empty reply means "nothing to extract". A reasoning-only or
+    // cut-off reply, and every provider failure, must NOT advance the cursor.
+    if (err instanceof OrchestratorEmptyResponseError && err.reason === "empty") return NOTHING();
+    throw err;
+  }
+
+  if (reply.finishReason === "length") {
+    // Incomplete JSON is a failure, not "nothing to extract".
+    throw new OrchestratorEmptyResponseError("truncated");
+  }
+
+  try {
+    const { taskActions, knowledgeActions, dropped } = parseExtractionReply(reply.text);
+    if (dropped > 0) logger.warn({ conversationId: context.conversationId, dropped }, "extraction: invalid model actions dropped");
+    return { taskActions, knowledgeActions };
+  } catch (e) {
+    // Metadata only: the raw reply can contain the transcript.
+    logger.error(
+      { conversationId: context.conversationId, rawChars: reply.text.length, errorName: (e as Error).name },
+      "extraction: could not parse model output",
+    );
+    if (process.env.LOG_LLM_RAW === "1") {
+      logger.debug({ conversationId: context.conversationId, rawPreview: reply.text.slice(0, 500) }, "extraction: raw model output (LOG_LLM_RAW)");
+    }
+    return NOTHING();
+  }
 }

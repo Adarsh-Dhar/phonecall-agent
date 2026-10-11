@@ -1,9 +1,9 @@
 import { logger } from "../../lib/logger";
 import { ACTION_CONFIDENCE_THRESHOLD, CONFIDENCE_THRESHOLD } from "./config";
 import { parseModelDueDate } from "./validate";
-import type { TaskAction, TaskToSync, TxClient } from "./types";
+import type { SkippedAction, TaskAction, TaskToSync, TxClient } from "./types";
 
-export type SkippedAction = { type: string; taskId?: string; reason: string };
+export { parseModelDueDate } from "./validate";
 
 const ACTIVE_STATUSES = ["suggested", "open", "in_progress"];
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
@@ -56,8 +56,8 @@ export async function reconcileTaskActions(
   const activeIds = new Set(activeRows.map((t) => t.id));
   const activeTitles = new Set(activeRows.map((t) => norm(t.title)));
 
-  const skip = (a: TaskAction, reason: string) => {
-    skipped.push({ type: a.type, taskId: a.taskId, reason });
+  const skip = (a: TaskAction, reason: SkippedAction["reason"]) => {
+    skipped.push({ kind: "task", type: a.type, ref: a.taskId, reason });
     logger.warn({ conversationId, type: a.type, taskId: a.taskId, reason }, "reconcileTasks: action skipped");
   };
 
