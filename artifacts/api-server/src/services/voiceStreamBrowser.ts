@@ -26,6 +26,7 @@ import { getOrCreateActiveConversation } from "./conversations";
 import { createCallLifecycle } from "./callLifecycle";
 import { logger } from "../lib/logger";
 import { loadOwnerInfo } from "./ownerInfo";
+import { buildBriefing, renderMemoryBlock } from "./memory";
 
 // A fixed synthetic contact that all browser test calls are logged against,
 // so they show up in the normal Contact/Conversation/Task UI without needing
@@ -157,6 +158,8 @@ export function createBrowserVoiceStream(): WebSocketServer {
                 startedAt,
                 taskId: taskContext ? taskId : null,
                 individualId: contact.ownerId,
+                // the business account this contact is linked to (null for an unlinked contact)
+                businessId: contact.linkedAccountId ?? null,
                 initiatedBy: "individual",
               },
             });
@@ -180,6 +183,20 @@ export function createBrowserVoiceStream(): WebSocketServer {
 
             const ownerInfo = await loadOwnerInfo(user.id);
 
+            // Memory of earlier calls. Needs a linked business account; otherwise (or on any
+            // error) the call simply starts without history.
+            let memoryBlock = "";
+            try {
+              const briefing = await buildBriefing(call.id);
+              memoryBlock = renderMemoryBlock(briefing, { timezone: tz });
+              await prisma.call.update({
+                where: { id: call.id },
+                data: { briefingVersion: briefing.version, briefingSnapshot: briefing as any },
+              });
+            } catch (err) {
+              logger.warn({ err, callId: call.id }, "voiceStreamBrowser: no memory briefing, starting without history");
+            }
+
             gemini = await openGeminiLiveSession({
               systemInstructionText: buildAgentCallSystemInstruction({
                 individualName: user.name,
@@ -189,6 +206,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
                 taskContext,
                 timezone: tz,
                 ownerInfo,
+                memoryBlock,
               }),
               onAudioOut: (pcm24k) => {
                 lifecycle?.noteAudioOut(pcm24k);

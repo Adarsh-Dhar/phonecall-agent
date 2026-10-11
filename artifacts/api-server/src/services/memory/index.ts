@@ -9,7 +9,7 @@
  */
 
 export { buildBriefing } from "./briefing";
-export { renderBriefing } from "./render";
+export { renderBriefing, renderMemoryBlock } from "./render";
 export type { CallBriefing, Fact, ClosureNotice, BriefingOptions } from "./types";
 
 export {

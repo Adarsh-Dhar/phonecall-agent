@@ -1,9 +1,14 @@
 /**
  * BriefingBuilder - Build CallBriefing for phone agent
  *
- * Phase 2: Uses Relationship table for relationship-based memory
- * - Still uses raw-tail fallback (no consolidation yet)
- * - No consolidation wait (consolidation doesn't exist yet)
+ * Reads the thread for this individual <-> business pair and returns a
+ * CallBriefing. Rules:
+ * - Waits up to `consolidationWaitMs` (default 4 s, env CONSOLIDATION_WAIT_MS)
+ *   for the previous call's post-call processing, then continues regardless.
+ * - If the previous call is still unprocessed, the raw last turns of that call
+ *   are used and quality.complete is false.
+ * - History is scoped by contact (one individual<->business pair), never by
+ *   conversation: a contact can have several Conversation rows.
  */
 
 import { prisma } from "@workspace/db-prisma";
@@ -15,6 +20,38 @@ import { renderBriefing } from "./render";
 interface BuildOptions {
   maxTokens?: number;
   consolidationWaitMs?: number;
+}
+
+const CONSOLIDATION_POLL_MS = 250;
+const CONSOLIDATION_PENDING_WINDOW_MS = 10 * 60 * 1000;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Wait (bounded) while an earlier call with this contact has ended and has
+ * transcript rows but is not consolidated yet. Never throws, never exceeds waitMs.
+ */
+export async function waitForConsolidation(contactId: string, currentCallId: string, waitMs: number): Promise<boolean> {
+  if (waitMs <= 0) return false;
+  const deadline = Date.now() + waitMs;
+  const since = new Date(Date.now() - CONSOLIDATION_PENDING_WINDOW_MS);
+  for (;;) {
+    const pending = await prisma.call
+      .findFirst({
+        where: {
+          contactId,
+          id: { not: currentCallId },
+          status: "completed",
+          endedAt: { gte: since },
+          consolidatedAt: null,
+          messages: { some: {} },
+        },
+        select: { id: true },
+      })
+      .catch(() => null);
+    if (!pending) return true;
+    if (Date.now() + CONSOLIDATION_POLL_MS >= deadline) return false;
+    await sleep(CONSOLIDATION_POLL_MS);
+  }
 }
 
 /**
@@ -101,10 +138,15 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
       })
     : [];
 
-  // Load recent calls (last 3 for this relationship via conversation)
+  // Give the previous call's post-call processing a short, bounded chance to finish.
+  const waitMs = options.consolidationWaitMs ?? (Number(process.env.CONSOLIDATION_WAIT_MS) || 4000);
+  const waitedOk = await waitForConsolidation(call.contactId, call.id, waitMs);
+
+  // Load recent calls (last 3 with this contact, newest first, excluding this call)
   const recentCalls = await prisma.call.findMany({
     where: {
-      conversationId: call.conversationId,
+      contactId: call.contactId,
+      id: { not: call.id },
       status: "completed",
       endedAt: { not: null },
     },
@@ -123,12 +165,15 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
   let lastCallTail: Array<{ speaker: string; text: string }> = [];
   if (recentCalls.length > 0) {
     const lastCall = recentCalls[0];
-    const messages = await prisma.message.findMany({
-      where: { callId: lastCall.id },
+    // The LAST 14 turns (newest first from the DB, then put back in order).
+    // Owner-only rows are never shown to the phone agent.
+    const newestFirst = await prisma.message.findMany({
+      where: { callId: lastCall.id, OR: [{ visibility: null }, { visibility: "both" }] },
       select: { role: true, content: true, speaker: true },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 14,
     });
+    const messages = newestFirst.reverse();
     lastCallTail = messages.map((m) => ({
       speaker: m.speaker || (m.role === "assistant" ? "agent" : "contact"),
       text: m.content,
@@ -138,7 +183,7 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
   // Load open queries (pending queries for this conversation)
   const openQueries = await prisma.query.findMany({
     where: {
-      conversationId: call.conversationId,
+      contactId: call.contactId,
       status: "pending",
     },
     select: { question: true },
@@ -149,7 +194,7 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const answeredQueries = await prisma.query.findMany({
     where: {
-      conversationId: call.conversationId,
+      contactId: call.contactId,
       status: "answered",
       answeredAt: { gte: sevenDaysAgo },
     },
@@ -160,7 +205,7 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
   // Load open tasks
   const openTasks = await prisma.task.findMany({
     where: {
-      conversationId: call.conversationId,
+      contactId: call.contactId,
       status: { in: ["suggested", "open", "in_progress", "waiting_user"] },
     },
     select: { title: true, dueDate: true },
@@ -199,7 +244,7 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
   // Build the briefing
   const now = new Date();
   const nowIso = now.toISOString();
-  const tz = individual.timezone || "UTC";
+  const tz = individual.timezone || process.env.DEFAULT_TIMEZONE || "Asia/Kolkata";
 
   const briefCallReason = taskContext
     ? {
@@ -221,12 +266,25 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
     value: o.value,
   }));
 
-  const briefRecentCalls = recentCalls.map((c) => ({
-    at: c.endedAt!.toISOString(),
-    outcome: c.outcome || "unknown",
-    summary: c.outcomeSummary || "No summary",
-    consolidated: !!c.consolidatedAt,
-  }));
+  const summaries = recentCalls.length
+    ? await prisma.callSummary.findMany({ where: { callId: { in: recentCalls.map((c) => c.id) } } })
+    : [];
+  const summaryByCall = new Map(summaries.map((x) => [x.callId, x]));
+  const asLines = (v: unknown, pick: (o: any) => string): string[] =>
+    Array.isArray(v) ? v.map((o) => pick(o || {})).filter(Boolean) : [];
+
+  const briefRecentCalls = recentCalls.map((c) => {
+    const cs = summaryByCall.get(c.id);
+    return {
+      at: c.endedAt!.toISOString(),
+      outcome: cs?.outcome || c.outcome || "unknown",
+      summary: cs?.summary || c.outcomeSummary || "No summary yet",
+      consolidated: !!c.consolidatedAt,
+      proposals: asLines(cs?.proposals, (o) => [o.what, o.when].filter(Boolean).join(" at ")),
+      agreements: asLines(cs?.agreements, (o) => [o.what, o.when].filter(Boolean).join(" at ")),
+      promises: asLines(cs?.promises, (o) => (o.by ? `${o.by}: ` : "") + (o.what || "")),
+    };
+  });
 
   const briefOpenLoops = openLoops.map((loop) => ({
     kind: loop.kind,
@@ -256,20 +314,25 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
     closedNow: briefClosedNow,
   };
 
-  // Phase 3: Check if the last call is consolidated
-  const lastCallConsolidated = recentCalls.length > 0 && recentCalls[0].consolidatedAt !== null;
-
-  // In Phase 3, quality.complete = true if the last call is consolidated
+  // Complete when there is no earlier call, or the latest earlier call is consolidated.
+  // (The first call ever with a business is complete: there is simply nothing to add.)
+  const lastCallConsolidated = recentCalls.length === 0 || recentCalls[0].consolidatedAt !== null;
   const quality = {
     complete: lastCallConsolidated,
-    staleSeconds: lastCallConsolidated ? 0 : Math.floor((Date.now() - (recentCalls[0]?.endedAt?.getTime() || Date.now())) / 1000),
+    staleSeconds: lastCallConsolidated
+      ? 0
+      : Math.max(0, Math.floor((Date.now() - (recentCalls[0]?.endedAt?.getTime() || Date.now())) / 1000)),
   };
+  if (!lastCallConsolidated) {
+    logger.warn({ callId, waitedOk, waitMs }, "BriefingBuilder: previous call not consolidated, using raw tail");
+  }
 
   const briefing: CallBriefing = {
     version: 1,
     relationshipId: relationship.id,
     callReason: briefCallReason,
     now: `${nowIso} (${tz})`,
+    timezone: tz,
     individual: {
       name: individual.name,
       shareableInfo: briefShareableInfo,
@@ -283,7 +346,10 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
     },
     openLoops: briefOpenLoops,
     answeredSince: briefAnsweredSince,
-    doNot: [], // No doNot constraints in Phase 3
+    doNot: [
+      "Do not invent details (codes, prices, names) that are not in your instructions or told to you on this call.",
+      "Do not treat a proposed time or price as confirmed unless the other person confirmed it and it is listed as agreed.",
+    ],
     quality,
   };
 

@@ -124,6 +124,7 @@ export function buildAgentCallSystemInstruction({
   taskContext = null,
   timezone,
   ownerInfo = [],
+  memoryBlock = '',
 }: {
   individualName: string;
   businessName: string;
@@ -132,6 +133,8 @@ export function buildAgentCallSystemInstruction({
   taskContext?: { title: string; description: string | null } | null;
   timezone: string;
   ownerInfo?: OwnerInfoFact[];
+  /** Output of renderMemoryBlock(); history of earlier calls. Added to, never replaces, the rules. */
+  memoryBlock?: string;
 }): string {
   const action = direction === 'inbound' ? 'taking a call' : 'calling';
   const intro =
@@ -149,7 +152,7 @@ export function buildAgentCallSystemInstruction({
     `${individualName} and get back to them — don't guess or invent details.\n\n`;
 
   const baseInstruction = buildBaseCallInstruction(businessName, knowledgeFacts, taskContext, timezone);
-  return intro + baseInstruction + buildOwnerInfoBlock(individualName, ownerInfo);
+  return intro + baseInstruction + memoryBlock + buildOwnerInfoBlock(individualName, ownerInfo);
 }
 
 /**

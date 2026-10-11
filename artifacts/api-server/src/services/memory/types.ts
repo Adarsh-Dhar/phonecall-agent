@@ -26,6 +26,7 @@ export interface CallBriefing {
   relationshipId: string;
   callReason: { taskId?: string; title: string; detail?: string } | null;
   now: string; // ISO + timezone
+  timezone?: string; // IANA zone used when rendering dates
   individual: {
     name: string;
     shareableInfo: Fact[];
@@ -38,7 +39,18 @@ export interface CallBriefing {
   knownFacts: Fact[]; // ContactKnowledge, status active
   thread: {
     summary: string; // rolling summary (empty in Phase 1)
-    recentCalls: Array<{ at: string; outcome: string; summary: string }>; // last 3
+    recentCalls: Array<{
+      at: string;
+      outcome: string;
+      summary: string;
+      consolidated?: boolean;
+      /** offered but NOT confirmed (from CallSummary) */
+      proposals?: string[];
+      /** confirmed by both sides (from CallSummary) */
+      agreements?: string[];
+      /** commitments either side made (from CallSummary) */
+      promises?: string[];
+    }>; // last 3
     lastCallTail: Array<{ speaker: string; text: string }>; // last ~14 turns
   };
   openLoops: Array<{ kind: string; text: string; dueAt?: string }>;

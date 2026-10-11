@@ -28,7 +28,8 @@ import { logger } from '../lib/logger';
 import { sendToAccount } from './presence';
 import { roleInCall, recipientIdOf, initiatorIdOf, type CallRole } from './callSignaling';
 import { loadOwnerInfo } from './ownerInfo';
-import { buildBriefing, renderBriefing } from './memory';
+import { buildBriefing, renderMemoryBlock } from './memory';
+import { buildAgentCallSystemInstruction } from './callAnalysis';
 
 interface Room {
   callId: string;
@@ -306,20 +307,47 @@ async function startGeminiSession(room: Room, call: any) {
     throw new Error('Conversation not found');
   }
 
-  // Phase 1: Build briefing using the new memory system
-  const briefing = await buildBriefing(call.id);
-
-  // Render briefing to text for the system instruction
-  const systemInstructionText = renderBriefing(briefing);
-
-  // Save briefing snapshot on the call (for audit/debug)
-  await prisma.call.update({
-    where: { id: call.id },
-    data: {
-      briefingVersion: briefing.version,
-      briefingSnapshot: briefing as any,
-    },
+  // Load contact knowledge
+  const knowledgeFacts = await prisma.contactKnowledge.findMany({
+    where: { contactId: call.contactId, status: 'active' },
+    orderBy: { category: 'asc' },
   });
+
+  // Load owner info
+  const ownerInfo = await loadOwnerInfo(room.individualId);
+
+  // Get individual and business names
+  const individual = await prisma.account.findUnique({
+    where: { id: room.individualId },
+    select: { name: true, timezone: true },
+  });
+
+  const business = await prisma.account.findUnique({
+    where: { id: room.businessId },
+    select: { name: true },
+  });
+
+  if (!individual || !business) {
+    throw new Error('Individual or business account not found');
+  }
+
+  const taskContext = await getTaskContextForCall(call.taskId, call.contactId);
+  const tz = individual.timezone ?? process.env.DEFAULT_TIMEZONE ?? 'Asia/Kolkata';
+  const direction = room.initiatedBy === 'individual' ? 'outbound' : 'inbound';
+
+  // Memory of earlier calls with this business. Best effort: if it fails, the call
+  // still starts with the normal instructions (it just has no history).
+  let memoryBlock = '';
+  try {
+    const briefing = await buildBriefing(call.id);
+    memoryBlock = renderMemoryBlock(briefing, { timezone: tz });
+    await prisma.call.update({
+      where: { id: call.id },
+      data: { briefingVersion: briefing.version, briefingSnapshot: briefing as any },
+    });
+  } catch (err) {
+    logger.error({ err, callId: call.id }, 'voiceStreamService: briefing failed, starting call without memory');
+  }
 
   const startedAt = call.startedAt ? new Date(call.startedAt) : new Date();
 
@@ -353,7 +381,16 @@ async function startGeminiSession(room: Room, call: any) {
   });
 
   room.gemini = await openGeminiLiveSession({
-    systemInstructionText,
+    systemInstructionText: buildAgentCallSystemInstruction({
+      individualName: individual.name,
+      businessName: business.name,
+      direction,
+      knowledgeFacts,
+      taskContext,
+      timezone: tz,
+      ownerInfo,
+      memoryBlock,
+    }),
     onAudioOut: (pcm24k) => {
       room.lifecycle?.noteAudioOut(pcm24k);
       // Send audio only to business socket
