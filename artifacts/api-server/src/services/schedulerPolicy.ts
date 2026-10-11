@@ -1,9 +1,11 @@
 /**
  * Scheduler Policy: pure functions for scheduling logic (no DB, no server-timezone dependence).
  * - Exponential backoff for retries
- * - Allowed window: owner quiet hours + contact business hours
+ * - Allowed window: owner quiet hours + contact business hours + business closures
  * - Business-hours validation
  */
+
+import { activeClosure, type Closure } from './closurePolicy';
 
 export const MAX_ATTEMPTS = Number(process.env.SCHEDULER_MAX_ATTEMPTS) || 3;
 
@@ -35,6 +37,7 @@ export function resolveEffectiveHours(o: {
 
 const STEP_MS = 15 * 60 * 1000; // every real UTC offset is a multiple of 15 min
 const MAX_SEARCH_STEPS = 8 * 24 * 4; // look up to 8 days ahead
+export const OPEN_ENDED_RECHECK_MS = 60 * 60 * 1000; // re-check an open-ended closure every hour
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // Backoff: attempts is 1-indexed. 1 = 15 min, 2 = 1 h, 3 = 4 h, 4+ = 8 h.
@@ -91,7 +94,8 @@ function isBusinessOpen(date: Date, bh: BusinessHours, tz: string): boolean {
  * Is it OK to trigger a call right now?
  * - quietStart/quietEnd: the OWNER's quiet hours, evaluated in ownerTz.
  * - businessHours: the CONTACT's opening hours, evaluated in businessHours.tz (falls back to ownerTz).
- * If not allowed, nextAllowedTime is the first 15-minute boundary where both checks pass.
+ * - closures: the business's holidays / out-of-service periods; calls are never allowed inside one.
+ * If not allowed, nextAllowedTime is the first 15-minute boundary where every check passes.
  */
 export function isWithinAllowedWindow(
   now: Date,
@@ -99,6 +103,7 @@ export function isWithinAllowedWindow(
   quietStart: number | null,
   quietEnd: number | null,
   businessHours: BusinessHours | null,
+  closures: Closure[] = [],
 ): { allowed: boolean; nextAllowedTime?: Date } {
   const tz = resolveTz(ownerTz);
   const bhTz = resolveTz(businessHours?.tz ?? ownerTz);
@@ -107,16 +112,30 @@ export function isWithinAllowedWindow(
   const blocked = (d: Date): boolean => {
     if (hasQuiet && isHourInRange(localParts(d, tz).hour, quietStart as number, quietEnd as number)) return true;
     if (businessHours && !isBusinessOpen(d, businessHours, bhTz)) return true;
+    if (activeClosure(closures, d)) return true;
     return false;
   };
 
   if (!blocked(now)) return { allowed: true };
+
+  // An open-ended closure ("out of service until further notice") has no known end:
+  // re-check soon so a reopen takes effect quickly instead of waiting a day.
+  const nowClosure = activeClosure(closures, now);
+  if (nowClosure && nowClosure.endsAt === null) {
+    return { allowed: false, nextAllowedTime: new Date(now.getTime() + OPEN_ENDED_RECHECK_MS) };
+  }
 
   let t = Math.floor(now.getTime() / STEP_MS) * STEP_MS;
   for (let i = 0; i < MAX_SEARCH_STEPS; i++) {
     t += STEP_MS;
     const candidate = new Date(t);
     if (!blocked(candidate)) return { allowed: false, nextAllowedTime: candidate };
+    // Inside a closure that has an end: jump straight to the first step at or after it.
+    const closure = activeClosure(closures, candidate);
+    if (closure && closure.endsAt) {
+      const endStep = Math.ceil(closure.endsAt.getTime() / STEP_MS) * STEP_MS;
+      if (endStep - STEP_MS > t) t = endStep - STEP_MS;
+    }
   }
   // Nothing found within 8 days (for example an empty schedule): try again tomorrow.
   return { allowed: false, nextAllowedTime: new Date(now.getTime() + 24 * 60 * 60 * 1000) };

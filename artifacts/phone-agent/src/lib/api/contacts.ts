@@ -9,6 +9,26 @@ export type BusinessHours = {
 
 export type HoursSource = 'override' | 'business' | 'default';
 
+export type ContactClosure = {
+  kind: 'holiday' | 'out_of_service' | 'emergency';
+  label: string | null;
+  message: string | null;
+  reopensAt: string | null; // null = until the business reopens
+  blockCalls: boolean;
+};
+
+export type UpcomingClosure = {
+  id: string;
+  kind: 'holiday' | 'out_of_service' | 'emergency';
+  label: string | null;
+  message: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  allDay: boolean;
+  blockCalls: boolean;
+  status: 'active' | 'upcoming' | 'past';
+};
+
 export type Contact = {
   id: string;
   name: string;
@@ -25,6 +45,8 @@ export type Contact = {
   linkedAccountId: string | null;
   effectiveHours?: BusinessHours;
   hoursSource?: HoursSource;
+  closure?: ContactClosure | null;
+  upcomingClosures?: UpcomingClosure[];
   createdAt: string;
   updatedAt: string;
   conversations?: Array<{

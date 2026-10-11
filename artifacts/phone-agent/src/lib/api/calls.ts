@@ -47,9 +47,27 @@ export type Call = {
 export type DialCallResponse = {
   callId: string;
   status: 'ringing' | 'missed';
-  warning?: 'OUTSIDE_BUSINESS_HOURS';
-  nextOpenAt?: string;
+  warning?: 'OUTSIDE_BUSINESS_HOURS' | 'BUSINESS_CLOSED';
+  nextOpenAt?: string | null;
+  closure?: {
+    kind: 'holiday' | 'out_of_service' | 'emergency';
+    label: string | null;
+    message: string | null;
+    reopensAt: string | null;
+  };
 };
+
+/** Thrown by dialCall; code is set for known refusals such as BUSINESS_CLOSED. */
+export class DialCallError extends Error {
+  code?: string;
+  reopensAt?: string | null;
+  constructor(message: string, code?: string, reopensAt?: string | null) {
+    super(message);
+    this.name = 'DialCallError';
+    this.code = code;
+    this.reopensAt = reopensAt;
+  }
+}
 
 /** Fetch a single call by ID. */
 export const fetchCall = async (id: string): Promise<Call> => {
@@ -80,8 +98,8 @@ export const dialCall = async (contactId: string, taskId?: string): Promise<Dial
     body: JSON.stringify({ contactId, taskId }),
   });
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Failed to dial call');
+    const error = await response.json().catch(() => ({}));
+    throw new DialCallError(error.error || 'Failed to dial call', error.code, error.reopensAt);
   }
   return response.json();
 };

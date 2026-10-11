@@ -12,10 +12,11 @@ import { ContactTasksCard } from '@/individual/components/contact/ContactTasksCa
 import { ContactQuestionsCard } from '@/individual/components/contact/ContactQuestionsCard';
 import { ContactFilesCard } from '@/individual/components/contact/ContactFilesCard';
 import { BusinessHoursCard } from '@/individual/components/contact/BusinessHoursCard';
+import { ContactClosureBanner } from '@/individual/components/contact/ContactClosureBanner';
 import { KnowledgeBoardPanel } from '@/individual/components/knowledge/KnowledgeBoardPanel';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 import { CallObserverWidget } from '@/individual/components/CallObserverWidget';
-import { dialCall } from '@/lib/api/calls';
+import { dialCall, DialCallError } from '@/lib/api/calls';
 
 export function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -90,9 +91,28 @@ export function ContactDetailPage() {
             description: `This contact is outside their business hours.${nextOpenMsg}`,
           });
         }
+        if (data.warning === 'BUSINESS_CLOSED' && data.closure) {
+          const reopenMsg = data.closure.reopensAt
+            ? ` Reopens ${new Date(data.closure.reopensAt).toLocaleString()}`
+            : '';
+          toast({
+            variant: 'warning',
+            title: 'Business closed',
+            description: `${data.closure.label || data.closure.kind}.${reopenMsg}`,
+          });
+        }
       } catch (error) {
         console.error('Error dialing call:', error);
-        toast({ variant: 'destructive', description: (error as Error).message });
+        if (error instanceof DialCallError) {
+          const reopenMsg = error.reopensAt ? ` Reopens ${new Date(error.reopensAt).toLocaleString()}` : '';
+          toast({
+            variant: 'destructive',
+            title: error.code === 'BUSINESS_CLOSED' ? 'Business closed' : 'Call blocked',
+            description: error.message + reopenMsg,
+          });
+        } else {
+          toast({ variant: 'destructive', description: (error as Error).message });
+        }
         setCallStatus('idle');
       }
     } else {
@@ -198,6 +218,7 @@ export function ContactDetailPage() {
         {!loading && contact && <ContactQuestionsCard contactId={id} />}
         {!loading && contact && <ContactFilesCard />}
         {!loading && contact && <BusinessHoursCard contactId={id} initial={contact.businessHoursJson ?? null} effectiveHours={contact.effectiveHours} hoursSource={contact.hoursSource} />}
+        {!loading && contact && <ContactClosureBanner closure={contact.closure ?? null} upcoming={contact.upcomingClosures ?? []} />}
         {!loading && contact && <KnowledgeBoardPanel contactId={id} />}
 
         {testCallWidget && (

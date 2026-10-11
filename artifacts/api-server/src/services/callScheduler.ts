@@ -35,6 +35,7 @@ import { logger } from "../lib/logger";
 import { broadcastCallDue, broadcastCallExhausted } from "./notifications";
 import { computeNextAttempt, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS, resolveEffectiveHours } from "./schedulerPolicy";
 import { placeCall, isAutoDialEnabled } from "./telephony";
+import type { Closure } from "./closurePolicy";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
 const STALE_WINDOW_MS = (Number(process.env.SCHEDULER_STALE_HOURS) || 24) * 60 * 60 * 1000;
@@ -158,6 +159,20 @@ export async function checkDueTasks(): Promise<void> {
     });
     const linkedMap = new Map(linked.map(a => [a.id, a]));
 
+    // Load current and upcoming closures for those businesses in one query
+    const closureRows = linkedIds.length
+      ? await prisma.businessClosure.findMany({
+          where: { businessId: { in: linkedIds }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+          select: { businessId: true, startsAt: true, endsAt: true },
+        })
+      : [];
+    const closuresByBusiness = new Map<string, Closure[]>();
+    for (const row of closureRows) {
+      const list = closuresByBusiness.get(row.businessId) ?? [];
+      list.push({ startsAt: row.startsAt, endsAt: row.endsAt });
+      closuresByBusiness.set(row.businessId, list);
+    }
+
     // Process tasks with concurrency limit
     const chunks: typeof tasks[] = [];
     for (let i = 0; i < tasks.length; i += CONCURRENCY_LIMIT) {
@@ -165,7 +180,7 @@ export async function checkDueTasks(): Promise<void> {
     }
 
     for (const chunk of chunks) {
-      await Promise.all(chunk.map((task) => processTask(task, now, linkedMap)));
+      await Promise.all(chunk.map((task) => processTask(task, now, linkedMap, closuresByBusiness)));
     }
   } catch (err) {
     logger.error({ err }, "callScheduler: failed to check due tasks");
@@ -174,7 +189,12 @@ export async function checkDueTasks(): Promise<void> {
   }
 }
 
-async function processTask(task: any, now: Date, linkedMap: Map<string, any>): Promise<void> {
+async function processTask(
+  task: any,
+  now: Date,
+  linkedMap: Map<string, any>,
+  closuresByBusiness: Map<string, Closure[]> = new Map(),
+): Promise<void> {
   try {
     const { contact } = task;
 
@@ -228,7 +248,8 @@ async function processTask(task: any, now: Date, linkedMap: Map<string, any>): P
       ownerTz,
       owner.quietHoursStart,
       owner.quietHoursEnd,
-      businessHours || null
+      businessHours || null,
+      contact.linkedAccountId ? closuresByBusiness.get(contact.linkedAccountId) ?? [] : [],
     );
 
     if (!windowCheck.allowed) {
@@ -242,7 +263,7 @@ async function processTask(task: any, now: Date, linkedMap: Map<string, any>): P
       });
       logger.info(
         { taskId: task.id, nextAttemptAt: windowCheck.nextAllowedTime },
-        "callScheduler: task outside allowed window, deferring"
+        "callScheduler: task outside allowed window (hours, quiet hours or closure), deferring"
       );
       return;
     }

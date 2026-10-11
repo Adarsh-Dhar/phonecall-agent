@@ -31,6 +31,7 @@ import {
   NotInContactsError,
 } from '../services/callSignaling';
 import { logger } from '../lib/logger';
+import { getDialAdvisory } from '../services/dialAdvisory';
 
 export function createCallsRouter(role: CallRole): IRouter {
   const router: IRouter = Router();
@@ -99,6 +100,20 @@ export function createCallsRouter(role: CallRole): IRouter {
     logger.info({ userId: req.userId, contactId, taskId, role }, 'dial: received call request');
 
     try {
+      // Individuals dialing by hand: reject if the business blocks calls during a closure,
+      // otherwise carry a warning (closed / outside hours) back with the response.
+      const advisory = role === 'individual' ? await getDialAdvisory(String(contactId), req.userId!) : {};
+      if (advisory.blocked) {
+        res.status(409).json({
+          error: advisory.blocked.message,
+          code: 'BUSINESS_CLOSED',
+          reopensAt: advisory.blocked.reopensAt,
+          kind: advisory.blocked.kind,
+          label: advisory.blocked.label,
+        });
+        return;
+      }
+
       const result = await dialCallAs(String(contactId), taskId ? String(taskId) : null, req.userId!, role);
 
       if (result.status === 'missed') {
@@ -111,7 +126,13 @@ export function createCallsRouter(role: CallRole): IRouter {
         'dial: call created successfully'
       );
 
-      res.status(200).json({ callId: result.call.id, status: 'ringing' });
+      const response: Record<string, unknown> = { callId: result.call.id, status: 'ringing' };
+      if (advisory.warning) {
+        response.warning = advisory.warning;
+        response.nextOpenAt = advisory.nextOpenAt ?? null;
+        if (advisory.closure) response.closure = advisory.closure;
+      }
+      res.status(200).json(response);
       return;
     } catch (e) {
       logger.error({ error: e }, 'dial: failed to create call');

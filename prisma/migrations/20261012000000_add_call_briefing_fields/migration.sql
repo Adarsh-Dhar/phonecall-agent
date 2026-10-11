@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Call" ADD COLUMN IF NOT EXISTS "briefingSnapshot" JSONB,
+ADD COLUMN IF NOT EXISTS "briefingVersion" INTEGER,
+ADD COLUMN IF NOT EXISTS "consolidatedAt" TIMESTAMP(3);

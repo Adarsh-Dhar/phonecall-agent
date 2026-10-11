@@ -58,14 +58,27 @@ export function sendToAccount(accountId: string, payload: unknown): boolean {
 
 async function markOnline(accountId: string, online: boolean): Promise<void> {
   try {
+    // Check if account exists first to avoid Prisma error logs after database reset
+    const account = await prisma.account.findUnique({
+      where: { id: accountId },
+      select: { id: true },
+    });
+
+    if (!account) {
+      // Account doesn't exist (likely deleted after database reset)
+      // Silently skip the update
+      return;
+    }
+
     await prisma.account.update({
       where: { id: accountId },
-      data: { 
+      data: {
         online,
         lastSeenAt: online ? new Date() : undefined,
       },
     });
-  } catch (error) {
-    logger.error({ error, accountId, online }, "Failed to update account online status");
+  } catch (error: any) {
+    // Log any other errors (shouldn't happen with the existence check above)
+    logger.error({ error, accountId, online }, 'Failed to update account online status');
   }
 }

@@ -12,8 +12,5 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     // DB tests share one Postgres; run files one at a time.
     fileParallelism: false,
-    env: {
-      TEST_DATABASE_URL: process.env.DATABASE_URL, // Use current database for testing
-    },
   },
 });

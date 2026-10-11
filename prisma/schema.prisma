@@ -37,14 +37,14 @@ model Account {
   initials    String?
   color       String?
   note        String?
-  online      Boolean  @default(false)
+  online      Boolean @default(false)
 
   // When this row was created as a contact mirror of another Account,
   // this stores the source account's id for deduplication checks.
   linkedAccountId String?
 
   lastSeenAt DateTime?
-  timezone     String?
+  timezone   String?
 
   // Quiet hours for the owner (login account only): hour of day (0-23)
   quietHoursStart Int?
@@ -56,40 +56,101 @@ model Account {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  calls            Call[]
-  knowledge        ContactKnowledge[]
-  conversations    Conversation[]
-  queries          Query[]
-  tasks            Task[]
+  calls             Call[]
+  knowledge         ContactKnowledge[]
+  conversations     Conversation[]
+  queries           Query[]
+  tasks             Task[]
   pushSubscriptions PushSubscription[]
-  ownerInfo        OwnerInfo[]
+  ownerInfo         OwnerInfo[]
+  closures          BusinessClosure[]
+  relationshipsAsIndividual Relationship[] @relation("RelIndividual")
+  relationshipsAsBusiness    Relationship[] @relation("RelBusiness")
 
   @@index([ownerId])
 }
 
 model Conversation {
-  id                     String    @id @default(cuid())
-  title                  String?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-  lastExtractedMessageId String?
-  lastExtractedAt        DateTime?
-  status                 String    @default("active")
-  endedAt                DateTime?
-  topicSummary           String?
-  contactId              String
+  id                      String    @id @default(cuid())
+  title                   String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  lastExtractedMessageId  String?
+  lastExtractedAt         DateTime?
+  status                  String    @default("active")
+  endedAt                 DateTime?
+  topicSummary            String?
+  contactId               String
   // Poison-delta tracking: durable failure count and last failing cursor
-  extractionFailureCount Int       @default(0)
+  extractionFailureCount  Int       @default(0)
   extractionFailureCursor String?
-  calls                  Call[]
-  contact                Account   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  history                History[]
-  messages               Message[]
-  queries                Query[]
-  tasks                  Task[]
+  calls                   Call[]
+  contact                 Account   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  history                 History[]
+  messages                Message[]
+  queries                 Query[]
+  tasks                   Task[]
 
   @@index([contactId])
   @@index([contactId, status])
+}
+
+// Phase 2+: Relationship table for individual ↔ business pair memory
+model Relationship {
+  id            String   @id @default(cuid())
+  individualId  String
+  businessId    String
+  contactId     String   @unique   // the individual's contact row for this business
+  // rolling memory, rewritten by the Consolidator only
+  summary       String   @default("")
+  summaryUpTo   DateTime?          // newest message folded into `summary`
+  summaryVersion Int     @default(0)
+  lastCallId    String?
+  lastCallAt    DateTime?
+  consolidating Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  individual    Account  @relation("RelIndividual", fields: [individualId], references: [id], onDelete: Cascade)
+  business      Account  @relation("RelBusiness", fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([individualId, businessId])
+  openLoops     OpenLoop[]
+}
+
+// Phase 3+: CallSummary for structured call analysis
+model CallSummary {
+  callId        String  @id
+  relationshipId String
+  outcome       String            // booked | rescheduled | needs_user | info_gathered | failed | ...
+  summary       String            // 2-4 sentences, plain language
+  agreements    Json              // [{what, when?, who}]
+  proposals     Json              // offered but NOT confirmed, e.g. "tomorrow 11:00"
+  promises      Json              // [{by: "agent"|"business", what, dueAt?}]
+  businessTerms Json              // fees, hours, constraints stated on this call
+  createdAt     DateTime @default(now())
+  model         String
+  promptVersion Int
+
+  @@index([relationshipId])
+}
+
+// Phase 4+: OpenLoop for tracking pending items (queries, tasks, commitments)
+model OpenLoop {
+  id             String  @id @default(cuid())
+  relationshipId String
+  kind           String   // awaiting_owner | awaiting_business | scheduled | commitment
+  text           String
+  status         String   @default("open") // open | resolved | expired
+  dueAt          DateTime?
+  sourceCallId   String?
+  taskId         String?
+  queryId        String?
+  visibility     String   @default("individual_only")
+  createdAt      DateTime @default(now())
+  resolvedAt     DateTime?
+  relationship   Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+
+  @@index([relationshipId, status])
 }
 
 model Message {
@@ -102,11 +163,19 @@ model Message {
   updatedAt        DateTime                 @updatedAt
   conversationId   String
   callId           String?
+  // Phase 2+: relationship memory fields
+  relationshipId   String?
+  seq              BigInt?                  // monotonic per relationship, gives a stable order
+  speaker          String?                  // individual_agent | business | individual_owner | system
+  visibility       String?                  @default("both") // both | individual_only
   knowledgeSources KnowledgeSourceMessage[]
   call             Call?                    @relation(fields: [callId], references: [id])
   conversation     Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   querySources     QuerySourceMessage[]
   taskSources      TaskSourceMessage[]
+
+  @@unique([relationshipId, seq])
+  @@index([relationshipId, seq])
 }
 
 model History {
@@ -122,16 +191,16 @@ model History {
 }
 
 model Task {
-  id              String              @id @default(cuid())
+  id              String    @id @default(cuid())
   title           String
   description     String?
-  status          String              @default("suggested")
-  priority        String              @default("normal")
+  status          String    @default("suggested")
+  priority        String    @default("normal")
   dueDate         DateTime?
-  confidence      Float               @default(1.0)
-  source          String              @default("agent")
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  confidence      Float     @default(1.0)
+  source          String    @default("agent")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   completedAt     DateTime?
   conversationId  String
   contactId       String
@@ -142,17 +211,17 @@ model Task {
   parentTaskId    String?
 
   // Scheduler fields
-  kind              String @default("call") // "call" or "reminder"
-  callAttempts      Int    @default(0)
-  lastAttemptAt     DateTime?
-  nextAttemptAt     DateTime?
+  kind               String    @default("call") // "call" or "reminder"
+  callAttempts       Int       @default(0)
+  lastAttemptAt      DateTime?
+  nextAttemptAt      DateTime?
   schedulerClaimedAt DateTime?
-  schedulerStatus   String @default("pending") // "pending", "claimed", "done", "exhausted", "stale"
+  schedulerStatus    String    @default("pending") // "pending", "claimed", "done", "exhausted", "stale"
 
-  contact         Account             @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  conversation    Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sources         TaskSourceMessage[]
-  calls           Call[]
+  contact      Account             @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sources      TaskSourceMessage[]
+  calls        Call[]
 
   @@index([conversationId])
   @@index([contactId])
@@ -216,7 +285,7 @@ model Call {
   direction         String       @default("outbound")
   from              String
   to                String
-  calleeAccountId  String?
+  calleeAccountId   String?
   recordingUrl      String?
   startedAt         DateTime?
   endedAt           DateTime?
@@ -241,9 +310,14 @@ model Call {
 
   // The two parties of a call. The AI agent ALWAYS speaks for `individualId`;
   // `businessId` is the human on the other end. `initiatedBy` is who dialed.
-  individualId      String?
-  businessId        String?
-  initiatedBy       String? // "individual" | "business"
+  individualId String?
+  businessId   String?
+  initiatedBy  String? // "individual" | "business"
+
+  // Briefing for Phase 1+: snapshot of the CallBriefing JSON sent to the phone agent
+  briefingVersion  Int?
+  briefingSnapshot Json?
+  consolidatedAt   DateTime?
 
   @@index([conversationId])
   @@index([contactId])
@@ -307,4 +381,24 @@ model OwnerInfo {
 
   @@unique([ownerId, key])
   @@index([ownerId])
+}
+
+// Business closures: holidays, emergencies and out-of-service periods.
+// Times are UTC instants. endsAt = null means "until the business reopens".
+model BusinessClosure {
+  id         String    @id @default(cuid())
+  businessId String
+  business   Account   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  kind       String // holiday | out_of_service | emergency
+  label      String?
+  message    String?
+  startsAt   DateTime
+  endsAt     DateTime?
+  allDay     Boolean   @default(false)
+  blockCalls Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([businessId, startsAt])
+  @@index([businessId, endsAt])
 }

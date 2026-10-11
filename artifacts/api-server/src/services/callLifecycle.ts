@@ -4,12 +4,16 @@ import { analyzeCallForEscalation } from "./callAnalysis";
 import { askUserDuringCall, rejectLiveQueries } from "./liveEscalation";
 import { logger } from "../lib/logger";
 import { computeNextAttempt } from "./schedulerPolicy";
+import { getOrCreateRelationship, ingestMessage, scheduleConsolidation } from "./memory";
 
 interface EndCallArgs {
   outcome: "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed";
   summary: string;
   confirmedAt?: string;
   confirmationRef?: string;
+  // Phase 4: Optional proposals and promises from the agent
+  proposals?: Array<{ what: string; when?: string }>;
+  promises?: Array<{ by: "agent" | "business"; what: string; dueAt?: string }>;
 }
 
 /**
@@ -95,24 +99,60 @@ export function createCallLifecycle(opts: {
   let audioEndsAt = Date.now();
   let ended = false;
   let turnLogQueue: Promise<void> = Promise.resolve();
+  let relationshipId: string | null = null;
+  let turnIndex = 0;
 
   async function logTurn(role: "user" | "assistant", content: string) {
     const currentConversationId = opts.conversationId;
     const currentCallId = opts.callId;
 
+    // Get or create relationship on first turn
+    if (!relationshipId) {
+      try {
+        const call = await prisma.call.findUnique({
+          where: { id: currentCallId },
+          select: { individualId: true, businessId: true, contactId: true },
+        });
+        if (call?.individualId && call?.businessId) {
+          const relationship = await getOrCreateRelationship({
+            individualId: call.individualId,
+            businessId: call.businessId,
+            contactId: call.contactId,
+          });
+          relationshipId = relationship.id;
+        }
+      } catch (err) {
+        logger.error({ err, callId: currentCallId }, "callLifecycle: failed to get relationship");
+      }
+    }
+
     turnLogQueue = turnLogQueue
-      .then(() =>
-        prisma.message.create({
-          data: {
+      .then(async () => {
+        if (relationshipId) {
+          // Phase 2: Use ingest service with seq and speaker
+          await ingestMessage({
+            relationshipId,
+            callId: currentCallId,
+            turnIndex,
             role,
             content,
             time: "Now",
             conversationId: currentConversationId,
-            callId: currentCallId,
-          },
-        })
-      )
-      .then(() => undefined)
+          });
+          turnIndex++;
+        } else {
+          // Fallback: old way without relationship
+          await prisma.message.create({
+            data: {
+              role,
+              content,
+              time: "Now",
+              conversationId: currentConversationId,
+              callId: currentCallId,
+            },
+          });
+        }
+      })
       // Deliberately NO scheduleExtraction here: extracting mid-call acts on
       // half-finished conversations (tasks + Calendar events from a sentence
       // the contact is about to correct). end() schedules it once.
@@ -171,6 +211,9 @@ export function createCallLifecycle(opts: {
     await applyCallOutcomeToTask(opts.callId).catch((err) =>
       logger.error({ err, callId: opts.callId }, "callLifecycle: failed to apply outcome to task")
     );
+
+    // Phase 3: Schedule consolidation for post-call memory processing
+    scheduleConsolidation(opts.callId);
 
     // Extract tasks/knowledge once, from the complete transcript, after the call.
     // (Extracting per turn would run mid-call on partial context.)

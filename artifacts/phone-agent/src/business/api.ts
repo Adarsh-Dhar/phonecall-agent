@@ -7,10 +7,26 @@ export interface BusinessHours {
   tz?: string;
 }
 
+export type ClosureKind = 'holiday' | 'out_of_service' | 'emergency';
+
+export interface BusinessClosure {
+  id: string;
+  kind: ClosureKind;
+  label: string | null;
+  message: string | null;
+  startsAt: string;
+  endsAt: string | null; // null = until you reopen
+  allDay: boolean;
+  blockCalls: boolean;
+  status: 'active' | 'upcoming' | 'past';
+}
+
 export interface BusinessSettings {
   hours: BusinessHours;
   isDefault: boolean;
   timezone: string | null;
+  closedNow?: boolean;
+  activeClosure?: BusinessClosure | null;
 }
 
 export interface Contact {
@@ -202,3 +218,52 @@ export async function saveBusinessSettings(data: {
   }
   return res.json();
 }
+
+// ─── Closures (holidays, emergencies, out of service) ───────────────────────
+
+async function closureRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    ...init,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || 'Request failed');
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
+export type ClosureInput = {
+  kind: ClosureKind;
+  label?: string;
+  message?: string;
+  allDay: boolean;
+  startDate?: string; // YYYY-MM-DD (all-day)
+  endDate?: string; // YYYY-MM-DD, inclusive (all-day)
+  startLocal?: string; // YYYY-MM-DDTHH:mm in the business timezone
+  endLocal?: string;
+  blockCalls: boolean;
+};
+
+export const fetchClosures = () => closureRequest<BusinessClosure[]>('/closures');
+
+export const createClosure = (data: ClosureInput) =>
+  closureRequest<BusinessClosure>('/closures', { method: 'POST', body: JSON.stringify(data) });
+
+export const updateClosure = (id: string, data: ClosureInput) =>
+  closureRequest<BusinessClosure>(`/closures/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+
+export const startOutOfService = (data: {
+  message?: string;
+  label?: string;
+  until?: string; // ISO time
+  untilLocal?: string; // YYYY-MM-DDTHH:mm in the business timezone
+  emergency?: boolean;
+  blockCalls?: boolean;
+}) => closureRequest<BusinessClosure>('/closures/out-of-service', { method: 'POST', body: JSON.stringify(data) });
+
+export const endClosure = (id: string) => closureRequest<BusinessClosure>(`/closures/${id}/end`, { method: 'POST' });
+
+export const deleteClosure = (id: string) => closureRequest<void>(`/closures/${id}`, { method: 'DELETE' });

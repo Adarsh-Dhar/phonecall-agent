@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Clock, Check, RotateCcw, LoaderCircle } from 'lucide-react';
 import { fetchBusinessSettings, saveBusinessSettings, type BusinessSettings, type BusinessHours } from '../api';
 import { HoursEditor } from '@/components/hours/HoursEditor';
+import { ClosuresSection } from '../components/closures/ClosuresSection';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -84,7 +85,7 @@ export function BusinessSettingsPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Settings</h2>
-        <p className="text-muted-foreground">Configure your business hours and timezone</p>
+        <p className="text-muted-foreground">Configure your business hours, timezone and closures</p>
       </div>
 
       {error && (
@@ -165,6 +166,8 @@ export function BusinessSettingsPage() {
           </div>
         </div>
       </Card>
+
+      <ClosuresSection timezone={settings?.timezone ?? null} />
     </div>
   );
 }

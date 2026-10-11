@@ -14,7 +14,9 @@ import {
   NotInContactsError,
 } from '../services/callSignaling';
 import { logger } from '../lib/logger';
-import { validateBusinessHours, DEFAULT_BUSINESS_HOURS, resolveEffectiveHours, isWithinAllowedWindow } from '../services/schedulerPolicy';
+import { validateBusinessHours, DEFAULT_BUSINESS_HOURS } from '../services/schedulerPolicy';
+import { validateClosureInput, CLOSURE_LIMITS, closureStatus } from '../services/closurePolicy';
+import { loadClosureInfo, toPublicClosure, type ClosureRow } from '../services/businessClosures';
 import '../lib/authMiddleware'; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -92,57 +94,8 @@ router.post('/calls/dial', asyncHandler(async (req, res) => {
       'dial: call created successfully'
     );
 
-    // Check if outside business hours and add warning
-    const contact = await prisma.account.findUnique({
-      where: { id: String(contactId) },
-      select: { businessHoursJson: true, timezone: true, linkedAccountId: true },
-    });
-    const owner = await prisma.account.findUnique({
-      where: { id: req.userId! },
-      select: { timezone: true },
-    });
-    const ownerTz = owner?.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
-
-    let warning: string | undefined;
-    let nextOpenAt: string | undefined;
-
-    if (contact && owner) {
-      const biz = contact.linkedAccountId
-        ? await prisma.account.findUnique({
-            where: { id: contact.linkedAccountId },
-            select: { businessHoursJson: true, timezone: true },
-          })
-        : undefined;
-
-      const { hours: businessHours } = resolveEffectiveHours({
-        contactJson: contact.businessHoursJson,
-        businessJson: biz?.businessHoursJson,
-        businessTz: biz?.timezone,
-        contactTz: contact.timezone,
-        ownerTz,
-      });
-
-      // For manual dial, only check business hours (not quiet hours)
-      // Pass null for quiet hours to skip that check
-      const windowCheck = isWithinAllowedWindow(
-        new Date(),
-        ownerTz,
-        null, // No quiet hours
-        null,
-        businessHours
-      );
-
-      if (!windowCheck.allowed && windowCheck.nextAllowedTime) {
-        warning = 'OUTSIDE_BUSINESS_HOURS';
-        nextOpenAt = windowCheck.nextAllowedTime.toISOString();
-      }
-    }
-
+    // Closure / hours advisories are for individuals dialing a business (see routes/calls.ts).
     const response: any = { callId: result.call.id, status: 'ringing' };
-    if (warning) {
-      response.warning = warning;
-      response.nextOpenAt = nextOpenAt;
-    }
 
     res.status(200).json(response);
     return;
@@ -446,7 +399,11 @@ router.get('/settings', requireBusiness, asyncHandler(async (req, res) => {
     : DEFAULT_BUSINESS_HOURS;
   const isDefault = !business.businessHoursJson;
 
-  res.json({ hours, isDefault, timezone: business.timezone });
+  const now = new Date();
+  const info = (await loadClosureInfo([req.userId!], now)).get(req.userId!);
+  const activeClosure = info?.active ? toPublicClosure(info.active, now) : null;
+
+  res.json({ hours, isDefault, timezone: business.timezone, closedNow: !!activeClosure, activeClosure });
 }, 'Failed to fetch business settings'));
 
 // ---------------------------------------------------------------------------
@@ -500,7 +457,131 @@ router.patch('/settings', requireBusiness, asyncHandler(async (req, res) => {
     : DEFAULT_BUSINESS_HOURS;
   const isDefault = !updated.businessHoursJson;
 
-  res.json({ hours, isDefault, timezone: updated.timezone });
+  const now = new Date();
+  const info = (await loadClosureInfo([req.userId!], now)).get(req.userId!);
+  const activeClosure = info?.active ? toPublicClosure(info.active, now) : null;
+
+  res.json({ hours, isDefault, timezone: updated.timezone, closedNow: !!activeClosure, activeClosure });
 }, 'Failed to update business settings'));
+
+// ---------------------------------------------------------------------------
+// Closures: holidays, emergencies and out-of-service periods (business only).
+// During a closure the scheduler does not call this business; see
+// services/schedulerPolicy.ts. Everything is scoped to the signed-in business.
+// ---------------------------------------------------------------------------
+const PAST_DAYS_SHOWN = 30;
+
+async function businessTimezone(businessId: string): Promise<string | null> {
+  const acc = await prisma.account.findUnique({ where: { id: businessId }, select: { timezone: true } });
+  return acc?.timezone ?? null;
+}
+
+async function findActiveOutOfService(businessId: string, now: Date) {
+  return prisma.businessClosure.findFirst({
+    where: {
+      businessId,
+      kind: { in: ['out_of_service', 'emergency'] },
+      startsAt: { lte: now },
+      OR: [{ endsAt: null }, { endsAt: { gt: now } }],
+    },
+  });
+}
+
+router.get('/closures', requireBusiness, asyncHandler(async (req, res) => {
+  const now = new Date();
+  const since = new Date(now.getTime() - PAST_DAYS_SHOWN * 24 * 60 * 60 * 1000);
+  const rows = (await prisma.businessClosure.findMany({
+    where: { businessId: req.userId!, OR: [{ endsAt: null }, { endsAt: { gt: since } }] },
+    orderBy: { startsAt: 'asc' },
+  })) as ClosureRow[];
+  res.json(rows.map((r) => toPublicClosure(r, now)));
+}, 'Failed to list closures'));
+
+router.post('/closures', requireBusiness, asyncHandler(async (req, res) => {
+  const now = new Date();
+  const tz = await businessTimezone(req.userId!);
+  const parsed = validateClosureInput(req.body ?? {}, { timezone: tz, now });
+  if (!parsed.ok) { res.status(400).json({ error: parsed.error }); return; }
+
+  const count = await prisma.businessClosure.count({
+    where: { businessId: req.userId!, OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+  });
+  if (count >= CLOSURE_LIMITS.maxClosures) {
+    res.status(400).json({ error: `You can have at most ${CLOSURE_LIMITS.maxClosures} current and upcoming closures` });
+    return;
+  }
+  if (
+    parsed.value.kind !== 'holiday' &&
+    parsed.value.startsAt.getTime() <= now.getTime() &&
+    (await findActiveOutOfService(req.userId!, now))
+  ) {
+    res.status(409).json({ error: 'You are already marked out of service. Reopen first.' });
+    return;
+  }
+
+  const row = await prisma.businessClosure.create({ data: { businessId: req.userId!, ...parsed.value } });
+  res.status(201).json(toPublicClosure(row as ClosureRow, now));
+}, 'Failed to create closure'));
+
+// Quick switch: out of service from now, until a time or until the business reopens.
+router.post('/closures/out-of-service', requireBusiness, asyncHandler(async (req, res) => {
+  const now = new Date();
+  const { message, until, untilLocal, blockCalls, emergency, label } = req.body ?? {};
+  const tz = await businessTimezone(req.userId!);
+  const parsed = validateClosureInput(
+    {
+      kind: emergency === true ? 'emergency' : 'out_of_service',
+      label,
+      message,
+      startsAt: now.toISOString(),
+      endsAt: until ?? null,
+      endLocal: untilLocal,
+      blockCalls,
+    },
+    { timezone: tz, now },
+  );
+  if (!parsed.ok) { res.status(400).json({ error: parsed.error }); return; }
+  if (await findActiveOutOfService(req.userId!, now)) {
+    res.status(409).json({ error: 'You are already marked out of service. Reopen first.' });
+    return;
+  }
+  const row = await prisma.businessClosure.create({ data: { businessId: req.userId!, ...parsed.value } });
+  res.status(201).json(toPublicClosure(row as ClosureRow, now));
+}, 'Failed to mark out of service'));
+
+// Full replace of an existing closure (same body as POST /closures).
+router.put('/closures/:id', requireBusiness, asyncHandler(async (req, res) => {
+  const now = new Date();
+  const existing = await prisma.businessClosure.findFirst({ where: { id: String(req.params.id), businessId: req.userId! } });
+  if (!existing) { res.status(404).json({ error: 'Closure not found' }); return; }
+  if (closureStatus(existing, now) === 'past') {
+    res.status(400).json({ error: 'A closure that has ended cannot be edited' });
+    return;
+  }
+  const tz = await businessTimezone(req.userId!);
+  const parsed = validateClosureInput(req.body ?? {}, { timezone: tz, now });
+  if (!parsed.ok) { res.status(400).json({ error: parsed.error }); return; }
+  const row = await prisma.businessClosure.update({ where: { id: existing.id }, data: parsed.value });
+  res.json(toPublicClosure(row as ClosureRow, now));
+}, 'Failed to update closure'));
+
+// Reopen now: ends an active closure at the current time.
+router.post('/closures/:id/end', requireBusiness, asyncHandler(async (req, res) => {
+  const now = new Date();
+  const existing = await prisma.businessClosure.findFirst({ where: { id: String(req.params.id), businessId: req.userId! } });
+  if (!existing) { res.status(404).json({ error: 'Closure not found' }); return; }
+  if (closureStatus(existing, now) !== 'active') {
+    res.status(400).json({ error: 'Only a closure in progress can be ended. Delete an upcoming one instead.' });
+    return;
+  }
+  const row = await prisma.businessClosure.update({ where: { id: existing.id }, data: { endsAt: now } });
+  res.json(toPublicClosure(row as ClosureRow, now));
+}, 'Failed to end closure'));
+
+router.delete('/closures/:id', requireBusiness, asyncHandler(async (req, res) => {
+  const result = await prisma.businessClosure.deleteMany({ where: { id: String(req.params.id), businessId: req.userId! } });
+  if (result.count === 0) { res.status(404).json({ error: 'Closure not found' }); return; }
+  res.status(204).end();
+}, 'Failed to delete closure'));
 
 export default router;

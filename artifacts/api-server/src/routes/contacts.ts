@@ -3,6 +3,7 @@ import { prisma } from "@workspace/db-prisma";
 import { asyncHandler } from "../lib/asyncHandler";
 import { isOnline } from "../services/presence";
 import { validateBusinessHours, resolveEffectiveHours } from "../services/schedulerPolicy";
+import { loadClosureInfo, closureForIndividual } from "../services/businessClosures";
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -271,7 +272,11 @@ router.get("/contacts", asyncHandler(async (req, res) => {
   });
   const linkedMap = new Map(linked.map(a => [a.id, a]));
 
-  // Resolve online status and effective hours for each contact
+  // Closures (holidays, out of service) for those businesses, one query
+  const now = new Date();
+  const closureInfo = await loadClosureInfo(linkedIds, now);
+
+  // Resolve online status, effective hours and closures for each contact
   const contactsWithLiveOnline = contacts.map(contact => {
     const biz = contact.linkedAccountId ? linkedMap.get(contact.linkedAccountId) : undefined;
     const { hours: effectiveHours, source: hoursSource } = resolveEffectiveHours({
@@ -286,6 +291,7 @@ router.get("/contacts", asyncHandler(async (req, res) => {
       online: contact.linkedAccountId ? isOnline(contact.linkedAccountId) : contact.online,
       effectiveHours,
       hoursSource,
+      ...closureForIndividual(contact.linkedAccountId ? closureInfo.get(contact.linkedAccountId) : undefined, now),
     };
   });
 
@@ -445,7 +451,12 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
     ownerTz,
   });
 
-  res.json({ ...contact, effectiveHours, hoursSource });
+  const now = new Date();
+  const closureInfo = existing.linkedAccountId
+    ? (await loadClosureInfo([existing.linkedAccountId], now)).get(existing.linkedAccountId)
+    : undefined;
+
+  res.json({ ...contact, effectiveHours, hoursSource, ...closureForIndividual(closureInfo, now) });
   return;
 }, "Failed to update contact"));
 

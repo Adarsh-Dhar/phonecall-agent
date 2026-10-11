@@ -3,6 +3,7 @@ import { sendToAccount } from "./presence";
 import { sendPushToAccount } from "./push";
 import { normalizeKnowledgeKey } from "../lib/utils";
 import { logger } from "../lib/logger";
+import { getOrCreateRelationship, createOpenLoopFromQuery } from "./memory";
 
 const pending = new Map<
   string,
@@ -31,6 +32,29 @@ export async function askUserDuringCall(opts: {
       knowledgeCategory: opts.knowledgeCategory ?? "fact",
     },
   });
+
+  // Phase 4: Create an OpenLoop for this query
+  try {
+    const call = await prisma.call.findUnique({
+      where: { id: opts.callId },
+      select: { individualId: true, businessId: true },
+    });
+    if (call?.individualId && call?.businessId) {
+      const relationship = await getOrCreateRelationship({
+        individualId: call.individualId,
+        businessId: call.businessId,
+        contactId: opts.contactId,
+      });
+      await createOpenLoopFromQuery({
+        relationshipId: relationship.id,
+        queryId: q.id,
+        question: opts.question,
+        sourceCallId: opts.callId,
+      });
+    }
+  } catch (err) {
+    logger.error({ err, callId: opts.callId }, "liveEscalation: failed to create open loop for query");
+  }
 
   const payload = {
     type: "user_question",
