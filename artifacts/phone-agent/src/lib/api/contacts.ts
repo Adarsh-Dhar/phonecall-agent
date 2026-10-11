@@ -1,5 +1,14 @@
 import { API_BASE_URL, apiFetch } from './shared';
 
+export type BusinessHours = {
+  days: number[];
+  start: number;
+  end: number;
+  tz?: string;
+};
+
+export type HoursSource = 'override' | 'business' | 'default';
+
 export type Contact = {
   id: string;
   name: string;
@@ -11,8 +20,11 @@ export type Contact = {
   note: string | null;
   description: string | null;
   businessHoursJson?: string | null;
+  timezone?: string | null;
   online: boolean;
   linkedAccountId: string | null;
+  effectiveHours?: BusinessHours;
+  hoursSource?: HoursSource;
   createdAt: string;
   updatedAt: string;
   conversations?: Array<{

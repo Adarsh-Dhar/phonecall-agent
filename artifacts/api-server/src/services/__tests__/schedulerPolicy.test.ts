@@ -4,6 +4,9 @@ import {
   isWithinAllowedWindow,
   validateBusinessHours,
   parseBusinessHours,
+  resolveEffectiveHours,
+  DEFAULT_BUSINESS_HOURS,
+  type HoursSource,
 } from '../schedulerPolicy';
 
 const IST = 'Asia/Kolkata';
@@ -97,5 +100,102 @@ describe('validateBusinessHours / parseBusinessHours', () => {
   it('parseBusinessHours returns null for missing or corrupt data instead of throwing', () => {
     expect(parseBusinessHours(null)).toBeNull();
     expect(parseBusinessHours('{broken')).toBeNull();
+  });
+});
+
+describe('resolveEffectiveHours', () => {
+  const IST = 'Asia/Kolkata';
+  const PST = 'America/Los_Angeles';
+
+  it('returns default when nothing is set', () => {
+    const r = resolveEffectiveHours({
+      contactJson: null,
+      businessJson: null,
+      businessTz: null,
+      contactTz: null,
+      ownerTz: IST,
+    });
+    expect(r.hours.days).toEqual(DEFAULT_BUSINESS_HOURS.days);
+    expect(r.hours.start).toEqual(DEFAULT_BUSINESS_HOURS.start);
+    expect(r.hours.end).toEqual(DEFAULT_BUSINESS_HOURS.end);
+    expect(r.source).toBe<HoursSource>('default');
+    expect(r.hours.tz).toBe(IST);
+  });
+
+  it('returns business hours when set, no override', () => {
+    const businessHours = { days: [1, 2, 3, 4, 5], start: 10, end: 18, tz: PST };
+    const r = resolveEffectiveHours({
+      contactJson: null,
+      businessJson: JSON.stringify(businessHours),
+      businessTz: PST,
+      contactTz: null,
+      ownerTz: IST,
+    });
+    expect(r.hours).toEqual(businessHours);
+    expect(r.source).toBe<HoursSource>('business');
+    expect(r.hours.tz).toBe(PST);
+  });
+
+  it('returns override when set, takes precedence over business', () => {
+    const overrideHours = { days: [1, 2, 3], start: 8, end: 12, tz: IST };
+    const businessHours = { days: [1, 2, 3, 4, 5], start: 10, end: 18, tz: PST };
+    const r = resolveEffectiveHours({
+      contactJson: JSON.stringify(overrideHours),
+      businessJson: JSON.stringify(businessHours),
+      businessTz: PST,
+      contactTz: null,
+      ownerTz: IST,
+    });
+    expect(r.hours).toEqual(overrideHours);
+    expect(r.source).toBe<HoursSource>('override');
+    expect(r.hours.tz).toBe(IST);
+  });
+
+  it('uses hours timezone first, then business timezone, then contact timezone, then owner timezone', () => {
+    const hoursWithTz = { days: [1, 2, 3], start: 9, end: 17, tz: 'UTC' };
+    const r1 = resolveEffectiveHours({
+      contactJson: JSON.stringify(hoursWithTz),
+      businessJson: null,
+      businessTz: PST,
+      contactTz: IST,
+      ownerTz: 'Asia/Tokyo',
+    });
+    expect(r1.hours.tz).toBe('UTC');
+
+    const hoursWithoutTz = { days: [1, 2, 3], start: 9, end: 17 };
+    const r2 = resolveEffectiveHours({
+      contactJson: JSON.stringify(hoursWithoutTz),
+      businessJson: null,
+      businessTz: PST,
+      contactTz: IST,
+      ownerTz: 'Asia/Tokyo',
+    });
+    expect(r2.hours.tz).toBe(PST);
+
+    const r3 = resolveEffectiveHours({
+      contactJson: JSON.stringify(hoursWithoutTz),
+      businessJson: null,
+      businessTz: null,
+      contactTz: IST,
+      ownerTz: 'Asia/Tokyo',
+    });
+    expect(r3.hours.tz).toBe(IST);
+
+    const r4 = resolveEffectiveHours({
+      contactJson: JSON.stringify(hoursWithoutTz),
+      businessJson: null,
+      businessTz: null,
+      contactTz: null,
+      ownerTz: 'Asia/Tokyo',
+    });
+    expect(r4.hours.tz).toBe('Asia/Tokyo');
+  });
+
+  it('DEFAULT_BUSINESS_HOURS is Mon-Fri 9-17', () => {
+    expect(DEFAULT_BUSINESS_HOURS).toEqual({
+      days: [1, 2, 3, 4, 5],
+      start: 9,
+      end: 17,
+    });
   });
 });

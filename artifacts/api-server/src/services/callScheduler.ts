@@ -33,7 +33,7 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
 import { broadcastCallDue, broadcastCallExhausted } from "./notifications";
-import { computeNextAttempt, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS } from "./schedulerPolicy";
+import { computeNextAttempt, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS, resolveEffectiveHours } from "./schedulerPolicy";
 import { placeCall, isAutoDialEnabled } from "./telephony";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
@@ -143,10 +143,20 @@ export async function checkDueTasks(): Promise<void> {
             ownerId: true,
             phone: true,
             businessHoursJson: true,
+            timezone: true,
+            linkedAccountId: true,
           },
         },
       },
     });
+
+    // Load linked business accounts once for the whole batch
+    const linkedIds = [...new Set(tasks.map(t => t.contact.linkedAccountId).filter(Boolean))] as string[];
+    const linked = await prisma.account.findMany({
+      where: { id: { in: linkedIds } },
+      select: { id: true, businessHoursJson: true, timezone: true },
+    });
+    const linkedMap = new Map(linked.map(a => [a.id, a]));
 
     // Process tasks with concurrency limit
     const chunks: typeof tasks[] = [];
@@ -155,7 +165,7 @@ export async function checkDueTasks(): Promise<void> {
     }
 
     for (const chunk of chunks) {
-      await Promise.all(chunk.map((task) => processTask(task, now)));
+      await Promise.all(chunk.map((task) => processTask(task, now, linkedMap)));
     }
   } catch (err) {
     logger.error({ err }, "callScheduler: failed to check due tasks");
@@ -164,7 +174,7 @@ export async function checkDueTasks(): Promise<void> {
   }
 }
 
-async function processTask(task: any, now: Date): Promise<void> {
+async function processTask(task: any, now: Date, linkedMap: Map<string, any>): Promise<void> {
   try {
     const { contact } = task;
 
@@ -205,17 +215,20 @@ async function processTask(task: any, now: Date): Promise<void> {
 
     // Check if within allowed window (quiet hours, business hours)
     const ownerTz = owner.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
-    const parsedHours = parseBusinessHours(contact.businessHoursJson);
-    if (contact.businessHoursJson && !parsedHours) {
-      logger.warn({ taskId: task.id, contactId: contact.id }, "callScheduler: invalid businessHoursJson, ignoring");
-    }
-    const businessHours = parsedHours ? { ...parsedHours, tz: parsedHours.tz ?? contact.timezone ?? undefined } : null;
+    const biz = contact.linkedAccountId ? linkedMap.get(contact.linkedAccountId) : undefined;
+    const { hours: businessHours } = resolveEffectiveHours({
+      contactJson: contact.businessHoursJson,
+      businessJson: biz?.businessHoursJson,
+      businessTz: biz?.timezone,
+      contactTz: contact.timezone,
+      ownerTz,
+    });
     const windowCheck = isWithinAllowedWindow(
       now,
       ownerTz,
       owner.quietHoursStart,
       owner.quietHoursEnd,
-      businessHours
+      businessHours || null
     );
 
     if (!windowCheck.allowed) {

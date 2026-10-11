@@ -1,5 +1,18 @@
 const API_BASE = '/api/business';
 
+export interface BusinessHours {
+  days: number[];
+  start: number;
+  end: number;
+  tz?: string;
+}
+
+export interface BusinessSettings {
+  hours: BusinessHours;
+  isDefault: boolean;
+  timezone: string | null;
+}
+
 export interface Contact {
   id: string;
   name: string;
@@ -162,5 +175,30 @@ export async function getCallMessages(callId: string): Promise<any[]> {
     credentials: 'include',
   });
   if (!res.ok) throw new Error('Failed to fetch call messages');
+  return res.json();
+}
+
+export async function fetchBusinessSettings(): Promise<BusinessSettings> {
+  const res = await fetch(`${API_BASE}/settings`, {
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Failed to fetch business settings');
+  return res.json();
+}
+
+export async function saveBusinessSettings(data: {
+  businessHours?: BusinessHours | null;
+  timezone?: string | null;
+}): Promise<BusinessSettings> {
+  const res = await fetch(`${API_BASE}/settings`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || 'Failed to save business settings');
+  }
   return res.json();
 }

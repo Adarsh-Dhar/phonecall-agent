@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { asyncHandler } from "../lib/asyncHandler";
 import { isOnline } from "../services/presence";
-import { validateBusinessHours } from "../services/schedulerPolicy";
+import { validateBusinessHours, resolveEffectiveHours } from "../services/schedulerPolicy";
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -243,6 +243,7 @@ router.get("/contacts", asyncHandler(async (req, res) => {
       note: true,
       description: true,
       businessHoursJson: true,
+      timezone: true,
       online: true,
       linkedAccountId: true,
       createdAt: true,
@@ -255,11 +256,38 @@ router.get("/contacts", asyncHandler(async (req, res) => {
     orderBy: { createdAt: "desc" },
   });
 
-  // Resolve online status via presence registry for contacts with linkedAccountId
-  const contactsWithLiveOnline = contacts.map(contact => ({
-    ...contact,
-    online: contact.linkedAccountId ? isOnline(contact.linkedAccountId) : contact.online,
-  }));
+  // Load owner's timezone
+  const owner = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { timezone: true },
+  });
+  const ownerTz = owner?.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
+
+  // Load linked business accounts once
+  const linkedIds = [...new Set(contacts.map(c => c.linkedAccountId).filter(Boolean))] as string[];
+  const linked = await prisma.account.findMany({
+    where: { id: { in: linkedIds } },
+    select: { id: true, businessHoursJson: true, timezone: true },
+  });
+  const linkedMap = new Map(linked.map(a => [a.id, a]));
+
+  // Resolve online status and effective hours for each contact
+  const contactsWithLiveOnline = contacts.map(contact => {
+    const biz = contact.linkedAccountId ? linkedMap.get(contact.linkedAccountId) : undefined;
+    const { hours: effectiveHours, source: hoursSource } = resolveEffectiveHours({
+      contactJson: contact.businessHoursJson,
+      businessJson: biz?.businessHoursJson,
+      businessTz: biz?.timezone,
+      contactTz: contact.timezone,
+      ownerTz,
+    });
+    return {
+      ...contact,
+      online: contact.linkedAccountId ? isOnline(contact.linkedAccountId) : contact.online,
+      effectiveHours,
+      hoursSource,
+    };
+  });
 
   res.json(contactsWithLiveOnline);
   return;
@@ -339,6 +367,12 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
   // Verify ownership before update
   const existing = await prisma.account.findFirst({
     where: { id: String(id), ownerId: req.userId!, isService: true },
+    select: {
+      id: true,
+      businessHoursJson: true,
+      timezone: true,
+      linkedAccountId: true,
+    },
   });
   if (!existing) {
     res.status(404).json({ error: "Contact not found" });
@@ -371,8 +405,47 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
       note,
       ...(businessHoursValue !== undefined ? { businessHoursJson: businessHoursValue } : {}),
     },
+    select: {
+      id: true,
+      name: true,
+      business: true,
+      category: true,
+      phone: true,
+      initials: true,
+      color: true,
+      note: true,
+      description: true,
+      businessHoursJson: true,
+      timezone: true,
+      linkedAccountId: true,
+    },
   });
-  res.json(contact);
+
+  // Load owner's timezone
+  const owner = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { timezone: true },
+  });
+  const ownerTz = owner?.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
+
+  // Load linked business account
+  const biz = existing.linkedAccountId
+    ? await prisma.account.findUnique({
+        where: { id: existing.linkedAccountId },
+        select: { businessHoursJson: true, timezone: true },
+      })
+    : undefined;
+
+  // Resolve effective hours
+  const { hours: effectiveHours, source: hoursSource } = resolveEffectiveHours({
+    contactJson: contact.businessHoursJson,
+    businessJson: biz?.businessHoursJson,
+    businessTz: biz?.timezone,
+    contactTz: contact.timezone,
+    ownerTz,
+  });
+
+  res.json({ ...contact, effectiveHours, hoursSource });
   return;
 }, "Failed to update contact"));
 

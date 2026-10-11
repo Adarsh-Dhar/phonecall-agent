@@ -15,6 +15,24 @@ export interface BusinessHours {
   tz?: string;
 }
 
+export const DEFAULT_BUSINESS_HOURS: BusinessHours = { days: [1, 2, 3, 4, 5], start: 9, end: 17 };
+export type HoursSource = 'override' | 'business' | 'default';
+
+export function resolveEffectiveHours(o: {
+  contactJson?: string | null;   // the individual's override on the contact
+  businessJson?: string | null;  // the business account's own hours
+  businessTz?: string | null;
+  contactTz?: string | null;
+  ownerTz: string;
+}): { hours: BusinessHours; source: HoursSource } {
+  const override = parseBusinessHours(o.contactJson);
+  const business = parseBusinessHours(o.businessJson);
+  const base = override ?? business ?? DEFAULT_BUSINESS_HOURS;
+  const source: HoursSource = override ? 'override' : business ? 'business' : 'default';
+  const tz = base.tz ?? o.businessTz ?? o.contactTz ?? o.ownerTz;
+  return { hours: { ...base, tz }, source };
+}
+
 const STEP_MS = 15 * 60 * 1000; // every real UTC offset is a multiple of 15 min
 const MAX_SEARCH_STEPS = 8 * 24 * 4; // look up to 8 days ahead
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

@@ -78,6 +78,18 @@ export function ContactDetailPage() {
           setCallStatus('ringing');
           setCallerCallId(data.callId);
         }
+
+        // Show warning if call is outside business hours
+        if (data.warning === 'OUTSIDE_BUSINESS_HOURS') {
+          const nextOpenMsg = data.nextOpenAt
+            ? ` Next available: ${new Date(data.nextOpenAt).toLocaleString()}`
+            : '';
+          toast({
+            variant: 'warning',
+            title: 'Outside Business Hours',
+            description: `This contact is outside their business hours.${nextOpenMsg}`,
+          });
+        }
       } catch (error) {
         console.error('Error dialing call:', error);
         toast({ variant: 'destructive', description: (error as Error).message });
@@ -185,7 +197,7 @@ export function ContactDetailPage() {
         {!loading && contact && <ContactTasksCard contactId={id} />}
         {!loading && contact && <ContactQuestionsCard contactId={id} />}
         {!loading && contact && <ContactFilesCard />}
-        {!loading && contact && <BusinessHoursCard contactId={id} initial={contact.businessHoursJson ?? null} />}
+        {!loading && contact && <BusinessHoursCard contactId={id} initial={contact.businessHoursJson ?? null} effectiveHours={contact.effectiveHours} hoursSource={contact.hoursSource} />}
         {!loading && contact && <KnowledgeBoardPanel contactId={id} />}
 
         {testCallWidget && (

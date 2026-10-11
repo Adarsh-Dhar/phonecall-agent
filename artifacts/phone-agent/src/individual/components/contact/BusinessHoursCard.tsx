@@ -1,73 +1,62 @@
 import { useState } from 'react';
-import { Clock, Check, X } from 'lucide-react';
+import { Clock, Check, X, RotateCcw } from 'lucide-react';
 import { apiFetch } from '@/lib/api/shared';
-
-interface BusinessHours {
-  days: number[];
-  start: number;
-  end: number;
-  tz?: string;
-}
+import { HoursEditor, type BusinessHours } from '@/components/hours/HoursEditor';
+import type { HoursSource } from '@/lib/api/contacts';
 
 interface BusinessHoursCardProps {
   contactId: string;
   initial: string | null;
+  effectiveHours?: BusinessHours;
+  hoursSource?: HoursSource;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function BusinessHoursCard({ contactId, initial }: BusinessHoursCardProps) {
+const SOURCE_LABELS: Record<HoursSource, string> = {
+  default: 'Default (Mon-Fri, 9 AM-5 PM)',
+  business: 'Set by the business',
+  override: 'Your override',
+};
+
+export function BusinessHoursCard({ contactId, initial, effectiveHours, hoursSource }: BusinessHoursCardProps) {
   const [editing, setEditing] = useState(false);
   const [businessHours, setBusinessHours] = useState<BusinessHours | null>(
-    initial ? JSON.parse(initial) : null
-  );
-  const [localDays, setLocalDays] = useState<number[]>(
-    businessHours?.days ?? []
-  );
-  const [localStart, setLocalStart] = useState<number>(
-    businessHours?.start ?? 9
-  );
-  const [localEnd, setLocalEnd] = useState<number>(
-    businessHours?.end ?? 17
-  );
-  const [localTz, setLocalTz] = useState<string>(
-    businessHours?.tz ?? 'Asia/Kolkata'
+    effectiveHours || (initial ? JSON.parse(initial) : null)
   );
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
+    if (!businessHours || businessHours.days.length === 0) {
+      setError('Select at least one day');
+      return;
+    }
     setSaving(true);
+    setError(null);
     try {
-      const updated: BusinessHours = {
-        days: localDays,
-        start: localStart,
-        end: localEnd,
-        tz: localTz,
-      };
       await apiFetch(`/api/contacts/${contactId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessHoursJson: updated }),
+        body: JSON.stringify({ businessHoursJson: businessHours }),
       });
-      setBusinessHours(updated);
       setEditing(false);
     } catch (err) {
-      console.error('[BusinessHoursCard] Failed to save:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancel = () => {
-    setLocalDays(businessHours?.days ?? []);
-    setLocalStart(businessHours?.start ?? 9);
-    setLocalEnd(businessHours?.end ?? 17);
-    setLocalTz(businessHours?.tz ?? 'Asia/Kolkata');
+    setBusinessHours(effectiveHours || (initial ? JSON.parse(initial) : null));
+    setError(null);
     setEditing(false);
   };
 
-  const handleClear = async () => {
+  const handleUseBusinessHours = async () => {
     setSaving(true);
+    setError(null);
     try {
       await apiFetch(`/api/contacts/${contactId}`, {
         method: 'PUT',
@@ -75,22 +64,12 @@ export function BusinessHoursCard({ contactId, initial }: BusinessHoursCardProps
         body: JSON.stringify({ businessHoursJson: null }),
       });
       setBusinessHours(null);
-      setLocalDays([]);
-      setLocalStart(9);
-      setLocalEnd(17);
-      setLocalTz('Asia/Kolkata');
       setEditing(false);
     } catch (err) {
-      console.error('[BusinessHoursCard] Failed to clear:', err);
+      setError(err instanceof Error ? err.message : 'Failed to reset');
     } finally {
       setSaving(false);
     }
-  };
-
-  const toggleDay = (day: number) => {
-    setLocalDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
-    );
   };
 
   if (!editing) {
@@ -108,6 +87,11 @@ export function BusinessHoursCard({ contactId, initial }: BusinessHoursCardProps
                   ? `${businessHours.days.map((d) => DAY_NAMES[d]).join(', ')} ${businessHours.start}:00-${businessHours.end}:00 ${businessHours.tz ?? ''}`
                   : 'Not set'}
               </p>
+              {hoursSource && (
+                <p className="text-[10px] text-muted-foreground">
+                  Source: {SOURCE_LABELS[hoursSource]}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -135,75 +119,22 @@ export function BusinessHoursCard({ contactId, initial }: BusinessHoursCardProps
       </div>
 
       <div className="mt-4 space-y-4">
-        <div>
-          <label className="mb-2 block text-xs font-medium text-muted-foreground">
-            Days
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {DAY_NAMES.map((name, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => toggleDay(idx)}
-                className={`h-8 w-10 rounded-lg text-xs font-medium transition-colors ${
-                  localDays.includes(idx)
-                    ? 'bg-[#3b82f6] text-white'
-                    : 'bg-[#fbfaf6] text-muted-foreground hover:bg-[#f0f7ff]'
-                }`}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-        </div>
+        <HoursEditor
+          value={businessHours || { days: [], start: 9, end: 17 }}
+          onChange={setBusinessHours}
+        />
 
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <label className="mb-2 block text-xs font-medium text-muted-foreground">
-              Start Hour (0-23)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="23"
-              value={localStart}
-              onChange={(e) => setLocalStart(Number(e.target.value))}
-              className="w-full rounded-lg border border-border bg-[#fbfaf6] px-3 py-2 text-sm"
-            />
+        {error && (
+          <div className="bg-destructive/10 text-destructive p-3 rounded-lg text-sm">
+            {error}
           </div>
-          <div className="flex-1">
-            <label className="mb-2 block text-xs font-medium text-muted-foreground">
-              End Hour (0-23, exclusive)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="24"
-              value={localEnd}
-              onChange={(e) => setLocalEnd(Number(e.target.value))}
-              className="w-full rounded-lg border border-border bg-[#fbfaf6] px-3 py-2 text-sm"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-xs font-medium text-muted-foreground">
-            Timezone
-          </label>
-          <input
-            type="text"
-            value={localTz}
-            onChange={(e) => setLocalTz(e.target.value)}
-            placeholder="e.g., Asia/Kolkata"
-            className="w-full rounded-lg border border-border bg-[#fbfaf6] px-3 py-2 text-sm"
-          />
-        </div>
+        )}
 
         <div className="flex gap-2">
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || localDays.length === 0}
+            disabled={saving || !businessHours || businessHours.days.length === 0}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#3b82f6] px-4 py-2 text-sm font-medium text-white hover:bg-[#2563eb] disabled:opacity-50"
           >
             {saving ? (
@@ -224,14 +155,16 @@ export function BusinessHoursCard({ contactId, initial }: BusinessHoursCardProps
             <X size={14} />
             Cancel
           </button>
-          {businessHours && (
+          {hoursSource !== 'default' && (
             <button
               type="button"
-              onClick={handleClear}
+              onClick={handleUseBusinessHours}
               disabled={saving}
-              className="rounded-lg border border-border bg-[#fbfaf6] px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-[#fde8e8] hover:text-[#b44343]"
+              className="flex items-center justify-center gap-2 rounded-lg border border-border bg-[#fbfaf6] px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-[#f0f7ff]"
+              title="Use the business's hours instead of your override"
             >
-              Clear
+              <RotateCcw size={14} />
+              Use Business Hours
             </button>
           )}
         </div>

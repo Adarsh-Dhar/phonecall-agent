@@ -47,6 +47,8 @@ export type Call = {
 export type DialCallResponse = {
   callId: string;
   status: 'ringing' | 'missed';
+  warning?: 'OUTSIDE_BUSINESS_HOURS';
+  nextOpenAt?: string;
 };
 
 /** Fetch a single call by ID. */

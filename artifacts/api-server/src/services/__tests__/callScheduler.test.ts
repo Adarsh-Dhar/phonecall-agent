@@ -149,6 +149,134 @@ describe('callScheduler (real DB)', () => {
     await checkDueTasks();
     expect(calledFor(task.id)).toBe(1);
   });
+
+  it('defers outside business hours (linked business with 10-11 Mon-Wed)', async () => {
+    const n = counter++;
+    const owner = await prisma.account.create({
+      data: { googleId: `t-sch-o-${runId}-${n}`, email: `t-sch-o-${runId}-${n}@example.com`, name: 'Owner', timezone: 'Asia/Kolkata' },
+    });
+    const business = await prisma.account.create({
+      data: {
+        googleId: `t-sch-b-${runId}-${n}`,
+        email: `t-sch-b-${runId}-${n}@example.com`,
+        name: 'Business',
+        isService: true,
+        ownerId: owner.id,
+        businessHoursJson: JSON.stringify({ days: [1, 2, 3], start: 10, end: 11, tz: 'Asia/Kolkata' }),
+      },
+    });
+    const contact = await prisma.account.create({
+      data: {
+        googleId: `t-sch-c-${runId}-${n}`,
+        email: `t-sch-c-${runId}-${n}@example.com`,
+        name: 'Clinic',
+        isService: true,
+        ownerId: owner.id,
+        linkedAccountId: business.id,
+      },
+    });
+    made.accounts.push(owner.id, business.id, contact.id);
+    const conversation = await prisma.conversation.create({ data: { contactId: contact.id } });
+    made.conversations.push(conversation.id);
+    const task = await prisma.task.create({
+      data: {
+        title: 'Book appointment',
+        status: 'open',
+        kind: 'call',
+        conversationId: conversation.id,
+        contactId: contact.id,
+        dueDate: new Date('2026-10-08T05:00:00Z'), // Thursday 10:30 IST (outside 10-11 Mon-Wed)
+        nextAttemptAt: new Date('2026-10-08T05:00:00Z'),
+        callAttempts: 0,
+        schedulerStatus: 'pending',
+      },
+    });
+    made.tasks.push(task.id);
+
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-08T05:00:00Z'));
+    await checkDueTasks();
+    vi.useRealTimers();
+
+    expect(calledFor(task.id)).toBe(0);
+    const after = await reload(task.id);
+    expect(after.callAttempts).toBe(0);
+    expect(after.schedulerStatus).toBe('pending');
+    // Should defer to Monday 10:00 IST
+    expect(after.nextAttemptAt!.toISOString()).toBe('2026-10-12T04:30:00.000Z');
+  });
+
+  it('defers outside business hours default (Mon-Fri 9-17) when neither override nor business hours set', async () => {
+    const { task } = await seed({
+      ownerData: { timezone: 'Asia/Kolkata' },
+      nextAttemptAt: new Date('2026-10-10T05:00:00Z'), // Saturday 10:30 IST
+    });
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-10T05:00:00Z'));
+    await checkDueTasks();
+    vi.useRealTimers();
+
+    expect(calledFor(task.id)).toBe(0);
+    const after = await reload(task.id);
+    expect(after.callAttempts).toBe(0);
+    expect(after.schedulerStatus).toBe('pending');
+    // Should defer to Monday 09:00 IST
+    expect(after.nextAttemptAt!.toISOString()).toBe('2026-10-12T03:30:00.000Z');
+  });
+
+  it('allows call during business hours (override takes precedence)', async () => {
+    const n = counter++;
+    const owner = await prisma.account.create({
+      data: { googleId: `t-sch-o-${runId}-${n}`, email: `t-sch-o-${runId}-${n}@example.com`, name: 'Owner', timezone: 'Asia/Kolkata' },
+    });
+    const business = await prisma.account.create({
+      data: {
+        googleId: `t-sch-b-${runId}-${n}`,
+        email: `t-sch-b-${runId}-${n}@example.com`,
+        name: 'Business',
+        isService: true,
+        ownerId: owner.id,
+        businessHoursJson: JSON.stringify({ days: [1, 2, 3], start: 10, end: 11, tz: 'Asia/Kolkata' }),
+      },
+    });
+    const contact = await prisma.account.create({
+      data: {
+        googleId: `t-sch-c-${runId}-${n}`,
+        email: `t-sch-c-${runId}-${n}@example.com`,
+        name: 'Clinic',
+        isService: true,
+        ownerId: owner.id,
+        linkedAccountId: business.id,
+        businessHoursJson: JSON.stringify({ days: [1, 2, 3, 4, 5], start: 8, end: 20, tz: 'Asia/Kolkata' }),
+      },
+    });
+    made.accounts.push(owner.id, business.id, contact.id);
+    const conversation = await prisma.conversation.create({ data: { contactId: contact.id } });
+    made.conversations.push(conversation.id);
+    const task = await prisma.task.create({
+      data: {
+        title: 'Book appointment',
+        status: 'open',
+        kind: 'call',
+        conversationId: conversation.id,
+        contactId: contact.id,
+        dueDate: new Date('2026-10-08T03:00:00Z'), // Thursday 08:30 IST (inside override 8-20)
+        nextAttemptAt: new Date('2026-10-08T03:00:00Z'),
+        callAttempts: 0,
+        schedulerStatus: 'pending',
+      },
+    });
+    made.tasks.push(task.id);
+
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-08T03:00:00Z'));
+    await checkDueTasks();
+    vi.useRealTimers();
+
+    expect(calledFor(task.id)).toBe(1);
+    const after = await reload(task.id);
+    expect(after.callAttempts).toBe(1);
+  });
 });
 
 describe('applyCallOutcomeToTask (real DB)', () => {

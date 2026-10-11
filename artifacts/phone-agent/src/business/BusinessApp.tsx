@@ -2,6 +2,7 @@ import { Redirect, Route, Switch } from 'wouter';
 import { BusinessLayout } from './layout/BusinessLayout';
 import { BusinessCallsPage } from './pages/BusinessCallsPage';
 import { BusinessContactsPage } from './pages/BusinessContactsPage';
+import { BusinessSettingsPage } from './pages/BusinessSettingsPage';
 import { BusinessIncomingCallModal } from './components/BusinessIncomingCallModal';
 import { BusinessCallWidget } from './components/BusinessCallWidget';
 import { usePresence } from '@/hooks/usePresence';
@@ -65,6 +66,7 @@ export default function BusinessApp() {
         <Route path="/contacts">
           {() => <BusinessContactsPage onCall={startCall} />}
         </Route>
+        <Route path="/settings" component={BusinessSettingsPage} />
         <Route path="/history"  component={() => <Redirect to="/calls" />} />
         <Route path="/"         component={() => <Redirect to="/calls" />} />
       </Switch>

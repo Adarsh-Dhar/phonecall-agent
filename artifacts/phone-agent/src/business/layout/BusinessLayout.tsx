@@ -1,5 +1,5 @@
 import { Link } from 'wouter';
-import { Phone, Users, LogOut } from 'lucide-react';
+import { Phone, Users, Settings, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -22,6 +22,12 @@ export function BusinessLayout({ children }: { children: React.ReactNode }) {
               <Button variant="ghost" size="sm">
                 <Users className="h-4 w-4 mr-2" />
                 Contacts
+              </Button>
+            </Link>
+            <Link href="/settings">
+              <Button variant="ghost" size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
               </Button>
             </Link>
             <Button variant="ghost" size="sm" onClick={logout}>

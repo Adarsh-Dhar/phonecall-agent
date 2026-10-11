@@ -14,6 +14,7 @@ import {
   NotInContactsError,
 } from '../services/callSignaling';
 import { logger } from '../lib/logger';
+import { validateBusinessHours, DEFAULT_BUSINESS_HOURS, resolveEffectiveHours, isWithinAllowedWindow } from '../services/schedulerPolicy';
 import '../lib/authMiddleware'; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -91,7 +92,59 @@ router.post('/calls/dial', asyncHandler(async (req, res) => {
       'dial: call created successfully'
     );
 
-    res.status(200).json({ callId: result.call.id, status: 'ringing' });
+    // Check if outside business hours and add warning
+    const contact = await prisma.account.findUnique({
+      where: { id: String(contactId) },
+      select: { businessHoursJson: true, timezone: true, linkedAccountId: true },
+    });
+    const owner = await prisma.account.findUnique({
+      where: { id: req.userId! },
+      select: { timezone: true },
+    });
+    const ownerTz = owner?.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
+
+    let warning: string | undefined;
+    let nextOpenAt: string | undefined;
+
+    if (contact && owner) {
+      const biz = contact.linkedAccountId
+        ? await prisma.account.findUnique({
+            where: { id: contact.linkedAccountId },
+            select: { businessHoursJson: true, timezone: true },
+          })
+        : undefined;
+
+      const { hours: businessHours } = resolveEffectiveHours({
+        contactJson: contact.businessHoursJson,
+        businessJson: biz?.businessHoursJson,
+        businessTz: biz?.timezone,
+        contactTz: contact.timezone,
+        ownerTz,
+      });
+
+      // For manual dial, only check business hours (not quiet hours)
+      // Pass null for quiet hours to skip that check
+      const windowCheck = isWithinAllowedWindow(
+        new Date(),
+        ownerTz,
+        null, // No quiet hours
+        null,
+        businessHours
+      );
+
+      if (!windowCheck.allowed && windowCheck.nextAllowedTime) {
+        warning = 'OUTSIDE_BUSINESS_HOURS';
+        nextOpenAt = windowCheck.nextAllowedTime.toISOString();
+      }
+    }
+
+    const response: any = { callId: result.call.id, status: 'ringing' };
+    if (warning) {
+      response.warning = warning;
+      response.nextOpenAt = nextOpenAt;
+    }
+
+    res.status(200).json(response);
     return;
   } catch (e) {
     logger.error({ error: e }, 'dial: failed to create call');
@@ -373,5 +426,81 @@ router.delete('/contacts/:id', requireBusiness, asyncHandler(async (req, res) =>
   await prisma.account.delete({ where: { id: String(id) } });
   res.json({ success: true });
 }, 'Failed to delete contact'));
+
+// ---------------------------------------------------------------------------
+// GET /api/business/settings
+// Get the business's own settings (hours and timezone).
+// ---------------------------------------------------------------------------
+router.get('/settings', requireBusiness, asyncHandler(async (req, res) => {
+  const business = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { businessHoursJson: true, timezone: true },
+  });
+  if (!business) {
+    res.status(404).json({ error: 'Business account not found' });
+    return;
+  }
+
+  const hours = business.businessHoursJson
+    ? JSON.parse(business.businessHoursJson)
+    : DEFAULT_BUSINESS_HOURS;
+  const isDefault = !business.businessHoursJson;
+
+  res.json({ hours, isDefault, timezone: business.timezone });
+}, 'Failed to fetch business settings'));
+
+// ---------------------------------------------------------------------------
+// PATCH /api/business/settings
+// Update the business's own settings (hours and timezone).
+// ---------------------------------------------------------------------------
+router.patch('/settings', requireBusiness, asyncHandler(async (req, res) => {
+  const { businessHours, timezone } = req.body;
+
+  // Validate hours if provided
+  if (businessHours !== undefined && businessHours !== null) {
+    try {
+      validateBusinessHours(businessHours);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : 'Invalid business hours' });
+      return;
+    }
+  }
+
+  // Validate timezone if provided
+  if (timezone !== undefined && timezone !== null) {
+    if (typeof timezone !== 'string') {
+      res.status(400).json({ error: 'timezone must be a string' });
+      return;
+    }
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: timezone });
+    } catch {
+      res.status(400).json({ error: 'timezone is not a valid IANA timezone' });
+      return;
+    }
+  }
+
+  // Build update data
+  const updateData: any = {};
+  if (businessHours !== undefined) {
+    updateData.businessHoursJson = businessHours === null ? null : JSON.stringify(businessHours);
+  }
+  if (timezone !== undefined) {
+    updateData.timezone = timezone;
+  }
+
+  const updated = await prisma.account.update({
+    where: { id: req.userId! },
+    data: updateData,
+    select: { businessHoursJson: true, timezone: true },
+  });
+
+  const hours = updated.businessHoursJson
+    ? JSON.parse(updated.businessHoursJson)
+    : DEFAULT_BUSINESS_HOURS;
+  const isDefault = !updated.businessHoursJson;
+
+  res.json({ hours, isDefault, timezone: updated.timezone });
+}, 'Failed to update business settings'));
 
 export default router;
