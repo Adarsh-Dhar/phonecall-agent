@@ -25,6 +25,7 @@ import { buildAgentCallSystemInstruction } from "./callAnalysis";
 import { getOrCreateActiveConversation } from "./conversations";
 import { createCallLifecycle } from "./callLifecycle";
 import { logger } from "../lib/logger";
+import { loadOwnerInfo } from "./ownerInfo";
 
 // A fixed synthetic contact that all browser test calls are logged against,
 // so they show up in the normal Contact/Conversation/Task UI without needing
@@ -131,7 +132,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
             // Get the user's name and timezone (the person making the call)
             const user = await prisma.account.findUnique({
               where: { id: contact.ownerId ?? undefined },
-              select: { name: true, timezone: true, isService: true },
+              select: { id: true, name: true, timezone: true, isService: true },
             });
 
             if (!user) {
@@ -177,6 +178,8 @@ export function createBrowserVoiceStream(): WebSocketServer {
               orderBy: { category: "asc" },
             });
 
+            const ownerInfo = await loadOwnerInfo(user.id);
+
             gemini = await openGeminiLiveSession({
               systemInstructionText: buildAgentCallSystemInstruction({
                 individualName: user.name,
@@ -185,6 +188,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
                 knowledgeFacts,
                 taskContext,
                 timezone: tz,
+                ownerInfo,
               }),
               onAudioOut: (pcm24k) => {
                 lifecycle?.noteAudioOut(pcm24k);

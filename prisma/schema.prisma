@@ -62,6 +62,7 @@ model Account {
   queries          Query[]
   tasks            Task[]
   pushSubscriptions PushSubscription[]
+  ownerInfo        OwnerInfo[]
 
   @@index([ownerId])
 }
@@ -291,4 +292,19 @@ model PushSubscription {
   account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
+}
+
+model OwnerInfo {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  category  String
+  key       String
+  value     String
+  shareable Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId, key])
+  @@index([ownerId])
 }

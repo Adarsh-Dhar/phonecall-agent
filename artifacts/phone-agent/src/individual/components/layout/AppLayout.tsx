@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowUpRight, CircleHelp, History, LogOut, MessageCircle, Phone as PhoneIcon, ShieldCheck, Users, Activity, MessageSquare } from 'lucide-react';
+import { ArrowUpRight, CircleHelp, History, LogOut, MessageCircle, Phone as PhoneIcon, ShieldCheck, Users, Activity, MessageSquare, UserRound } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { IconButton } from '@/components/shared/IconButton';
 import { Preferences } from './Preferences';
@@ -11,6 +11,7 @@ const navItems = [
   { path: '/history', label: 'Task history', icon: <History size={16} />, testId: 'nav-history' },
   { path: '/contacts', label: 'Contacts', icon: <Users size={16} />, testId: 'nav-contacts' },
   { path: '/queries', label: 'Questions', icon: <CircleHelp size={16} />, testId: 'nav-queries' },
+  { path: '/my-info', label: 'My info', icon: <UserRound size={16} />, testId: 'nav-my-info' },
 ] as const;
 
 const testingNavItems = [

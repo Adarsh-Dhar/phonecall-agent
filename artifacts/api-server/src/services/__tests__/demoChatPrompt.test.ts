@@ -41,4 +41,15 @@ describe('buildDemoChatSystemPrompt', () => {
     expect(prompt).toContain('Ready to book');
     expect(prompt).toContain('point the user to creating a task or starting a call');
   });
+
+  it('appends the owner info block when provided', () => {
+    const ownerInfoBlock = '\n\nFACTS ABOUT John Doe:\n- [SHAREABLE] (contact) phone: 555-1234';
+    const prompt = buildDemoChatSystemPrompt('', ownerInfoBlock);
+    expect(prompt).toContain(ownerInfoBlock);
+  });
+
+  it('does not include owner info block when not provided', () => {
+    const prompt = buildDemoChatSystemPrompt('');
+    expect(prompt).not.toContain('FACTS ABOUT');
+  });
 });

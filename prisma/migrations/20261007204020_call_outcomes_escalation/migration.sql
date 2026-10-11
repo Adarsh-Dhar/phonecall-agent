@@ -2,6 +2,10 @@
 ALTER TABLE "Account" ADD COLUMN     "timezone" TEXT;
 
 -- AlterTable
+ALTER TABLE "Conversation" ADD COLUMN     "extractionFailureCount" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "extractionFailureCursor" TEXT;
+
+-- AlterTable
 ALTER TABLE "Call" ADD COLUMN     "confirmationRef" TEXT,
 ADD COLUMN     "confirmedAt" TIMESTAMP(3),
 ADD COLUMN     "outcome" TEXT,

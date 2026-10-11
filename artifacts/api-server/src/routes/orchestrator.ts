@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { callNebiusChat, NebiusApiError } from "../services/nebiusText";
 import { buildDemoChatSystemPrompt } from "../services/demoChatPrompt";
+import { loadOwnerInfo, buildOwnerInfoBlock } from "../services/ownerInfo";
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -65,7 +66,15 @@ router.post("/gemini/chat", async (req, res) => {
     }
   }
 
-  const systemContent = buildDemoChatSystemPrompt(knowledgeBlock);
+  // Load owner info and build the block
+  const ownerInfo = await loadOwnerInfo(req.userId!);
+  const user = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { name: true },
+  });
+  const ownerInfoBlock = user ? buildOwnerInfoBlock(user.name, ownerInfo) : '';
+
+  const systemContent = buildDemoChatSystemPrompt(knowledgeBlock, ownerInfoBlock);
 
   try {
     const { text, model } = await callNebiusChat({

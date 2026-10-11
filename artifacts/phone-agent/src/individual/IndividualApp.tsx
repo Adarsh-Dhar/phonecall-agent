@@ -5,9 +5,7 @@ import { HistoryPage } from '@/individual/pages/HistoryPage';
 import { ContactsPage } from '@/individual/pages/ContactsPage';
 import { ContactDetailPage } from '@/individual/pages/ContactDetailPage';
 import { QueriesPage } from '@/individual/pages/QueriesPage';
-import { ChatTestPage } from '@/individual/pages/ChatTestPage';
-import { HealthPage } from '@/individual/pages/HealthPage';
-import { ConversationInspectorPage } from '@/individual/pages/ConversationInspectorPage';
+import { OwnerInfoPage } from '@/individual/pages/OwnerInfoPage';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 import { IncomingCallModal } from '@/individual/components/IncomingCallModal';
 import { LiveQuestionModal } from '@/individual/components/LiveQuestionModal';
@@ -16,6 +14,11 @@ import { usePresence } from '@/hooks/usePresence';
 import { toast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
 import { TESTING_UI } from '@/lib/testingUi';
+
+// Import testing pages - these will be tree-shaken when TESTING_UI is false
+import { ChatTestPage } from '@/individual/pages/ChatTestPage';
+import { HealthPage } from '@/individual/pages/HealthPage';
+import { ConversationInspectorPage } from '@/individual/pages/ConversationInspectorPage';
 
 export default function IndividualApp() {
   const [dueCall, setDueCall] = useState<CallDueNotification | null>(null);
@@ -81,9 +84,14 @@ export default function IndividualApp() {
         <Route path="/contacts" component={ContactsPage} />
         <Route path="/contacts/:id" component={ContactDetailPage} />
         <Route path="/queries"  component={QueriesPage} />
-        {TESTING_UI && <Route path="/chat" component={ChatTestPage} />}
-        {TESTING_UI && <Route path="/health" component={HealthPage} />}
-        {TESTING_UI && <Route path="/inspector" component={ConversationInspectorPage} />}
+        <Route path="/my-info"  component={OwnerInfoPage} />
+        {TESTING_UI && (
+          <>
+            <Route path="/chat" component={ChatTestPage} />
+            <Route path="/health" component={HealthPage} />
+            <Route path="/inspector" component={ConversationInspectorPage} />
+          </>
+        )}
         <Route path="/"         component={() => <Redirect to="/contacts" />} />
       </Switch>
 

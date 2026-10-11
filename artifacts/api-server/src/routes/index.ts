@@ -13,6 +13,7 @@ import knowledgeRouter from "./knowledge";
 import callsRouter from "./calls";
 import calendarEventsRouter from "./calendarEvents";
 import businessRouter from "./business";
+import ownerInfoRouter from "./ownerInfo";
 import { requireAuth } from "../lib/authMiddleware";
 import { requireBusiness, requireIndividual } from "../lib/roles";
 
@@ -38,6 +39,7 @@ router.use("/history", requireIndividual, historyRouter);
 router.use("/tasks", requireIndividual, tasksRouter);
 router.use("/questions", requireIndividual, questionsRouter);
 router.use("/knowledge", requireIndividual, knowledgeRouter);
+router.use("/owner-info", requireIndividual, ownerInfoRouter);
 router.use("/calls", requireIndividual, callsRouter);
 router.use("/calendarEvents", requireIndividual, calendarEventsRouter);
 

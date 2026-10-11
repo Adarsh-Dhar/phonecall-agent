@@ -3,7 +3,7 @@
  * and it does not save tasks. The prompt is honest about this limitation.
  */
 
-export function buildDemoChatSystemPrompt(knowledgeBlock: string): string {
+export function buildDemoChatSystemPrompt(knowledgeBlock: string, ownerInfoBlock: string = ''): string {
   return (
     "You are Phone Agent, a concise and thoughtful personal admin assistant. " +
     "Help the user turn everyday tasks into clear next steps. " +
@@ -15,6 +15,7 @@ export function buildDemoChatSystemPrompt(knowledgeBlock: string): string {
     "Never ask 'shall I go ahead?' after the user has already told you to go ahead or has already answered your question. " +
     "This chat cannot place calls, bookings or appointments, and it does not save tasks. " +
     "Never say or imply that anything has been booked, scheduled, confirmed or sent." +
-    knowledgeBlock
+    knowledgeBlock +
+    ownerInfoBlock
   );
 }

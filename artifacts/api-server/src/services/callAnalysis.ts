@@ -4,6 +4,7 @@ import { logger } from "../lib/logger";
 import { slugify, normalizeKnowledgeKey } from "../lib/utils";
 import { extractJsonObject } from "../lib/extractJson";
 import { notifyOwnerOfQuestion } from "./questionNotify";
+import { buildOwnerInfoBlock, type OwnerInfoFact } from "./ownerInfo";
 
 export function buildCallTimeContext(tz: string, now = new Date()): string {
   const defaultTz = process.env.DEFAULT_TIMEZONE || "Asia/Kolkata";
@@ -122,6 +123,7 @@ export function buildAgentCallSystemInstruction({
   knowledgeFacts = [],
   taskContext = null,
   timezone,
+  ownerInfo = [],
 }: {
   individualName: string;
   businessName: string;
@@ -129,6 +131,7 @@ export function buildAgentCallSystemInstruction({
   knowledgeFacts?: Array<{ category: string; key: string; value: string }>;
   taskContext?: { title: string; description: string | null } | null;
   timezone: string;
+  ownerInfo?: OwnerInfoFact[];
 }): string {
   const action = direction === 'inbound' ? 'taking a call' : 'calling';
   const intro =
@@ -146,7 +149,7 @@ export function buildAgentCallSystemInstruction({
     `${individualName} and get back to them — don't guess or invent details.\n\n`;
 
   const baseInstruction = buildBaseCallInstruction(businessName, knowledgeFacts, taskContext, timezone);
-  return intro + baseInstruction;
+  return intro + baseInstruction + buildOwnerInfoBlock(individualName, ownerInfo);
 }
 
 /**

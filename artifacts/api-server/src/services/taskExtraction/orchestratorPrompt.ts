@@ -165,7 +165,7 @@ export async function callOrchestratorExtraction(context: {
         },
       ],
       temperature: 0.2,
-      maxTokens: 4096,
+      maxTokens: 8192,
       jsonResponse: true,
     });
   } catch (err) {

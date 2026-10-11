@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCallTimeContext } from '../callAnalysis';
+import { buildCallTimeContext, buildAgentCallSystemInstruction } from '../callAnalysis';
 
 describe('callAnalysis', () => {
   it('buildCallTimeContext gives the right date for a fixed now in Asia/Kolkata', () => {
@@ -17,5 +17,20 @@ describe('callAnalysis', () => {
 
     expect(context).toContain('6:30 AM');
     expect(context).toContain('(Eastern Daylight Time)');
+  });
+
+  it('buildAgentCallSystemInstruction with no ownerInfo returns the same text as before', () => {
+    const result = buildAgentCallSystemInstruction({
+      individualName: 'John Doe',
+      businessName: 'Acme Corp',
+      direction: 'outbound',
+      knowledgeFacts: [],
+      taskContext: null,
+      timezone: 'Asia/Kolkata',
+      ownerInfo: [],
+    });
+    expect(result).toContain('John Doe');
+    expect(result).toContain('Acme Corp');
+    expect(result).toContain('You are Phone Agent');
   });
 });

@@ -7,6 +7,7 @@ export * from './history';
 export * from './tasks';
 export * from './questions';
 export * from './knowledge';
+export * from './ownerInfo';
 export * from './calls';
 export * from './googleCalendar';
 export * from './orchestrator';

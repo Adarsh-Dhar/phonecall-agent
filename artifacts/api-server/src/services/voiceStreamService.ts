@@ -27,6 +27,7 @@ import { createCallLifecycle } from './callLifecycle';
 import { logger } from '../lib/logger';
 import { sendToAccount } from './presence';
 import { roleInCall, recipientIdOf, initiatorIdOf, type CallRole } from './callSignaling';
+import { loadOwnerInfo } from './ownerInfo';
 
 interface Room {
   callId: string;
@@ -310,6 +311,9 @@ async function startGeminiSession(room: Room, call: any) {
     orderBy: { category: 'asc' },
   });
 
+  // Load owner info
+  const ownerInfo = await loadOwnerInfo(room.individualId);
+
   // Get individual and business names
   const individual = await prisma.account.findUnique({
     where: { id: room.individualId },
@@ -369,6 +373,7 @@ async function startGeminiSession(room: Room, call: any) {
       knowledgeFacts,
       taskContext,
       timezone: tz,
+      ownerInfo,
     }),
     onAudioOut: (pcm24k) => {
       room.lifecycle?.noteAudioOut(pcm24k);
