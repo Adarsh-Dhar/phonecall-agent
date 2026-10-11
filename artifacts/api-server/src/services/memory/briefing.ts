@@ -299,7 +299,7 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
 
   const briefClosedNow = closures.length > 0
     ? {
-        kind: closures[0].kind,
+        kind: closures[0].kind as "holiday" | "out_of_service" | "emergency",
         label: closures[0].label || undefined,
         message: closures[0].message || undefined,
         allDay: closures[0].allDay,

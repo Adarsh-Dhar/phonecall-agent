@@ -29,7 +29,6 @@ import { sendToAccount } from './presence';
 import { roleInCall, recipientIdOf, initiatorIdOf, type CallRole } from './callSignaling';
 import { loadOwnerInfo } from './ownerInfo';
 import { buildBriefing, renderMemoryBlock } from './memory';
-import { buildAgentCallSystemInstruction } from './callAnalysis';
 
 interface Room {
   callId: string;
