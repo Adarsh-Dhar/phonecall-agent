@@ -1,118 +1,144 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../../lib/logger";
 import { syncTaskToCalendar } from "../googleCalendar";
+import { NebiusError } from "../nebiusText";
 import { callOrchestratorExtraction } from "./orchestratorPrompt";
-import { getNebiusConfig } from "../nebiusText";
 import { reconcileTaskActions } from "./reconcileTasks";
 import { reconcileKnowledgeActions } from "./reconcileKnowledge";
 import { advanceCursor } from "./cursor";
 import { checkAndAutoEndConversation } from "./autoEnd";
-import { emptyExtractionResult, type ExtractionResult, type TaskToSync } from "./types";
+import { MAX_DELTA_FAILURES, MAX_DELTA_MESSAGES } from "./config";
+import { emptyExtractionResult, type ExtractionResult, type NewMessage, type TaskToSync } from "./types";
+
+// ---------------------------------------------------------------------------
+// Overlap guard + poison-delta tracking (in-process; the cursor re-check inside
+// the transaction below covers multi-instance deployments)
+// ---------------------------------------------------------------------------
+
+const inFlight = new Map<string, { rerun: boolean }>();
+const failures = new Map<string, { lastMessageId: string; count: number }>();
+
+/** Thrown when another run moved the cursor while we were waiting on the model. */
+class StaleCursorError extends Error {}
+
+/** Failures that say nothing about the delta itself: outages, rate limits, auth/config. */
+function isTransientOrConfig(err: unknown): boolean {
+  if (err instanceof StaleCursorError) return true;
+  if (err instanceof NebiusError) {
+    if (err.retryable) return true;
+    if (err.status === undefined) return true; // e.g. NEBIUS_API_KEY missing
+    return [401, 403, 404, 429].includes(err.status);
+  }
+  return false;
+}
+
+function speakerOf(m: { role: string; callId: string | null }): NewMessage["speaker"] {
+  if (m.role === "assistant") return "agent";
+  // On a call (phone or browser test), "user" rows are the external contact.
+  // In the app chat / query answers, "user" rows are the owner.
+  return m.callId ? "contact" : "owner";
+}
 
 /**
- * Runs extraction immediately for a conversation, bypassing the debounce.
- * Used by the manual "extract now" API endpoint and by the debounce itself.
+ * Runs extraction for a conversation, bypassing the debounce.
  *
- * Returns counts for tasks and knowledge created/updated so callers can surface
- * them in API responses.
+ * Never runs twice concurrently for the same conversation: a call that arrives
+ * while one is in flight flags a re-run and returns immediately; the running
+ * loop picks up the newer messages from the same cursor afterwards.
  */
 export async function runExtraction(conversationId: string): Promise<ExtractionResult> {
-  logger.info({ conversationId }, "extraction: started");
-  
-  const result = emptyExtractionResult();
-
-  if (!getNebiusConfig().apiKey) {
-    logger.warn({ conversationId }, "extraction: skipped (no API key)");
-    return result;
+  const running = inFlight.get(conversationId);
+  if (running) {
+    running.rerun = true;
+    logger.info({ conversationId }, "extraction: already running, re-run queued");
+    return emptyExtractionResult();
   }
 
+  const state = { rerun: false };
+  inFlight.set(conversationId, state);
+  const total = emptyExtractionResult();
+
   try {
-    // ------------------------------------------------------------------
-    // 1. Load conversation + cursor
-    // ------------------------------------------------------------------
+    for (let pass = 0; pass < 10; pass++) {
+      state.rerun = false;
+      const { result, hasMore, ok } = await runExtractionOnce(conversationId);
+      for (const k of Object.keys(total) as Array<keyof ExtractionResult>) total[k].push(...result[k]);
+      if (!ok) break; // don't hot-loop on a failing delta; next trigger retries
+      if (!hasMore && !state.rerun) break;
+    }
+  } finally {
+    inFlight.delete(conversationId);
+  }
+  return total;
+}
+
+async function runExtractionOnce(
+  conversationId: string,
+): Promise<{ result: ExtractionResult; hasMore: boolean; ok: boolean }> {
+  logger.info({ conversationId }, "extraction: started");
+  const result = emptyExtractionResult();
+
+  const apiKey = process.env.NEBIUS_API_KEY;
+  if (!apiKey) {
+    logger.warn({ conversationId }, "extraction: skipped (no API key)");
+    return { result, hasMore: false, ok: true };
+  }
+
+  let deltaMessages: Awaited<ReturnType<typeof prisma.message.findMany>> = [];
+
+  try {
+    // 1. Conversation + cursor
     const conversation = await prisma.conversation.findUnique({
       where: { id: conversationId },
       include: { contact: true },
     });
-    if (!conversation) return result;
+    if (!conversation) return { result, hasMore: false, ok: true };
 
-    // Load the owner account for timezone
+    const userId = conversation.contact.ownerId;
+    if (!userId) {
+      logger.warn({ conversationId, contactId: conversation.contactId }, "extraction: contact has no owner, skipping");
+      return { result, hasMore: false, ok: true };
+    }
     const owner = await prisma.account.findUnique({
-      where: { id: conversation.contact.ownerId ?? undefined },
+      where: { id: userId },
       select: { id: true, timezone: true },
     });
 
-    // The userId for calendar sync should be the owner of the contact (the user who owns this contact)
-    // This ensures calendar events are created in the correct user's calendar
-    const userId = conversation.contact.ownerId;
-    
-    if (!userId) {
-      logger.warn({ conversationId, contactId: conversation.contactId }, "extraction: no userId found for calendar sync, skipping");
-      return result;
-    }
-    
-    logger.info({ 
-      conversationId, 
-      userId, 
-      contactId: conversation.contactId,
-      contactOwnerId: conversation.contact.ownerId,
-      contactIsService: conversation.contact.isService 
-    }, "extraction: determining userId for calendar sync");
+    // 2. Delta since the cursor (capped; the rest is handled by the next pass)
+    const cursorMsg = conversation.lastExtractedMessageId
+      ? await prisma.message.findUnique({ where: { id: conversation.lastExtractedMessageId } })
+      : null;
+    const since = cursorMsg?.createdAt ?? (conversation.lastExtractedMessageId ? new Date(0) : null);
 
-    // ------------------------------------------------------------------
-    // 2. Fetch delta: messages newer than the cursor
-    // ------------------------------------------------------------------
-    const deltaMessages = await prisma.message.findMany({
-      where: {
-        conversationId,
-        ...(conversation.lastExtractedMessageId
-          ? {
-              createdAt: {
-                gt:
-                  (
-                    await prisma.message.findUnique({
-                      where: { id: conversation.lastExtractedMessageId },
-                    })
-                  )?.createdAt ?? new Date(0),
-              },
-            }
-          : {}),
-      },
+    const fetched = await prisma.message.findMany({
+      where: { conversationId, ...(since ? { createdAt: { gt: since } } : {}) },
       orderBy: { createdAt: "asc" },
+      take: MAX_DELTA_MESSAGES + 1,
     });
+    const hasMore = fetched.length > MAX_DELTA_MESSAGES;
+    deltaMessages = fetched.slice(0, MAX_DELTA_MESSAGES);
 
-    // Skip if too few new messages (not worth the API call)
     if (deltaMessages.length < 2) {
-      logger.debug(
-        { conversationId, delta: deltaMessages.length },
-        "extraction: skipped (delta < 2)"
-      );
-      return result;
+      logger.debug({ conversationId, delta: deltaMessages.length }, "extraction: skipped (delta < 2)");
+      return { result, hasMore: false, ok: true };
     }
 
-    // ------------------------------------------------------------------
-    // 3. Fetch existing open tasks for this conversation
-    // ------------------------------------------------------------------
-    const openTasks = await prisma.task.findMany({
-      where: {
-        conversationId,
-        status: { in: ["suggested", "open", "in_progress"] },
-      },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        dueDate: true,
-        status: true,
-        priority: true,
-      },
-    });
+    // 3. Existing open tasks + known facts (so the model can update/dedupe/invalidate)
+    const [openTasks, knowledge] = await Promise.all([
+      prisma.task.findMany({
+        where: { conversationId, status: { in: ["suggested", "open", "in_progress"] } },
+        select: { id: true, title: true, description: true, dueDate: true, status: true, priority: true },
+      }),
+      prisma.contactKnowledge.findMany({
+        where: { contactId: conversation.contactId, status: "active" },
+        select: { key: true, category: true, value: true },
+        orderBy: { updatedAt: "desc" },
+        take: 100,
+      }),
+    ]);
 
-    // ------------------------------------------------------------------
-    // 4. Build prompt and call the orchestrator model
-    // ------------------------------------------------------------------
-    const { taskActions, knowledgeActions } = await callOrchestratorExtraction({
-      conversationId,
+    // 4. Model call
+    const { taskActions, knowledgeActions, dropped } = await callOrchestratorExtraction(apiKey, {
       contactName: conversation.contact.name,
       contactBusiness: conversation.contact.business,
       existingTasks: openTasks.map((t) => ({
@@ -123,79 +149,68 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
         status: t.status,
         priority: t.priority,
       })),
+      existingKnowledge: knowledge,
       newMessages: deltaMessages.map((m) => ({
         id: m.id,
-        // In a live call transcript (callId set) role "user" is the OTHER PARTY
-        // on the line and "assistant" is our agent speaking for the owner. In
-        // chat (no callId) "user" is the owner. Label by speaker so the model
-        // never has to guess which side a request came from.
-        speaker: m.callId
-          ? m.role === "assistant" ? "agent (on the call, for the owner)" : "contact (on the call)"
-          : m.role === "assistant" ? "agent" : "owner",
-        source: m.callId ? "phone_call" : "chat",
+        speaker: speakerOf(m),
         content: m.content,
         time: m.time,
       })),
       timezone: owner?.timezone ?? undefined,
     });
+    if (dropped > 0) logger.warn({ conversationId, dropped }, "extraction: model actions failed validation and were dropped");
 
     if (taskActions.length === 0 && knowledgeActions.length === 0) {
       await advanceCursor(prisma, conversationId, deltaMessages);
-      return result;
+      failures.delete(conversationId);
+      return { result, hasMore, ok: true };
     }
 
-    // ------------------------------------------------------------------
-    // 5. Reconcile inside a single transaction
-    // ------------------------------------------------------------------
+    // 5. Reconcile in one transaction
     let tasksToSync: TaskToSync[] = [];
+    await prisma.$transaction(
+      async (tx) => {
+        // Another run (or instance) may have advanced the cursor while we waited on the model.
+        const fresh = await tx.conversation.findUnique({
+          where: { id: conversationId },
+          select: { lastExtractedMessageId: true },
+        });
+        if (fresh?.lastExtractedMessageId !== conversation.lastExtractedMessageId) {
+          throw new StaleCursorError("cursor moved during extraction");
+        }
 
-    await prisma.$transaction(async (tx) => {
-      const taskOutcome = await reconcileTaskActions(tx, {
-        taskActions,
-        conversationId,
-        contactId: conversation.contactId,
-        contactName: conversation.contact.name,
-        contactBusiness: conversation.contact.business,
-        deltaMessages,
-      });
-      result.created = taskOutcome.created;
-      result.updated = taskOutcome.updated;
-      result.completed = taskOutcome.completed;
-      result.cancelled = taskOutcome.cancelled;
-      tasksToSync = taskOutcome.tasksToSync;
-      result.skipped.push(...taskOutcome.skipped);
+        const taskOutcome = await reconcileTaskActions(tx, {
+          taskActions,
+          conversationId,
+          contactId: conversation.contactId,
+          contactName: conversation.contact.name,
+          contactBusiness: conversation.contact.business,
+          deltaMessages,
+        });
+        result.created = taskOutcome.created;
+        result.updated = taskOutcome.updated;
+        result.completed = taskOutcome.completed;
+        result.cancelled = taskOutcome.cancelled;
+        tasksToSync = taskOutcome.tasksToSync;
 
-      const knowledgeOutcome = await reconcileKnowledgeActions(tx, {
-        knowledgeActions,
-        contactId: conversation.contactId,
-        deltaMessages,
-      });
-      result.knowledgeUpserted = knowledgeOutcome.knowledgeUpserted;
-      result.knowledgeSuggested = knowledgeOutcome.knowledgeSuggested;
-      result.knowledgeInvalidated = knowledgeOutcome.knowledgeInvalidated;
-      result.skipped.push(...knowledgeOutcome.skipped);
+        const knowledgeOutcome = await reconcileKnowledgeActions(tx, {
+          knowledgeActions,
+          contactId: conversation.contactId,
+          deltaMessages,
+        });
+        result.knowledgeUpserted = knowledgeOutcome.knowledgeUpserted;
+        result.knowledgeInvalidated = knowledgeOutcome.knowledgeInvalidated;
 
-      // Advance cursor inside the same transaction
-      await advanceCursor(tx, conversationId, deltaMessages);
-    }, { timeout: 30_000 });
+        await advanceCursor(tx, conversationId, deltaMessages);
+      },
+      { timeout: 30_000 },
+    );
+    failures.delete(conversationId);
 
-    // Sync tasks to Google Calendar (non-blocking, after transaction)
-    logger.info({ 
-      conversationId, 
-      tasksToSyncCount: tasksToSync.length,
-      userId 
-    }, "extraction: syncing tasks to Google Calendar");
-    
-    for (const taskToSync of tasksToSync) {
-      logger.info({ 
-        taskId: taskToSync.id, 
-        taskTitle: taskToSync.title,
-        hasDueDate: !!taskToSync.dueDate,
-        userId 
-      }, "extraction: syncing individual task to calendar");
-      
-      syncTaskToCalendar({ ...taskToSync, userId }).catch((err) => {
-        logger.error({ err, taskId: taskToSync.id }, "extraction: failed to sync task to calendar");
+    // Calendar sync after commit (non-blocking)
+    for (const t of tasksToSync) {
+      syncTaskToCalendar({ ...t, userId }).catch((err) => {
+        logger.error({ err, taskId: t.id }, "extraction: failed to sync task to calendar");
       });
     }
 
@@ -207,22 +222,41 @@ export async function runExtraction(conversationId: string): Promise<ExtractionR
         completed: result.completed.length,
         cancelled: result.cancelled.length,
         knowledgeUpserted: result.knowledgeUpserted.length,
-        knowledgeSuggested: result.knowledgeSuggested.length,
         knowledgeInvalidated: result.knowledgeInvalidated.length,
-        skipped: result.skipped.length,
-        skippedReasons: result.skipped.map((s) => `${s.kind}:${s.type}:${s.reason}`),
       },
-      "extraction: complete"
+      "extraction: complete",
     );
 
-    // Auto-end conversation if all tasks are completed and no pending queries
     await checkAndAutoEndConversation(conversationId);
-
-    return result;
+    return { result, hasMore, ok: true };
   } catch (err) {
-    // Extraction is best-effort — log and leave the cursor unmoved so the
-    // next debounce cycle retries with the same delta.
+    // The cursor stays put so the next trigger retries the same delta — unless
+    // that delta keeps failing for reasons unrelated to outages/config.
+    if (err instanceof StaleCursorError) {
+      logger.info({ conversationId }, "extraction: cursor moved under us, dropping this pass");
+      return { result: emptyExtractionResult(), hasMore: false, ok: true };
+    }
     logger.error({ err, conversationId }, "extraction: failed");
-    return result;
+
+    const lastId = deltaMessages[deltaMessages.length - 1]?.id;
+    if (lastId && !isTransientOrConfig(err)) {
+      const prev = failures.get(conversationId);
+      const count = prev && prev.lastMessageId === lastId ? prev.count + 1 : 1;
+      failures.set(conversationId, { lastMessageId: lastId, count });
+      if (count >= MAX_DELTA_FAILURES) {
+        logger.error(
+          { conversationId, lastMessageId: lastId, count },
+          "extraction: poison delta skipped after repeated failures — these messages were NOT extracted",
+        );
+        try {
+          await advanceCursor(prisma, conversationId, deltaMessages);
+        } catch (e) {
+          logger.error({ err: e, conversationId }, "extraction: could not advance cursor past poison delta");
+        }
+        failures.delete(conversationId);
+        return { result: emptyExtractionResult(), hasMore: true, ok: true };
+      }
+    }
+    return { result: emptyExtractionResult(), hasMore: false, ok: false };
   }
 }

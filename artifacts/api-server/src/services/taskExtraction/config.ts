@@ -43,3 +43,9 @@ export const MAX_DUE_DATE_HORIZON_DAYS = 365;
 
 /** A model-supplied dueDate further in the past than this is rejected. */
 export const DUE_DATE_PAST_TOLERANCE_MS = 5 * 60 * 1000;
+
+/** Max messages sent to the model per run; the rest are picked up by a follow-up run. */
+export const MAX_DELTA_MESSAGES = parseInt(process.env.EXTRACTION_MAX_DELTA ?? "40", 10);
+
+/** After this many consecutive failures on the same delta, skip it so it can't block the cursor forever. */
+export const MAX_DELTA_FAILURES = parseInt(process.env.EXTRACTION_MAX_DELTA_FAILURES ?? "3", 10);

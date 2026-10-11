@@ -122,13 +122,13 @@ Respond with only "continuation" or "new_topic".`,
         },
       ],
       temperature: 0,
-      maxTokens: 256,
+      maxTokens: 16,
+      purpose: "topic_classifier",
     });
 
-    // Tolerate "Continuation.", quotes, or a short explanation. Only an
-    // explicit new_topic splits the conversation; anything ambiguous keeps
-    // it together (the documented fail-safe).
-    return !/new[\s_-]?topic/i.test(text);
+    // Only an explicit "new_topic" splits the conversation; anything else
+    // ("Continuation.", odd phrasing) keeps the safe default.
+    return !/\bnew[_\s-]?topic\b/i.test(text);
   } catch (error) {
     logger.error({ error }, "conversations: topic classification failed, defaulting to continuation");
     // Fail safe: assume continuation on error
@@ -175,7 +175,10 @@ async function summarizeConversationTopic(conversationId: string): Promise<strin
     }
 
     const conversationText = messages
-      .map((m) => `${m.role}: ${m.content}`)
+      .map((m) => {
+        const who = m.role === "assistant" ? "AGENT" : m.callId ? "CONTACT" : "OWNER";
+        return `${who}: ${m.content}`;
+      })
       .join("\n");
 
     const { text } = await generateOrchestratorText({
@@ -189,8 +192,9 @@ ${conversationText}
 Topic summary:`,
         },
       ],
-      temperature: 0.3,
-      maxTokens: 256,
+      temperature: 0.2,
+      maxTokens: 120,
+      purpose: "topic_summary",
     });
 
     return text.trim().slice(0, 100);

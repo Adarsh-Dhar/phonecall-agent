@@ -1,21 +1,12 @@
-import {
-  KNOWLEDGE_CONFIDENCE_THRESHOLD,
-  MAX_KNOWLEDGE_VALUE_CHARS,
-} from "./config";
-import type { KnowledgeAction, SkippedAction, TxClient } from "./types";
+import { KNOWLEDGE_CONFIDENCE_THRESHOLD } from "./config";
+import type { KnowledgeAction, TxClient } from "./types";
 
 /**
  * Applies knowledge actions (upsert/invalidate) inside the caller's transaction.
- *
- * Trust rules — every "active" fact is read aloud to the live voice agent as
- * something it can state directly, so the model alone must not be able to put
- * an unreliable fact there or knock out a trusted one:
- *  - upsert at/above KNOWLEDGE_CONFIDENCE_THRESHOLD  -> "active"
- *  - upsert below it                                 -> "suggested" (ignored by
- *    every reader, which only load status "active"; a person approves it with
- *    PATCH /knowledge/:id { status: "active" })
- *  - a low-confidence upsert never overwrites an existing ACTIVE fact
- *  - invalidating an ACTIVE fact needs the same high confidence
+ *  - confidence >= KNOWLEDGE_CONFIDENCE_THRESHOLD → "active" (used in calls)
+ *  - lower confidence → "suggested" (stored, not used), and it never overwrites
+ *    a fact that is already active
+ *  - invalidate needs a cited message and only touches keys that exist
  */
 export async function reconcileKnowledgeActions(
   tx: TxClient,
@@ -24,92 +15,51 @@ export async function reconcileKnowledgeActions(
     contactId: string;
     deltaMessages: Array<{ id: string }>;
   }
-): Promise<{
-  knowledgeUpserted: string[];
-  knowledgeSuggested: string[];
-  knowledgeInvalidated: string[];
-  skipped: SkippedAction[];
-}> {
+): Promise<{ knowledgeUpserted: string[]; knowledgeInvalidated: string[] }> {
   const { knowledgeActions, contactId, deltaMessages } = params;
+  const deltaIds = new Set(deltaMessages.map((m) => m.id));
 
   const knowledgeUpserted: string[] = [];
-  const knowledgeSuggested: string[] = [];
   const knowledgeInvalidated: string[] = [];
-  const skipped: SkippedAction[] = [];
-
-  const deltaIds = new Set(deltaMessages.map((m) => m.id));
 
   for (const action of knowledgeActions) {
     const sourceIds = (action.sourceMessageIds ?? []).filter((id) => deltaIds.has(id));
-    const isHigh = action.confidence >= KNOWLEDGE_CONFIDENCE_THRESHOLD;
 
-    if (action.type === "upsert") {
-      const value = typeof action.value === "string" ? action.value.trim() : "";
-      const key = action.key.trim();
-      if (!value || !key || value.length > MAX_KNOWLEDGE_VALUE_CHARS) {
-        skipped.push({ kind: "knowledge", type: "upsert", ref: key || undefined, reason: "invalid_value" });
-        continue;
-      }
-
+    if (action.type === "upsert" && action.value) {
+      const confident = action.confidence >= KNOWLEDGE_CONFIDENCE_THRESHOLD;
       const existing = await tx.contactKnowledge.findUnique({
-        where: { contactId_key: { contactId, key } },
+        where: { contactId_key: { contactId, key: action.key } },
+        select: { status: true },
       });
+      if (!confident && existing?.status === "active") continue; // don't downgrade a known fact on a guess
 
-      if (existing?.status === "active" && !isHigh) {
-        skipped.push({ kind: "knowledge", type: "upsert", ref: key, reason: "would_overwrite_active_fact" });
-        continue;
-      }
-
-      const status = isHigh ? "active" : "suggested";
+      const status = confident ? "active" : "suggested";
       const fact = await tx.contactKnowledge.upsert({
-        where: { contactId_key: { contactId, key } },
+        where: { contactId_key: { contactId, key: action.key } },
         create: {
-          contactId,
-          category: action.category,
-          key,
-          value,
-          confidence: action.confidence,
-          status,
+          contactId, category: action.category, key: action.key,
+          value: action.value, confidence: action.confidence, status,
         },
-        update: {
-          category: action.category,
-          value,
-          confidence: action.confidence,
-          status,
-        },
+        update: { category: action.category, value: action.value, confidence: action.confidence, status },
       });
-      (isHigh ? knowledgeUpserted : knowledgeSuggested).push(fact.id);
+      knowledgeUpserted.push(fact.id);
 
       for (const msgId of sourceIds) {
         await tx.knowledgeSourceMessage.upsert({
-          where: {
-            knowledgeId_messageId_role: { knowledgeId: fact.id, messageId: msgId, role: "updated" },
-          },
+          where: { knowledgeId_messageId_role: { knowledgeId: fact.id, messageId: msgId, role: "updated" } },
           create: { knowledgeId: fact.id, messageId: msgId, role: "updated" },
           update: {},
         });
       }
     } else if (action.type === "invalidate") {
-      const key = action.key.trim();
-      const target = await tx.contactKnowledge.findUnique({
-        where: { contactId_key: { contactId, key } },
-      });
-      if (!target || target.status === "stale") {
-        skipped.push({ kind: "knowledge", type: "invalidate", ref: key, reason: "unknown_fact" });
-        continue;
-      }
-      // A suggested fact was never trusted, so dropping it needs no confidence.
-      if (target.status === "active" && !isHigh) {
-        skipped.push({ kind: "knowledge", type: "invalidate", ref: key, reason: "low_confidence" });
-        continue;
-      }
-      await tx.contactKnowledge.update({
-        where: { contactId_key: { contactId, key } },
+      if (action.confidence < KNOWLEDGE_CONFIDENCE_THRESHOLD || sourceIds.length === 0) continue;
+      const res = await tx.contactKnowledge.updateMany({
+        where: { contactId, key: action.key, status: { in: ["active", "suggested"] } },
         data: { status: "stale" },
       });
-      knowledgeInvalidated.push(key);
+      if (res.count > 0) knowledgeInvalidated.push(action.key);
     }
   }
 
-  return { knowledgeUpserted, knowledgeSuggested, knowledgeInvalidated, skipped };
+  return { knowledgeUpserted, knowledgeInvalidated };
 }

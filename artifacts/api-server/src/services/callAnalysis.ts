@@ -200,91 +200,104 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
     where: { contactId: call.contactId, status: "active" },
     orderBy: { category: "asc" },
   });
+  const task = call.taskId
+    ? await prisma.task.findUnique({ where: { id: call.taskId }, select: { title: true, description: true } })
+    : null;
+
   const knowledgeBlock =
     facts.length > 0
-      ? "\n\nWhat you already know about this contact:\n" +
+      ? "\n\nWhat the agent already knew about this contact:\n" +
         facts.map((f) => `- (${f.category}) ${f.key}: ${f.value}`).join("\n")
       : "";
+  const taskBlock = task
+    ? `\n\nTHE GOAL OF THIS CALL: "${task.title}"` + (task.description ? ` — ${task.description}` : "") +
+      "\nJudge \"did the agent get what it needed\" against this goal."
+    : "";
 
-  const orchestratorTurns: OrchestratorTextTurn[] = turns.map((m) => ({
-    role: m.role === "assistant" ? "assistant" : "user",
-    content: m.content,
-  }));
+  // On a call, "user" rows are the external contact and "assistant" rows are the agent.
+  // Label the speakers inside the text so the roles can't be misread.
+  const transcript = turns
+    .map((m) => `${m.role === "assistant" ? "AGENT" : "CONTACT"}: ${m.content}`)
+    .join("\n");
+  const orchestratorTurns: OrchestratorTextTurn[] = [{ role: "user", content: `Call transcript:\n${transcript}` }];
 
   const systemText =
     "You are reviewing the transcript of a phone call your voice agent just completed on behalf of " +
-    `your user, with ${contact?.name ?? "a contact"}. Decide TWO things:\n\n` +
+    `your user, with ${contact?.name ?? "a contact"}. AGENT is the voice agent; CONTACT is the external person. Decide TWO things:\n\n` +
     "1. Did the agent get everything it needed during the call, or does it need to escalate something to your user?\n" +
     "2. What was the outcome of the call? (booked, rescheduled, cancelled, info_gathered, needs_user, failed)\n\n" +
     "Return ONLY a JSON object, no markdown fences:\n" +
     "{\n" +
-    '  "isEnoughKnowledge": boolean,\n' +
+    '  "isEnoughKnowledge": boolean,   // REQUIRED\n' +
     '  "escalationQuestion": string | null,\n' +
     '  "knowledgeKey": string | null,\n' +
     '  "knowledgeCategory": string | null,\n' +
     '  "outcome": "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed" | null\n' +
     "}" +
+    taskBlock +
     knowledgeBlock;
 
   const validOutcomes = ["booked", "rescheduled", "cancelled", "info_gathered", "needs_user", "failed"] as const;
-  let isEnoughKnowledge: boolean | null = null;
+  let decided = false;
+  let isEnoughKnowledge = true;
   let escalationQuestion: string | null = null;
   let knowledgeKey: string | null = null;
   let knowledgeCategory: string | null = null;
   let llmOutcome: string | null = null;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 2 && !decided; attempt++) {
     try {
-      const { text, finishReason } = await generateOrchestratorText({
+      const { text } = await generateOrchestratorText({
         systemInstructionText: systemText,
         turns: orchestratorTurns,
         jsonResponse: true,
         temperature: 0.1,
-        maxTokens: 1024,
+        maxTokens: 700,
+        purpose: "call_analysis",
       });
-      if (finishReason === "length") throw new Error("decision was cut off (max_tokens)");
       const parsed = extractJsonObject(text) as {
-        isEnoughKnowledge?: boolean;
-        escalationQuestion?: string | null;
-        knowledgeKey?: string | null;
-        knowledgeCategory?: string | null;
-        outcome?: string | null;
+        isEnoughKnowledge?: unknown;
+        escalationQuestion?: unknown;
+        knowledgeKey?: unknown;
+        knowledgeCategory?: unknown;
+        outcome?: unknown;
       };
-      // A missing / non-boolean verdict is a bad reply, not "all good".
-      if (typeof parsed.isEnoughKnowledge !== "boolean") throw new Error("decision missing isEnoughKnowledge");
+      // A missing verdict is a failed parse, not "enough knowledge".
+      if (typeof parsed.isEnoughKnowledge !== "boolean") {
+        throw new SyntaxError("isEnoughKnowledge missing or not a boolean");
+      }
       isEnoughKnowledge = parsed.isEnoughKnowledge;
       if (!isEnoughKnowledge) {
         escalationQuestion =
-          parsed.escalationQuestion?.trim() ||
+          (typeof parsed.escalationQuestion === "string" && parsed.escalationQuestion.trim()) ||
           `The call with ${contact?.name ?? "the contact"} needs your input — can you review the transcript?`;
-        knowledgeKey = slugify(parsed.knowledgeKey || escalationQuestion);
-        knowledgeCategory = parsed.knowledgeCategory?.trim() || "fact";
+        knowledgeKey = slugify((typeof parsed.knowledgeKey === "string" && parsed.knowledgeKey) || escalationQuestion);
+        knowledgeCategory = (typeof parsed.knowledgeCategory === "string" && parsed.knowledgeCategory.trim()) || "fact";
       }
-      llmOutcome = parsed.outcome || null;
-      // Validate outcome against allowed values
-      if (llmOutcome && !validOutcomes.includes(llmOutcome as any)) {
-        llmOutcome = null;
-      }
-      break;
+      llmOutcome =
+        typeof parsed.outcome === "string" && (validOutcomes as readonly string[]).includes(parsed.outcome)
+          ? parsed.outcome
+          : null;
+      decided = true;
     } catch (err) {
-      logger.warn({ err, callId, attempt }, "callAnalysis: failed to parse escalation decision, retrying");
+      logger.warn({ err, callId, attempt }, "callAnalysis: failed to get a valid escalation decision");
     }
   }
 
-  // Both attempts failed: do not silently leave the call unreviewed. Fail
-  // toward a human looking at it (an escalation the user can dismiss).
-  if (isEnoughKnowledge === null) {
-    logger.error({ callId }, "callAnalysis: escalation decision failed twice, escalating for manual review");
+  if (!decided) {
+    // Both attempts failed: don't leave the call unreviewed — ask the owner to look.
     isEnoughKnowledge = false;
     escalationQuestion = `The call with ${contact?.name ?? "the contact"} could not be analysed automatically — can you review the transcript?`;
-    knowledgeKey = `review-call-${callId}`;
+    knowledgeKey = slugify(`review-call-${callId}`);
     knowledgeCategory = "fact";
+    logger.error({ callId }, "callAnalysis: analysis failed twice, escalating for manual review");
   }
 
   await prisma.call.update({
     where: { id: callId },
     data: {
       isEnoughKnowledge,
+      // Only fill the outcome if the agent didn't report one; callLifecycle applies it to the task afterwards.
       outcome: call.outcome || llmOutcome,
     },
   });

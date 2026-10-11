@@ -1,86 +1,23 @@
-import {
-  ACTION_CONFIDENCE_THRESHOLD,
-  CONFIDENCE_THRESHOLD,
-  DUE_DATE_PAST_TOLERANCE_MS,
-  MAX_DUE_DATE_HORIZON_DAYS,
-} from "./config";
-import type { SkippedAction, TaskAction, TaskToSync, TxClient } from "./types";
+import { logger } from "../../lib/logger";
+import { ACTION_CONFIDENCE_THRESHOLD, CONFIDENCE_THRESHOLD } from "./config";
+import { parseModelDueDate } from "./validate";
+import type { TaskAction, TaskToSync, TxClient } from "./types";
+
+export type SkippedAction = { type: string; taskId?: string; reason: string };
 
 const ACTIVE_STATUSES = ["suggested", "open", "in_progress"];
-
-/**
- * Validates a model-supplied dueDate before it can reach the scheduler or
- * Google Calendar. Returns a Date, or null when the value is unusable
- * (not parseable, no time of day, in the past, or implausibly far out).
- * Date-only strings are rejected: they parse as midnight UTC, i.e. an
- * invented time — the prompt forbids that, this enforces it.
- */
-export function parseModelDueDate(value: unknown, now = new Date()): Date | null {
-  if (typeof value !== "string" || !/\d{1,2}:\d{2}/.test(value)) return null;
-  // No Z / +hh:mm means JS parses it in the SERVER's timezone — a silently
-  // wrong time. Reject instead of guessing.
-  if (!/(Z|[+-]\d{2}:?\d{2})$/i.test(value.trim())) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  if (d.getTime() < now.getTime() - DUE_DATE_PAST_TOLERANCE_MS) return null;
-  if (d.getTime() > now.getTime() + MAX_DUE_DATE_HORIZON_DAYS * 86_400_000) return null;
-  return d;
-}
-
-type TaskRow = {
-  id: string;
-  title: string;
-  description: string | null;
-  dueDate: Date | null;
-  status: string;
-  googleEventId: string | null;
-};
-
-function toSync(task: TaskRow, contactName: string, contactBusiness: string | null): TaskToSync {
-  return {
-    id: task.id,
-    title: task.title,
-    description: task.description,
-    dueDate: task.dueDate,
-    status: task.status,
-    googleEventId: task.googleEventId,
-    contact: { name: contactName, business: contactBusiness },
-  };
-}
-
-async function linkSources(
-  tx: TxClient,
-  taskId: string,
-  role: "created" | "updated" | "completed" | "cancelled",
-  sourceIds: string[]
-) {
-  for (const messageId of sourceIds) {
-    await tx.taskSourceMessage.upsert({
-      where: { taskId_messageId_role: { taskId, messageId, role } },
-      create: { taskId, messageId, role },
-      update: {},
-    });
-  }
-}
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
  * Applies task actions (create/update/complete/cancel) inside the caller's
- * transaction. Returns the id lists for the extraction result plus any tasks
- * that need a post-commit Google Calendar sync.
- *
- * Guards — model output drives real actions (the scheduler auto-dials open
- * tasks, Calendar gets events, done/cancelled tasks disappear), so:
- *  - create: "open" only at/above CONFIDENCE_THRESHOLD, else "suggested".
- *    Only OPEN tasks are synced to Calendar here; a suggested task is synced
- *    by PATCH /tasks/:id when the user accepts it. The scheduler only claims
- *    open/in_progress tasks, so suggested tasks are never auto-dialed.
- *  - update / complete / cancel must target an ACTIVE task of THIS
- *    conversation (a hallucinated or foreign taskId is skipped, not applied).
- *  - complete / cancel need confidence >= ACTION_CONFIDENCE_THRESHOLD and at
- *    least one cited message from this batch; otherwise they are skipped.
- *  - an update's dueDate change needs the same confidence; below it the other
- *    fields still apply but the schedule is left alone.
- *  - every dueDate is validated by parseModelDueDate.
+ * transaction. Model output is untrusted, so every action is checked:
+ *  - update/complete/cancel must target an ACTIVE task in THIS conversation
+ *  - they need confidence >= ACTION_CONFIDENCE_THRESHOLD and at least one
+ *    cited message from the delta
+ *  - due dates must carry a UTC offset and be a sane future time; a bad date
+ *    drops only the date, never the whole batch
+ *  - a create that duplicates an active task's title is skipped
+ * Skipped actions are returned (and logged) rather than thrown.
  */
 export async function reconcileTaskActions(
   tx: TxClient,
@@ -91,7 +28,6 @@ export async function reconcileTaskActions(
     contactName: string;
     contactBusiness: string | null;
     deltaMessages: Array<{ id: string }>;
-    /** Injectable for tests. */
     now?: Date;
   }
 ): Promise<{
@@ -99,137 +35,141 @@ export async function reconcileTaskActions(
   updated: string[];
   completed: string[];
   cancelled: string[];
-  tasksToSync: TaskToSync[];
   skipped: SkippedAction[];
+  tasksToSync: TaskToSync[];
 }> {
   const { taskActions, conversationId, contactId, contactName, contactBusiness, deltaMessages } = params;
   const now = params.now ?? new Date();
-  const deltaIds = new Set(deltaMessages.map((m) => m.id));
 
   const created: string[] = [];
   const updated: string[] = [];
   const completed: string[] = [];
   const cancelled: string[] = [];
-  const tasksToSync: TaskToSync[] = [];
   const skipped: SkippedAction[] = [];
+  const tasksToSync: TaskToSync[] = [];
+
+  const deltaIds = new Set(deltaMessages.map((m) => m.id));
+  const activeRows = await tx.task.findMany({
+    where: { conversationId, status: { in: ACTIVE_STATUSES } },
+    select: { id: true, title: true },
+  });
+  const activeIds = new Set(activeRows.map((t) => t.id));
+  const activeTitles = new Set(activeRows.map((t) => norm(t.title)));
+
+  const skip = (a: TaskAction, reason: string) => {
+    skipped.push({ type: a.type, taskId: a.taskId, reason });
+    logger.warn({ conversationId, type: a.type, taskId: a.taskId, reason }, "reconcileTasks: action skipped");
+  };
+
+  const syncPayload = (t: {
+    id: string; title: string; description: string | null; dueDate: Date | null;
+    status: string; googleEventId: string | null;
+  }): TaskToSync => ({
+    id: t.id, title: t.title, description: t.description, dueDate: t.dueDate,
+    status: t.status, googleEventId: t.googleEventId,
+    contact: { name: contactName, business: contactBusiness },
+  });
+
+  async function linkSources(taskId: string, ids: string[], role: string) {
+    for (const messageId of ids) {
+      await tx.taskSourceMessage.upsert({
+        where: { taskId_messageId_role: { taskId, messageId, role } },
+        create: { taskId, messageId, role },
+        update: {},
+      });
+    }
+  }
 
   for (const action of taskActions) {
     const sourceIds = (action.sourceMessageIds ?? []).filter((id) => deltaIds.has(id));
 
+    // ---------------- create ----------------
     if (action.type === "create") {
-      if (!action.title || !action.title.trim()) continue;
+      const title = action.title?.trim();
+      if (!title) { skip(action, "empty title"); continue; }
+      if (activeTitles.has(norm(title))) { skip(action, "duplicate of an active task"); continue; }
 
-      const dueDate = action.dueDate ? parseModelDueDate(action.dueDate, now) : null;
-      if (action.dueDate && !dueDate) {
-        skipped.push({ kind: "task", type: "create", reason: "invalid_due_date" });
+      const due = action.dueDate ? parseModelDueDate(action.dueDate, now) : null;
+      if (action.dueDate && !due) {
+        logger.warn({ conversationId, dueDate: action.dueDate }, "reconcileTasks: invalid dueDate dropped on create");
       }
-      const status = action.confidence >= CONFIDENCE_THRESHOLD ? "open" : "suggested";
 
+      const status = (action.confidence ?? 1) >= CONFIDENCE_THRESHOLD ? "open" : "suggested";
       const task = await tx.task.create({
         data: {
-          title: action.title.trim(),
+          title,
           description: action.description,
           status,
           priority: action.priority ?? "normal",
-          dueDate,
-          confidence: action.confidence,
+          dueDate: due,
+          confidence: action.confidence ?? 1,
           source: "agent",
           conversationId,
           contactId,
           kind: action.kind ?? "call",
-          nextAttemptAt: dueDate,
+          nextAttemptAt: due,
           callAttempts: 0,
           schedulerStatus: "pending",
         },
       });
       created.push(task.id);
-
-      if (task.dueDate && task.status === "open") {
-        tasksToSync.push(toSync(task, contactName, contactBusiness));
-      }
-      await linkSources(tx, task.id, "created", sourceIds);
+      activeIds.add(task.id);
+      activeTitles.add(norm(title));
+      if (due) tasksToSync.push(syncPayload(task));
+      await linkSources(task.id, sourceIds, "created");
       continue;
     }
 
-    // Everything below targets an existing task.
-    if (!action.taskId) continue;
-
-    const target = await tx.task.findFirst({
-      where: { id: action.taskId, conversationId, status: { in: ACTIVE_STATUSES } },
-      select: { id: true },
-    });
-    if (!target) {
-      skipped.push({ kind: "task", type: action.type, ref: action.taskId, reason: "unknown_task" });
-      continue;
-    }
+    // ------------- update / complete / cancel -------------
+    const taskId = action.taskId;
+    if (!taskId || !activeIds.has(taskId)) { skip(action, "taskId is not an active task in this conversation"); continue; }
+    if ((action.confidence ?? 0) < ACTION_CONFIDENCE_THRESHOLD) { skip(action, "confidence below action threshold"); continue; }
+    if (sourceIds.length === 0) { skip(action, "no cited message from the new messages"); continue; }
 
     if (action.type === "update") {
-      const confident = action.confidence >= ACTION_CONFIDENCE_THRESHOLD;
-      const updateData: any = {
-        ...(action.title?.trim() ? { title: action.title.trim() } : {}),
+      const data: Record<string, unknown> = {
+        ...(action.title ? { title: action.title } : {}),
         ...(action.description !== undefined ? { description: action.description } : {}),
         ...(action.priority ? { priority: action.priority } : {}),
       };
 
-      let rescheduled = false;
       if (action.dueDate !== undefined) {
-        const dueDate = parseModelDueDate(action.dueDate, now);
-        if (!dueDate) {
-          skipped.push({ kind: "task", type: "update", ref: action.taskId, reason: "invalid_due_date" });
-        } else if (!confident) {
-          skipped.push({ kind: "task", type: "update", ref: action.taskId, reason: "low_confidence" });
+        const due = parseModelDueDate(action.dueDate, now);
+        if (due) {
+          data.dueDate = due;
+          data.nextAttemptAt = due;
+          data.callAttempts = 0;
+          data.schedulerStatus = "pending";
         } else {
-          updateData.dueDate = dueDate;
-          updateData.nextAttemptAt = dueDate;
-          updateData.callAttempts = 0;
-          updateData.schedulerStatus = "pending";
-          rescheduled = true;
+          logger.warn({ conversationId, taskId, dueDate: action.dueDate }, "reconcileTasks: invalid dueDate dropped on update");
         }
       }
-      if (Object.keys(updateData).length === 0) continue;
+      if (Object.keys(data).length === 0) { skip(action, "nothing valid to update"); continue; }
 
-      const task = await tx.task.update({ where: { id: action.taskId }, data: updateData });
-      updated.push(action.taskId);
-
-      // Only a schedule change on a task the user has accepted is worth a
-      // Calendar round trip; suggested tasks are synced on acceptance.
-      if (rescheduled && task.status !== "suggested") {
-        tasksToSync.push(toSync(task, contactName, contactBusiness));
-      }
-      await linkSources(tx, action.taskId, "updated", sourceIds);
-      continue;
-    }
-
-    // complete / cancel
-    if (!(action.confidence >= ACTION_CONFIDENCE_THRESHOLD)) {
-      skipped.push({ kind: "task", type: action.type, ref: action.taskId, reason: "low_confidence" });
-      continue;
-    }
-    if (sourceIds.length === 0) {
-      skipped.push({ kind: "task", type: action.type, ref: action.taskId, reason: "no_source_message" });
-      continue;
-    }
-
-    if (action.type === "complete") {
-      const task = await tx.task.update({
-        where: { id: action.taskId },
+      const t = await tx.task.update({ where: { id: taskId }, data });
+      updated.push(taskId);
+      if (data.dueDate) tasksToSync.push(syncPayload(t));
+      await linkSources(taskId, sourceIds, "updated");
+    } else if (action.type === "complete") {
+      const t = await tx.task.update({
+        where: { id: taskId },
         data: { status: "done", completedAt: now, schedulerStatus: "done" },
       });
-      completed.push(action.taskId);
-      // So the event picks up the "done" checkmark — only if it was ever synced.
-      if (task.googleEventId) tasksToSync.push(toSync(task, contactName, contactBusiness));
-      await linkSources(tx, action.taskId, "completed", sourceIds);
+      completed.push(taskId);
+      activeIds.delete(taskId);
+      if (t.googleEventId) tasksToSync.push(syncPayload(t));
+      await linkSources(taskId, sourceIds, "completed");
     } else if (action.type === "cancel") {
-      const task = await tx.task.update({
-        where: { id: action.taskId },
+      const t = await tx.task.update({
+        where: { id: taskId },
         data: { status: "cancelled", schedulerStatus: "done" },
       });
-      cancelled.push(action.taskId);
-      // So a cancelled task's event is removed — only if it was ever synced.
-      if (task.googleEventId) tasksToSync.push(toSync(task, contactName, contactBusiness));
-      await linkSources(tx, action.taskId, "cancelled", sourceIds);
+      cancelled.push(taskId);
+      activeIds.delete(taskId);
+      if (t.googleEventId) tasksToSync.push(syncPayload(t));
+      await linkSources(taskId, sourceIds, "cancelled");
     }
   }
 
-  return { created, updated, completed, cancelled, tasksToSync, skipped };
+  return { created, updated, completed, cancelled, skipped, tasksToSync };
 }

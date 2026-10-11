@@ -20,7 +20,8 @@ interface EndCallArgs {
  * - needs_user: task remains open, scheduler status is done (waiting on user)
  * - failed or no outcome: task is rescheduled with backoff
  *
- * Exported so it can be called from post-call analysis as well.
+ * Runs after post-call analysis so call.outcome reflects the analysis when the
+ * agent didn't report one.
  */
 export async function applyCallOutcomeToTask(callId: string): Promise<void> {
   const call = await prisma.call.findUnique({
@@ -157,18 +158,21 @@ export function createCallLifecycle(opts: {
       },
     });
 
-    // Apply call outcome to the associated task
-    await applyCallOutcomeToTask(opts.callId).catch((err) =>
-      logger.error({ err, callId: opts.callId }, "callLifecycle: failed to apply outcome to task")
-    );
-
     await rejectLiveQueries(opts.callId);
+
+    // Analyse FIRST: if the agent never called end_call, the analysis fills in
+    // call.outcome, and the task must be updated from that — not treated as a
+    // failed attempt and rescheduled.
     await analyzeCallForEscalation(opts.callId).catch((err) =>
       logger.error({ err, callId: opts.callId }, "callLifecycle: post-call analysis failed")
     );
 
-    // Whole transcript is in; extract once (debounced).
-    await turnLogQueue;
+    await applyCallOutcomeToTask(opts.callId).catch((err) =>
+      logger.error({ err, callId: opts.callId }, "callLifecycle: failed to apply outcome to task")
+    );
+
+    // Extract tasks/knowledge once, from the complete transcript, after the call.
+    // (Extracting per turn would run mid-call on partial context.)
     scheduleExtraction(opts.conversationId);
   }
 

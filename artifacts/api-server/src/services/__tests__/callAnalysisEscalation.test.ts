@@ -41,7 +41,7 @@ describe('analyzeCallForEscalation with a real DB', () => {
     await prisma.account.deleteMany({ where: { id: { in: created.accounts } } });
   });
 
-  it('parse failure on both attempts escalates for manual review instead of leaving the call unreviewed', async () => {
+  it('parse failure on both attempts escalates for manual review (one pending query)', async () => {
     const { call } = await seedCall();
     vi.mocked(generateOrchestratorText).mockResolvedValue({ text: 'not json' } as any);
 
@@ -53,6 +53,34 @@ describe('analyzeCallForEscalation with a real DB', () => {
     const queries = await prisma.query.findMany({ where: { callId: call.id } });
     expect(queries).toHaveLength(1);
     expect(queries[0].status).toBe('pending');
+    expect(queries[0].question).toMatch(/review the transcript/i);
+  });
+
+  it('a reply missing isEnoughKnowledge counts as a failed parse, not "enough knowledge"', async () => {
+    const { call } = await seedCall();
+    vi.mocked(generateOrchestratorText).mockResolvedValue({ text: JSON.stringify({ outcome: 'booked' }) } as any);
+
+    await analyzeCallForEscalation(call.id);
+
+    expect(generateOrchestratorText).toHaveBeenCalledTimes(2);
+    const after = await prisma.call.findUnique({ where: { id: call.id } });
+    expect(after?.isEnoughKnowledge).toBe(false);
+  });
+
+  it('a fenced JSON reply is parsed and the speakers/task goal are sent to the model', async () => {
+    const { call } = await seedCall();
+    vi.mocked(generateOrchestratorText).mockResolvedValue({
+      text: '`json\n{"isEnoughKnowledge": true, "outcome": "info_gathered"}\n`',
+    } as any);
+
+    await analyzeCallForEscalation(call.id);
+
+    expect(generateOrchestratorText).toHaveBeenCalledTimes(1);
+    const arg = vi.mocked(generateOrchestratorText).mock.calls[0][0];
+    expect(arg.turns[0].content).toContain('CONTACT: We need a deposit.');
+    const after = await prisma.call.findUnique({ where: { id: call.id } });
+    expect(after?.isEnoughKnowledge).toBe(true);
+    expect(after?.outcome).toBe('info_gathered');
   });
 
   it('an existing live query for the call prevents a duplicate post-call query', async () => {

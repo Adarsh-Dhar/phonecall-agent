@@ -12,13 +12,21 @@ export type ExistingTask = {
   priority: string;
 };
 
+/** Who actually said it. Raw Message.role is ambiguous: on a call, "user" is the
+ *  external contact; in the app chat, "user" is the owner. */
+export type Speaker = "owner" | "agent" | "contact";
+
 export type NewMessage = {
   id: string;
-  /** Who said it: owner | agent | "contact (on the call)" | "agent (on the call, for the owner)". */
-  speaker: string;
-  source: "phone_call" | "chat";
+  speaker: Speaker;
   content: string;
   time: string;
+};
+
+export type ExistingKnowledge = {
+  key: string;
+  category: string;
+  value: string;
 };
 
 export type TaskAction = {
@@ -66,7 +74,13 @@ export type SkippedAction = {
     | "invalid_due_date"
     | "would_overwrite_active_fact"
     | "unknown_fact"
-    | "invalid_value";
+    | "invalid_value"
+    | "confidence below action threshold"
+    | "no cited message from the new messages"
+    | "taskId is not an active task in this conversation"
+    | "duplicate of an active task"
+    | "empty title"
+    | "nothing valid to update";
 };
 
 export type ExtractionResult = {
@@ -74,10 +88,7 @@ export type ExtractionResult = {
   updated: string[];
   completed: string[];
   cancelled: string[];
-  /** Facts stored as "active" (used on live calls). */
   knowledgeUpserted: string[];
-  /** Low-confidence facts stored as "suggested" (NOT used until approved). */
-  knowledgeSuggested: string[];
   knowledgeInvalidated: string[];
   skipped: SkippedAction[];
 };
@@ -89,7 +100,6 @@ export function emptyExtractionResult(): ExtractionResult {
     completed: [],
     cancelled: [],
     knowledgeUpserted: [],
-    knowledgeSuggested: [],
     knowledgeInvalidated: [],
     skipped: [],
   };

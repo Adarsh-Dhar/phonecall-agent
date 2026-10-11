@@ -16,6 +16,8 @@ vi.mock('@workspace/db-prisma', () => ({
 vi.mock('../taskExtraction', () => ({
   scheduleExtraction: vi.fn(),
 }));
+import { scheduleExtraction } from '../taskExtraction';
+import { analyzeCallForEscalation } from '../callAnalysis';
 
 vi.mock('../callAnalysis', () => ({
   analyzeCallForEscalation: vi.fn().mockResolvedValue(undefined),
@@ -125,5 +127,26 @@ describe('callLifecycle', () => {
         }),
       })
     );
+  });
+
+  it('logTurn never schedules extraction mid-call; end() schedules it once, after analysis', async () => {
+    vi.mocked(scheduleExtraction).mockClear();
+    const lifecycle = createCallLifecycle({
+      callId: 'call-1', conversationId: 'conv-1', ownerId: 'owner-1', contactId: 'contact-1',
+      startedAt: new Date(), send: vi.fn(), closeSocket: vi.fn(), getGemini: () => null, clearGemini: vi.fn(),
+    });
+
+    await lifecycle.logTurn('user', 'hello');
+    await lifecycle.logTurn('assistant', 'hi');
+    expect(scheduleExtraction).not.toHaveBeenCalled();
+
+    const order: string[] = [];
+    vi.mocked(analyzeCallForEscalation).mockImplementationOnce(async () => { order.push('analysis'); });
+    vi.mocked(scheduleExtraction).mockImplementationOnce(() => { order.push('extraction'); });
+    await lifecycle.end('agent', { outcome: 'booked', summary: 's' });
+
+    expect(scheduleExtraction).toHaveBeenCalledTimes(1);
+    expect(scheduleExtraction).toHaveBeenCalledWith('conv-1');
+    expect(order).toEqual(['analysis', 'extraction']);
   });
 });
