@@ -12,6 +12,7 @@ import { ContactTasksCard } from '@/individual/components/contact/ContactTasksCa
 import { ContactQuestionsCard } from '@/individual/components/contact/ContactQuestionsCard';
 import { ContactFilesCard } from '@/individual/components/contact/ContactFilesCard';
 import { BusinessHoursCard } from '@/individual/components/contact/BusinessHoursCard';
+import { KnowledgeBoardPanel } from '@/individual/components/knowledge/KnowledgeBoardPanel';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 import { CallObserverWidget } from '@/individual/components/CallObserverWidget';
 import { dialCall } from '@/lib/api/calls';
@@ -28,6 +29,7 @@ export function ContactDetailPage() {
   const [callStatus, setCallStatus] = useState<'idle' | 'ringing' | 'in-progress' | 'missed' | 'declined'>('idle');
   const [testCallWidget, setTestCallWidget] = useState<{ contactId?: string; taskId?: string; taskTitle?: string } | null>(null);
   const [callerCallId, setCallerCallId] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -68,7 +70,7 @@ export function ContactDetailPage() {
       try {
         setCallStatus('ringing');
         const data = await dialCall(contact.id, callingTask?.taskId);
-        
+
         if (data.status === 'missed') {
           setCallStatus('missed');
           setTimeout(() => setCallStatus('idle'), 3000);
@@ -88,6 +90,29 @@ export function ContactDetailPage() {
         taskId: callingTask?.taskId,
         taskTitle: callingTask?.taskTitle,
       });
+    }
+  };
+
+  const handleExtractNow = async () => {
+    if (!contact) return;
+    try {
+      setExtracting(true);
+      const conversation = await api.fetchContactConversation(contact.id);
+      if (conversation.id) {
+        // Trigger extraction via the messages endpoint which calls scheduleExtraction
+        await api.createMessage(conversation.id, {
+          role: 'user',
+          content: '',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          pending: false,
+        });
+        toast({ description: 'Extraction scheduled' });
+      }
+    } catch (error) {
+      console.error('Error extracting:', error);
+      toast({ variant: 'destructive', description: 'Failed to trigger extraction' });
+    } finally {
+      setExtracting(false);
     }
   };
 
@@ -128,6 +153,14 @@ export function ContactDetailPage() {
                 </span>
               )}
               <CallButton onCall={handleCall} />
+              <button
+                type="button"
+                onClick={handleExtractNow}
+                disabled={extracting}
+                className="rounded-xl border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-40"
+              >
+                {extracting ? 'Extracting...' : 'Extract now'}
+              </button>
             </div>
 
             <div className="mt-7 space-y-5">
@@ -153,6 +186,7 @@ export function ContactDetailPage() {
         {!loading && contact && <ContactQuestionsCard contactId={id} />}
         {!loading && contact && <ContactFilesCard />}
         {!loading && contact && <BusinessHoursCard contactId={id} initial={contact.businessHoursJson ?? null} />}
+        {!loading && contact && <KnowledgeBoardPanel contactId={id} />}
 
         {testCallWidget && (
           <TestCallWidget

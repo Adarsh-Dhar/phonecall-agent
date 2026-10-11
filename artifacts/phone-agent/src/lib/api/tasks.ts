@@ -2,10 +2,29 @@ import { API_BASE_URL, apiFetch } from './shared';
 
 // ─── Task types ─────────────────────────────────────────────────────────────
 
-export type TaskStatus = 'suggested' | 'open' | 'in_progress' | 'done' | 'cancelled';
+export type TaskStatus = 'suggested' | 'open' | 'in_progress' | 'waiting_user' | 'done' | 'cancelled';
 export type TaskPriority = 'low' | 'normal' | 'high';
 export type TaskSource = 'agent' | 'user';
 export type TaskSourceRole = 'created' | 'updated' | 'completed';
+
+export type SkippedAction = {
+  kind: 'task' | 'knowledge';
+  type: string;
+  ref?: string;
+  reason: string;
+};
+
+export type ExtractionResult = {
+  ok: boolean;
+  created: string[];
+  updated: string[];
+  completed: string[];
+  cancelled: string[];
+  knowledgeUpserted: string[];
+  knowledgeSuggested: string[];
+  knowledgeInvalidated: string[];
+  skipped: SkippedAction[];
+};
 
 export type TaskSourceMessage = {
   id: string;
@@ -133,7 +152,7 @@ export const updateTask = async (
 /** Trigger immediate extraction for a conversation, bypassing the debounce. */
 export const extractTasks = async (
   conversationId: string,
-): Promise<{ ok: boolean; created: string[]; updated: string[]; completed: string[]; cancelled: string[] }> => {
+): Promise<ExtractionResult> => {
   const response = await apiFetch(`${API_BASE_URL}/conversations/${conversationId}/extract`, {
     method: 'POST',
   });

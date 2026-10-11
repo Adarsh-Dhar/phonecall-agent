@@ -31,8 +31,9 @@ export type Conversation = {
 };
 
 // Conversations API
-export const fetchConversations = async (): Promise<Conversation[]> => {
-  const response = await apiFetch(`${API_BASE_URL}/conversations`);
+export const fetchConversations = async (contactId?: string): Promise<Conversation[]> => {
+  const qs = contactId ? `?contactId=${encodeURIComponent(contactId)}` : '';
+  const response = await apiFetch(`${API_BASE_URL}/conversations${qs}`);
   if (!response.ok) throw new Error('Failed to fetch conversations');
   return response.json();
 };

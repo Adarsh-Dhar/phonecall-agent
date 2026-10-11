@@ -11,12 +11,12 @@ import { MAX_DELTA_FAILURES, MAX_DELTA_MESSAGES } from "./config";
 import { emptyExtractionResult, type ExtractionResult, type NewMessage, type TaskToSync } from "./types";
 
 // ---------------------------------------------------------------------------
-// Overlap guard + poison-delta tracking (in-process; the cursor re-check inside
-// the transaction below covers multi-instance deployments)
+// Overlap guard (in-process; the cursor re-check inside the transaction below
+// covers multi-instance deployments). Poison-delta tracking is now durable in
+// the Conversation table.
 // ---------------------------------------------------------------------------
 
 const inFlight = new Map<string, { rerun: boolean }>();
-const failures = new Map<string, { lastMessageId: string; count: number }>();
 
 /** Thrown when another run moved the cursor while we were waiting on the model. */
 class StaleCursorError extends Error {}
@@ -139,7 +139,7 @@ async function runExtractionOnce(
     // 3. Existing open tasks + known facts (so the model can update/dedupe/invalidate)
     const [openTasks, knowledge] = await Promise.all([
       prisma.task.findMany({
-        where: { conversationId, status: { in: ["suggested", "open", "in_progress"] } },
+        where: { conversationId, status: { in: ["suggested", "open", "in_progress", "waiting_user"] } },
         select: { id: true, title: true, description: true, dueDate: true, status: true, priority: true },
       }),
       prisma.contactKnowledge.findMany({
@@ -175,7 +175,11 @@ async function runExtractionOnce(
 
     if (taskActions.length === 0 && knowledgeActions.length === 0) {
       await advanceCursor(prisma, conversationId, deltaMessages);
-      failures.delete(conversationId);
+      // Reset failure count on success
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { extractionFailureCount: 0, extractionFailureCursor: null },
+      });
       return { result, hasMore, ok: true };
     }
 
@@ -220,7 +224,11 @@ async function runExtractionOnce(
       },
       { timeout: 30_000 },
     );
-    failures.delete(conversationId);
+    // Reset failure count on success
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { extractionFailureCount: 0, extractionFailureCursor: null },
+    });
 
     // Calendar sync after commit (non-blocking)
     for (const t of tasksToSync) {
@@ -257,9 +265,20 @@ async function runExtractionOnce(
 
     const lastId = deltaMessages[deltaMessages.length - 1]?.id;
     if (lastId && !isTransientOrConfig(err)) {
-      const prev = failures.get(conversationId);
-      const count = prev && prev.lastMessageId === lastId ? prev.count + 1 : 1;
-      failures.set(conversationId, { lastMessageId: lastId, count });
+      // Use durable failure tracking in Conversation table
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId },
+        select: { extractionFailureCount: true, extractionFailureCursor: true },
+      });
+
+      const sameCursor = conversation?.extractionFailureCursor === lastId;
+      const count = sameCursor ? (conversation?.extractionFailureCount ?? 0) + 1 : 1;
+
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { extractionFailureCount: count, extractionFailureCursor: lastId },
+      });
+
       if (count >= MAX_DELTA_FAILURES) {
         logger.error(
           { conversationId, lastMessageId: lastId, count },
@@ -267,10 +286,14 @@ async function runExtractionOnce(
         );
         try {
           await advanceCursor(prisma, conversationId, deltaMessages);
+          // Reset after skipping
+          await prisma.conversation.update({
+            where: { id: conversationId },
+            data: { extractionFailureCount: 0, extractionFailureCursor: null },
+          });
         } catch (e) {
           logger.error({ err: e, conversationId }, "extraction: could not advance cursor past poison delta");
         }
-        failures.delete(conversationId);
         return { result: emptyExtractionResult(), hasMore: true, ok: true };
       }
     }

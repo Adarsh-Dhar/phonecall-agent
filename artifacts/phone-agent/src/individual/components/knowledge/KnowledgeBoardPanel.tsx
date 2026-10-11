@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { BookOpen, Check, LoaderCircle, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import * as api from '@/lib/api';
 
+type Tab = 'active' | 'suggested' | 'invalid';
+
 export function KnowledgeBoardPanel({ contactId }: { contactId: string | undefined }) {
   const [facts, setFacts] = useState<api.KnowledgeFact[]>([]);
   const [loading, setLoading] = useState(false);
@@ -11,19 +13,20 @@ export function KnowledgeBoardPanel({ contactId }: { contactId: string | undefin
   const [newCategory, setNewCategory] = useState('fact');
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
+  const [activeTab, setActiveTab] = useState<Tab>('active');
 
   const loadFacts = useCallback(async () => {
     if (!contactId) return;
     setLoading(true);
     try {
-      const data = await api.fetchContactKnowledge(contactId);
+      const data = await api.fetchContactKnowledge(contactId, activeTab === 'active' ? undefined : activeTab);
       setFacts(data);
     } catch {
       // silently ignore — panel is non-critical
     } finally {
       setLoading(false);
     }
-  }, [contactId]);
+  }, [contactId, activeTab]);
 
   useEffect(() => { void loadFacts(); }, [loadFacts]);
 
@@ -65,6 +68,24 @@ export function KnowledgeBoardPanel({ contactId }: { contactId: string | undefin
     }
   };
 
+  const handleApprove = async (id: string) => {
+    try {
+      await api.updateContactKnowledge(id, { status: 'active' });
+      await loadFacts();
+    } catch (err) {
+      console.error('[KnowledgeBoardPanel] Failed to approve fact:', err);
+    }
+  };
+
+  const handleDismiss = async (id: string) => {
+    try {
+      await api.updateContactKnowledge(id, { status: 'invalid' });
+      await loadFacts();
+    } catch (err) {
+      console.error('[KnowledgeBoardPanel] Failed to dismiss fact:', err);
+    }
+  };
+
   const grouped = facts.reduce((acc, fact) => {
     if (!acc[fact.category]) acc[fact.category] = [];
     acc[fact.category].push(fact);
@@ -102,6 +123,24 @@ export function KnowledgeBoardPanel({ contactId }: { contactId: string | undefin
             <Plus size={14} />
           </button>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="mt-3 flex gap-1">
+        {(['active', 'suggested', 'invalid'] as Tab[]).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`rounded-lg px-3 py-1.5 text-[10px] font-bold capitalize transition-colors ${
+              activeTab === tab
+                ? 'bg-[#6b4fc8] text-white'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
       {/* Inline add form */}
@@ -196,10 +235,34 @@ export function KnowledgeBoardPanel({ contactId }: { contactId: string | undefin
                     ) : (
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-[9px] font-bold uppercase tracking-[.07em] text-muted-foreground">{fact.category}</p>
+                            <p className="text-[9px] text-muted-foreground">{Math.round(fact.confidence * 100)}%</p>
+                          </div>
                           <p className="text-[9px] font-bold uppercase tracking-[.07em] text-muted-foreground">{fact.key}</p>
                           <p className="text-xs text-foreground">{fact.value}</p>
                         </div>
                         <div className="flex shrink-0 gap-1">
+                          {activeTab === 'suggested' && (
+                            <>
+                              <button
+                                type="button"
+                                aria-label="Approve fact"
+                                onClick={() => void handleApprove(fact.id)}
+                                className="grid h-6 w-6 place-items-center rounded-lg text-[#3f8274] hover:bg-[#e8f5e9]"
+                              >
+                                <Check size={11} />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Dismiss fact"
+                                onClick={() => void handleDismiss(fact.id)}
+                                className="grid h-6 w-6 place-items-center rounded-lg text-[#b44343] hover:bg-[#fde8e8]"
+                              >
+                                <X size={11} />
+                              </button>
+                            </>
+                          )}
                           <button
                             type="button"
                             aria-label="Edit fact"

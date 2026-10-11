@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import type * as api from '@/lib/api';
-import { STATUS_META, PRIORITY_BADGE } from './taskMeta';
+import { STATUS_META, PRIORITY_BADGE, SCHEDULER_META } from './taskMeta';
+import { TESTING_UI } from '@/lib/testingUi';
 
 export function TaskRow({
   task,
@@ -89,7 +90,7 @@ export function TaskRow({
           </div>
 
           {/* Expand toggle for description */}
-          {task.description && (
+          {(task.description || TESTING_UI) && (
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
@@ -98,8 +99,60 @@ export function TaskRow({
               {open ? 'Hide detail' : 'Show detail'}
             </button>
           )}
-          {open && task.description && (
-            <p className="mt-1 text-[11px] leading-4 text-[hsl(var(--muted-foreground))]">{task.description}</p>
+          {open && (
+            <div className="mt-1 space-y-2">
+              {task.description && (
+                <p className="text-[11px] leading-4 text-[hsl(var(--muted-foreground))]">{task.description}</p>
+              )}
+              {TESTING_UI && (
+                <div className="rounded-lg bg-muted p-2 space-y-1 text-[10px]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-muted-foreground">Source:</span>
+                    <span>{task.source}</span>
+                    {task.confidence < 1 && (
+                      <span className="text-muted-foreground">({Math.round(task.confidence * 100)}% conf.)</span>
+                    )}
+                  </div>
+                  {task.sources.length > 0 && (
+                    <div>
+                      <p className="font-bold text-muted-foreground mb-1">Source messages:</p>
+                      <div className="space-y-1">
+                        {task.sources.map((src) => (
+                          <div key={src.id} className="pl-2 border-l-2 border-border">
+                            <span className="font-bold">{src.role}</span>
+                            <span className="text-muted-foreground ml-2">{src.message.role}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-muted-foreground">Kind:</span>
+                    <span>{task.kind}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-muted-foreground">Scheduler:</span>
+                    <span className={SCHEDULER_META[task.schedulerStatus]?.color}>{SCHEDULER_META[task.schedulerStatus]?.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-muted-foreground">Call attempts:</span>
+                    <span>{task.callAttempts}</span>
+                  </div>
+                  {task.lastAttemptAt && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-muted-foreground">Last attempt:</span>
+                      <span>{new Date(task.lastAttemptAt).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {task.nextAttemptAt && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-muted-foreground">Next attempt:</span>
+                      <span>{new Date(task.nextAttemptAt).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
 

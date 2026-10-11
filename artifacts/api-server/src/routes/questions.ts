@@ -25,65 +25,25 @@ import { resolveLiveQuery } from "../services/liveEscalation";
 
 /**
  * Exported for testing: handles the logic after a query is answered
- * - Upserts to ContactKnowledge if knowledgeKey exists
  * - Resolves live query if call is in progress
- * - Creates callback task and reopens original task if call has ended
+ * - Re-opens original task once with answer attached
+ * - Creates callback task only when call had no task
+ * - No longer directly upserts to ContactKnowledge; extraction reads the transcript message instead
  */
 export async function handleQueryAnswered(
   query: { id: string; question: string; knowledgeKey?: string | null; knowledgeCategory?: string | null; contactId: string; conversationId: string; callId?: string | null },
   answer: string
 ): Promise<void> {
-  // Upsert to ContactKnowledge using the stored knowledgeKey and knowledgeCategory
-  if (query.knowledgeKey && query.knowledgeCategory) {
-    await prisma.contactKnowledge.upsert({
-      where: {
-        contactId_key: {
-          contactId: query.contactId,
-          key: query.knowledgeKey,
-        },
-      },
-      create: {
-        contactId: query.contactId,
-        key: query.knowledgeKey,
-        value: answer,
-        category: query.knowledgeCategory,
-        confidence: 1.0,
-        status: "active",
-      },
-      update: {
-        value: answer,
-        category: query.knowledgeCategory,
-        confidence: 1.0,
-        status: "active",
-        updatedAt: new Date(),
-      },
-    });
-
-    logger.info(
-      {
-        questionId: query.id,
-        contactId: query.contactId,
-        knowledgeKey: query.knowledgeKey,
-        knowledgeCategory: query.knowledgeCategory,
-      },
-      "questions/answer: upserted to ContactKnowledge"
-    );
-  } else {
-    logger.warn(
-      { questionId: query.id, contactId: query.contactId },
-      "questions/answer: missing knowledgeKey or knowledgeCategory, skipping ContactKnowledge upsert"
-    );
-  }
-
   // If this is a live call query, try to resolve it to the in-progress call
   if (query.callId) {
     if (resolveLiveQuery(query.id, answer)) {
       return;
     }
 
-    // Call already ended - create callback task and reopen original task if applicable
+    // Call already ended - re-open original task once with answer attached
     const call = await prisma.call.findUnique({ where: { id: query.callId } });
     if (call?.taskId && call.status !== "in-progress") {
+      const task = await prisma.task.findUnique({ where: { id: call.taskId }, select: { description: true } });
       await prisma.task.update({
         where: { id: call.taskId },
         data: {
@@ -92,25 +52,62 @@ export async function handleQueryAnswered(
           schedulerStatus: "pending",
           nextAttemptAt: new Date(),
           callAttempts: 0,
+          description: (task?.description || "") + `\n\nAnswer from user: ${answer}`,
         },
       });
     }
 
-    await prisma.task.create({
-      data: {
-        title: `Call back with answer: ${query.question}`,
-        description: `Answer from user: ${answer}`,
-        status: "open",
-        priority: "high",
-        dueDate: new Date(),
-        source: "escalation",
-        parentTaskId: call?.taskId ?? null,
-        conversationId: query.conversationId,
-        contactId: query.contactId,
-        kind: "call",
-      },
-    });
+    // Create callback task only when call had no task
+    if (!call?.taskId) {
+      await prisma.task.create({
+        data: {
+          title: `Call back with answer: ${query.question}`,
+          description: `Answer from user: ${answer}`,
+          status: "open",
+          priority: "high",
+          dueDate: new Date(),
+          source: "escalation",
+          conversationId: query.conversationId,
+          contactId: query.contactId,
+          kind: "call",
+        },
+      });
+    }
   }
+}
+
+/**
+ * Exported for testing: handles the logic after a query is dismissed
+ * - Records the dismissal
+ * - Ends the conversation if nothing else is open
+ * - Re-runs extraction
+ */
+export async function handleQueryDismissed(
+  query: { id: string; conversationId: string; contactId: string }
+): Promise<void> {
+  logger.info({ questionId: query.id }, "questions/dismiss: recording dismissal");
+
+  // End the conversation if nothing else is open
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: query.conversationId },
+    include: {
+      calls: {
+        where: { status: "in-progress" },
+      },
+    },
+  });
+
+  if (conversation && conversation.calls.length === 0) {
+    await prisma.conversation.update({
+      where: { id: query.conversationId },
+      data: { status: "ended" },
+    });
+    logger.info({ conversationId: query.conversationId }, "questions/dismiss: ended conversation");
+  }
+
+  // Re-run extraction to process the dismissal
+  const { scheduleExtraction } = await import("../services/taskExtraction");
+  scheduleExtraction(query.conversationId);
 }
 
 const router: IRouter = Router();
@@ -121,6 +118,7 @@ const questionsRouter = makeQueryLikeRouter({
   isKnowledgeGap: true,
   resourceName: "question",
   onAnswered: handleQueryAnswered,
+  onDismissed: handleQueryDismissed,
 });
 
 // General queries router (isKnowledgeGap: false) - for backward compatibility

@@ -1,11 +1,11 @@
 import { logger } from "../../lib/logger";
-import { ACTION_CONFIDENCE_THRESHOLD, CONFIDENCE_THRESHOLD } from "./config";
+import { ACTION_CONFIDENCE_THRESHOLD } from "./config";
 import { parseModelDueDate } from "./validate";
 import type { SkippedAction, TaskAction, TaskToSync, TxClient } from "./types";
 
 export { parseModelDueDate } from "./validate";
 
-const ACTIVE_STATUSES = ["suggested", "open", "in_progress"];
+const ACTIVE_STATUSES = ["suggested", "open", "in_progress", "waiting_user"];
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
@@ -94,7 +94,8 @@ export async function reconcileTaskActions(
         logger.warn({ conversationId, dueDate: action.dueDate }, "reconcileTasks: invalid dueDate dropped on create");
       }
 
-      const status = (action.confidence ?? 1) >= CONFIDENCE_THRESHOLD ? "open" : "suggested";
+      // Always create model tasks as "suggested" to require UI confirmation before auto-dial
+      const status = "suggested";
       const task = await tx.task.create({
         data: {
           title,

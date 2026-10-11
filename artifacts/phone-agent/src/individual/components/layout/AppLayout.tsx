@@ -1,14 +1,22 @@
 import type { ReactNode } from 'react';
-import { ArrowUpRight, CircleHelp, History, LogOut, MessageCircle, Phone as PhoneIcon, ShieldCheck, Users } from 'lucide-react';
+import { ArrowUpRight, CircleHelp, History, LogOut, MessageCircle, Phone as PhoneIcon, ShieldCheck, Users, Activity, MessageSquare } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { IconButton } from '@/components/shared/IconButton';
 import { Preferences } from './Preferences';
 import { useAuth } from '@/hooks/useAuth';
+import { TESTING_UI } from '@/lib/testingUi';
 
 const navItems = [
   { path: '/calls', label: 'Calls', icon: <PhoneIcon size={16} />, testId: 'nav-calls' },
   { path: '/history', label: 'Task history', icon: <History size={16} />, testId: 'nav-history' },
   { path: '/contacts', label: 'Contacts', icon: <Users size={16} />, testId: 'nav-contacts' },
+  { path: '/queries', label: 'Questions', icon: <CircleHelp size={16} />, testId: 'nav-queries' },
+] as const;
+
+const testingNavItems = [
+  { path: '/chat', label: 'Chat', icon: <MessageSquare size={16} />, testId: 'nav-chat' },
+  { path: '/health', label: 'Health', icon: <Activity size={16} />, testId: 'nav-health' },
+  { path: '/inspector', label: 'Conversations', icon: <MessageCircle size={16} />, testId: 'nav-inspector' },
 ] as const;
 
 export function AppLayout({
@@ -67,6 +75,26 @@ export function AppLayout({
               </Link>
             ))}
           </nav>
+          {TESTING_UI && (
+            <>
+              <p className="mb-3 mt-6 px-3 font-mono text-[9px] uppercase tracking-[.18em] text-[#879a94]">Testing</p>
+              <nav className="space-y-1">
+                {testingNavItems.map(({ path, label, icon, testId }) => (
+                  <Link
+                    key={path}
+                    href={path}
+                    data-testid={testId}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
+                      isActive(path) ? 'bg-[#2d3b3c] text-[#fff8ec]' : 'text-[#aab9b3] hover:bg-[#273435] hover:text-[#fff8ec]'
+                    }`}
+                  >
+                    {icon}
+                    <span>{label}</span>
+                  </Link>
+                ))}
+              </nav>
+            </>
+          )}
         </div>
 
         <div className="mt-auto rounded-2xl border border-[#3a4a48] bg-[#243232] p-4">

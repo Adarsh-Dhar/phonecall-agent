@@ -11,6 +11,7 @@ export interface QueryLikeOptions {
   basePath: string; // "queries" | "questions"
   isKnowledgeGap: boolean;
   onAnswered?: (query: any, answer: string) => Promise<void>; // ContactKnowledge upsert, only for questions
+  onDismissed?: (query: any) => Promise<void>; // Handle dismissal logic
   resourceName?: string; // "query" | "question" - for error messages
 }
 
@@ -193,6 +194,12 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         return;
       }
 
+      // Reject if already answered
+      if (query.status === "answered") {
+        res.status(409).json({ error: `${resourceCapitalized} is already answered` });
+        return;
+      }
+
       // Run the onAnswered callback (for ContactKnowledge upsert) - only for knowledge gap questions
       if (opts.onAnswered && query.isKnowledgeGap) {
         await opts.onAnswered(query, String(answer));
@@ -262,6 +269,11 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         },
         include: sourcesInclude,
       });
+
+      // Run the onDismissed callback if status is being set to dismissed
+      if (status === "dismissed" && opts.onDismissed) {
+        await opts.onDismissed(updatedQuery);
+      }
 
       res.json(updatedQuery);
     }, `Failed to update ${resourceName}`)

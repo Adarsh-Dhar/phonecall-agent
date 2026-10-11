@@ -2,7 +2,7 @@ import { API_BASE_URL, apiFetch } from './shared';
 
 // ─── Query types ─────────────────────────────────────────────────────────────
 
-export type QueryStatus = 'pending' | 'answered' | 'dismissed';
+export type QueryStatus = 'pending' | 'answered' | 'dismissed' | 'expired';
 export type QuerySourceRole = 'asked' | 'dismissed';
 
 export type QuerySourceMessage = {

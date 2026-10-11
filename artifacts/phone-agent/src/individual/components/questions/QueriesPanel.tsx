@@ -64,9 +64,9 @@ export function QueriesPanel({
     } catch { /* no-op */ }
   };
 
-  const pendingCount = queries.filter((q) => q.status === 'pending').length;
+  const pendingCount = queries.filter((q) => q.status === 'pending' || q.status === 'expired').length;
   const visible = filter === 'pending'
-    ? queries.filter((q) => q.status === 'pending')
+    ? queries.filter((q) => q.status === 'pending' || q.status === 'expired')
     : queries;
 
   return (

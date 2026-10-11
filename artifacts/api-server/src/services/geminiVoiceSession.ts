@@ -35,13 +35,16 @@ const END_CALL = {
 const ASK_USER = {
   name: "ask_user",
   description:
-    "Ask your user a question you cannot answer. Say 'one moment please' first. Use before agreeing to any fee, deposit, or time not already approved.",
+    "Ask your user a question you cannot answer. Say 'one moment please' first. Use before agreeing to any fee, deposit, or time not already approved. If the question is about a knowledge gap, provide a short snake_case knowledgeKey (3-41 characters, starts with a letter, only lowercase letters, numbers, and underscores).",
   parameters: {
     type: Type.OBJECT,
     required: ["question"],
     properties: {
       question: { type: Type.STRING },
-      knowledgeKey: { type: Type.STRING },
+      knowledgeKey: {
+        type: Type.STRING,
+        description: "Short snake_case key for this knowledge (3-41 chars, starts with letter, only lowercase letters, numbers, underscores). Reuse existing keys when possible.",
+      },
       knowledgeCategory: { type: Type.STRING },
     },
   },

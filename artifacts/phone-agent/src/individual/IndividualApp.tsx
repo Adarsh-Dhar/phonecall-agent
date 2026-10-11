@@ -4,17 +4,24 @@ import { CallsPage } from '@/individual/pages/CallsPage';
 import { HistoryPage } from '@/individual/pages/HistoryPage';
 import { ContactsPage } from '@/individual/pages/ContactsPage';
 import { ContactDetailPage } from '@/individual/pages/ContactDetailPage';
+import { QueriesPage } from '@/individual/pages/QueriesPage';
+import { ChatTestPage } from '@/individual/pages/ChatTestPage';
+import { HealthPage } from '@/individual/pages/HealthPage';
+import { ConversationInspectorPage } from '@/individual/pages/ConversationInspectorPage';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 import { IncomingCallModal } from '@/individual/components/IncomingCallModal';
 import { LiveQuestionModal } from '@/individual/components/LiveQuestionModal';
 import { useCallDueNotifications, type CallDueNotification } from '@/individual/hooks/useCallDueNotifications';
 import { usePresence } from '@/hooks/usePresence';
 import { toast } from '@/hooks/use-toast';
+import { useLocation } from 'wouter';
+import { TESTING_UI } from '@/lib/testingUi';
 
 export default function IndividualApp() {
   const [dueCall, setDueCall] = useState<CallDueNotification | null>(null);
   const [incomingCall, setIncomingCall] = useState<{ callId: string; callerName: string; taskContext?: { taskId: string; title: string; description: string | null } | null } | null>(null);
   const [liveQuestion, setLiveQuestion] = useState<{ queryId: string; callId: string; question: string; urgent: boolean } | null>(null);
+  const [location, setLocation] = useLocation();
 
   useCallDueNotifications(
     (notification) => {
@@ -55,6 +62,14 @@ export default function IndividualApp() {
         question: event.question,
         urgent: event.urgent,
       });
+    },
+    (event) => {
+      console.log('Post-call question received:', event);
+      toast({
+        title: 'Your call agent has a question',
+        description: event.question,
+      });
+      setLocation('/queries');
     }
   );
 
@@ -65,6 +80,10 @@ export default function IndividualApp() {
         <Route path="/history"  component={HistoryPage} />
         <Route path="/contacts" component={ContactsPage} />
         <Route path="/contacts/:id" component={ContactDetailPage} />
+        <Route path="/queries"  component={QueriesPage} />
+        {TESTING_UI && <Route path="/chat" component={ChatTestPage} />}
+        {TESTING_UI && <Route path="/health" component={HealthPage} />}
+        {TESTING_UI && <Route path="/inspector" component={ConversationInspectorPage} />}
         <Route path="/"         component={() => <Redirect to="/contacts" />} />
       </Switch>
 

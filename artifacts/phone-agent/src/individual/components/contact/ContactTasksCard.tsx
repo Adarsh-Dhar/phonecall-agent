@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ListTodo, LoaderCircle, Phone, Plus, RefreshCw } from 'lucide-react';
+import { Check, ListTodo, LoaderCircle, Phone, Plus, RefreshCw, AlertCircle } from 'lucide-react';
 import * as api from '@/lib/api';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { dialCall } from '@/lib/api/calls';
+import { Link } from 'wouter';
 
 /**
  * Tasks card on the Contact Detail page. Manages its own state (load,
@@ -21,6 +22,7 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [callingTask, setCallingTask] = useState<api.Task | null>(null);
   const [callStatus, setCallStatus] = useState<'idle' | 'ringing' | 'in-progress' | 'missed' | 'declined'>('idle');
+  const [pendingQueries, setPendingQueries] = useState<api.Query[]>([]);
 
   const loadTasks = useCallback(async () => {
     if (!contactId) return;
@@ -35,7 +37,18 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
     }
   }, [contactId]);
 
+  const loadPendingQueries = useCallback(async () => {
+    if (!contactId) return;
+    try {
+      const data = await api.fetchContactQueries(contactId, 'pending');
+      setPendingQueries(data);
+    } catch (err) {
+      console.error('[ContactTasksCard] Failed to load pending queries:', err);
+    }
+  }, [contactId]);
+
   useEffect(() => { void loadTasks(); }, [loadTasks]);
+  useEffect(() => { void loadPendingQueries(); }, [loadPendingQueries]);
 
   const handleCreateTask = async () => {
     if (!newTaskTitle.trim() || !contactId) return;
@@ -146,6 +159,16 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
         </div>
       )}
 
+      {pendingQueries.length > 0 && (
+        <Link
+          href="/queries"
+          className="mt-4 flex items-center gap-2 rounded-xl border border-[#ff9478] bg-[#fff0df] px-3 py-2 text-xs font-bold text-[#af5c1c] hover:bg-[#ffe8d0]"
+        >
+          <AlertCircle size={14} />
+          <span>Waiting on you ({pendingQueries.length} question{pendingQueries.length !== 1 ? 's' : ''})</span>
+        </Link>
+      )}
+
       <div className="mt-4 space-y-2">
         {tasksLoading && tasks.length === 0 ? (
           <div className="flex items-center justify-center py-6">
@@ -203,7 +226,7 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
           contactId={contactId}
           taskId={callingTask.id}
           taskTitle={callingTask.title}
-          onClose={() => { setCallingTask(null); void loadTasks(); }}
+          onClose={() => { setCallingTask(null); void loadTasks(); void loadPendingQueries(); }}
         />
       )}
     </div>

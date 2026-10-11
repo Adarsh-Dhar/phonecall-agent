@@ -1,8 +1,9 @@
 import { prisma } from "@workspace/db-prisma";
 import { generateOrchestratorText, type OrchestratorTextTurn } from "./nebiusText";
 import { logger } from "../lib/logger";
-import { slugify } from "../lib/utils";
+import { slugify, normalizeKnowledgeKey } from "../lib/utils";
 import { extractJsonObject } from "../lib/extractJson";
+import { notifyOwnerOfQuestion } from "./questionNotify";
 
 export function buildCallTimeContext(tz: string, now = new Date()): string {
   const defaultTz = process.env.DEFAULT_TIMEZONE || "Asia/Kolkata";
@@ -164,12 +165,15 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
 
   const existingQuery = await prisma.query.findFirst({ where: { callId } });
   if (existingQuery) {
-    await prisma.call.update({ where: { id: callId }, data: { isEnoughKnowledge: existingQuery.status === "pending" ? false : true } });
+    // A pending or expired query counts as not enough knowledge
+    const isResolved = existingQuery.status === "answered" || existingQuery.status === "dismissed";
+    await prisma.call.update({ where: { id: callId }, data: { isEnoughKnowledge: isResolved } });
     return;
   }
 
   if (call.outcome === "needs_user" && call.outcomeSummary) {
-    await prisma.query.create({
+    const contact = await prisma.account.findUnique({ where: { id: call.contactId } });
+    const query = await prisma.query.create({
       data: {
         question: call.outcomeSummary,
         status: "pending",
@@ -177,11 +181,19 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
         contactId: call.contactId,
         isKnowledgeGap: true,
         callId: call.id,
-        knowledgeKey: slugify(call.outcomeSummary),
+        knowledgeKey: normalizeKnowledgeKey(call.outcomeSummary),
         knowledgeCategory: "fact",
       },
     });
     await prisma.call.update({ where: { id: callId }, data: { isEnoughKnowledge: false } });
+    if (contact?.ownerId) {
+      await notifyOwnerOfQuestion({
+        ownerId: contact.ownerId,
+        question: call.outcomeSummary,
+        queryId: query.id,
+        contactId: call.contactId,
+      });
+    }
     return;
   }
 
@@ -209,6 +221,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
       ? "\n\nWhat the agent already knew about this contact:\n" +
         facts.map((f) => `- (${f.category}) ${f.key}: ${f.value}`).join("\n")
       : "";
+  const existingKeys = facts.map((f) => f.key).join(", ");
   const taskBlock = task
     ? `\n\nTHE GOAL OF THIS CALL: "${task.title}"` + (task.description ? ` — ${task.description}` : "") +
       "\nJudge \"did the agent get what it needed\" against this goal."
@@ -226,6 +239,8 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
     `your user, with ${contact?.name ?? "a contact"}. AGENT is the voice agent; CONTACT is the external person. Decide TWO things:\n\n` +
     "1. Did the agent get everything it needed during the call, or does it need to escalate something to your user?\n" +
     "2. What was the outcome of the call? (booked, rescheduled, cancelled, info_gathered, needs_user, failed)\n\n" +
+    (existingKeys ? `Existing knowledge keys for this contact: ${existingKeys}. If the gap is about an existing key, reuse it.\n\n` : "") +
+    "If you need to create a new knowledge key, use a short snake_case key (3-41 characters, starts with a letter, only lowercase letters, numbers, and underscores).\n\n" +
     "Return ONLY a JSON object, no markdown fences:\n" +
     "{\n" +
     '  "isEnoughKnowledge": boolean,   // REQUIRED\n' +
@@ -271,7 +286,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
         escalationQuestion =
           (typeof parsed.escalationQuestion === "string" && parsed.escalationQuestion.trim()) ||
           `The call with ${contact?.name ?? "the contact"} needs your input — can you review the transcript?`;
-        knowledgeKey = slugify((typeof parsed.knowledgeKey === "string" && parsed.knowledgeKey) || escalationQuestion);
+        knowledgeKey = normalizeKnowledgeKey((typeof parsed.knowledgeKey === "string" && parsed.knowledgeKey) || escalationQuestion);
         knowledgeCategory = (typeof parsed.knowledgeCategory === "string" && parsed.knowledgeCategory.trim()) || "fact";
       }
       llmOutcome =
@@ -288,8 +303,8 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
     // Both attempts failed: don't leave the call unreviewed — ask the owner to look.
     isEnoughKnowledge = false;
     escalationQuestion = `The call with ${contact?.name ?? "the contact"} could not be analysed automatically — can you review the transcript?`;
-    knowledgeKey = slugify(`review-call-${callId}`);
-    knowledgeCategory = "fact";
+    knowledgeKey = null;
+    knowledgeCategory = null;
     logger.error({ callId }, "callAnalysis: analysis failed twice, escalating for manual review");
   }
 
@@ -308,7 +323,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
       : null;
 
     if (!existing) {
-      await prisma.query.create({
+      const query = await prisma.query.create({
         data: {
           question: escalationQuestion,
           status: "pending",
@@ -321,6 +336,15 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
         },
       });
       logger.info({ callId, question: escalationQuestion }, "callAnalysis: created escalation query");
+
+      if (contact?.ownerId) {
+        await notifyOwnerOfQuestion({
+          ownerId: contact.ownerId,
+          question: escalationQuestion,
+          queryId: query.id,
+          contactId: call.contactId,
+        });
+      }
     }
   }
 }

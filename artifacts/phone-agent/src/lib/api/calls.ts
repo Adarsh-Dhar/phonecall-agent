@@ -6,6 +6,9 @@ export type CallStatus =
   'initiated' | 'ringing' | 'in-progress' | 'completed' | 'failed' | 'no-answer' | 'busy' | 'missed' | 'declined';
 export type CallDirection = 'outbound' | 'inbound';
 
+export type CallOutcome =
+  'booked' | 'rescheduled' | 'cancelled' | 'info_gathered' | 'needs_user' | 'failed';
+
 export type Call = {
   id: string;
   status: CallStatus;
@@ -27,6 +30,11 @@ export type Call = {
   // the caller (outbound). Use this instead of `contact.name` for display.
   otherPartyName: string;
   viewerRole?: 'individual' | 'business';
+  outcome: CallOutcome | null;
+  outcomeSummary: string | null;
+  confirmedAt: string | null;
+  confirmationRef: string | null;
+  taskId: string | null;
   contact?: {
     id: string;
     name: string;

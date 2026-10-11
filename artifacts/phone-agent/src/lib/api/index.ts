@@ -10,3 +10,5 @@ export * from './knowledge';
 export * from './calls';
 export * from './googleCalendar';
 export * from './orchestrator';
+export * from './health';
+export type { ExtractionResult, SkippedAction } from './tasks';

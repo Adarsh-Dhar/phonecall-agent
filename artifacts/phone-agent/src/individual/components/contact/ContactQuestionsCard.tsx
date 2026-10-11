@@ -71,7 +71,7 @@ export function ContactQuestionsCard({ contactId }: { contactId: string | undefi
         </div>
         <div>
           <h3 className="text-sm font-bold tracking-tight">Questions</h3>
-          <p className="text-[10px] text-[#7a4fc8]">{questions.filter((q) => q.status === 'pending').length} pending</p>
+          <p className="text-[10px] text-[#7a4fc8]">{questions.filter((q) => q.status === 'pending' || q.status === 'expired').length} pending</p>
         </div>
         <button
           type="button"
@@ -125,11 +125,18 @@ export function ContactQuestionsCard({ contactId }: { contactId: string | undefi
             <div
               key={question.id}
               className={`rounded-xl border px-4 py-3 ${
-                question.status === 'pending' ? 'border-[#d4c4ff] bg-[#f8f5ff]' : 'border-border bg-muted/40 opacity-60'
+                question.status === 'pending' || question.status === 'expired' ? 'border-[#d4c4ff] bg-[#f8f5ff]' : 'border-border bg-muted/40 opacity-60'
               }`}
             >
-              <p className="text-xs font-semibold">{question.question}</p>
-              {question.status === 'pending' ? (
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold">{question.question}</p>
+                {question.status === 'expired' && (
+                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[.08em] text-orange-700">
+                    Agent moved on
+                  </span>
+                )}
+              </div>
+              {question.status === 'pending' || question.status === 'expired' ? (
                 <div className="mt-2 flex gap-2">
                   <input
                     type="text"

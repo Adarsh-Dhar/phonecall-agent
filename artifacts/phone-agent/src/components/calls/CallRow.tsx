@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import * as api from '@/lib/api';
 
+const OUTCOME_META: Record<api.CallOutcome, { label: string; color: string }> = {
+  booked: { label: 'Booked', color: 'bg-[#3f8274] text-white' },
+  rescheduled: { label: 'Rescheduled', color: 'bg-[#3159c4] text-white' },
+  cancelled: { label: 'Cancelled', color: 'bg-[#b44343] text-white' },
+  info_gathered: { label: 'Info Gathered', color: 'bg-[#697a73] text-white' },
+  needs_user: { label: 'Needs Input', color: 'bg-[#e85d04] text-white' },
+  failed: { label: 'Failed', color: 'bg-[#b44343] text-white' },
+};
+
 export function CallRow({ call, expanded, onToggle, loadMessages = api.fetchCallMessages }: {
   call: api.Call;
   expanded: boolean;
@@ -15,6 +24,7 @@ export function CallRow({ call, expanded, onToggle, loadMessages = api.fetchCall
   const statusColor = call.status === 'completed' ? 'text-[#3f8274]' :
                      call.status === 'failed' || call.status === 'no-answer' || call.status === 'busy' ? 'text-[#b44343]' :
                      'text-muted-foreground';
+  const outcomeMeta = call.outcome ? OUTCOME_META[call.outcome] : null;
 
   const loadCallMessages = async () => {
     if (hasLoaded.current) return;
@@ -48,13 +58,31 @@ export function CallRow({ call, expanded, onToggle, loadMessages = api.fetchCall
             <span className={`text-[10px] ${statusColor}`}>
               {call.status}
             </span>
+            {outcomeMeta && (
+              <span className={`text-[9px] font-bold uppercase tracking-[.08em] px-2 py-0.5 rounded-full ${outcomeMeta.color}`}>
+                {outcomeMeta.label}
+              </span>
+            )}
           </div>
           <h3 className="mt-1 font-bold">
             {isInbound ? `Inbound call from ${call.contact?.name}` : `Outbound call to ${call.contact?.name}`}
           </h3>
+          {call.outcome === 'needs_user' && (
+            <div className="mt-1 inline-flex items-center rounded-full bg-[#e85d04] px-2 py-0.5 text-[10px] font-bold text-white">
+              Needs your input
+            </div>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">
             {call.durationSec != null ? `${Math.floor(call.durationSec / 60)}m ${call.durationSec % 60}s` : 'In progress'}
           </p>
+          {call.outcomeSummary && (
+            <p className="mt-1 text-xs text-muted-foreground italic">{call.outcomeSummary}</p>
+          )}
+          {(call.confirmationRef || call.confirmedAt) && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Confirmation: {call.confirmationRef || new Date(call.confirmedAt!).toLocaleString()}
+            </p>
+          )}
           {call.recordingUrl && (
             <a href={call.recordingUrl} className="mt-2 text-xs text-[#3159c4] underline">Recording</a>
           )}
@@ -81,7 +109,7 @@ export function CallRow({ call, expanded, onToggle, loadMessages = api.fetchCall
             onClick={onToggle}
             className="mt-2 text-xs text-[#3159c4] hover:underline"
           >
-            {expanded ? 'Hide conversation' : 'View conversation'}
+            {expanded ? 'Hide transcript' : 'View transcript'}
           </button>
         </div>
       </div>

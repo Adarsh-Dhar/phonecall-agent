@@ -1,12 +1,12 @@
 import { prisma } from "@workspace/db-prisma";
 import { sendToAccount } from "./presence";
 import { sendPushToAccount } from "./push";
-import { slugify } from "../lib/utils";
+import { normalizeKnowledgeKey } from "../lib/utils";
 import { logger } from "../lib/logger";
 
 const pending = new Map<
   string,
-  { resolve: (answer: string) => void; timer: NodeJS.Timeout; callId: string }
+  { resolve: (answer: string) => void; timer: NodeJS.Timeout; callId: string; queryId: string }
 >();
 
 export async function askUserDuringCall(opts: {
@@ -27,7 +27,7 @@ export async function askUserDuringCall(opts: {
       callId: opts.callId,
       conversationId: opts.conversationId,
       contactId: opts.contactId,
-      knowledgeKey: opts.knowledgeKey ? slugify(opts.knowledgeKey) : slugify(opts.question),
+      knowledgeKey: normalizeKnowledgeKey(opts.knowledgeKey) || normalizeKnowledgeKey(opts.question),
       knowledgeCategory: opts.knowledgeCategory ?? "fact",
     },
   });
@@ -49,11 +49,17 @@ export async function askUserDuringCall(opts: {
   }
 
   return new Promise<string>((resolve) => {
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       pending.delete(q.id);
+      // Mark query as expired when timeout happens
+      await prisma.query.update({
+        where: { id: q.id },
+        data: { status: "expired" },
+      });
+      logger.info({ queryId: q.id, callId: opts.callId }, "liveEscalation: query expired due to timeout");
       resolve("USER_UNAVAILABLE");
     }, Number(process.env.ASK_USER_TIMEOUT_MS) || 45000);
-    pending.set(q.id, { resolve, timer, callId: opts.callId });
+    pending.set(q.id, { resolve, timer, callId: opts.callId, queryId: q.id });
   });
 }
 
@@ -66,11 +72,17 @@ export function resolveLiveQuery(id: string, answer: string): boolean {
   return true;
 }
 
-export function rejectLiveQueries(callId: string): void {
+export async function rejectLiveQueries(callId: string): Promise<void> {
   for (const [id, entry] of pending.entries()) {
     if (entry.callId === callId) {
       clearTimeout(entry.timer);
       pending.delete(id);
+      // Mark query as expired when call ends
+      await prisma.query.update({
+        where: { id: entry.queryId },
+        data: { status: "expired" },
+      });
+      logger.info({ queryId: entry.queryId, callId }, "liveEscalation: query expired due to call end");
       entry.resolve("USER_UNAVAILABLE");
     }
   }

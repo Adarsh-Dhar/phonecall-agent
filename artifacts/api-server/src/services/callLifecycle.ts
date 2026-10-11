@@ -53,6 +53,7 @@ export async function applyCallOutcomeToTask(callId: string): Promise<void> {
     await prisma.task.update({
       where: { id: call.taskId },
       data: {
+        status: "waiting_user",
         schedulerStatus: "done",
       },
     });

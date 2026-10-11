@@ -16,7 +16,7 @@ export function QueryRow({
   onAnswer: () => void;
   onDismiss: () => void;
 }) {
-  const isPending = query.status === 'pending';
+  const isPending = query.status === 'pending' || query.status === 'expired';
 
   if (!isPending) {
     // Collapsed answered/dismissed view
@@ -49,6 +49,11 @@ export function QueryRow({
         {query.urgent && (
           <span className="rounded-full bg-red-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[.08em] text-red-700">
             Urgent
+          </span>
+        )}
+        {query.status === 'expired' && (
+          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[.08em] text-orange-700">
+            Agent moved on
           </span>
         )}
       </div>

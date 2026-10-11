@@ -77,6 +77,9 @@ model Conversation {
   endedAt                DateTime?
   topicSummary           String?
   contactId              String
+  // Poison-delta tracking: durable failure count and last failing cursor
+  extractionFailureCount Int       @default(0)
+  extractionFailureCursor String?
   calls                  Call[]
   contact                Account   @relation(fields: [contactId], references: [id], onDelete: Cascade)
   history                History[]
