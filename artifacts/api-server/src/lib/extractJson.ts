@@ -1,15 +1,23 @@
 /**
  * Fence-tolerant JSON parser for model replies.
  *
- * Handles:  preambles, ```json fenced blocks, and chatter
- * around a single JSON object. Throws SyntaxError when nothing parseable is
- * found, so callers can treat "model gave us garbage" as a real failure
- * instead of silently continuing with an empty result.
+ * Handles: a reasoning preamble wrapped in think tags, a markdown code fence
+ * around the JSON, and chatter around a single JSON object. Throws SyntaxError
+ * when nothing parseable is found, so callers can treat "model gave us
+ * garbage" as a real failure instead of silently continuing with nothing.
+ *
+ * NOTE: the fence and tag characters are written as unicode escapes on
+ * purpose. Literal backticks and angle-bracket tags in this file have been
+ * stripped by chat / markdown copy-paste before, silently breaking parsing.
  */
-export function extractJson(raw: string): unknown {
-  let s = (raw ?? "").replace(/<think[\s\S]*?<\/think>/gi, "").trim();
+const FENCE = "\u0060\u0060\u0060"; // three backticks
+const THINK_BLOCK = /\u003cthink\u003e[\s\S]*?\u003c\/think\u003e/gi;
+const FENCED_BLOCK = new RegExp(FENCE + "(?:json)?\\s*([\\s\\S]*?)" + FENCE, "i");
 
-  const fence = s.match(/`(?:json)?\s*([\s\S]*?)`/i);
+export function extractJson(raw: string): unknown {
+  let s = (raw ?? "").replace(THINK_BLOCK, "").trim();
+
+  const fence = s.match(FENCED_BLOCK);
   if (fence) s = fence[1].trim();
 
   try {

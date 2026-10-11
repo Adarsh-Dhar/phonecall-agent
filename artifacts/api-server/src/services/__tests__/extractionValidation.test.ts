@@ -1,4 +1,8 @@
 import { describe, it, expect } from "vitest";
+// Fence / tag characters are built from escapes: literal ones get stripped by copy-paste.
+const FENCE = "\u0060\u0060\u0060";
+const OPEN_THINK = "\u003cthink\u003e";
+const CLOSE_THINK = "\u003c/think\u003e";
 import { extractJson, extractJsonObject } from "../../lib/extractJson";
 import { parseModelDueDate, sanitizeExtraction, sanitizeTaskAction, sanitizeKnowledgeAction } from "../taskExtraction/validate";
 import { buildExtractionPrompt, buildExtractionUserContent, parseExtractionReply, utcOffsetFor } from "../taskExtraction/orchestratorPrompt";
@@ -8,10 +12,8 @@ const NOW = new Date("2026-10-10T06:00:00Z");
 describe("extractJson", () => {
   it("parses plain, fenced (triple backticks), think-prefixed and chatty replies", () => {
     expect(extractJson('{"a":1}')).toEqual({ a: 1 });
-    expect(extractJson('`json\n{"a":1}\n`')).toEqual({ a: 1 });
-    expect(extractJson('
-hmm {x}
-{"a":1}')).toEqual({ a: 1 });
+    expect(extractJson(FENCE + 'json\n{"a":1}\n' + FENCE)).toEqual({ a: 1 });
+    expect(extractJson(OPEN_THINK + 'hmm {x}' + CLOSE_THINK + '{"a":1}')).toEqual({ a: 1 });
     expect(extractJson('Sure! Here you go: {"a":1} Hope it helps')).toEqual({ a: 1 });
   });
   it("throws SyntaxError on garbage or non-objects", () => {
@@ -66,7 +68,7 @@ describe("schema validation", () => {
   });
   it("parseExtractionReply throws on unreadable output instead of returning 'nothing'", () => {
     expect(() => parseExtractionReply("I could not do that")).toThrow(SyntaxError);
-    expect(parseExtractionReply('`json\n{"taskActions":[],"knowledgeActions":[]}\n`')).toMatchObject({ taskActions: [], knowledgeActions: [] });
+    expect(parseExtractionReply(FENCE + 'json\n{"taskActions":[],"knowledgeActions":[]}\n' + FENCE)).toMatchObject({ taskActions: [], knowledgeActions: [] });
   });
 });
 
