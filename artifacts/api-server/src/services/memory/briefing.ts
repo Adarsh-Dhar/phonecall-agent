@@ -20,6 +20,8 @@ import { renderBriefing } from "./render";
 interface BuildOptions {
   maxTokens?: number;
   consolidationWaitMs?: number;
+  /** Phase 5: If true, build briefing for business side (filters visibility to "both" only) */
+  forBusiness?: boolean;
 }
 
 const CONSOLIDATION_POLL_MS = 250;
@@ -130,8 +132,9 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
     orderBy: { category: "asc" },
   });
 
-  // Load owner info (shareable only)
-  const ownerInfo = individual.id
+  // Load owner info (shareable only, and only for individual-side briefings)
+  // Phase 5: Business-side briefings should not see owner info
+  const ownerInfo = !options.forBusiness && individual.id
     ? await prisma.ownerInfo.findMany({
         where: { ownerId: individual.id, shareable: true },
         select: { category: true, key: true, value: true },
@@ -213,10 +216,12 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
   });
 
   // Phase 4: Load open loops from the relationship
+  // Phase 5: Filter by visibility for business-side briefings
   const openLoops = await prisma.openLoop.findMany({
     where: {
       relationshipId: relationship.id,
       status: "open",
+      ...(options.forBusiness ? { visibility: "both" } : {}),
     },
     select: { kind: true, text: true, dueAt: true },
     orderBy: { createdAt: "desc" },

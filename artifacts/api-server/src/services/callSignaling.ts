@@ -19,6 +19,7 @@ async function hasContact(ownerId: string, targetId: string): Promise<boolean> {
     where: { ownerId, linkedAccountId: targetId, isService: true },
     select: { id: true },
   });
+  logger.info({ ownerId, targetId, hasContact: !!row }, 'hasContact check');
   return row !== null;
 }
 
@@ -30,6 +31,13 @@ export async function isContact(callerId: string, receiverId: string): Promise<b
     hasContact(callerId, receiverId),
     hasContact(receiverId, callerId),
   ]);
+  logger.info({ 
+    callerId, 
+    receiverId, 
+    callerHasReceiver, 
+    receiverHasCaller,
+    result: callerHasReceiver && receiverHasCaller 
+  }, 'isContact: mutual check');
   return callerHasReceiver && receiverHasCaller;
 }
 
@@ -284,16 +292,42 @@ export async function dialCallAs(
   }
 
   // Determine the parties using linkedAccountId
-  if (contact.ownerId !== dialerId) throw new Error('Contact not found');
+  // For individual dialing: contact must belong to the individual
+  // For business dialing: contact must belong to the business
+  if (dialerRole === 'individual' && contact.ownerId !== dialerId) {
+    throw new Error('Contact not found');
+  }
+  if (dialerRole === 'business' && contact.ownerId !== dialerId) {
+    throw new Error('Contact does not belong to the business');
+  }
+
   const otherId = contact.linkedAccountId;
   if (!otherId) throw new Error('This contact is not linked to an account');
 
   const other = await prisma.account.findUnique({ where: { id: otherId }, select: { isService: true } });
   if (!other) throw new Error('Linked account not found');
 
-  // Check if both accounts have each other saved as contacts
-  if (!(await isContact(dialerId, otherId))) {
-    throw new NotInContactsError();
+  // For business dialing: verify the business has this individual as a contact
+  if (dialerRole === 'business') {
+    // The contactId passed should be the business's mirror contact
+    // Verify this contact belongs to the business dialing (already checked above)
+    // The contact should have a linkedAccountId pointing to the individual (already checked above)
+    // For business dialing, we only need the business to have the individual as a contact
+    // (the individual doesn't need to have the business saved)
+    // Skip mutual contact check for business dialing
+  } else {
+    // For individual dialing: check mutual contacts
+    const contactCheck = await isContact(dialerId, otherId);
+    logger.info({
+      dialerId,
+      otherId,
+      dialerRole,
+      contactCheck,
+    }, 'dialCallAs: mutual contact check');
+
+    if (!contactCheck) {
+      throw new NotInContactsError();
+    }
   }
 
   let individualId: string | null = null;
@@ -311,19 +345,20 @@ export async function dialCallAs(
   } else {
     if (other.isService) throw new Error('Businesses can only call individual accounts');
     businessId = dialerId;
-    individualId = otherId;
-    calleeAccountId = otherId;
+    individualId = contact.linkedAccountId!; // The individual account this contact links to
+    calleeAccountId = individualId;
 
-    // Find the individual's own mirror of this business (must exist since isContact passed)
-    const mirror = await prisma.account.findFirst({
-      where: { ownerId: individualId, linkedAccountId: businessId, isService: true },
+    // Use the business's own mirror of this individual for the call
+    // The contactId passed should already be the business's mirror
+    const businessMirror = await prisma.account.findFirst({
+      where: { id: contactId, ownerId: businessId, linkedAccountId: individualId, isService: true },
       include: { conversations: true },
     });
-    if (!mirror) {
+    if (!businessMirror) {
       throw new NotInContactsError();
     }
-    callContactId = mirror.id;
-    callConversationId = mirror.conversations[0]?.id ?? null;
+    callContactId = businessMirror.id;
+    callConversationId = businessMirror.conversations[0]?.id ?? null;
   }
 
   if (!calleeAccountId) {
@@ -336,7 +371,12 @@ export async function dialCallAs(
       where: { id: taskId },
       select: { contactId: true },
     });
-    if (!task || task.contactId !== callContactId) {
+    if (!task) {
+      throw new Error('Task not found');
+    }
+    // For business dialing, the task should belong to the business's mirror contact
+    // For individual dialing, the task should belong to the individual's contact
+    if (task.contactId !== callContactId) {
       throw new Error('Task does not belong to this contact');
     }
   }

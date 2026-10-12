@@ -4,6 +4,7 @@ import { scheduleExtraction } from "./taskExtraction";
 import { sourcesInclude, contactCardSelect } from "../lib/prismaSelects";
 import { asyncHandler } from "../lib/asyncHandler";
 import { logger } from "../lib/logger";
+import { resolveOpenLoopsByQueryId } from "./memory";
 
 
 
@@ -56,11 +57,20 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         contactFilter = { id: req.userId! };
       } else {
         // Individual user: conversation must belong to a service account they own
-        contactFilter = { ownerId: req.userId!, isService: true };
+        // OR a service account that has them as a linked account (business's mirror)
+        contactFilter = {
+          OR: [
+            { ownerId: req.userId!, isService: true },
+            { linkedAccountId: req.userId!, isService: true },
+          ],
+        };
       }
 
       const conversation = await prisma.conversation.findFirst({
-        where: { id: String(id), contact: contactFilter },
+        where: { 
+          id: String(id), 
+          contact: contactFilter
+        },
       });
       if (!conversation) {
         res.status(404).json({ error: "Conversation not found" });
@@ -107,14 +117,18 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         return;
       }
 
-      let contactFilter: any = { id: String(id) };
+      let contactFilter: any;
       if (!user.isService) {
-        // Individual user: must own this contact
-        contactFilter.ownerId = req.userId!;
-        contactFilter.isService = true;
+        // Individual user: must own this contact OR be the linked account
+        contactFilter = {
+          OR: [
+            { id: String(id), ownerId: req.userId!, isService: true },
+            { id: String(id), linkedAccountId: req.userId!, isService: true },
+          ],
+        };
       } else {
         // Business user: this contact must be this business account
-        contactFilter.id = req.userId!;
+        contactFilter = { id: req.userId! };
       }
 
       const contact = await prisma.account.findFirst({
@@ -154,6 +168,7 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
       const { status, contactId } = req.query;
 
       // For individual users: show queries for their contacts (service accounts they own)
+      // AND queries where they are the linked account (business's mirror of them)
       // For business users: show queries for their business account
       const user = await prisma.account.findUnique({
         where: { id: req.userId! },
@@ -171,7 +186,13 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         contactFilter = { id: req.userId! };
       } else {
         // Individual user: show queries for service accounts they own
-        contactFilter = { ownerId: req.userId!, isService: true };
+        // OR queries where they are the linked account (business's mirror of them)
+        contactFilter = {
+          OR: [
+            { ownerId: req.userId!, isService: true },
+            { linkedAccountId: req.userId!, isService: true },
+          ],
+        };
       }
 
       const queries = await prisma.query.findMany({
@@ -223,12 +244,16 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         return;
       }
 
-      let contactFilter: any = { id: String(contactId) };
+      let contactFilter: any;
       if (!user.isService) {
-        contactFilter.ownerId = req.userId!;
-        contactFilter.isService = true;
+        contactFilter = {
+          OR: [
+            { id: String(contactId), ownerId: req.userId!, isService: true },
+            { id: String(contactId), linkedAccountId: req.userId!, isService: true },
+          ],
+        };
       } else {
-        contactFilter.id = req.userId!;
+        contactFilter = { id: req.userId! };
       }
 
       const contact = await prisma.account.findFirst({
@@ -288,7 +313,12 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
       if (user!.isService) {
         contactFilter = { id: req.userId! };
       } else {
-        contactFilter = { ownerId: req.userId!, isService: true };
+        contactFilter = {
+          OR: [
+            { ownerId: req.userId!, isService: true },
+            { linkedAccountId: req.userId!, isService: true },
+          ],
+        };
       }
 
       const query = await prisma.query.findFirst({
@@ -340,6 +370,13 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         data: { updatedAt: new Date() },
       });
 
+      // Phase 4: Resolve open loops associated with this query
+      try {
+        await resolveOpenLoopsByQueryId(query.id);
+      } catch (err) {
+        logger.error({ err, queryId: query.id }, "queryLike: failed to resolve open loops for query");
+      }
+
       // Re-run extraction so the agent sees the user's answer immediately
       scheduleExtraction(query.conversationId);
 
@@ -367,7 +404,12 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
       if (user!.isService) {
         contactFilter = { id: req.userId! };
       } else {
-        contactFilter = { ownerId: req.userId!, isService: true };
+        contactFilter = {
+          OR: [
+            { ownerId: req.userId!, isService: true },
+            { linkedAccountId: req.userId!, isService: true },
+          ],
+        };
       }
 
       const existing = await prisma.query.findFirst({

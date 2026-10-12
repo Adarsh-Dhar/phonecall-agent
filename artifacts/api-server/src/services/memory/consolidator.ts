@@ -200,6 +200,10 @@ Key distinctions:
       lastCallAt: call.endedAt || new Date(),
     });
 
+    // Phase 3: Reconcile tasks and knowledge from the consolidator output
+    // The consolidator model could also extract task/knowledge actions in the future
+    // For now, we rely on the existing extraction pipeline which runs separately
+
     // Mark call as consolidated
     await prisma.call.update({
       where: { id: call.id },

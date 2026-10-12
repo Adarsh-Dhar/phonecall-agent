@@ -122,16 +122,6 @@ export function BusinessCallsPage({ onCallAccepted, onDial }: { onCallAccepted: 
                       </Button>
                     </>
                   )}
-                  {call.status !== 'ringing' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onDial(call.contactId)}
-                    >
-                      <Phone className="h-4 w-4 mr-2" />
-                      Call Again
-                    </Button>
-                  )}
                 </div>
               </div>
             </Card>

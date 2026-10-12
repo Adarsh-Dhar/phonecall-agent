@@ -9,63 +9,46 @@ datasource db {
 }
 
 model Account {
-  id        String  @id @default(cuid())
-  isService Boolean @default(false)
-
-  // Self-relation: a login account (isService: false) owns N service
-  // accounts (isService: true — today's "contacts")
-  ownerId  String?
-  owner    Account?  @relation("AccountOwnership", fields: [ownerId], references: [id], onDelete: Cascade)
-  contacts Account[] @relation("AccountOwnership")
-
-  // --- Login-only fields (Google OAuth identity) — null for service accounts ---
-  googleId     String?   @unique
-  email        String?   @unique
-  picture      String?
-  accessToken  String?
-  refreshToken String?
-  expiryDate   DateTime?
-  scope        String?
-  syncToken    String?
-
-  // --- Shared / contact-ish fields ---
-  name        String
-  description String?
-  business    String?
-  category    String?
-  phone       String?
-  initials    String?
-  color       String?
-  note        String?
-  online      Boolean @default(false)
-
-  // When this row was created as a contact mirror of another Account,
-  // this stores the source account's id for deduplication checks.
-  linkedAccountId String?
-
-  lastSeenAt DateTime?
-  timezone   String?
-
-  // Quiet hours for the owner (login account only): hour of day (0-23)
-  quietHoursStart Int?
-  quietHoursEnd   Int?
-
-  // Business hours for contacts (service accounts only): JSON schedule
-  businessHoursJson String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  calls             Call[]
-  knowledge         ContactKnowledge[]
-  conversations     Conversation[]
-  queries           Query[]
-  tasks             Task[]
-  pushSubscriptions PushSubscription[]
-  ownerInfo         OwnerInfo[]
-  closures          BusinessClosure[]
-  relationshipsAsIndividual Relationship[] @relation("RelIndividual")
-  relationshipsAsBusiness    Relationship[] @relation("RelBusiness")
+  id                        String             @id(map: "User_pkey") @default(cuid())
+  googleId                  String?            @unique
+  email                     String?            @unique
+  name                      String?
+  picture                   String?
+  accessToken               String?
+  refreshToken              String?
+  expiryDate                DateTime?
+  scope                     String?
+  syncToken                 String?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  isService                 Boolean            @default(false)
+  ownerId                   String?
+  business                  String?
+  category                  String?
+  phone                     String?
+  initials                  String?
+  color                     String?
+  note                      String?
+  online                    Boolean            @default(false)
+  linkedAccountId           String?
+  description               String?
+  lastSeenAt                DateTime?
+  timezone                  String?
+  quietHoursStart           Int?
+  quietHoursEnd             Int?
+  businessHoursJson         String?
+  owner                     Account?           @relation("AccountOwnership", fields: [ownerId], references: [id], onDelete: Cascade)
+  contacts                  Account[]          @relation("AccountOwnership")
+  closures                  BusinessClosure[]
+  calls                     Call[]
+  knowledge                 ContactKnowledge[]
+  conversations             Conversation[]
+  ownerInfo                 OwnerInfo[]
+  pushSubscriptions         PushSubscription[]
+  queries                   Query[]
+  relationshipsAsBusiness   Relationship[]     @relation("RelBusiness")
+  relationshipsAsIndividual Relationship[]     @relation("RelIndividual")
+  tasks                     Task[]
 
   @@index([ownerId])
 }
@@ -81,7 +64,6 @@ model Conversation {
   endedAt                 DateTime?
   topicSummary            String?
   contactId               String
-  // Poison-delta tracking: durable failure count and last failing cursor
   extractionFailureCount  Int       @default(0)
   extractionFailureCursor String?
   calls                   Call[]
@@ -95,58 +77,54 @@ model Conversation {
   @@index([contactId, status])
 }
 
-// Phase 2+: Relationship table for individual ↔ business pair memory
 model Relationship {
-  id            String   @id @default(cuid())
-  individualId  String
-  businessId    String
-  contactId     String   @unique   // the individual's contact row for this business
-  // rolling memory, rewritten by the Consolidator only
-  summary       String   @default("")
-  summaryUpTo   DateTime?          // newest message folded into `summary`
-  summaryVersion Int     @default(0)
-  lastCallId    String?
-  lastCallAt    DateTime?
-  consolidating Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  individual    Account  @relation("RelIndividual", fields: [individualId], references: [id], onDelete: Cascade)
-  business      Account  @relation("RelBusiness", fields: [businessId], references: [id], onDelete: Cascade)
+  id             String     @id @default(cuid())
+  individualId   String
+  businessId     String
+  contactId      String     @unique
+  summary        String     @default("")
+  summaryUpTo    DateTime?
+  summaryVersion Int        @default(0)
+  lastCallId     String?
+  lastCallAt     DateTime?
+  consolidating  Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  openLoops      OpenLoop[]
+  business       Account    @relation("RelBusiness", fields: [businessId], references: [id], onDelete: Cascade)
+  individual     Account    @relation("RelIndividual", fields: [individualId], references: [id], onDelete: Cascade)
 
   @@unique([individualId, businessId])
-  openLoops     OpenLoop[]
 }
 
-// Phase 3+: CallSummary for structured call analysis
 model CallSummary {
-  callId        String  @id
+  callId         String   @id
   relationshipId String
-  outcome       String            // booked | rescheduled | needs_user | info_gathered | failed | ...
-  summary       String            // 2-4 sentences, plain language
-  agreements    Json              // [{what, when?, who}]
-  proposals     Json              // offered but NOT confirmed, e.g. "tomorrow 11:00"
-  promises      Json              // [{by: "agent"|"business", what, dueAt?}]
-  businessTerms Json              // fees, hours, constraints stated on this call
-  createdAt     DateTime @default(now())
-  model         String
-  promptVersion Int
+  outcome        String
+  summary        String
+  agreements     Json     @default("[]")
+  proposals      Json     @default("[]")
+  promises       Json     @default("[]")
+  businessTerms  Json     @default("{}")
+  createdAt      DateTime @default(now())
+  model          String
+  promptVersion  Int
 
   @@index([relationshipId])
 }
 
-// Phase 4+: OpenLoop for tracking pending items (queries, tasks, commitments)
 model OpenLoop {
-  id             String  @id @default(cuid())
+  id             String       @id @default(cuid())
   relationshipId String
-  kind           String   // awaiting_owner | awaiting_business | scheduled | commitment
+  kind           String
   text           String
-  status         String   @default("open") // open | resolved | expired
+  status         String       @default("open")
   dueAt          DateTime?
   sourceCallId   String?
   taskId         String?
   queryId        String?
-  visibility     String   @default("individual_only")
-  createdAt      DateTime @default(now())
+  visibility     String       @default("individual_only")
+  createdAt      DateTime     @default(now())
   resolvedAt     DateTime?
   relationship   Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
 
@@ -163,11 +141,10 @@ model Message {
   updatedAt        DateTime                 @updatedAt
   conversationId   String
   callId           String?
-  // Phase 2+: relationship memory fields
   relationshipId   String?
-  seq              BigInt?                  // monotonic per relationship, gives a stable order
-  speaker          String?                  // individual_agent | business | individual_owner | system
-  visibility       String?                  @default("both") // both | individual_only
+  seq              BigInt?
+  speaker          String?
+  visibility       String                   @default("both")
   knowledgeSources KnowledgeSourceMessage[]
   call             Call?                    @relation(fields: [callId], references: [id])
   conversation     Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -191,37 +168,34 @@ model History {
 }
 
 model Task {
-  id              String    @id @default(cuid())
-  title           String
-  description     String?
-  status          String    @default("suggested")
-  priority        String    @default("normal")
-  dueDate         DateTime?
-  confidence      Float     @default(1.0)
-  source          String    @default("agent")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  completedAt     DateTime?
-  conversationId  String
-  contactId       String
-  googleEtag      String?
-  googleEventId   String?
-  lastSyncedAt    DateTime?
-  callTriggeredAt DateTime?
-  parentTaskId    String?
-
-  // Scheduler fields
-  kind               String    @default("call") // "call" or "reminder"
-  callAttempts       Int       @default(0)
+  id                 String              @id @default(cuid())
+  title              String
+  description        String?
+  status             String              @default("suggested")
+  priority           String              @default("normal")
+  dueDate            DateTime?
+  confidence         Float               @default(1.0)
+  source             String              @default("agent")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  completedAt        DateTime?
+  conversationId     String
+  contactId          String
+  googleEtag         String?
+  googleEventId      String?
+  lastSyncedAt       DateTime?
+  callTriggeredAt    DateTime?
+  parentTaskId       String?
+  kind               String              @default("call")
+  callAttempts       Int                 @default(0)
   lastAttemptAt      DateTime?
   nextAttemptAt      DateTime?
   schedulerClaimedAt DateTime?
-  schedulerStatus    String    @default("pending") // "pending", "claimed", "done", "exhausted", "stale"
-
-  contact      Account             @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sources      TaskSourceMessage[]
-  calls        Call[]
+  schedulerStatus    String              @default("pending")
+  calls              Call[]
+  contact            Account             @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation       Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sources            TaskSourceMessage[]
 
   @@index([conversationId])
   @@index([contactId])
@@ -253,10 +227,10 @@ model Query {
   isKnowledgeGap    Boolean              @default(false)
   knowledgeKey      String?
   knowledgeCategory String?
-  callId            String?
-  urgent            Boolean              @default(false)
   conversationId    String
   contactId         String
+  callId            String?
+  urgent            Boolean              @default(false)
   contact           Account              @relation(fields: [contactId], references: [id], onDelete: Cascade)
   conversation      Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sources           QuerySourceMessage[]
@@ -285,39 +259,34 @@ model Call {
   direction         String       @default("outbound")
   from              String
   to                String
-  calleeAccountId   String?
   recordingUrl      String?
   startedAt         DateTime?
   endedAt           DateTime?
   durationSec       Int?
   disconnectedBy    String?
   isEnoughKnowledge Boolean?
-  ringingAt         DateTime?
-  acceptedAt        DateTime?
-  taskId            String?
-  outcome           String?
-  outcomeSummary    String?
-  confirmedAt       DateTime?
-  confirmationRef   String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   conversationId    String
   contactId         String
+  calleeAccountId   String?
+  ringingAt         DateTime?
+  acceptedAt        DateTime?
+  confirmationRef   String?
+  confirmedAt       DateTime?
+  outcome           String?
+  outcomeSummary    String?
+  taskId            String?
+  individualId      String?
+  businessId        String?
+  initiatedBy       String?
+  briefingSnapshot  Json?
+  briefingVersion   Int?
+  consolidatedAt    DateTime?
   contact           Account      @relation(fields: [contactId], references: [id], onDelete: Cascade)
   conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  task              Task?        @relation(fields: [taskId], references: [id])
   messages          Message[]
-  task              Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
-
-  // The two parties of a call. The AI agent ALWAYS speaks for `individualId`;
-  // `businessId` is the human on the other end. `initiatedBy` is who dialed.
-  individualId String?
-  businessId   String?
-  initiatedBy  String? // "individual" | "business"
-
-  // Briefing for Phase 1+: snapshot of the CallBriefing JSON sent to the phone agent
-  briefingVersion  Int?
-  briefingSnapshot Json?
-  consolidatedAt   DateTime?
 
   @@index([conversationId])
   @@index([contactId])
@@ -350,8 +319,8 @@ model KnowledgeSourceMessage {
   knowledgeId String
   messageId   String
   role        String
-  message     Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
   knowledge   ContactKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  message     Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@unique([knowledgeId, messageId, role])
 }
@@ -371,25 +340,22 @@ model PushSubscription {
 model OwnerInfo {
   id        String   @id @default(cuid())
   ownerId   String
-  owner     Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   category  String
   key       String
   value     String
   shareable Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  owner     Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@unique([ownerId, key])
   @@index([ownerId])
 }
 
-// Business closures: holidays, emergencies and out-of-service periods.
-// Times are UTC instants. endsAt = null means "until the business reopens".
 model BusinessClosure {
   id         String    @id @default(cuid())
   businessId String
-  business   Account   @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  kind       String // holiday | out_of_service | emergency
+  kind       String
   label      String?
   message    String?
   startsAt   DateTime
@@ -398,6 +364,7 @@ model BusinessClosure {
   blockCalls Boolean   @default(false)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+  business   Account   @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@index([businessId, startsAt])
   @@index([businessId, endsAt])

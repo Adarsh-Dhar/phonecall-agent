@@ -9,6 +9,7 @@ import { advanceCursor } from "./cursor";
 import { checkAndAutoEndConversation } from "./autoEnd";
 import { MAX_DELTA_FAILURES, MAX_DELTA_MESSAGES } from "./config";
 import { emptyExtractionResult, type ExtractionResult, type NewMessage, type TaskToSync } from "./types";
+import { getOrCreateRelationship } from "../memory";
 
 // ---------------------------------------------------------------------------
 // Overlap guard (in-process; the cursor re-check inside the transaction below
@@ -117,6 +118,21 @@ async function runExtractionOnce(
       select: { id: true, timezone: true },
     });
 
+    // Phase 4: Get relationship for OpenLoop integration
+    let relationshipId: string | undefined;
+    if (conversation.contact.linkedAccountId) {
+      try {
+        const relationship = await getOrCreateRelationship({
+          individualId: userId,
+          businessId: conversation.contact.linkedAccountId,
+          contactId: conversation.contactId,
+        });
+        relationshipId = relationship.id;
+      } catch (err) {
+        logger.error({ err, conversationId }, "extraction: failed to get relationship");
+      }
+    }
+
     // 2. Delta since the cursor (capped; the rest is handled by the next pass)
     const cursorMsg = conversation.lastExtractedMessageId
       ? await prisma.message.findUnique({ where: { id: conversation.lastExtractedMessageId } })
@@ -203,6 +219,7 @@ async function runExtractionOnce(
           contactName: conversation.contact.name,
           contactBusiness: conversation.contact.business,
           deltaMessages,
+          relationshipId,
         });
         result.created = taskOutcome.created;
         result.updated = taskOutcome.updated;

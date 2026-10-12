@@ -31,10 +31,20 @@ export function extractJson(raw: string): unknown {
   if (first !== -1 && last > first) {
     try {
       return JSON.parse(s.slice(first, last + 1));
-    } catch {
-      // Deliberately generic: V8's own message quotes a snippet of the input,
-      // which here is a call transcript.
-      throw new SyntaxError("Invalid JSON in model reply");
+    } catch (e) {
+      // Try to fix common JSON issues before giving up
+      try {
+        const jsonStr = s.slice(first, last + 1);
+        // Remove trailing commas
+        const fixed = jsonStr.replace(/,\s*([}\]])/g, '$1');
+        // Fix unquoted keys (common in some LLM outputs)
+        const fixed2 = fixed.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+        return JSON.parse(fixed2);
+      } catch {
+        // Deliberately generic: V8's own message quotes a snippet of the input,
+        // which here is a call transcript.
+        throw new SyntaxError("Invalid JSON in model reply");
+      }
     }
   }
   throw new SyntaxError("No JSON object found in model reply");

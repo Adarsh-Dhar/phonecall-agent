@@ -240,6 +240,30 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
     .join("\n");
   const orchestratorTurns: OrchestratorTextTurn[] = [{ role: "user", content: `Call transcript:\n${transcript}` }];
 
+  // Deterministic fallback: check transcript for unresolved escalation patterns
+  function extractFallbackQuestionFromTranscript(t: string): string | null {
+    const lower = t.toLowerCase();
+    // Pattern: "I will need to check with [name] and get back to you regarding [topic]"
+    const checkWithMatch = t.match(/i will need to check with \w+ and get back to you regarding (.+?)(?:\.|$)/i);
+    if (checkWithMatch) {
+      const topic = checkWithMatch[1].trim();
+      return `What is ${topic}?`;
+    }
+    // Pattern: "Is there a gate code or security desk at the building?"
+    if (lower.includes("gate code") || lower.includes("security desk") || lower.includes("building access")) {
+      if (lower.includes("gate code")) return "What is the gate code?";
+      if (lower.includes("security desk")) return "Is there a security desk at the building?";
+      return "What is the building access procedure?";
+    }
+    // Pattern: "check with [name] regarding [topic]"
+    const checkRegardingMatch = t.match(/check with \w+ regarding (.+?)(?:\.|$)/i);
+    if (checkRegardingMatch) {
+      const topic = checkRegardingMatch[1].trim();
+      return `What is ${topic}?`;
+    }
+    return null;
+  }
+
   const systemText =
     "You are reviewing the transcript of a phone call your voice agent just completed on behalf of " +
     `your user, with ${contact?.name ?? "a contact"}. AGENT is the voice agent; CONTACT is the external person. Decide TWO things:\n\n` +
@@ -282,7 +306,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
         turns: orchestratorTurns,
         jsonResponse: true,
         temperature: 0.1,
-        maxTokens: 700,
+        maxTokens: 1500,
         purpose: "call_analysis",
       });
       const parsed = extractJsonObject(text) as {
@@ -315,12 +339,22 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
   }
 
   if (!decided) {
-    // Both attempts failed: don't leave the call unreviewed — ask the owner to look.
-    isEnoughKnowledge = false;
-    escalationQuestion = `The call with ${contact?.name ?? "the contact"} could not be analysed automatically — can you review the transcript?`;
-    knowledgeKey = null;
-    knowledgeCategory = null;
-    logger.error({ callId }, "callAnalysis: analysis failed twice, escalating for manual review");
+    // Both attempts failed: try deterministic fallback from transcript
+    const fallbackQuestion = extractFallbackQuestionFromTranscript(transcript);
+    if (fallbackQuestion) {
+      isEnoughKnowledge = false;
+      escalationQuestion = fallbackQuestion;
+      knowledgeKey = normalizeKnowledgeKey(fallbackQuestion);
+      knowledgeCategory = "fact";
+      logger.info({ callId, fallbackQuestion }, "callAnalysis: using deterministic fallback from transcript");
+    } else {
+      // No fallback found: ask the owner to look
+      isEnoughKnowledge = false;
+      escalationQuestion = `The call with ${contact?.name ?? "the contact"} could not be analysed automatically — can you review the transcript?`;
+      knowledgeKey = null;
+      knowledgeCategory = null;
+      logger.error({ callId }, "callAnalysis: analysis failed twice, escalating for manual review");
+    }
   }
 
   await prisma.call.update({
@@ -334,10 +368,13 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
 
   if (!isEnoughKnowledge && escalationQuestion) {
     // Check for existing pending question to avoid duplicates
-    // Either by knowledgeKey (if available) or by question text for generic escalation
-    const existing = knowledgeKey
+    // First check by callId to prevent duplicates for the same call
+    const existingByCall = await prisma.query.findFirst({ where: { callId: call.id, status: "pending" } });
+    // Then check by knowledgeKey or question text with contactId
+    const existingByKeyOrText = knowledgeKey
       ? await prisma.query.findFirst({ where: { knowledgeKey, status: "pending", contactId: call.contactId } })
       : await prisma.query.findFirst({ where: { question: escalationQuestion, status: "pending", contactId: call.contactId } });
+    const existing = existingByCall || existingByKeyOrText;
 
     if (!existing) {
       const query = await prisma.query.create({

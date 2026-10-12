@@ -2,6 +2,7 @@ import { logger } from "../../lib/logger";
 import { ACTION_CONFIDENCE_THRESHOLD } from "./config";
 import { parseModelDueDate } from "./validate";
 import type { SkippedAction, TaskAction, TaskToSync, TxClient } from "./types";
+import { createOpenLoopFromTask, resolveOpenLoopsByTaskId } from "../memory";
 
 export { parseModelDueDate } from "./validate";
 
@@ -29,6 +30,7 @@ export async function reconcileTaskActions(
     contactBusiness: string | null;
     deltaMessages: Array<{ id: string }>;
     now?: Date;
+    relationshipId?: string; // Phase 4: For OpenLoop integration
   }
 ): Promise<{
   created: string[];
@@ -38,7 +40,7 @@ export async function reconcileTaskActions(
   skipped: SkippedAction[];
   tasksToSync: TaskToSync[];
 }> {
-  const { taskActions, conversationId, contactId, contactName, contactBusiness, deltaMessages } = params;
+  const { taskActions, conversationId, contactId, contactName, contactBusiness, deltaMessages, relationshipId } = params;
   const now = params.now ?? new Date();
 
   const created: string[] = [];
@@ -118,6 +120,21 @@ export async function reconcileTaskActions(
       activeTitles.add(norm(title));
       if (due) tasksToSync.push(syncPayload(task));
       await linkSources(task.id, sourceIds, "created");
+
+      // Phase 4: Create an OpenLoop for this task if relationshipId is provided
+      if (relationshipId) {
+        try {
+          await createOpenLoopFromTask({
+            relationshipId,
+            taskId: task.id,
+            title,
+            dueDate: due || undefined,
+          });
+        } catch (err) {
+          logger.error({ err, taskId: task.id }, "reconcileTasks: failed to create open loop for task");
+        }
+      }
+
       continue;
     }
 
@@ -160,6 +177,15 @@ export async function reconcileTaskActions(
       activeIds.delete(taskId);
       if (t.googleEventId) tasksToSync.push(syncPayload(t));
       await linkSources(taskId, sourceIds, "completed");
+
+      // Phase 4: Resolve open loops associated with this task
+      if (relationshipId) {
+        try {
+          await resolveOpenLoopsByTaskId(taskId);
+        } catch (err) {
+          logger.error({ err, taskId }, "reconcileTasks: failed to resolve open loops for task");
+        }
+      }
     } else if (action.type === "cancel") {
       const t = await tx.task.update({
         where: { id: taskId },
@@ -169,6 +195,15 @@ export async function reconcileTaskActions(
       activeIds.delete(taskId);
       if (t.googleEventId) tasksToSync.push(syncPayload(t));
       await linkSources(taskId, sourceIds, "cancelled");
+
+      // Phase 4: Resolve open loops associated with this task
+      if (relationshipId) {
+        try {
+          await resolveOpenLoopsByTaskId(taskId);
+        } catch (err) {
+          logger.error({ err, taskId }, "reconcileTasks: failed to resolve open loops for task");
+        }
+      }
     }
   }
 
