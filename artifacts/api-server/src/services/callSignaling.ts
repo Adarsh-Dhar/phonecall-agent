@@ -212,17 +212,47 @@ export async function getTranscriptFor(callId: string, accountId: string, role: 
 
   const call = await prisma.call.findFirst({
     where: whereClause,
-    select: { id: true },
+    select: { 
+      id: true,
+      individualId: true,
+      businessId: true,
+    },
   });
 
   if (!call) return null;
+
+  // Fetch account names for speaker display
+  const [individualAccount, businessAccount] = await Promise.all([
+    call.individualId ? prisma.account.findUnique({
+      where: { id: call.individualId },
+      select: { name: true },
+    }) : null,
+    call.businessId ? prisma.account.findUnique({
+      where: { id: call.businessId },
+      select: { name: true },
+    }) : null,
+  ]);
 
   const messages = await prisma.message.findMany({
     where: { callId },
     orderBy: { createdAt: 'asc' },
   });
 
-  return messages;
+  // Convert BigInt fields to strings for JSON serialization and map speaker to display names
+  return messages.map(msg => ({
+    ...msg,
+    seq: msg.seq === null ? null : String(msg.seq),
+    // Map speaker field to display names
+    speakerName: msg.speaker === 'individual_agent' 
+      ? `${individualAccount?.name || 'Agent'} (AI)` 
+      : msg.speaker === 'business' 
+      ? businessAccount?.name || 'Business'
+      : msg.speaker === 'individual_owner'
+      ? individualAccount?.name || 'Individual'
+      : msg.speaker === 'system'
+      ? 'System'
+      : msg.speaker,
+  }));
 }
 
 /**

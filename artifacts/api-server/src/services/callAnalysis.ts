@@ -244,13 +244,22 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
     "You are reviewing the transcript of a phone call your voice agent just completed on behalf of " +
     `your user, with ${contact?.name ?? "a contact"}. AGENT is the voice agent; CONTACT is the external person. Decide TWO things:\n\n` +
     "1. Did the agent get everything it needed during the call, or does it need to escalate something to your user?\n" +
+    "   - Set isEnoughKnowledge to FALSE if the agent said it needs to check with the user, ask the user later, or get back to the contact after checking.\n" +
+    "   - Set isEnoughKnowledge to FALSE if the contact asked a question the agent couldn't answer (e.g., gate code, building access, specific details the agent doesn't know).\n" +
+    "   - Set isEnoughKnowledge to TRUE only if the call concluded with a clear outcome or all necessary information was exchanged.\n" +
     "2. What was the outcome of the call? (booked, rescheduled, cancelled, info_gathered, needs_user, failed)\n\n" +
     (existingKeys ? `Existing knowledge keys for this contact: ${existingKeys}. If the gap is about an existing key, reuse it.\n\n` : "") +
     "If you need to create a new knowledge key, use a short snake_case key (3-41 characters, starts with a letter, only lowercase letters, numbers, and underscores).\n\n" +
+    "When isEnoughKnowledge is false, provide a specific escalationQuestion that asks the user exactly what information is needed.\n" +
+    "Examples:\n" +
+    '  - "What is the gate code for the building?"\n' +
+    '  - "Is there a security desk at the building?"\n' +
+    '  - "What is the building access procedure?"\n' +
+    '  - "Are there any parking instructions?"\n\n' +
     "Return ONLY a JSON object, no markdown fences:\n" +
     "{\n" +
     '  "isEnoughKnowledge": boolean,   // REQUIRED\n' +
-    '  "escalationQuestion": string | null,\n' +
+    '  "escalationQuestion": string | null,  // If isEnoughKnowledge is false, ask the specific question the user needs to answer\n' +
     '  "knowledgeKey": string | null,\n' +
     '  "knowledgeCategory": string | null,\n' +
     '  "outcome": "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed" | null\n' +
@@ -324,9 +333,11 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
   });
 
   if (!isEnoughKnowledge && escalationQuestion) {
+    // Check for existing pending question to avoid duplicates
+    // Either by knowledgeKey (if available) or by question text for generic escalation
     const existing = knowledgeKey
       ? await prisma.query.findFirst({ where: { knowledgeKey, status: "pending", contactId: call.contactId } })
-      : null;
+      : await prisma.query.findFirst({ where: { question: escalationQuestion, status: "pending", contactId: call.contactId } });
 
     if (!existing) {
       const query = await prisma.query.create({

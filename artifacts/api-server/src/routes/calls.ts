@@ -46,20 +46,6 @@ export function createCallsRouter(role: CallRole): IRouter {
   }, 'Failed to list calls'));
 
   // ---------------------------------------------------------------------------
-  // GET /api/calls/:id — poll call status / details
-  // ---------------------------------------------------------------------------
-
-  router.get('/:id', asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    const call = await getCallFor(String(id), req.userId!, role);
-    if (!call) {
-      res.status(404).json({ error: 'Call not found' });
-      return;
-    }
-    res.json(call);
-  }, 'Failed to get call'));
-
-  // ---------------------------------------------------------------------------
   // GET /api/calls/:callId/messages — get transcript for a call
   // ---------------------------------------------------------------------------
 
@@ -72,6 +58,20 @@ export function createCallsRouter(role: CallRole): IRouter {
     }
     res.json(messages);
   }, 'Failed to get call transcript'));
+
+  // ---------------------------------------------------------------------------
+  // GET /api/calls/:id — poll call status / details
+  // ---------------------------------------------------------------------------
+
+  router.get('/:id', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const call = await getCallFor(String(id), req.userId!, role);
+    if (!call) {
+      res.status(404).json({ error: 'Call not found' });
+      return;
+    }
+    res.json(call);
+  }, 'Failed to get call'));
 
   // ---------------------------------------------------------------------------
   // GET /api/conversations/:conversationId/calls — list calls for a conversation (individual-only)

@@ -29,14 +29,38 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
   // {resourceCapitalized}s for a single conversation thread, filterable by ?status=
   // ---------------------------------------------------------------------------
   router.get(
-    `/conversations/:id/${opts.basePath}`,
+    `/conversations/:id`,
     asyncHandler(async (req, res) => {
+      // Disable caching to ensure fresh data
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
       const { id } = req.params;
       const { status } = req.query;
 
       // Verify conversation belongs to user
+      const user = await prisma.account.findUnique({
+        where: { id: req.userId! },
+        select: { isService: true, ownerId: true },
+      });
+
+      if (!user) {
+        res.status(401).json({ error: "User not found" });
+        return;
+      }
+
+      let contactFilter: any;
+      if (user.isService) {
+        // Business user: conversation must belong to this business
+        contactFilter = { id: req.userId! };
+      } else {
+        // Individual user: conversation must belong to a service account they own
+        contactFilter = { ownerId: req.userId!, isService: true };
+      }
+
       const conversation = await prisma.conversation.findFirst({
-        where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
+        where: { id: String(id), contact: contactFilter },
       });
       if (!conversation) {
         res.status(404).json({ error: "Conversation not found" });
@@ -62,14 +86,39 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
   // All {resourceCapitalized}s for a contact across all their conversation threads
   // ---------------------------------------------------------------------------
   router.get(
-    `/contacts/:id/${opts.basePath}`,
+    `/contacts/:id`,
     asyncHandler(async (req, res) => {
+      // Disable caching to ensure fresh data
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
       const { id } = req.params;
       const { status } = req.query;
 
       // Verify contact belongs to user
+      const user = await prisma.account.findUnique({
+        where: { id: req.userId! },
+        select: { isService: true, ownerId: true },
+      });
+
+      if (!user) {
+        res.status(401).json({ error: "User not found" });
+        return;
+      }
+
+      let contactFilter: any = { id: String(id) };
+      if (!user.isService) {
+        // Individual user: must own this contact
+        contactFilter.ownerId = req.userId!;
+        contactFilter.isService = true;
+      } else {
+        // Business user: this contact must be this business account
+        contactFilter.id = req.userId!;
+      }
+
       const contact = await prisma.account.findFirst({
-        where: { id: String(id), ownerId: req.userId!, isService: true },
+        where: contactFilter,
       });
       if (!contact) {
         res.status(404).json({ error: "Contact not found" });
@@ -95,13 +144,39 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
   // Global {resourceName} inbox — cross-contact, filterable by ?status= / ?contactId=
   // ---------------------------------------------------------------------------
   router.get(
-    `/${opts.basePath}`,
+    `/`,
     asyncHandler(async (req, res) => {
+      // Disable caching to ensure fresh data
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
       const { status, contactId } = req.query;
+
+      // For individual users: show queries for their contacts (service accounts they own)
+      // For business users: show queries for their business account
+      const user = await prisma.account.findUnique({
+        where: { id: req.userId! },
+        select: { isService: true, ownerId: true },
+      });
+
+      if (!user) {
+        res.status(401).json({ error: "User not found" });
+        return;
+      }
+
+      let contactFilter: any;
+      if (user.isService) {
+        // Business user: show queries for this business account
+        contactFilter = { id: req.userId! };
+      } else {
+        // Individual user: show queries for service accounts they own
+        contactFilter = { ownerId: req.userId!, isService: true };
+      }
 
       const queries = await prisma.query.findMany({
         where: {
-          contact: { ownerId: req.userId!, isService: true },
+          contact: contactFilter,
           isKnowledgeGap: opts.isKnowledgeGap,
           ...(status    ? { status: String(status) }       : {}),
           ...(contactId ? { contactId: String(contactId) } : {}),
@@ -125,7 +200,7 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
   // status defaults to "pending"
   // ---------------------------------------------------------------------------
   router.post(
-    `/${opts.basePath}`,
+    `/`,
     asyncHandler(async (req, res) => {
       const { question, conversationId, contactId } = req.body;
 
@@ -138,8 +213,26 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
 
       // Verify the contact belongs to this user, and the conversation
       // actually belongs to that same contact, before attaching anything.
+      const user = await prisma.account.findUnique({
+        where: { id: req.userId! },
+        select: { isService: true, ownerId: true },
+      });
+
+      if (!user) {
+        res.status(401).json({ error: "User not found" });
+        return;
+      }
+
+      let contactFilter: any = { id: String(contactId) };
+      if (!user.isService) {
+        contactFilter.ownerId = req.userId!;
+        contactFilter.isService = true;
+      } else {
+        contactFilter.id = req.userId!;
+      }
+
       const contact = await prisma.account.findFirst({
-        where: { id: String(contactId), ownerId: req.userId!, isService: true },
+        where: contactFilter,
       });
       if (!contact) {
         res.status(404).json({ error: "Contact not found" });
@@ -176,7 +269,7 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
   // Body: { answer: string }
   // ---------------------------------------------------------------------------
   router.patch(
-    `/${opts.basePath}/:id/answer`,
+    `/:id/answer`,
     asyncHandler(async (req, res) => {
       const { id } = req.params;
       const { answer } = req.body;
@@ -186,8 +279,20 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
         return;
       }
 
+      const user = await prisma.account.findUnique({
+        where: { id: req.userId! },
+        select: { isService: true, ownerId: true },
+      });
+
+      let contactFilter: any;
+      if (user!.isService) {
+        contactFilter = { id: req.userId! };
+      } else {
+        contactFilter = { ownerId: req.userId!, isService: true };
+      }
+
       const query = await prisma.query.findFirst({
-        where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
+        where: { id: String(id), contact: contactFilter },
       });
       if (!query) {
         res.status(404).json({ error: `${resourceCapitalized} not found` });
@@ -248,13 +353,25 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
   // Body: { status?: "dismissed", question?: string }
   // ---------------------------------------------------------------------------
   router.patch(
-    `/${opts.basePath}/:id`,
+    `/:id`,
     asyncHandler(async (req, res) => {
       const { id } = req.params;
       const { status, question } = req.body;
 
+      const user = await prisma.account.findUnique({
+        where: { id: req.userId! },
+        select: { isService: true, ownerId: true },
+      });
+
+      let contactFilter: any;
+      if (user!.isService) {
+        contactFilter = { id: req.userId! };
+      } else {
+        contactFilter = { ownerId: req.userId!, isService: true };
+      }
+
       const existing = await prisma.query.findFirst({
-        where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
+        where: { id: String(id), contact: contactFilter },
       });
       if (!existing) {
         res.status(404).json({ error: `${resourceCapitalized} not found` });

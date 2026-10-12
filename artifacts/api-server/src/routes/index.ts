@@ -31,16 +31,17 @@ router.use(requireAuth);
 router.use("/business", businessRouter);
 
 // ── Individual-only routes (mount each with requireIndividual separately) ───
+// Order matters: more specific routes first
 router.use("/orchestrator", requireIndividual, orchestratorRouter);
-router.use("", requireIndividual, contactsRouter);
+router.use("/questions", requireIndividual, questionsRouter);
 router.use("/conversations", requireIndividual, conversationsRouter);
 router.use("/messages", requireIndividual, messagesRouter);
 router.use("/history", requireIndividual, historyRouter);
 router.use("/tasks", requireIndividual, tasksRouter);
-router.use("/questions", requireIndividual, questionsRouter);
 router.use("/knowledge", requireIndividual, knowledgeRouter);
 router.use("/owner-info", requireIndividual, ownerInfoRouter);
 router.use("/calls", requireIndividual, callsRouter);
 router.use("/calendarEvents", requireIndividual, calendarEventsRouter);
+router.use("", requireIndividual, contactsRouter);
 
 export default router;
