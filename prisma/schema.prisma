@@ -81,7 +81,7 @@ model Relationship {
   id             String     @id @default(cuid())
   individualId   String
   businessId     String
-  contactId      String     @unique
+  contactId      String
   summary        String     @default("")
   summaryUpTo    DateTime?
   summaryVersion Int        @default(0)

@@ -38,13 +38,20 @@ export async function getOrCreateRelationship(opts: {
     return relationship;
   }
 
-  // Create new relationship
-  relationship = await prisma.relationship.create({
-    data: {
+  // Create new relationship with upsert to handle race conditions
+  relationship = await prisma.relationship.upsert({
+    where: {
+      individualId_businessId: {
+        individualId,
+        businessId,
+      },
+    },
+    create: {
       individualId,
       businessId,
       contactId,
     },
+    update: {},
   });
 
   logger.info(

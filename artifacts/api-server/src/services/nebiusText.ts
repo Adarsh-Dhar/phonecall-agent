@@ -26,7 +26,7 @@ function config() {
     requestedModel: process.env.NEBIUS_MODEL ?? DEFAULT_MODEL,
     fallbackModel: process.env.NEBIUS_FALLBACK_MODEL ?? DEFAULT_FALLBACK_MODEL,
     baseUrl: (process.env.NEBIUS_BASE_URL ?? "https://api.tokenfactory.nebius.com/v1").replace(/\/+$/, ""),
-    timeoutMs: Number(process.env.NEBIUS_TIMEOUT_MS ?? 30_000),
+    timeoutMs: Number(process.env.NEBIUS_TIMEOUT_MS ?? 120_000),
     maxRetries: Number(process.env.NEBIUS_MAX_RETRIES ?? 2),
     retryBaseMs: Number(process.env.NEBIUS_RETRY_BASE_MS ?? 500),
   };
