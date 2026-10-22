@@ -53,7 +53,7 @@ describe('handleQueryAnswered with a real DB', () => {
     await prisma.account.deleteMany({ where: { id: { in: created.accounts } } });
   });
 
-  it('after the call ended: saves the fact, creates the callback task, reopens the original task', async () => {
+  it('after the call ended: reopens the original task with answer appended (no callback, no direct ContactKnowledge)', async () => {
     const { contact, conversation, task, call } = await seed('completed');
     const query = await prisma.query.create({
       data: {
@@ -64,21 +64,22 @@ describe('handleQueryAnswered with a real DB', () => {
 
     await handleQueryAnswered(query, '$50');
 
-    expect(await callbackTasks(task.id)).toBe(1);
-    const callback = await prisma.task.findFirst({ where: { parentTaskId: task.id } });
-    expect(callback?.status).toBe('open');
-    expect(callback?.priority).toBe('high');
-    expect(callback?.description).toContain('$50');
+    // No callback task since the call had a task
+    expect(await callbackTasks(task.id)).toBe(0);
 
+    // Original task is reopened with answer appended
     const original = await prisma.task.findUnique({ where: { id: task.id } });
     expect(original?.status).toBe('open');
     expect(original?.callTriggeredAt).toBeNull();
+    expect(original?.description).toContain('$50');
+    expect(original?.description).toContain('Answer from user:');
 
+    // No direct ContactKnowledge insertion (extraction will learn from the answer message)
     const fact = await prisma.contactKnowledge.findUnique({ where: { contactId_key: { contactId: contact.id, key: 'price' } } });
-    expect(fact?.value).toBe('$50');
+    expect(fact).toBeNull();
   });
 
-  it('during the call: the waiting ask_user gets the answer and no callback task is created', async () => {
+  it('during the call: the waiting ask_user gets the answer (no callback, no direct ContactKnowledge)', async () => {
     const { contact, conversation, task, call } = await seed('in-progress');
 
     const asked = askUserDuringCall({
@@ -101,7 +102,9 @@ describe('handleQueryAnswered with a real DB', () => {
 
     const original = await prisma.task.findUnique({ where: { id: task.id } });
     expect(original?.status).toBe('open'); // untouched, still in progress
+
+    // No direct ContactKnowledge insertion (extraction will learn from the answer message)
     const fact = await prisma.contactKnowledge.findUnique({ where: { contactId_key: { contactId: contact.id, key: 'availability' } } });
-    expect(fact?.value).toBe('9am-5pm');
+    expect(fact).toBeNull();
   });
 });

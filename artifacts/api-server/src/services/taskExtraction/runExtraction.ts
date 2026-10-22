@@ -169,8 +169,8 @@ async function runExtractionOnce(
     // 4. Model call
     const { taskActions, knowledgeActions } = await callOrchestratorExtraction({
       conversationId,
-      contactName: conversation.contact.name,
-      contactBusiness: conversation.contact.business,
+      contactName: conversation.contact.name || '',
+      contactBusiness: conversation.contact.business || '',
       existingTasks: openTasks.map((t) => ({
         id: t.id,
         title: t.title,
@@ -216,8 +216,8 @@ async function runExtractionOnce(
           taskActions,
           conversationId,
           contactId: conversation.contactId,
-          contactName: conversation.contact.name,
-          contactBusiness: conversation.contact.business,
+          contactName: conversation.contact.name || '',
+          contactBusiness: conversation.contact.business || '',
           deltaMessages,
           relationshipId,
         });

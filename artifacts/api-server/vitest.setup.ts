@@ -16,3 +16,14 @@ if (!/_test$/.test(dbName)) {
 
 // Prisma reads DATABASE_URL, so point it at the test DB (overrides any dev value in the shell).
 process.env.DATABASE_URL = testUrl;
+
+// Clear task-related environment variables to prevent test leakage
+delete process.env.TASK_CONFIDENCE_THRESHOLD;
+delete process.env.TASK_ACTION_CONFIDENCE_THRESHOLD;
+delete process.env.KNOWLEDGE_CONFIDENCE_THRESHOLD;
+
+// Clear scheduler-related environment variables to prevent test leakage
+delete process.env.SCHEDULER_STALE_HOURS;
+delete process.env.SCHEDULER_MAX_ATTEMPTS;
+delete process.env.SCHEDULER_CLAIM_TTL_MS;
+delete process.env.CALL_SCHEDULER_POLL_MS;

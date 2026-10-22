@@ -140,7 +140,7 @@ router.post("/tasks", asyncHandler(async (req, res) => {
       dueDate:      task.dueDate,
       status:       task.status,
       googleEventId: task.googleEventId,
-      contact:      { name: task.contact.name, business: task.contact.business },
+      contact:      { name: task.contact.name || '', business: task.contact.business || '' },
       userId:       req.userId!,
     }).catch((err) => {
       console.error("Failed to sync task to calendar:", err);
@@ -212,7 +212,7 @@ router.patch("/tasks/:id", asyncHandler(async (req, res) => {
       dueDate:       task.dueDate,
       status:        task.status,
       googleEventId: task.googleEventId,
-      contact:       { name: task.contact.name, business: task.contact.business },
+      contact:       { name: task.contact.name || '', business: task.contact.business || '' },
       userId:        req.userId!,
     }).catch((err) => {
       console.error("Failed to sync task to calendar:", err);

@@ -125,7 +125,7 @@ export function CallRow({ call, expanded, onToggle, loadMessages = api.fetchCall
               {callMessages.map((message) => {
                 const speakerName = message.speakerName || message.speaker || 'Unknown';
                 const speakerInitial = speakerName.charAt(0).toUpperCase();
-                const isAgent = speakerName.includes('(AI)') || message.speaker === 'individual_agent';
+                const isAgent = speakerName.includes('(AI)') || message.speaker === 'agent';
                 return (
                   <div key={message.id} className="flex gap-3">
                     <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${

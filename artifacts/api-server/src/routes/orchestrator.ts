@@ -72,7 +72,7 @@ router.post("/gemini/chat", async (req, res) => {
     where: { id: req.userId! },
     select: { name: true },
   });
-  const ownerInfoBlock = user ? buildOwnerInfoBlock(user.name, ownerInfo) : '';
+  const ownerInfoBlock = user ? buildOwnerInfoBlock(user.name || '', ownerInfo) : '';
 
   const systemContent = buildDemoChatSystemPrompt(knowledgeBlock, ownerInfoBlock);
 

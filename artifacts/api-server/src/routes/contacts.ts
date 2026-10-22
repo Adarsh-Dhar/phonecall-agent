@@ -115,11 +115,11 @@ router.get("/accounts/search", asyncHandler(async (req, res) => {
   const ranked = allCandidates.sort((a, b) => {
     const aScore =
       (a.email?.toLowerCase().startsWith(lq) ? 3 : 0) +
-      (a.name.toLowerCase().startsWith(lq)   ? 2 : 0) +
+      (a.name?.toLowerCase().startsWith(lq)   ? 2 : 0) +
       (a.email?.toLowerCase().includes(lq)   ? 1 : 0);
     const bScore =
       (b.email?.toLowerCase().startsWith(lq) ? 3 : 0) +
-      (b.name.toLowerCase().startsWith(lq)   ? 2 : 0) +
+      (b.name?.toLowerCase().startsWith(lq)   ? 2 : 0) +
       (b.email?.toLowerCase().includes(lq)   ? 1 : 0);
     return bScore - aScore;
   });
@@ -192,11 +192,11 @@ router.post("/contacts/from-account/:accountId", asyncHandler(async (req, res) =
 
   // Derive display initials from name if the target hasn't set them
   const initials = target.initials
-    ?? target.name
-         .split(" ")
+    ?? (target.name
+         ?.split(" ")
          .slice(0, 2)
          .map((w) => w[0]?.toUpperCase() ?? "")
-         .join("");
+         .join("") ?? "");
 
   // Pick a deterministic accent color from a palette when none is set
   const COLORS = ["#ff9b83","#f7ad92","#8fc9b0","#e0b568","#c9a4dd","#7fa8dd","#7fb3d5","#a8c9a8"];

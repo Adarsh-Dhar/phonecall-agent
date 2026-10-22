@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 vi.mock('@workspace/db-prisma', () => ({
-  prisma: { query: { create: vi.fn() } },
+  prisma: { query: { create: vi.fn(), update: vi.fn() } },
 }));
 vi.mock('../presence', () => ({ sendToAccount: vi.fn().mockReturnValue(true) }));
 vi.mock('../push', () => ({ sendPushToAccount: vi.fn().mockResolvedValue(undefined) }));

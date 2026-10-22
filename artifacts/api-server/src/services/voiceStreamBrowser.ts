@@ -127,7 +127,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
             const conversation = await getOrCreateActiveConversation(
               contact.id,
               "Browser test call with",
-              contact.name
+              contact.name || ''
             );
 
             // Get the user's name and timezone (the person making the call)
@@ -199,8 +199,8 @@ export function createBrowserVoiceStream(): WebSocketServer {
 
             gemini = await openGeminiLiveSession({
               systemInstructionText: buildAgentCallSystemInstruction({
-                individualName: user.name,
-                businessName: contact.name,
+                individualName: user.name || '',
+                businessName: contact.name || '',
                 direction: "outbound",
                 knowledgeFacts,
                 taskContext,

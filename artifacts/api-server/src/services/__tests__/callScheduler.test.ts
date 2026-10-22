@@ -35,18 +35,21 @@ async function seed(opts: {
 } = {}) {
   const n = counter++;
   const owner = await prisma.account.create({
-    data: { googleId: `t-sch-o-${runId}-${n}`, email: `t-sch-o-${runId}-${n}@example.com`, name: 'Owner', ...(opts.ownerData ?? {}) },
+    data: { googleId: `t-sch-o-${runId}-${n}`, email: `t-sch-o-${runId}-${n}@example.com`, name: 'Owner', timezone: 'Asia/Kolkata', ...(opts.ownerData ?? {}) },
   });
   const contact = await prisma.account.create({
     data: {
       googleId: `t-sch-c-${runId}-${n}`, email: `t-sch-c-${runId}-${n}@example.com`, name: 'Clinic',
-      isService: true, ownerId: opts.ownerless ? null : owner.id,
+      isService: true, ownerId: opts.ownerless ? null : owner.id, timezone: 'Asia/Kolkata',
     },
   });
   made.accounts.push(owner.id, contact.id);
   const conversation = await prisma.conversation.create({ data: { contactId: contact.id } });
   made.conversations.push(conversation.id);
-  const when = opts.nextAttemptAt ?? minutesAgo(5);
+  // Default to a time within business hours (Mon-Fri 9-17 IST) to avoid deferral
+  const defaultTime = new Date();
+  defaultTime.setUTCHours(4, 30, 0, 0); // 10:00 AM IST
+  const when = opts.nextAttemptAt ?? defaultTime;
   const task = await prisma.task.create({
     data: {
       title: 'Book appointment', status: 'open', kind: opts.kind ?? 'call',
@@ -80,19 +83,29 @@ describe('callScheduler (real DB)', () => {
   });
 
   it('fires a due task exactly once even when two cycles overlap', async () => {
-    const { task } = await seed();
+    const defaultTime = new Date();
+    defaultTime.setUTCHours(4, 30, 0, 0); // 10:00 AM IST
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(defaultTime);
+    const { task } = await seed({ nextAttemptAt: defaultTime });
     await Promise.all([checkDueTasks(), checkDueTasks()]);
+    vi.useRealTimers();
     expect(calledFor(task.id)).toBe(1);
     const after = await reload(task.id);
     expect(after.callAttempts).toBe(1);
     expect(after.schedulerStatus).toBe('pending');
-    expect(after.nextAttemptAt!.getTime()).toBeGreaterThan(Date.now());
+    expect(after.nextAttemptAt!.getTime()).toBeGreaterThan(defaultTime.getTime());
   });
 
   it('a task whose contact has no owner is exhausted and does not block the next task', async () => {
-    const a = await seed({ ownerless: true, nextAttemptAt: minutesAgo(10) });
-    const b = await seed({ nextAttemptAt: minutesAgo(5) });
+    const defaultTime = new Date();
+    defaultTime.setUTCHours(4, 30, 0, 0); // 10:00 AM IST
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(defaultTime);
+    const a = await seed({ ownerless: true, nextAttemptAt: defaultTime });
+    const b = await seed({ nextAttemptAt: defaultTime });
     await checkDueTasks();
+    vi.useRealTimers();
     expect((await reload(a.task.id)).schedulerStatus).toBe('exhausted');
     expect(calledFor(b.task.id)).toBe(1);
   });
@@ -112,17 +125,27 @@ describe('callScheduler (real DB)', () => {
   });
 
   it('an ignored notification is retried with backoff', async () => {
-    const { task } = await seed({ callAttempts: 1 });
+    const defaultTime = new Date();
+    defaultTime.setUTCHours(4, 30, 0, 0); // 10:00 AM IST
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(defaultTime);
+    const { task } = await seed({ callAttempts: 1, nextAttemptAt: defaultTime });
     await checkDueTasks();
+    vi.useRealTimers();
     const after = await reload(task.id);
     expect(after.callAttempts).toBe(2);
-    const expected = computeNextAttempt(2, new Date()).getTime();
+    const expected = computeNextAttempt(2, defaultTime).getTime();
     expect(Math.abs(after.nextAttemptAt!.getTime() - expected)).toBeLessThan(2 * 60_000);
   });
 
   it('stops at MAX_ATTEMPTS: exhausted, and the owner is told the contact could not be reached', async () => {
-    const { task } = await seed({ callAttempts: MAX_ATTEMPTS - 1 });
+    const defaultTime = new Date();
+    defaultTime.setUTCHours(4, 30, 0, 0); // 10:00 AM IST
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(defaultTime);
+    const { task } = await seed({ callAttempts: MAX_ATTEMPTS - 1, nextAttemptAt: defaultTime });
     await checkDueTasks();
+    vi.useRealTimers();
     expect((await reload(task.id)).schedulerStatus).toBe('exhausted');
     expect(vi.mocked(broadcastCallExhausted)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(broadcastCallExhausted).mock.calls[0][0].taskId).toBe(task.id);
@@ -141,12 +164,18 @@ describe('callScheduler (real DB)', () => {
     const after = await reload(task.id);
     expect(after.callAttempts).toBe(0);
     expect(after.schedulerStatus).toBe('pending');
-    expect(after.nextAttemptAt!.toISOString()).toBe('2026-10-09T00:30:00.000Z'); // 06:00 IST
+    expect(after.nextAttemptAt!.toISOString()).toBe('2026-10-09T03:30:00.000Z'); // 09:00 IST (default business hours start)
   });
 
   it('releases a claim that has been stuck longer than the TTL', async () => {
-    const { task } = await seed({ schedulerStatus: 'claimed', schedulerClaimedAt: minutesAgo(10) });
+    const defaultTime = new Date();
+    defaultTime.setUTCHours(4, 30, 0, 0); // 10:00 AM IST
+    const tenMinutesAgo = new Date(defaultTime.getTime() - 10 * 60 * 1000);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(defaultTime);
+    const { task } = await seed({ schedulerStatus: 'claimed', schedulerClaimedAt: tenMinutesAgo, nextAttemptAt: defaultTime });
     await checkDueTasks();
+    vi.useRealTimers();
     expect(calledFor(task.id)).toBe(1);
   });
 
@@ -283,7 +312,9 @@ describe('applyCallOutcomeToTask (real DB)', () => {
   afterEach(cleanup);
 
   async function callWithOutcome(outcome: string | null) {
-    const s = await seed({ nextAttemptAt: minutesAgo(5), schedulerStatus: 'claimed' });
+    const defaultTime = new Date();
+    defaultTime.setUTCHours(4, 30, 0, 0); // 10:00 AM IST
+    const s = await seed({ nextAttemptAt: defaultTime, schedulerStatus: 'claimed' });
     const call = await prisma.call.create({
       data: {
         status: 'completed', contactId: s.contact.id, conversationId: s.conversation.id, taskId: s.task.id,
@@ -301,9 +332,9 @@ describe('applyCallOutcomeToTask (real DB)', () => {
     expect(t.schedulerStatus).toBe('done');
   });
 
-  it('needs_user leaves the task open and the scheduler idle', async () => {
+  it('needs_user leaves the task in waiting_user status and the scheduler idle', async () => {
     const t = await callWithOutcome('needs_user');
-    expect(t.status).toBe('open');
+    expect(t.status).toBe('waiting_user');
     expect(t.schedulerStatus).toBe('done');
   });
 

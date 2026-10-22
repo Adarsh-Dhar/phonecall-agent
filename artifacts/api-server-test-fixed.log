@@ -1,0 +1,840 @@
+
+> @workspace/api-server@0.0.0 test /Users/adarsh/Documents/phonecall-agent/artifacts/api-server
+> vitest run "--reporter=verbose" "--run"
+
+
+ RUN  v2.1.9 /Users/adarsh/Documents/phonecall-agent/artifacts/api-server
+
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Relationship > creates a new relationship on first call
+[02:41:40.125] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dljp000awvq919ocpkjh"
+    [35mindividualId[39m: "cmvk1dlil0000wvq9sct69ylv"
+    [35mbusinessId[39m: "cmvk1dlj40002wvq9mrypu7kv"
+    [35mcontactId[39m: "cmvk1dlj90004wvq9oxzkmfca"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Relationship > creates a new relationship on first call
+[02:41:40.172] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dll4000lwvq9fqtof9f3"
+    [35mindividualId[39m: "cmvk1dlks000bwvq9dy1z4a0f"
+    [35mbusinessId[39m: "cmvk1dlku000dwvq9a14n3jqy"
+    [35mcontactId[39m: "cmvk1dlkx000fwvq9rf0hrpi6"
+[02:41:40.195] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dllr000wwvq9p34ezlwy"
+    [35mindividualId[39m: "cmvk1dllj000mwvq9khgwfrag"
+    [35mbusinessId[39m: "cmvk1dllk000owvq9ezba68cp"
+    [35mcontactId[39m: "cmvk1dllm000qwvq9fgj4ib58"
+[02:41:40.218] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dlmf0017wvq99pq4ikg7"
+    [35mindividualId[39m: "cmvk1dlm5000xwvq95kuo3nwi"
+    [35mbusinessId[39m: "cmvk1dlm7000zwvq9dmolx0uk"
+    [35mcontactId[39m: "cmvk1dlm80011wvq9eyiyt2tm"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Relationship > returns existing relationship on subsequent calls
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Relationship > enforces unique constraint on individualId + businessId
+[02:41:40.250] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dlnc001iwvq9q58nymyn"
+    [35mindividualId[39m: "cmvk1dln40018wvq92zyymbol"
+    [35mbusinessId[39m: "cmvk1dln6001awvq9hheuval1"
+    [35mcontactId[39m: "cmvk1dln7001cwvq9uwayt7he"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Relationship > updates rolling summary
+[02:41:40.260] [32mINFO[39m (55377): [36mingest: message created[39m
+    [35mmessageId[39m: "cmvk1dlnl001kwvq9j3ezy7h8"
+    [35mrelationshipId[39m: "cmvk1dlnc001iwvq9q58nymyn"
+    [35mseq[39m: 1
+    [35mspeaker[39m: "business"
+    [35mvisibility[39m: "both"
+[02:41:40.267] [32mINFO[39m (55377): [36mingest: message created[39m
+    [35mmessageId[39m: "cmvk1dlnt001mwvq9tteusk86"
+    [35mrelationshipId[39m: "cmvk1dlnc001iwvq9q58nymyn"
+    [35mseq[39m: 2
+    [35mspeaker[39m: "individual_agent"
+    [35mvisibility[39m: "both"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Ingest > assigns monotonic seq numbers to messages
+[02:41:40.297] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dlol001xwvq9x4m9457f"
+    [35mindividualId[39m: "cmvk1dloc001nwvq9a33w0s0x"
+    [35mbusinessId[39m: "cmvk1dlod001pwvq9gk0w40l7"
+    [35mcontactId[39m: "cmvk1dlof001rwvq9i1cknulj"
+[02:41:40.301] [32mINFO[39m (55377): [36mingest: message created[39m
+    [35mmessageId[39m: "cmvk1dlos001zwvq9v0fzqles"
+    [35mrelationshipId[39m: "cmvk1dlol001xwvq9x4m9457f"
+    [35mseq[39m: 1
+    [35mspeaker[39m: "business"
+    [35mvisibility[39m: "both"
+[02:41:40.307] [32mINFO[39m (55377): [36mingest: message created[39m
+    [35mmessageId[39m: "cmvk1dlox0021wvq9ulppxvy0"
+    [35mrelationshipId[39m: "cmvk1dlol001xwvq9x4m9457f"
+    [35mseq[39m: 2
+    [35mspeaker[39m: "individual_agent"
+    [35mvisibility[39m: "both"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Ingest > assigns monotonic seq numbers to messages
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Ingest > sets speaker correctly for call messages
+[02:41:40.334] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dlpm002cwvq9qzz8621c"
+    [35mindividualId[39m: "cmvk1dlpc0022wvq9karj8zkx"
+    [35mbusinessId[39m: "cmvk1dlpe0024wvq9xb0je4ey"
+    [35mcontactId[39m: "cmvk1dlpg0026wvq9jm2q23vs"
+[02:41:40.338] [32mINFO[39m (55377): [36mingest: message created[39m
+    [35mmessageId[39m: "cmvk1dlps002ewvq9qf73pio0"
+    [35mrelationshipId[39m: "cmvk1dlpm002cwvq9qzz8621c"
+    [35mseq[39m: 1
+    [35mspeaker[39m: "business"
+    [35mvisibility[39m: "both"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Ingest > sets speaker correctly for call messages
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Ingest > sets visibility to both for call messages
+[02:41:40.365] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dlqh002pwvq99pb7ay3s"
+    [35mindividualId[39m: "cmvk1dlq6002fwvq9hi931lyx"
+    [35mbusinessId[39m: "cmvk1dlq8002hwvq9166cru38"
+    [35mcontactId[39m: "cmvk1dlq9002jwvq9hd1d8gi3"
+[02:41:40.370] [32mINFO[39m (55377): [36mingest: message created[39m
+    [35mmessageId[39m: "cmvk1dlqp002rwvq9jctc2wza"
+    [35mrelationshipId[39m: "cmvk1dlqh002pwvq99pb7ay3s"
+    [35mseq[39m: 1
+    [35mspeaker[39m: "business"
+    [35mvisibility[39m: "both"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Ingest > sets visibility to both for call messages
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Ingest > is idempotent: replaying same turn writes one row
+[02:41:40.397] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dlrd0032wvq9ubl519o0"
+    [35mindividualId[39m: "cmvk1dlr4002swvq9rzgi9agd"
+    [35mbusinessId[39m: "cmvk1dlr5002uwvq9oqawjt3x"
+    [35mcontactId[39m: "cmvk1dlr7002wwvq94a8jwuob"
+[02:41:40.407] [32mINFO[39m (55377): [36mingest: batch messages created[39m
+    [35mrelationshipId[39m: "cmvk1dlrd0032wvq9ubl519o0"
+    [35mcallId[39m: "cmvk1dlra0030wvq97sq03mke"
+    [35mcount[39m: 3
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Ingest > is idempotent: replaying same turn writes one row
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Ingest > handles batch message ingestion
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Ingest > handles batch message ingestion
+[02:41:40.437] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dlsi003lwvq90d4iy1ak"
+    [35mindividualId[39m: "cmvk1dls30039wvq9a2v8npng"
+    [35mbusinessId[39m: "cmvk1dls5003bwvq9gw2iwoj2"
+    [35mcontactId[39m: "cmvk1dls7003dwvq9ikubwxti"
+[02:41:40.462] [32mINFO[39m (55377): [36mingest: batch messages created[39m
+    [35mrelationshipId[39m: "cmvk1dlsi003lwvq90d4iy1ak"
+    [35mcallId[39m: "cmvk1dlsb003hwvq9vxf3oeil"
+    [35mcount[39m: 3
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Briefing > builds a briefing with relationship data
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Briefing > builds a briefing with relationship data
+[02:41:40.535] [33mWARN[39m (55377): [36mBriefingBuilder: previous call not consolidated, using raw tail[39m
+    [35mcallId[39m: "cmvk1dlsd003jwvq9dcyymkdu"
+    [35mwaitedOk[39m: false
+    [35mwaitMs[39m: 0
+[02:41:40.579] [32mINFO[39m (55377): [36mBriefingBuilder: briefing built[39m
+    [35mcallId[39m: "cmvk1dlsd003jwvq9dcyymkdu"
+    [35mrelationshipId[39m: "cmvk1dlsi003lwvq90d4iy1ak"
+    [35mbriefingVersion[39m: 1
+    [35mtokenCount[39m: 175
+    [35mqualityComplete[39m: false
+    [35melapsedMs[39m: 64
+[02:41:40.624] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dlxj0046wvq982vwm1ro"
+    [35mindividualId[39m: "cmvk1dlx2003uwvq9oe12ccgw"
+    [35mbusinessId[39m: "cmvk1dlx4003wwvq9t4x8cxaf"
+    [35mcontactId[39m: "cmvk1dlx7003ywvq9s1ea2e3t"
+[02:41:40.655] [32mINFO[39m (55377): [36mingest: batch messages created[39m
+    [35mrelationshipId[39m: "cmvk1dlxj0046wvq982vwm1ro"
+    [35mcallId[39m: "cmvk1dlxa0042wvq9op6tv9mz"
+    [35mcount[39m: 3
+[02:41:40.694] [33mWARN[39m (55377): [36mBriefingBuilder: previous call not consolidated, using raw tail[39m
+    [35mcallId[39m: "cmvk1dlxd0044wvq9gjcx5j1u"
+    [35mwaitedOk[39m: false
+    [35mwaitMs[39m: 0
+[02:41:40.694] [32mINFO[39m (55377): [36mBriefingBuilder: briefing built[39m
+    [35mcallId[39m: "cmvk1dlxd0044wvq9gjcx5j1u"
+    [35mrelationshipId[39m: "cmvk1dlxj0046wvq982vwm1ro"
+    [35mbriefingVersion[39m: 1
+    [35mtokenCount[39m: 175
+    [35mqualityComplete[39m: false
+    [35melapsedMs[39m: 34
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Briefing > includes last call tail in briefing
+[02:41:40.718] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dm0b004rwvq97cqpqzz3"
+    [35mindividualId[39m: "cmvk1dm00004fwvq9nt3mo139"
+    [35mbusinessId[39m: "cmvk1dm02004hwvq912iu03zi"
+    [35mcontactId[39m: "cmvk1dm04004jwvq9sb3vvzm7"
+[02:41:40.726] [32mINFO[39m (55377): [36mingest: batch messages created[39m
+    [35mrelationshipId[39m: "cmvk1dm0b004rwvq97cqpqzz3"
+    [35mcallId[39m: "cmvk1dm06004nwvq9nktuhycl"
+    [35mcount[39m: 3
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Briefing > renders briefing to text
+[02:41:40.746] [33mWARN[39m (55377): [36mBriefingBuilder: previous call not consolidated, using raw tail[39m
+    [35mcallId[39m: "cmvk1dm08004pwvq9o1aytf89"
+    [35mwaitedOk[39m: false
+    [35mwaitMs[39m: 0
+[02:41:40.746] [32mINFO[39m (55377): [36mBriefingBuilder: briefing built[39m
+    [35mcallId[39m: "cmvk1dm08004pwvq9o1aytf89"
+    [35mrelationshipId[39m: "cmvk1dm0b004rwvq97cqpqzz3"
+    [35mbriefingVersion[39m: 1
+    [35mtokenCount[39m: 175
+    [35mqualityComplete[39m: false
+    [35melapsedMs[39m: 18
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Briefing > renders briefing to text
+[02:41:40.789] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dm29005cwvq93spu3odc"
+    [35mindividualId[39m: "cmvk1dm1v0050wvq9l19k2yod"
+    [35mbusinessId[39m: "cmvk1dm1y0052wvq9v0kw4lep"
+    [35mcontactId[39m: "cmvk1dm200054wvq9uq5phdqh"
+[02:41:40.802] [32mINFO[39m (55377): [36mingest: batch messages created[39m
+    [35mrelationshipId[39m: "cmvk1dm29005cwvq93spu3odc"
+    [35mcallId[39m: "cmvk1dm230058wvq9p7yf6lmu"
+    [35mcount[39m: 3
+[02:41:40.820] [33mWARN[39m (55377): [36mBriefingBuilder: previous call not consolidated, using raw tail[39m
+    [35mcallId[39m: "cmvk1dm25005awvq91cjp1229"
+    [35mwaitedOk[39m: false
+    [35mwaitMs[39m: 0
+[02:41:40.820] [32mINFO[39m (55377): [36mBriefingBuilder: briefing built[39m
+    [35mcallId[39m: "cmvk1dm25005awvq91cjp1229"
+    [35mrelationshipId[39m: "cmvk1dm29005cwvq93spu3odc"
+    [35mbriefingVersion[39m: 1
+    [35mtokenCount[39m: 175
+    [35mqualityComplete[39m: false
+    [35melapsedMs[39m: 16
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Briefing > respects token budget and trims from bottom
+[02:41:40.844] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dm3s005xwvq9tkljwsdf"
+    [35mindividualId[39m: "cmvk1dm3i005lwvq9pjbj4n8r"
+    [35mbusinessId[39m: "cmvk1dm3k005nwvq9etb5wmoa"
+    [35mcontactId[39m: "cmvk1dm3l005pwvq9hni1913q"
+[02:41:40.854] [32mINFO[39m (55377): [36mingest: batch messages created[39m
+    [35mrelationshipId[39m: "cmvk1dm3s005xwvq9tkljwsdf"
+    [35mcallId[39m: "cmvk1dm3n005twvq9x1n9elks"
+    [35mcount[39m: 3
+[02:41:40.881] [33mWARN[39m (55377): [36mBriefingBuilder: previous call not consolidated, using raw tail[39m
+    [35mcallId[39m: "cmvk1dm3p005vwvq9wocorsz4"
+    [35mwaitedOk[39m: false
+    [35mwaitMs[39m: 0
+[02:41:40.881] [32mINFO[39m (55377): [36mBriefingBuilder: briefing built[39m
+    [35mcallId[39m: "cmvk1dm3p005vwvq9wocorsz4"
+    [35mrelationshipId[39m: "cmvk1dm3s005xwvq9tkljwsdf"
+    [35mbriefingVersion[39m: 1
+    [35mtokenCount[39m: 175
+    [35mqualityComplete[39m: false
+    [35melapsedMs[39m: 24
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Briefing > includes quality flag based on consolidation status
+[02:41:40.913] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dm5p006gwvq9biea3bd4"
+    [35mindividualId[39m: "cmvk1dm5e0066wvq9m1srp0vw"
+    [35mbusinessId[39m: "cmvk1dm5g0068wvq9vchxd2f4"
+    [35mcontactId[39m: "cmvk1dm5j006awvq97su8o51x"
+[02:41:40.917] [32mINFO[39m (55377): [36mopenLoop: created[39m
+    [35mopenLoopId[39m: "cmvk1dm5u006iwvq9r0476cjt"
+    [35mrelationshipId[39m: "cmvk1dm5p006gwvq9biea3bd4"
+    [35mkind[39m: "awaiting_owner"
+    [35mtext[39m: "What is the gate code?"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Briefing > includes quality flag based on consolidation status
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > creates an open loop
+[02:41:40.943] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dm6j006twvq9x1xkwhjs"
+    [35mindividualId[39m: "cmvk1dm69006jwvq9i9jnzm06"
+    [35mbusinessId[39m: "cmvk1dm6b006lwvq9vzuxhciu"
+    [35mcontactId[39m: "cmvk1dm6d006nwvq9kev43a54"
+[02:41:40.945] [32mINFO[39m (55377): [36mopenLoop: created[39m
+    [35mopenLoopId[39m: "cmvk1dm6o006vwvq9sjdu3xl6"
+    [35mrelationshipId[39m: "cmvk1dm6j006twvq9x1xkwhjs"
+    [35mkind[39m: "awaiting_owner"
+    [35mtext[39m: "What is the gate code?"
+[02:41:40.947] [32mINFO[39m (55377): [36mopenLoop: resolved[39m
+    [35mopenLoopId[39m: "cmvk1dm6o006vwvq9sjdu3xl6"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > creates an open loop
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > resolves an open loop
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > resolves an open loop
+[02:41:40.986] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dm7p0076wvq9pj0gur4y"
+    [35mindividualId[39m: "cmvk1dm72006wwvq90vhbo6b4"
+    [35mbusinessId[39m: "cmvk1dm77006ywvq92h8ov5fe"
+    [35mcontactId[39m: "cmvk1dm7b0070wvq9deopj6aq"
+[02:41:40.988] [32mINFO[39m (55377): [36mopenLoop: created[39m
+    [35mopenLoopId[39m: "cmvk1dm7u0078wvq97afh8b2h"
+    [35mrelationshipId[39m: "cmvk1dm7p0076wvq9pj0gur4y"
+    [35mkind[39m: "awaiting_owner"
+    [35mtext[39m: "Question 1"
+[02:41:40.990] [32mINFO[39m (55377): [36mopenLoop: created[39m
+    [35mopenLoopId[39m: "cmvk1dm7w007awvq9irbj2oce"
+    [35mrelationshipId[39m: "cmvk1dm7p0076wvq9pj0gur4y"
+    [35mkind[39m: "scheduled"
+    [35mtext[39m: "Task 1"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > gets open loops for a relationship
+[02:41:41.017] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dm8m007lwvq99zpmog85"
+    [35mindividualId[39m: "cmvk1dm8d007bwvq99wji4sn5"
+    [35mbusinessId[39m: "cmvk1dm8f007dwvq98j0hync0"
+    [35mcontactId[39m: "cmvk1dm8h007fwvq9lww266xv"
+[02:41:41.023] [32mINFO[39m (55377): [36mopenLoop: created[39m
+    [35mopenLoopId[39m: "cmvk1dm8t007pwvq95yyb2kqs"
+    [35mrelationshipId[39m: "cmvk1dm8m007lwvq99zpmog85"
+    [35mkind[39m: "awaiting_owner"
+    [35mtext[39m: "What is the gate code?"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > gets open loops for a relationship
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > creates open loop from query
+[02:41:41.048] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dm9g0080wvq9f0yjdlp9"
+    [35mindividualId[39m: "cmvk1dm98007qwvq9fzrkk704"
+    [35mbusinessId[39m: "cmvk1dm99007swvq93eside71"
+    [35mcontactId[39m: "cmvk1dm9b007uwvq9hlwn8gf7"
+[02:41:41.055] [32mINFO[39m (55377): [36mopenLoop: created[39m
+    [35mopenLoopId[39m: "cmvk1dm9p0084wvq9uoa7l3pu"
+    [35mrelationshipId[39m: "cmvk1dm9g0080wvq9f0yjdlp9"
+    [35mkind[39m: "scheduled"
+    [35mtext[39m: "Fix lights"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > creates open loop from query
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > creates open loop from task
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > creates open loop from task
+[02:41:41.092] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dmal008fwvq9y12nx9vk"
+    [35mindividualId[39m: "cmvk1dma40085wvq91rd1caiv"
+    [35mbusinessId[39m: "cmvk1dma60087wvq9dd5d2jmw"
+    [35mcontactId[39m: "cmvk1dma90089wvq9zdpp7vvv"
+[02:41:41.094] [32mINFO[39m (55377): [36mopenLoop: created[39m
+    [35mopenLoopId[39m: "cmvk1dmas008hwvq91u8jekx9"
+    [35mrelationshipId[39m: "cmvk1dmal008fwvq9y12nx9vk"
+    [35mkind[39m: "awaiting_owner"
+    [35mtext[39m: "What is the gate code?"
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > includes open loops in briefing
+[02:41:41.117] [32mINFO[39m (55377): [36mBriefingBuilder: briefing built[39m
+    [35mcallId[39m: "cmvk1dmaf008dwvq98sqqi8lb"
+    [35mrelationshipId[39m: "cmvk1dmal008fwvq9y12nx9vk"
+    [35mbriefingVersion[39m: 1
+    [35mtokenCount[39m: 100
+    [35mqualityComplete[39m: true
+    [35melapsedMs[39m: 23
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > OpenLoop > includes open loops in briefing
+[02:41:41.154] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dmce008xwvq9enevt4hr"
+    [35mindividualId[39m: "cmvk1dmc6008rwvq96ap82urx"
+    [35mbusinessId[39m: "cmvk1dmc9008twvq9n0g7sgei"
+    [35mcontactId[39m: "cmvk1dmcb008vwvq9crfq9buf"
+[02:41:41.162] [32mINFO[39m (55377): [36mrelationship: created new relationship[39m
+    [35mrelationshipId[39m: "cmvk1dmck008zwvq9kf4ryi0f"
+    [35mindividualId[39m: "cmvk1dmbs008iwvq9aqof7aky"
+    [35mbusinessId[39m: "cmvk1dmbu008kwvq9lvzaasgr"
+    [35mcontactId[39m: "cmvk1dmby008mwvq9pvqhz86d"
+[02:41:41.166] [32mINFO[39m (55377): [36mopenLoop: created[39m
+    [35mopenLoopId[39m: "cmvk1dmcq0091wvq9ae8tledz"
+    [35mrelationshipId[39m: "cmvk1dmck008zwvq9kf4ryi0f"
+    [35mkind[39m: "awaiting_owner"
+    [35mtext[39m: "Secret question"
+[02:41:41.187] [32mINFO[39m (55377): [36mBriefingBuilder: briefing built[39m
+    [35mcallId[39m: "cmvk1dmc1008qwvq9haekoc12"
+    [35mrelationshipId[39m: "cmvk1dmck008zwvq9kf4ryi0f"
+    [35mbriefingVersion[39m: 1
+    [35mtokenCount[39m: 98
+    [35mqualityComplete[39m: true
+    [35melapsedMs[39m: 20
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Cross-relationship isolation > does not include other relationship data in briefing
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Cross-relationship isolation > does not include other relationship data in briefing
+ ✓ src/services/__tests__/memory.test.ts > Relationship Memory Architecture > Cross-relationship isolation > does not include other relationship data in briefing
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > fires a due task exactly once even when two cycles overlap
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: claimed tasks for processing[39m
+    [35mcount[39m: 1
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: task notified, scheduled next attempt[39m
+    [35mtaskId[39m: "cmvk1dnfj0006wvqcybhm0m3c"
+    [35mattempt[39m: 1
+    [35mnextAttemptAt[39m: "2026-10-22T04:45:00.000Z"
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: claimed tasks for processing[39m
+    [35mcount[39m: 2
+[10:00:00.000] [33mWARN[39m (55380): [36mcallScheduler: task has no owner, marking as exhausted[39m
+    [35mtaskId[39m: "cmvk1dnhb000dwvqchzrj6pmt"
+    [35mcontactId[39m: "cmvk1dnh80009wvqcao7m4h7m"
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > a task whose contact has no owner is exhausted and does not block the next task
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: task notified, scheduled next attempt[39m
+    [35mtaskId[39m: "cmvk1dnhg000kwvqc8nvzkq8q"
+    [35mattempt[39m: 1
+    [35mnextAttemptAt[39m: "2026-10-22T04:45:00.000Z"
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > a task whose contact has no owner is exhausted and does not block the next task
+[02:41:42.725] [32mINFO[39m (55380): [36mcallScheduler: marked stale tasks[39m
+    [35mcount[39m: 1
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > marks a task older than the stale window as stale and does not fire it
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > marks a task older than the stale window as stale and does not fire it
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > never triggers a call for a reminder
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > never triggers a call for a reminder
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: claimed tasks for processing[39m
+    [35mcount[39m: 1
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: task notified, scheduled next attempt[39m
+    [35mtaskId[39m: "cmvk1dno20015wvqc1jjq0qx8"
+    [35mattempt[39m: 2
+    [35mnextAttemptAt[39m: "2026-10-22T05:30:00.000Z"
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > an ignored notification is retried with backoff
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > an ignored notification is retried with backoff
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: claimed tasks for processing[39m
+    [35mcount[39m: 1
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > stops at MAX_ATTEMPTS: exhausted, and the owner is told the contact could not be reached
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: task exhausted after max attempts[39m
+    [35mtaskId[39m: "cmvk1dnuw001cwvqcaokkr1el"
+    [35mattempts[39m: 3
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > stops at MAX_ATTEMPTS: exhausted, and the owner is told the contact could not be reached
+[01:30:00.000] [32mINFO[39m (55380): [36mcallScheduler: claimed tasks for processing[39m
+    [35mcount[39m: 1
+[01:30:00.000] [32mINFO[39m (55380): [36mcallScheduler: task outside allowed window (hours, quiet hours or closure), deferring[39m
+    [35mtaskId[39m: "cmvk1dnzr001jwvqckxqm5sv5"
+    [35mnextAttemptAt[39m: "2026-10-09T03:30:00.000Z"
+ × src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > defers inside the owner quiet hours (IST) without consuming an attempt
+   → expected '2026-10-09T03:30:00.000Z' to be '2026-10-09T00:30:00.000Z' // Object.is equality
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: recovered stuck claims[39m
+    [35mcount[39m: 1
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: claimed tasks for processing[39m
+    [35mcount[39m: 1
+[10:00:00.000] [32mINFO[39m (55380): [36mcallScheduler: task notified, scheduled next attempt[39m
+    [35mtaskId[39m: "cmvk1do10001qwvqcop72xx6s"
+    [35mattempt[39m: 1
+    [35mnextAttemptAt[39m: "2026-10-22T04:45:00.000Z"
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > releases a claim that has been stuck longer than the TTL
+[10:30:00.000] [32mINFO[39m (55380): [36mcallScheduler: claimed tasks for processing[39m
+    [35mcount[39m: 1
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > defers outside business hours (linked business with 10-11 Mon-Wed)
+[10:30:00.000] [32mINFO[39m (55380): [36mcallScheduler: task outside allowed window (hours, quiet hours or closure), deferring[39m
+    [35mtaskId[39m: "cmvk1do23001zwvqcb2ovu4g1"
+    [35mnextAttemptAt[39m: "2026-10-12T04:30:00.000Z"
+[10:30:00.000] [32mINFO[39m (55380): [36mcallScheduler: claimed tasks for processing[39m
+    [35mcount[39m: 1
+[10:30:00.000] [32mINFO[39m (55380): [36mcallScheduler: task outside allowed window (hours, quiet hours or closure), deferring[39m
+    [35mtaskId[39m: "cmvk1do440026wvqcehaaev01"
+    [35mnextAttemptAt[39m: "2026-10-12T03:30:00.000Z"
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > defers outside business hours default (Mon-Fri 9-17) when neither override nor business hours set
+[08:30:00.000] [32mINFO[39m (55380): [36mcallScheduler: claimed tasks for processing[39m
+    [35mcount[39m: 1
+[08:30:00.000] [32mINFO[39m (55380): [36mcallScheduler: task notified, scheduled next attempt[39m
+    [35mtaskId[39m: "cmvk1do5g002fwvqcsrv5ilim"
+    [35mattempt[39m: 1
+    [35mnextAttemptAt[39m: "2026-10-08T03:15:00.000Z"
+ ✓ src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > allows call during business hours (override takes precedence)
+[02:41:43.536] [32mINFO[39m (55380): [36mcallLifecycle: task completed[39m
+    [35mcallId[39m: "cmvk1do6e002owvqcidk31bxv"
+    [35mtaskId[39m: "cmvk1do6b002mwvqchkpzdrud"
+    [35moutcome[39m: "booked"
+ ✓ src/services/__tests__/callScheduler.test.ts > applyCallOutcomeToTask (real DB) > booked completes the task (status done)
+[02:41:43.557] [32mINFO[39m (55380): [36mcallLifecycle: task completed[39m
+    [35mcallId[39m: "cmvk1do73002xwvqcm93sagvi"
+    [35mtaskId[39m: "cmvk1do71002vwvqcqweofpk8"
+    [35moutcome[39m: "rescheduled"
+ ✓ src/services/__tests__/callScheduler.test.ts > applyCallOutcomeToTask (real DB) > rescheduled completes the task (status done)
+[02:41:43.582] [32mINFO[39m (55380): [36mcallLifecycle: task completed[39m
+    [35mcallId[39m: "cmvk1do7n0036wvqczkjvhtoq"
+    [35mtaskId[39m: "cmvk1do7l0034wvqctmrt60y9"
+    [35moutcome[39m: "cancelled"
+ ✓ src/services/__tests__/callScheduler.test.ts > applyCallOutcomeToTask (real DB) > cancelled completes the task (status done)
+[02:41:43.606] [32mINFO[39m (55380): [36mcallLifecycle: task completed[39m
+    [35mcallId[39m: "cmvk1do8d003fwvqcotgbz0wo"
+    [35mtaskId[39m: "cmvk1do8b003dwvqcfegs7dxb"
+    [35moutcome[39m: "info_gathered"
+ ✓ src/services/__tests__/callScheduler.test.ts > applyCallOutcomeToTask (real DB) > info_gathered completes the task (status done)
+ ✓ src/services/__tests__/callScheduler.test.ts > applyCallOutcomeToTask (real DB) > info_gathered completes the task (status done)
+[02:41:43.668] [32mINFO[39m (55380): [36mcallLifecycle: task waiting on user[39m
+    [35mcallId[39m: "cmvk1do9w003owvqcdwzj0uj3"
+    [35mtaskId[39m: "cmvk1do9s003mwvqco1w7h9eq"
+    [35moutcome[39m: "needs_user"
+ ✓ src/services/__tests__/callScheduler.test.ts > applyCallOutcomeToTask (real DB) > needs_user leaves the task in waiting_user status and the scheduler idle
+ ✓ src/services/__tests__/callScheduler.test.ts > applyCallOutcomeToTask (real DB) > needs_user leaves the task in waiting_user status and the scheduler idle
+ ✓ src/services/__tests__/callScheduler.test.ts > applyCallOutcomeToTask (real DB) > failed schedules a retry with backoff
+ ✓ src/services/__tests__/callAnalysisEscalation.test.ts > analyzeCallForEscalation with a real DB > parse failure on both attempts escalates for manual review (one pending query)
+ ✓ src/services/__tests__/callAnalysisEscalation.test.ts > analyzeCallForEscalation with a real DB > a reply missing isEnoughKnowledge counts as a failed parse, not "enough knowledge"
+[02:41:44.553] [33mWARN[39m (55382): [36mcallAnalysis: failed to get a valid escalation decision[39m
+    [35mcallId[39m: "cmvk1doy60004wvqe9fdbdii4"
+    [35mattempt[39m: 0
+    err: {
+      "type": "SyntaxError",
+      "message": "No JSON object found in model reply",
+      "stack":
+          SyntaxError: No JSON object found in model reply
+              at extractJson (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/lib/extractJson.ts:50:9)
+              at Module.extractJsonObject (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/lib/extractJson.ts:55:18)
+              at Module.analyzeCallForEscalation (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/callAnalysis.ts:312:22)
+              at /Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/__tests__/callAnalysisEscalation.test.ts:56:5
+              at file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+              at runTest (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runFiles (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+              at startTests (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    }
+[02:41:44.561] [33mWARN[39m (55382): [36mcallAnalysis: failed to get a valid escalation decision[39m
+    [35mcallId[39m: "cmvk1doy60004wvqe9fdbdii4"
+    [35mattempt[39m: 1
+    err: {
+      "type": "SyntaxError",
+      "message": "No JSON object found in model reply",
+      "stack":
+          SyntaxError: No JSON object found in model reply
+              at extractJson (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/lib/extractJson.ts:50:9)
+              at Module.extractJsonObject (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/lib/extractJson.ts:55:18)
+              at Module.analyzeCallForEscalation (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/callAnalysis.ts:312:22)
+              at /Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/__tests__/callAnalysisEscalation.test.ts:56:5
+              at file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+              at runTest (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runFiles (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+              at startTests (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    }
+[02:41:44.562] [31mERROR[39m (55382): [36mcallAnalysis: analysis failed twice, escalating for manual review[39m
+    [35mcallId[39m: "cmvk1doy60004wvqe9fdbdii4"
+[02:41:44.575] [32mINFO[39m (55382): [36mcallAnalysis: created escalation query[39m
+    [35mcallId[39m: "cmvk1doy60004wvqe9fdbdii4"
+    [35mquestion[39m: "The call with Test Clinic could not be analysed automatically — can you review the transcript?"
+[02:41:44.595] [33mWARN[39m (55382): [36mcallAnalysis: failed to get a valid escalation decision[39m
+    [35mcallId[39m: "cmvk1dozs000dwvqe9aok71ui"
+    [35mattempt[39m: 0
+    err: {
+      "type": "SyntaxError",
+      "message": "isEnoughKnowledge missing or not a boolean",
+      "stack":
+          SyntaxError: isEnoughKnowledge missing or not a boolean
+              at Module.analyzeCallForEscalation (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/callAnalysis.ts:321:15)
+              at /Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/__tests__/callAnalysisEscalation.test.ts:71:5
+              at file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+              at runTest (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runFiles (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+              at startTests (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+              at file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/vitest@2.1.9_@types+node@22.20.5/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11
+              at withEnv (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/vitest@2.1.9_@types+node@22.20.5/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:90:5)
+    }
+[02:41:44.596] [33mWARN[39m (55382): [36mcallAnalysis: failed to get a valid escalation decision[39m
+    [35mcallId[39m: "cmvk1dozs000dwvqe9aok71ui"
+    [35mattempt[39m: 1
+    err: {
+      "type": "SyntaxError",
+      "message": "isEnoughKnowledge missing or not a boolean",
+      "stack":
+          SyntaxError: isEnoughKnowledge missing or not a boolean
+              at Module.analyzeCallForEscalation (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/callAnalysis.ts:321:15)
+              at /Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/__tests__/callAnalysisEscalation.test.ts:71:5
+              at file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+              at runTest (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runFiles (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+              at startTests (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+              at file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/vitest@2.1.9_@types+node@22.20.5/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:126:11
+              at withEnv (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/vitest@2.1.9_@types+node@22.20.5/node_modules/vitest/dist/chunks/runBaseTests.3qpJUEJM.js:90:5)
+    }
+[02:41:44.596] [31mERROR[39m (55382): [36mcallAnalysis: analysis failed twice, escalating for manual review[39m
+    [35mcallId[39m: "cmvk1dozs000dwvqe9aok71ui"
+[02:41:44.603] [32mINFO[39m (55382): [36mcallAnalysis: created escalation query[39m
+    [35mcallId[39m: "cmvk1dozs000dwvqe9aok71ui"
+    [35mquestion[39m: "The call with Test Clinic could not be analysed automatically — can you review the transcript?"
+ ✓ src/services/__tests__/callAnalysisEscalation.test.ts > analyzeCallForEscalation with a real DB > a fenced JSON reply is parsed and the speakers/task goal are sent to the model
+ ✓ src/services/__tests__/callAnalysisEscalation.test.ts > analyzeCallForEscalation with a real DB > an existing live query for the call prevents a duplicate post-call query
+ ✓ src/services/__tests__/callAnalysisEscalation.test.ts > analyzeCallForEscalation with a real DB > when the model says more input is needed, one query is created
+[02:41:44.675] [32mINFO[39m (55382): [36mcallAnalysis: created escalation query[39m
+    [35mcallId[39m: "cmvk1dp1s0012wvqe6nxmkiu5"
+    [35mquestion[39m: "Accept a Rs 500 deposit?"
+[02:41:44.703] [32mINFO[39m (55382): [36mcallAnalysis: created escalation query[39m
+    [35mcallId[39m: "cmvk1dp2j001bwvqeqt1d30s7"
+    [35mquestion[39m: "What is the gate code?"
+ ✓ src/services/__tests__/callAnalysisEscalation.test.ts > analyzeCallForEscalation with a real DB > handles malformed JSON with unquoted keys and trailing commas (common LLM output)
+ × src/services/__tests__/callAnalysisEscalation.test.ts > analyzeCallForEscalation with a real DB > deterministic fallback extracts building access question from security/access transcript
+   → expected null to be 'gate_code' // Object.is equality
+[02:41:44.740] [33mWARN[39m (55382): [36mcallAnalysis: failed to get a valid escalation decision[39m
+    [35mcallId[39m: "cmvk1dp3c001kwvqelxaam4cm"
+    [35mattempt[39m: 0
+    err: {
+      "type": "SyntaxError",
+      "message": "No JSON object found in model reply",
+      "stack":
+          SyntaxError: No JSON object found in model reply
+              at extractJson (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/lib/extractJson.ts:50:9)
+              at Module.extractJsonObject (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/lib/extractJson.ts:55:18)
+              at Module.analyzeCallForEscalation (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/callAnalysis.ts:312:22)
+              at /Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/__tests__/callAnalysisEscalation.test.ts:172:5
+              at file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+              at runTest (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runFiles (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+              at startTests (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    }
+[02:41:44.741] [33mWARN[39m (55382): [36mcallAnalysis: failed to get a valid escalation decision[39m
+    [35mcallId[39m: "cmvk1dp3c001kwvqelxaam4cm"
+    [35mattempt[39m: 1
+    err: {
+      "type": "SyntaxError",
+      "message": "No JSON object found in model reply",
+      "stack":
+          SyntaxError: No JSON object found in model reply
+              at extractJson (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/lib/extractJson.ts:50:9)
+              at Module.extractJsonObject (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/lib/extractJson.ts:55:18)
+              at Module.analyzeCallForEscalation (/Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/callAnalysis.ts:312:22)
+              at /Users/adarsh/Documents/phonecall-agent/artifacts/api-server/src/services/__tests__/callAnalysisEscalation.test.ts:172:5
+              at file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+              at runTest (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runSuite (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+              at runFiles (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+              at startTests (file:///Users/adarsh/Documents/phonecall-agent/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    }
+[02:41:44.741] [32mINFO[39m (55382): [36mcallAnalysis: using deterministic fallback from transcript[39m
+    [35mcallId[39m: "cmvk1dp3c001kwvqelxaam4cm"
+    [35mfallbackQuestion[39m: "What is the gate code?"
+[02:41:44.747] [32mINFO[39m (55382): [36mcallAnalysis: created escalation query[39m
+    [35mcallId[39m: "cmvk1dp3c001kwvqelxaam4cm"
+    [35mquestion[39m: "What is the gate code?"
+[02:41:44.774] [32mINFO[39m (55382): [36mcallAnalysis: created escalation query[39m
+    [35mcallId[39m: "cmvk1dp4m0027wvqe7zni5fmk"
+    [35mquestion[39m: "What is the gate code?"
+ ✓ src/services/__tests__/callAnalysisEscalation.test.ts > analyzeCallForEscalation with a real DB > deduplication prevents duplicate questions for the same call
+ ✓ src/services/__tests__/briefingHandoff.test.ts > buildBriefing > first call ever: complete, no history, nothing rendered
+ ✓ src/services/__tests__/briefingHandoff.test.ts > buildBriefing > the tail is the LAST 14 turns of the previous call, in order
+ ✓ src/services/__tests__/briefingHandoff.test.ts > buildBriefing > an unprocessed previous call gives quality.complete = false but still carries its tail
+ ✓ src/services/__tests__/briefingHandoff.test.ts > buildBriefing > waits for a call that finishes processing while the briefing is being built 3922ms
+ ✓ src/services/__tests__/briefingHandoff.test.ts > buildBriefing > never includes another business's calls, questions or tasks
+ ✓ src/services/__tests__/briefingHandoff.test.ts > buildBriefing > a pending question for this contact is visible even if it was raised in a different conversation row
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders basic briefing sections
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders call reason when present
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders open loops
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders do not constraints
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders last call tail
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders recent calls
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders known facts
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders rolling summary
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders answered queries
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders shareable individual info
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > renders business closure notice
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > adds quality note when incomplete
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > trims from bottom when over token budget
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > never trims open loops or do not
+ ✓ src/services/__tests__/renderBriefing.test.ts > renderBriefing > maintains fixed section order
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > sends a low-temperature JSON-mode request through the shared client
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > parses valid JSON and drops malformed actions
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > parses JSON wrapped in a markdown fence
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > parses JSON surrounded by conversational text
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > treats an empty model reply as "nothing to extract" without throwing
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > rethrows an empty reply with reason reasoning_only so the cursor is not advanced
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > rethrows an empty reply with reason truncated so the cursor is not advanced
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > rethrows when the JSON was cut off by max_tokens instead of treating it as "nothing to extract"
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > rethrows provider failures so the caller leaves the cursor in place
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > unparseable model output > control: the raw JSON.parse error really would leak transcript text
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > unparseable model output > rethrows (cursor stays put) and logs metadata only — no raw output, no console.error
+ ✓ src/services/__tests__/orchestratorPrompt.test.ts > callOrchestratorExtraction > unparseable model output > logs a truncated preview at debug level only when LOG_LLM_RAW=1
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > computeNextAttempt > backs off 15 min, 1 h, 4 h, then caps at 8 h
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > quiet hours (owner timezone, wrap-around) > defers 01:30 IST to 06:00 IST (00:30Z), independent of server timezone
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > quiet hours (owner timezone, wrap-around) > defers 23:10 IST to 06:00 IST the next morning
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > quiet hours (owner timezone, wrap-around) > allows 12:00 IST
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > quiet hours (owner timezone, wrap-around) > handles a same-day range (13-15)
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > quiet hours (owner timezone, wrap-around) > does not throw on an invalid timezone (falls back to UTC)
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > business hours > allows Thursday 11:30 IST
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > business hours > defers Saturday 10:30 IST to Monday 09:00 IST (03:30Z)
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > business hours > defers Thursday 18:00 IST to Friday 09:00 IST
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > business hours > respects both quiet hours and business hours together
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > validateBusinessHours / parseBusinessHours > accepts a valid object and a valid JSON string
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > validateBusinessHours / parseBusinessHours > rejects {"days":[],"start":9,"end":17}
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > validateBusinessHours / parseBusinessHours > rejects {"days":[7],"start":9,"end":17}
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > validateBusinessHours / parseBusinessHours > rejects {"days":[1],"start":17,"end":9}
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > validateBusinessHours / parseBusinessHours > rejects {"days":[1],"start":9,"end":25}
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > validateBusinessHours / parseBusinessHours > rejects {"days":[1],"start":9,"end":17,"tz":"Not/AZone"}
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > validateBusinessHours / parseBusinessHours > rejects "not json"
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > validateBusinessHours / parseBusinessHours > rejects null
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > validateBusinessHours / parseBusinessHours > parseBusinessHours returns null for missing or corrupt data instead of throwing
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > resolveEffectiveHours > returns default when nothing is set
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > resolveEffectiveHours > returns business hours when set, no override
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > resolveEffectiveHours > returns override when set, takes precedence over business
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > resolveEffectiveHours > uses hours timezone first, then business timezone, then contact timezone, then owner timezone
+ ✓ src/services/__tests__/schedulerPolicy.test.ts > resolveEffectiveHours > DEFAULT_BUSINESS_HOURS is Mon-Fri 9-17
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > isModelRejection: only model-unavailable errors fall back
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > returns text, model, usage and records metrics
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > falls back when the model itself is rejected, and counts it
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > does NOT fall back on a parameter error — it surfaces
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > retries 429 and 5xx, then succeeds
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > gives up after maxRetries and throws a retryable NebiusError
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > retries network errors / timeouts
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > checks status before parsing: an HTML error page is a clean error, not a SyntaxError
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > a partial reply cut off by max_tokens is returned with finishReason 'length' (caller decides)
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > empty / reasoning-only / cut-off-before-answer replies throw OrchestratorEmptyResponseError with a reason
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > reports requestedModel and fellBack
+ ✓ src/services/__tests__/nebiusText.test.ts > nebiusText > generateOrchestratorText appends a user turn when history ends on the assistant, and forwards temperature/maxTokens
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > validateClosureInput > accepts a valid holiday closure
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > validateClosureInput > accepts a valid time-bounded closure
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > validateClosureInput > rejects unknown kind
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > validateClosureInput > rejects missing all-day start/end
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > validateClosureInput > rejects missing time-bounded start/end
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > validateClosureInput > rejects end before start for all-day
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > validateClosureInput > rejects end before start for time-bounded
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > validateClosureInput > rejects excessive label length
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > validateClosureInput > rejects excessive message length
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > closureStatus > classifies active closure (started, not ended)
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > closureStatus > classifies active closure (started, no end)
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > closureStatus > classifies upcoming closure (not started)
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > closureStatus > classifies past closure (ended)
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > overlaps > detects overlapping ranges
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > overlaps > detects no overlap (before)
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > overlaps > detects no overlap (after)
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > overlaps > handles open-ended (null end) overlaps
+ ✓ src/services/__tests__/closurePolicy.test.ts > closurePolicy > overlaps > handles null end with later start (no overlap)
+ ✓ src/services/__tests__/memoryBlock.test.ts > renderMemoryBlock > returns an empty string when there is no history (first call ever)
+ ✓ src/services/__tests__/memoryBlock.test.ts > renderMemoryBlock > carries the unfinished business from the last call
+ ✓ src/services/__tests__/memoryBlock.test.ts > renderMemoryBlock > formats dates in the owner's timezone, not the server's
+ ✓ src/services/__tests__/memoryBlock.test.ts > renderMemoryBlock > wraps the transcript as a record, so text inside it is not an instruction
+ ✓ src/services/__tests__/memoryBlock.test.ts > renderMemoryBlock > flags an unprocessed previous call
+ ✓ src/services/__tests__/memoryBlock.test.ts > renderMemoryBlock > tells the agent never to claim it cannot remember, and to treat proposals as unconfirmed
+ ✓ src/services/__tests__/memoryBlock.test.ts > renderMemoryBlock > stays under the token budget by dropping older turns first and never drops open items
+ ✓ src/services/__tests__/memoryBlock.test.ts > renderMemoryBlock > caps an ever-growing rolling summary to its newest part
+ ✓ src/services/__tests__/memoryBlock.test.ts > buildAgentCallSystemInstruction keeps the agent's rules when memory is added > still contains persona, ask_user, end_call and language rules
+ ✓ src/services/__tests__/memoryBlock.test.ts > buildAgentCallSystemInstruction keeps the agent's rules when memory is added > includes the history after the rules
+ ✓ src/services/__tests__/memoryBlock.test.ts > buildAgentCallSystemInstruction keeps the agent's rules when memory is added > is identical to before when there is no memory
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — upsert > high confidence -> active
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — upsert > low confidence -> suggested, never active
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — upsert > a low-confidence upsert cannot overwrite an existing ACTIVE fact
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — upsert > a high-confidence upsert does update an active fact
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — upsert > a high-confidence upsert revives a stale fact; a low one leaves it only suggested
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — upsert > skips an unusable value (0)
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — upsert > skips an unusable value (1)
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — upsert > skips an unusable value (2)
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — upsert > only links source messages from this batch
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — invalidate > high confidence marks an active fact stale
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — invalidate > low confidence cannot knock out an active fact
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — invalidate > can drop a never-trusted suggested fact at any confidence
+ ✓ src/services/__tests__/reconcileKnowledge.test.ts > reconcileKnowledgeActions — invalidate > skips an unknown key
+ ✓ src/services/__tests__/runExtraction.test.ts > runExtraction > labels speakers by callId/role and passes known facts to the model
+ ✓ src/services/__tests__/runExtraction.test.ts > runExtraction > app-chat 'user' rows are the owner, not the contact
+ ✓ src/services/__tests__/runExtraction.test.ts > runExtraction > two overlapping runs never call the model concurrently; the second becomes a queued re-run
+ × src/services/__tests__/runExtraction.test.ts > runExtraction > an unreadable model reply leaves the cursor in place; a poison delta is skipped after 3 failures
+   → expected null to be 'm2' // Object.is equality
+ ✓ src/services/__tests__/runExtraction.test.ts > runExtraction > outages / rate limits / bad keys never count toward skipping a delta
+ ✓ src/services/__tests__/runExtraction.test.ts > runExtraction > if another instance moved the cursor while the model was thinking, nothing is written
+ ✓ src/services/__tests__/extractionValidation.test.ts > extractJson > parses plain, fenced (triple backticks), think-prefixed and chatty replies
+ ✓ src/services/__tests__/extractionValidation.test.ts > extractJson > throws SyntaxError on garbage or non-objects
+ ✓ src/services/__tests__/extractionValidation.test.ts > parseModelDueDate > accepts a future date with an offset
+ ✓ src/services/__tests__/extractionValidation.test.ts > parseModelDueDate > rejects no-offset, date-only, garbage, past and far-future
+ ✓ src/services/__tests__/extractionValidation.test.ts > schema validation > task actions: enums, required fields and clamping
+ ✓ src/services/__tests__/extractionValidation.test.ts > schema validation > knowledge actions: category enum, key normalised, value required
+ ✓ src/services/__tests__/extractionValidation.test.ts > schema validation > sanitizeExtraction counts what it dropped
+ ✓ src/services/__tests__/extractionValidation.test.ts > schema validation > parseExtractionReply throws on unreadable output instead of returning 'nothing'
+ ✓ src/services/__tests__/extractionValidation.test.ts > extraction prompt > asks for a UTC offset in the owner's timezone and explains speakers
+ ✓ src/services/__tests__/extractionValidation.test.ts > extraction prompt > user content includes known facts and speaker-labelled messages
+ ✓ src/services/__tests__/questionsLiveAnswer.test.ts > handleQueryAnswered with a real DB > after the call ended: reopens the original task with answer appended (no callback, no direct ContactKnowledge)
+ ✓ src/services/__tests__/questionsLiveAnswer.test.ts > handleQueryAnswered with a real DB > during the call: the waiting ask_user gets the answer (no callback, no direct ContactKnowledge)
+ ✓ src/services/__tests__/reconcileTasks.test.ts > reconcileTaskActions > hallucinated task ids are skipped, not applied or thrown
+ ✓ src/services/__tests__/reconcileTasks.test.ts > reconcileTaskActions > complete/cancel/update below the action threshold or without a cited delta message are skipped
+ ✓ src/services/__tests__/reconcileTasks.test.ts > reconcileTaskActions > complete and cancel apply; cancel uses the 'cancelled' source role
+ ✓ src/services/__tests__/reconcileTasks.test.ts > reconcileTaskActions > a bad dueDate drops only the date; the task is still created
+ ✓ src/services/__tests__/reconcileTasks.test.ts > reconcileTaskActions > a valid dueDate with offset is stored and synced
+ ✓ src/services/__tests__/reconcileTasks.test.ts > reconcileTaskActions > empty title and duplicate-of-active-task creates are skipped
+ ✓ src/services/__tests__/reconcileTasks.test.ts > reconcileTaskActions > update with only an invalid dueDate is skipped as a no-op instead of wiping the schedule
+ ✓ src/services/__tests__/reconcileTasks.test.ts > reconcileTaskActions > low-confidence create lands as 'suggested'
+ ✓ src/services/__tests__/callLifecycle.test.ts > callLifecycle > onEndCall delays by the queued audio length and caps at 8 seconds 2316ms
+ ✓ src/services/__tests__/callLifecycle.test.ts > callLifecycle > end_call args persist outcome, confirmedAt and confirmationRef
+ ✓ src/services/__tests__/callLifecycle.test.ts > callLifecycle > onGeminiClosed ends the call as failed
+ ✓ src/services/__tests__/callLifecycle.test.ts > callLifecycle > logTurn never schedules extraction mid-call; end() schedules it once, after analysis
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > extracts clean JSON
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > extracts JSON from markdown fence
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > extracts JSON from markdown fence without json label
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > removes think blocks
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > extracts JSON from text with chatter
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > extracts JSON from mixed fences and think blocks
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > handles trailing commas
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > handles trailing commas in arrays
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > handles unquoted keys
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > handles unquoted keys with underscores
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > handles multiple issues at once
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > throws on invalid JSON
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJson > throws on malformed JSON that cannot be fixed
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJsonObject > extracts object from JSON
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJsonObject > throws on array
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJsonObject > throws on primitive
+ ✓ src/lib/__tests__/extractJson.test.ts > extractJsonObject > throws on null
+ ✓ src/services/__tests__/taskBriefing.test.ts > task briefing with taskId > a call with taskId = A briefs task A even when task B is newer
+ ✓ src/services/__tests__/taskBriefing.test.ts > task briefing with taskId > a call with taskId = B briefs task B
+ ✓ src/services/__tests__/taskBriefing.test.ts > task briefing with taskId > a call with no taskId returns null
+ ✓ src/services/__tests__/taskBriefing.test.ts > task briefing with taskId > a call with invalid taskId returns null
+ ✓ src/services/__tests__/demoChatPrompt.test.ts > buildDemoChatSystemPrompt > contains the honesty clause about not booking anything
+ ✓ src/services/__tests__/demoChatPrompt.test.ts > buildDemoChatSystemPrompt > does not contain the old misleading phrases
+ ✓ src/services/__tests__/demoChatPrompt.test.ts > buildDemoChatSystemPrompt > keeps the no-nagging rule
+ ✓ src/services/__tests__/demoChatPrompt.test.ts > buildDemoChatSystemPrompt > appends the knowledge block when provided
+ ✓ src/services/__tests__/demoChatPrompt.test.ts > buildDemoChatSystemPrompt > returns the base prompt when knowledge block is empty
+ ✓ src/services/__tests__/demoChatPrompt.test.ts > buildDemoChatSystemPrompt > suggests "Ready to book" style next steps instead of claiming it is done
+ ✓ src/services/__tests__/demoChatPrompt.test.ts > buildDemoChatSystemPrompt > appends the owner info block when provided
+ ✓ src/services/__tests__/demoChatPrompt.test.ts > buildDemoChatSystemPrompt > does not include owner info block when not provided
+ ✓ src/services/__tests__/waitForConsolidation.test.ts > waitForConsolidation > returns immediately when no earlier call is waiting
+ ✓ src/services/__tests__/waitForConsolidation.test.ts > waitForConsolidation > only looks at ended calls with transcript rows that are not consolidated yet
+ ✓ src/services/__tests__/waitForConsolidation.test.ts > waitForConsolidation > waits, then returns true as soon as the previous call is consolidated
+ ✓ src/services/__tests__/waitForConsolidation.test.ts > waitForConsolidation > gives up at the deadline and returns false (caller falls back to the raw tail)
+ ✓ src/services/__tests__/waitForConsolidation.test.ts > waitForConsolidation > does not wait at all when the budget is 0
+ ✓ src/services/__tests__/waitForConsolidation.test.ts > waitForConsolidation > a database error never blocks the call
+ ✓ src/services/__tests__/liveEscalation.test.ts > liveEscalation > ask_user resolves with the answer through resolveLiveQuery
+ ✓ src/services/__tests__/liveEscalation.test.ts > liveEscalation > ask_user times out and the agent receives USER_UNAVAILABLE
+ ✓ src/services/__tests__/liveEscalation.test.ts > liveEscalation > rejectLiveQueries releases only the pending asks of that call
+ ✓ src/services/__tests__/hardening.test.ts > extractJsonObject > parses "{\"a\":1}"
+ ✓ src/services/__tests__/hardening.test.ts > extractJsonObject > parses "```json\n{\"a\":1}\n```"
+ ✓ src/services/__tests__/hardening.test.ts > extractJsonObject > parses "Sure! Here you go:\n{\"a\":1}\nHope that helps"
+ ✓ src/services/__tests__/hardening.test.ts > extractJsonObject > rejects "not json" without echoing it
+ ✓ src/services/__tests__/hardening.test.ts > extractJsonObject > rejects "[1,2]" without echoing it
+ ✓ src/services/__tests__/hardening.test.ts > extractJsonObject > rejects "{\"a\":" without echoing it
+ ✓ src/services/__tests__/hardening.test.ts > isModelRejection is only about the model > 404 The model `foo` does not exist -> true
+ ✓ src/services/__tests__/hardening.test.ts > isModelRejection is only about the model > 400 Model not found: foo -> true
+ ✓ src/services/__tests__/hardening.test.ts > isModelRejection is only about the model > 400 Invalid response_format for model Qwen -> false
+ ✓ src/services/__tests__/hardening.test.ts > isModelRejection is only about the model > 400 This model's maximum context length is 32768 tokens -> false
+ ✓ src/services/__tests__/hardening.test.ts > isModelRejection is only about the model > 400 Unsupported value for temperature on this model -> false
+ ✓ src/services/__tests__/hardening.test.ts > isModelRejection is only about the model > 404 Route not found -> false
+ ✓ src/services/__tests__/hardening.test.ts > isModelRejection is only about the model > 500 model unavailable -> false
+ ✓ src/services/__tests__/hardening.test.ts > parseModelDueDate requires an explicit UTC offset > accepts Z and +hh:mm
+ ✓ src/services/__tests__/hardening.test.ts > parseModelDueDate requires an explicit UTC offset > rejects a time with no offset (would be read in server time)
+ ✓ src/services/__tests__/hindiTranscript.test.ts > Hindi transcript preservation > passes Hindi user and agent turns through unchanged
+ ✓ src/services/__tests__/callAnalysis.test.ts > callAnalysis > buildCallTimeContext gives the right date for a fixed now in Asia/Kolkata
+ ✓ src/services/__tests__/callAnalysis.test.ts > callAnalysis > buildCallTimeContext handles different timezones
+ ✓ src/services/__tests__/callAnalysis.test.ts > callAnalysis > buildAgentCallSystemInstruction with no ownerInfo returns the same text as before
+ ✓ src/services/__tests__/orchestratorDate.test.ts > orchestrator date (real app function) > at 00:30 IST the date is the IST day, not the UTC day
+ ✓ src/services/__tests__/orchestratorDate.test.ts > orchestrator date (real app function) > falls back to DEFAULT_TIMEZONE when the zone is invalid
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/services/__tests__/callAnalysisEscalation.test.ts > analyzeCallForEscalation with a real DB > deterministic fallback extracts building access question from security/access transcript
+AssertionError: expected null to be 'gate_code' // Object.is equality
+
+- Expected: 
+"gate_code"
+
++ Received: 
+null
+
+ ❯ src/services/__tests__/callAnalysisEscalation.test.ts:181:33
+    179|     expect(query).not.toBeNull();
+    180|     expect(query?.question).toBe('What is the gate code?');
+    181|     expect(query?.knowledgeKey).toBe('gate_code');
+       |                                 ^
+    182|     expect(query?.knowledgeCategory).toBe('fact');
+    183|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/services/__tests__/callScheduler.test.ts > callScheduler (real DB) > defers inside the owner quiet hours (IST) without consuming an attempt
+AssertionError: expected '2026-10-09T03:30:00.000Z' to be '2026-10-09T00:30:00.000Z' // Object.is equality
+
+Expected: "2026-10-09T00:30:00.000Z"
+Received: "2026-10-09T03:30:00.000Z"
+
+ ❯ src/services/__tests__/callScheduler.test.ts:167:48
+    165|     expect(after.callAttempts).toBe(0);
+    166|     expect(after.schedulerStatus).toBe('pending');
+    167|     expect(after.nextAttemptAt!.toISOString()).toBe('2026-10-09T00:30:…
+       |                                                ^
+    168|   });
+    169| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/services/__tests__/runExtraction.test.ts > runExtraction > an unreadable model reply leaves the cursor in place; a poison delta is skipped after 3 failures
+AssertionError: expected null to be 'm2' // Object.is equality
+
+- Expected: 
+"m2"
+
++ Received: 
+null
+
+ ❯ src/services/__tests__/runExtraction.test.ts:97:26
+     95|     expect(state.cursor).toBeNull();
+     96|     await runExtraction("c1");
+     97|     expect(state.cursor).toBe("m2"); // skipped so it can't block fore…
+       |                          ^
+     98|   });
+     99| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  3 failed | 22 passed (25)
+      Tests  3 failed | 243 passed (246)
+   Start at  02:41:39
+   Duration  20.90s (transform 670ms, setup 179ms, collect 4.43s, tests 10.36s, environment 5ms, prepare 1.76s)
+
+ ELIFECYCLE  Test failed. See above for more details.

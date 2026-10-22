@@ -381,8 +381,8 @@ async function startGeminiSession(room: Room, call: any) {
 
   room.gemini = await openGeminiLiveSession({
     systemInstructionText: buildAgentCallSystemInstruction({
-      individualName: individual.name,
-      businessName: business.name,
+      individualName: individual.name || '',
+      businessName: business.name || '',
       direction,
       knowledgeFacts,
       taskContext,

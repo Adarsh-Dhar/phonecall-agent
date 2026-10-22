@@ -75,13 +75,18 @@ export async function askUserDuringCall(opts: {
   return new Promise<string>((resolve) => {
     const timer = setTimeout(async () => {
       pending.delete(q.id);
-      // Mark query as expired when timeout happens
-      await prisma.query.update({
-        where: { id: q.id },
-        data: { status: "expired" },
-      });
-      logger.info({ queryId: q.id, callId: opts.callId }, "liveEscalation: query expired due to timeout");
+      // Resolve first so the agent doesn't hang if the DB call fails
       resolve("USER_UNAVAILABLE");
+      // Mark query as expired when timeout happens (best-effort)
+      try {
+        await prisma.query.update({
+          where: { id: q.id },
+          data: { status: "expired" },
+        });
+        logger.info({ queryId: q.id, callId: opts.callId }, "liveEscalation: query expired due to timeout");
+      } catch (err) {
+        logger.error({ err, queryId: q.id, callId: opts.callId }, "liveEscalation: failed to mark query as expired");
+      }
     }, Number(process.env.ASK_USER_TIMEOUT_MS) || 45000);
     pending.set(q.id, { resolve, timer, callId: opts.callId, queryId: q.id });
   });
@@ -101,13 +106,18 @@ export async function rejectLiveQueries(callId: string): Promise<void> {
     if (entry.callId === callId) {
       clearTimeout(entry.timer);
       pending.delete(id);
-      // Mark query as expired when call ends
-      await prisma.query.update({
-        where: { id: entry.queryId },
-        data: { status: "expired" },
-      });
-      logger.info({ queryId: entry.queryId, callId }, "liveEscalation: query expired due to call end");
+      // Resolve first so the agent doesn't hang if the DB call fails
       entry.resolve("USER_UNAVAILABLE");
+      // Mark query as expired when call ends (best-effort)
+      try {
+        await prisma.query.update({
+          where: { id: entry.queryId },
+          data: { status: "expired" },
+        });
+        logger.info({ queryId: entry.queryId, callId }, "liveEscalation: query expired due to call end");
+      } catch (err) {
+        logger.error({ err, queryId: entry.queryId, callId }, "liveEscalation: failed to mark query as expired");
+      }
     }
   }
 }

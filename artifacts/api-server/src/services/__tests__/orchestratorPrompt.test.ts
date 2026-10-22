@@ -71,7 +71,7 @@ describe('callOrchestratorExtraction', () => {
     const arg = vi.mocked(generateOrchestratorText).mock.calls[0][0];
     expect(arg.jsonResponse).toBe(true);
     expect(arg.temperature).toBe(0.2);
-    expect(arg.maxTokens).toBe(4096);
+    expect(arg.maxTokens).toBe(8192);
     expect(arg.turns).toHaveLength(1);
     expect(arg.turns[0].role).toBe('user');
     expect(arg.turns[0].content).toContain('Test Clinic');

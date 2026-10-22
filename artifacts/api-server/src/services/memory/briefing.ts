@@ -171,7 +171,7 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
     // The LAST 14 turns (newest first from the DB, then put back in order).
     // Owner-only rows are never shown to the phone agent.
     const newestFirst = await prisma.message.findMany({
-      where: { callId: lastCall.id, OR: [{ visibility: null }, { visibility: "both" }] },
+      where: { callId: lastCall.id!, visibility: "both" },
       select: { role: true, content: true, speaker: true },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 14,
@@ -314,7 +314,7 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
     : undefined;
 
   const briefBusiness = {
-    name: business.name,
+    name: business.name || '',
     hours: business.businessHoursJson || undefined,
     closedNow: briefClosedNow,
   };
@@ -339,7 +339,7 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
     now: `${nowIso} (${tz})`,
     timezone: tz,
     individual: {
-      name: individual.name,
+      name: individual.name || '',
       shareableInfo: briefShareableInfo,
     },
     business: briefBusiness,
