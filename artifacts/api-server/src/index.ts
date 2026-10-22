@@ -31,8 +31,12 @@ if (!process.env.DATABASE_URL) {
   throw new Error(
     "DATABASE_URL environment variable is required but was not provided."
   );
-} else {
-  logger.info("DATABASE_URL provided: " + process.env.DATABASE_URL);
+}
+
+// Validate JWT_SECRET at startup (not lazy-loaded)
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'development' ? 'dev-only-jwt-secret-do-not-use-in-production' : null);
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required in production');
 }
 
 // ---------------------------------------------------------------------------

@@ -18,6 +18,7 @@
  */
 
 import { WebSocketServer, WebSocket } from "ws";
+import type { IncomingMessage } from "http";
 import { prisma } from "@workspace/db-prisma";
 import { browserPayloadToPcm16, pcm16ToBrowserPayload } from "../lib/audioCodec";
 import { openGeminiLiveSession, type GeminiVoiceSession } from "./geminiVoiceSession";
@@ -60,7 +61,14 @@ async function getOrCreateTestContact(ownerId: string) {
 export function createBrowserVoiceStream(): WebSocketServer {
   const wss = new WebSocketServer({ noServer: true });
 
-  wss.on("connection", (browserWs: WebSocket) => {
+  wss.on("connection", (browserWs: WebSocket, req: IncomingMessage) => {
+    const authUserId = (req as any).userId;
+    if (!authUserId) {
+      logger.warn("Browser voice connection without authenticated userId");
+      browserWs.close();
+      return;
+    }
+
     let gemini: GeminiVoiceSession | null = null;
     let lifecycle: ReturnType<typeof createCallLifecycle> | null = null;
 
@@ -77,35 +85,22 @@ export function createBrowserVoiceStream(): WebSocketServer {
           try {
             const contactId: string | undefined = msg.contactId;
             const taskId: string | undefined    = msg.taskId;
-            // userId is supplied by the browser from its JWT-decoded session so
-            // we can scope the test contact to the correct login account.
-            const userId: string | undefined    = msg.userId;
 
             let contact;
 
             if (contactId) {
-              // Specific contact requested — look it up directly
+              // Specific contact requested — verify ownership
               contact = await prisma.account.findFirst({
-                where: { id: contactId, isService: true },
+                where: { id: contactId, isService: true, ownerId: authUserId },
               });
-            } else if (userId) {
-              // No specific contact — use / create the Browser Test service account
-              contact = await getOrCreateTestContact(userId);
-            } else {
-              // Fallback for environments where userId is not passed: use the
-              // first login account's Browser Test contact (dev-only convenience)
-              const firstLoginAccount = await prisma.account.findFirst({
-                where: { isService: false },
-                orderBy: { createdAt: "asc" },
-              });
-              if (firstLoginAccount) {
-                contact = await getOrCreateTestContact(firstLoginAccount.id);
+              if (!contact) {
+                browserWs.send(JSON.stringify({ type: "error", message: "Contact not found or not owned by you" }));
+                browserWs.close();
+                return;
               }
-            }
-
-            if (!contact) {
-              browserWs.send(JSON.stringify({ type: "error", message: "Contact not found" }));
-              return;
+            } else {
+              // No specific contact — use / create the Browser Test service account for the authenticated user
+              contact = await getOrCreateTestContact(authUserId);
             }
 
             // If this call was triggered from a specific task (e.g. "Call"
