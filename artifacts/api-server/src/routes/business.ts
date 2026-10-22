@@ -275,7 +275,7 @@ router.get('/contacts', requireBusiness, asyncHandler(async (req, res) => {
 router.post('/contacts/from-account/:accountId', requireBusiness, asyncHandler(async (req, res) => {
   const { accountId } = req.params;
 
-  // Verify the target account exists
+  // Verify the target account exists and is a public account (not someone's private contact)
   const target = await prisma.account.findUnique({
     where: { id: String(accountId) },
     select: {
@@ -284,6 +284,7 @@ router.post('/contacts/from-account/:accountId', requireBusiness, asyncHandler(a
       email: true,
       picture: true,
       isService: true,
+      ownerId: true,
       business: true,
       category: true,
       phone: true,
@@ -294,6 +295,12 @@ router.post('/contacts/from-account/:accountId', requireBusiness, asyncHandler(a
     },
   });
   if (!target) {
+    res.status(404).json({ error: 'Account not found' });
+    return;
+  }
+
+  // Reject private service accounts (owned by another user)
+  if (target.ownerId !== null) {
     res.status(404).json({ error: 'Account not found' });
     return;
   }

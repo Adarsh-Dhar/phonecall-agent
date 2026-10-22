@@ -6,14 +6,38 @@
  * 2. Client-sent userId in messages is ignored (only authenticated userId is used)
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { prisma } from "@workspace/db-prisma";
+import { createBrowserVoiceStream } from "../voiceStreamBrowser";
+import { WebSocket as WSClient } from "ws";
+import { createServer, type Server as HTTPServer } from "http";
+
+// Mock Gemini and lifecycle to prevent actual calls
+vi.mock("../geminiVoiceSession", () => ({
+  openGeminiLiveSession: vi.fn().mockResolvedValue({
+    sendAudio: vi.fn(),
+    close: vi.fn(),
+  }),
+}));
+
+vi.mock("../callLifecycle", () => ({
+  createCallLifecycle: vi.fn().mockReturnValue({
+    noteAudioOut: vi.fn(),
+    logTurn: vi.fn(),
+    onAskUser: vi.fn().mockResolvedValue('USER_UNAVAILABLE'),
+    onEndCall: vi.fn(),
+    onGeminiClosed: vi.fn(),
+    end: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
 
 describe("Voice WebSocket Ownership Security", () => {
   let userA: string;
   let userB: string;
   let contactA: string;
   let contactB: string;
+  let httpServer: HTTPServer;
+  let serverPort: number;
 
   beforeAll(async () => {
     // Create two individual users
@@ -65,6 +89,18 @@ describe("Voice WebSocket Ownership Security", () => {
       },
     });
     contactB = contactForB.id;
+
+    // Create HTTP server on random port
+    httpServer = createServer();
+    await new Promise<void>((resolve) => {
+      httpServer.listen(0, () => {
+        const addr = httpServer.address();
+        if (addr && typeof addr === 'object') {
+          serverPort = addr.port;
+        }
+        resolve();
+      });
+    });
   });
 
   afterAll(async () => {
@@ -74,51 +110,98 @@ describe("Voice WebSocket Ownership Security", () => {
         id: { in: [userA, userB, contactA, contactB] },
       },
     });
+    httpServer.close();
   });
 
-  it("should reject user A accessing user B's contact", async () => {
-    // This tests the exact query used in voiceStreamBrowser.ts line 93-95
-    const contact = await prisma.account.findFirst({
-      where: { id: contactB, isService: true, ownerId: userA },
+  it("should reject user A accessing user B's contact via WebSocket", async () => {
+    const wss = createBrowserVoiceStream();
+
+    // Set up upgrade handler to authenticate as user A
+    httpServer.removeAllListeners('upgrade');
+    httpServer.on('upgrade', (req, socket, head) => {
+      (req as any).userId = userA; // Authenticate as user A
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req);
+      });
     });
 
-    // Should return null since contactB belongs to userB, not userA
-    expect(contact).toBeNull();
+    // Connect as user A
+    const ws = new WSClient(`ws://localhost:${serverPort}/media/browser`);
+
+    await new Promise<void>((resolve) => {
+      ws.on('open', resolve);
+    });
+
+    // Try to start a call with user B's contact
+    ws.send(JSON.stringify({
+      type: "start",
+      contactId: contactB,
+    }));
+
+    // Should receive error and close
+    const messages: any[] = [];
+    ws.on('message', (data) => {
+      messages.push(JSON.parse(data.toString()));
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const errorMsg = messages.find(m => m.type === 'error');
+    expect(errorMsg).toBeDefined();
+    expect(errorMsg?.message).toContain('not found or not owned');
+
+    // Wait for socket to close
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    ws.close();
   });
 
-  it("demonstrates vulnerability without ownership check", async () => {
-    // This test shows what the bug would allow if we removed the ownerId filter
-    // It's intentionally using the vulnerable query to document the security issue
-    const vulnerableQuery = await prisma.account.findFirst({
-      where: { id: contactB, isService: true }, // NO ownerId filter - vulnerable!
+  it("should ignore spoofed userId in message", async () => {
+    const wss = createBrowserVoiceStream();
+
+    httpServer.removeAllListeners('upgrade');
+    httpServer.on('upgrade', (req, socket, head) => {
+      (req as any).userId = userA; // Authenticate as user A
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req);
+      });
     });
 
-    // This would return the contact even though it belongs to userB
-    // The fix in voiceStreamBrowser.ts prevents this by adding: ownerId: authUserId
-    expect(vulnerableQuery).not.toBeNull();
-    expect(vulnerableQuery?.id).toBe(contactB);
-    expect(vulnerableQuery?.ownerId).toBe(userB); // But it's owned by userB, not the requester
-  });
+    const ws = new WSClient(`ws://localhost:${serverPort}/media/browser`);
 
-  it("should allow user A accessing their own contact", async () => {
-    const contact = await prisma.account.findFirst({
-      where: { id: contactA, isService: true, ownerId: userA },
+    await new Promise<void>((resolve) => {
+      ws.on('open', resolve);
     });
 
-    // Should return the contact since it belongs to userA
-    expect(contact).not.toBeNull();
-    expect(contact?.id).toBe(contactA);
-  });
+    // Send spoofed userId in message (should be ignored)
+    ws.send(JSON.stringify({
+      type: "start",
+      userId: userB, // Spoofed - should be ignored
+    }));
 
-  it("should verify that contact lookup without ownership check is vulnerable", async () => {
-    // This demonstrates the bug: without the ownerId filter, any user can access any contact
-    const vulnerableQuery = await prisma.account.findFirst({
-      where: { id: contactB, isService: true },
+    const messages: any[] = [];
+    ws.on('message', (data) => {
+      messages.push(JSON.parse(data.toString()));
     });
 
-    // This would return the contact even though userA doesn't own it
-    expect(vulnerableQuery).not.toBeNull();
-    expect(vulnerableQuery?.id).toBe(contactB);
-    expect(vulnerableQuery?.ownerId).toBe(userB); // But it's owned by userB
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // Should not get an error (uses authenticated userA's ID)
+    const errorMsg = messages.find(m => m.type === 'error');
+    expect(errorMsg).toBeUndefined();
+
+    // Verify that any contact created belongs to user A, not user B
+    const browserTestContact = await prisma.account.findFirst({
+      where: { name: "Browser Test", ownerId: userA, isService: true },
+    });
+    expect(browserTestContact).toBeDefined();
+    expect(browserTestContact?.ownerId).toBe(userA);
+
+    // User B should not have a new Browser Test contact
+    const userBBrowserTest = await prisma.account.findFirst({
+      where: { name: "Browser Test", ownerId: userB, isService: true },
+    });
+    expect(userBBrowserTest).toBeNull();
+
+    ws.close();
   });
 });
