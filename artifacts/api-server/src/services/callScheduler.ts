@@ -4,12 +4,22 @@
  * services/calendarSync.ts) and decides when it's time to call a contact.
  *
  * DESIGN DECISION: calls are in-app only. This scheduler never dials a phone
- * number. When a task's nextAttemptAt arrives it broadcasts "call_due" to the
- * owner's open browser tabs (services/presence.ts), falling back to push
- * (services/push.ts) when they are offline. The frontend then opens the
- * browser-mic call widget. Do not reintroduce a carrier dial path here: it
- * would create Call rows with no individualId/businessId, which every
- * ownership check in services/callSignaling.ts relies on.
+ * number. When a task's nextAttemptAt arrives:
+ *   1. If the task's contact is linked to a business account, the AGENT places the
+ *      call itself (services/agentCallTools.ts → dialCallAs): the business's app
+ *      rings, and once they accept, the individual's AI agent talks to them.
+ *      Set CALL_SCHEDULER_AUTO_DIAL=0 to disable this and only notify.
+ *   2. Otherwise (no linked business account, or the call can't be created) it
+ *      broadcasts "call_due" to the owner's open browser tabs (services/presence.ts),
+ *      falling back to push (services/push.ts) when they are offline.
+ * Do not reintroduce a carrier dial path here: it would create Call rows with no
+ * individualId/businessId, which every ownership check in services/callSignaling.ts
+ * relies on.
+ *
+ * EXACT TIMING: the 30s poll alone could fire up to 30s late. startCallScheduler() also
+ * arms a one-shot timer for the earliest upcoming nextAttemptAt (armWake), re-armed after
+ * every cycle and whenever a task is created/moved (nudgeScheduler), so calls fire at the
+ * scheduled instant (±~10ms) while the poll remains the safety net.
  *
  * When a task exhausts its maximum retry attempts (MAX_ATTEMPTS), the scheduler
  * broadcasts a "call_exhausted" notification to inform the user that the contact
@@ -24,7 +34,8 @@ import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
 import { broadcastCallDue, broadcastCallExhausted } from "./notifications";
 import { sendToAccount } from "./presence";
-import { computeNextAttempt, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS, resolveEffectiveHours, DEFAULT_BUSINESS_HOURS } from "./schedulerPolicy";
+import { computeNextAttempt, computeAutoDialRetry, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS, resolveEffectiveHours, DEFAULT_BUSINESS_HOURS } from "./schedulerPolicy";
+import { agentPlaceCall } from "./agentCallTools";
 import type { Closure } from "./closurePolicy";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
@@ -33,8 +44,18 @@ const CLAIM_TTL_MS = Number(process.env.SCHEDULER_CLAIM_TTL_MS) || 5 * 60 * 1000
 const CONCURRENCY_LIMIT = 5;
 const RINGING_TIMEOUT_MS = Number(process.env.RINGING_TIMEOUT_MS) || 60 * 1000; // 1 minute
 
+/** The agent dials by itself when the task's contact is a linked business. 0 = notify only. */
+const AUTO_DIAL = process.env.CALL_SCHEDULER_AUTO_DIAL !== "0";
+/** Calendar-created call tasks ignore quiet hours / business hours unless this is "1" (closures still apply). */
+const CALENDAR_CALLS_RESPECT_HOURS = process.env.CALENDAR_CALLS_RESPECT_HOURS === "1";
+
+const WAKE_PAD_MS = 5; // timers can fire a hair early relative to Date.now()
+
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+let wakeTimer: ReturnType<typeof setTimeout> | null = null;
 let isRunning = false;
+let started = false;
+let rerunRequested = false;
 
 export function startCallScheduler(): void {
   if (pollTimer) {
@@ -44,11 +65,17 @@ export function startCallScheduler(): void {
 
   logger.info({ pollIntervalMs: POLL_INTERVAL_MS }, "Starting call scheduler");
 
+  started = true;
   void checkDueTasks();
   pollTimer = setInterval(() => void checkDueTasks(), POLL_INTERVAL_MS);
 }
 
 export function stopCallScheduler(): void {
+  started = false;
+  if (wakeTimer) {
+    clearTimeout(wakeTimer);
+    wakeTimer = null;
+  }
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;
@@ -56,9 +83,53 @@ export function stopCallScheduler(): void {
   }
 }
 
+/**
+ * Re-arm the exact-time wake-up. Call after creating or moving a call task so it fires at its
+ * scheduled instant instead of waiting for the next poll. No-op until startCallScheduler() ran.
+ */
+export function nudgeScheduler(): void {
+  if (started) void armWake();
+}
+
+/** One-shot timer for the earliest future pending task that falls inside the next poll window. */
+async function armWake(): Promise<void> {
+  try {
+    if (wakeTimer) {
+      clearTimeout(wakeTimer);
+      wakeTimer = null;
+    }
+    const now = new Date();
+    const next = await prisma.task.findFirst({
+      where: {
+        kind: "call",
+        status: { in: ["open", "in_progress"] },
+        schedulerStatus: "pending",
+        nextAttemptAt: { gt: now },
+      },
+      orderBy: { nextAttemptAt: "asc" },
+      select: { nextAttemptAt: true },
+    });
+    if (!next?.nextAttemptAt) return;
+
+    const delay = next.nextAttemptAt.getTime() - Date.now();
+    // Further away than one poll interval: the regular poll re-arms on its next cycle.
+    if (delay > POLL_INTERVAL_MS) return;
+
+    wakeTimer = setTimeout(() => {
+      wakeTimer = null;
+      void checkDueTasks();
+    }, Math.max(delay, 0) + WAKE_PAD_MS);
+    wakeTimer.unref?.();
+  } catch (err) {
+    logger.error({ err }, "callScheduler: failed to arm wake-up timer");
+  }
+}
+
 export async function checkDueTasks(): Promise<void> {
   if (isRunning) {
     logger.debug("callScheduler: previous cycle still running, skipping");
+    // A due task must not wait for the next poll just because a cycle was mid-flight.
+    if (started) rerunRequested = true;
     return;
   }
 
@@ -234,6 +305,14 @@ export async function checkDueTasks(): Promise<void> {
     logger.error({ err }, "callScheduler: failed to check due tasks");
   } finally {
     isRunning = false;
+    if (started) {
+      if (rerunRequested) {
+        rerunRequested = false;
+        void checkDueTasks();
+      } else {
+        void armWake();
+      }
+    }
   }
 }
 
@@ -320,12 +399,16 @@ async function processTask(
         : [];
     }
 
+    // A call the user put on their calendar for a specific time runs at that time, even outside the
+    // contact's usual opening hours or the owner's quiet hours (they chose it explicitly). Closures
+    // the business declared (holiday / out of service) still block it.
+    const ignoreHours = task.source === "calendar" && !CALENDAR_CALLS_RESPECT_HOURS;
     const windowCheck = isWithinAllowedWindow(
       now,
       ownerTz,
-      owner.quietHoursStart,
-      owner.quietHoursEnd,
-      businessHours || null,
+      ignoreHours ? null : owner.quietHoursStart,
+      ignoreHours ? null : owner.quietHoursEnd,
+      ignoreHours ? null : businessHours || null,
       closures,
     );
 
@@ -369,22 +452,51 @@ async function processTask(
       return;
     }
 
-    // Attempt to notify the user
-    const delivered = await broadcastCallDue({
-      type: "call_due",
-      taskId: task.id,
-      contactId: task.contactId,
-      contactName: contact.name,
-      title: task.title,
-      description: task.description,
-      ownerId: contact.ownerId,
-      attempt: task.callAttempts + 1,
-      maxAttempts: MAX_ATTEMPTS,
-    });
+    // Preferred path: the agent places the call itself. It only applies when the owner is an
+    // individual and the contact is linked to a real business account (that is what dialCallAs needs).
+    let autoDialed = false;
+    let delivered = false;
+    if (AUTO_DIAL && !owner.isService && contact.linkedAccountId) {
+      const outcome = await agentPlaceCall({
+        ownerId: contact.ownerId,
+        contactId: contact.id,
+        contactName: contact.name,
+        taskId: task.id,
+        taskTitle: task.title,
+      });
+      if (outcome.kind === "ringing") {
+        autoDialed = true;
+        delivered = true;
+      } else if (outcome.kind === "missed") {
+        autoDialed = true; // business offline; a missed Call row exists, retry soon
+      } else {
+        logger.info(
+          { taskId: task.id, reason: outcome.reason },
+          "callScheduler: agent could not place call, falling back to notification",
+        );
+      }
+    }
+
+    // Fallback path (also the only path when auto-dial is off / contact isn't dialable): notify the user.
+    if (!autoDialed) {
+      delivered = await broadcastCallDue({
+        type: "call_due",
+        taskId: task.id,
+        contactId: task.contactId,
+        contactName: contact.name,
+        title: task.title,
+        description: task.description,
+        ownerId: contact.ownerId,
+        attempt: task.callAttempts + 1,
+        maxAttempts: MAX_ATTEMPTS,
+      });
+    }
 
     // Increment attempt count and set lastAttemptAt
     const newAttempts = task.callAttempts + 1;
-    const nextAttemptTime = computeNextAttempt(newAttempts, now);
+    const nextAttemptTime = autoDialed
+      ? computeAutoDialRetry(newAttempts, now)
+      : computeNextAttempt(newAttempts, now);
 
     if (newAttempts >= MAX_ATTEMPTS) {
       // Exhausted attempts - mark as exhausted and notify owner
@@ -397,15 +509,19 @@ async function processTask(
         },
       });
 
-      await broadcastCallExhausted({
-        type: "call_exhausted",
-        taskId: task.id,
-        contactId: task.contactId,
-        contactName: contact.name,
-        title: task.title,
-        attempts: newAttempts,
-        ownerId: contact.ownerId,
-      });
+      // If the final attempt just started ringing, don't tell the user "couldn't reach" yet — the
+      // Call row shows how it ended.
+      if (!(autoDialed && delivered)) {
+        await broadcastCallExhausted({
+          type: "call_exhausted",
+          taskId: task.id,
+          contactId: task.contactId,
+          contactName: contact.name,
+          title: task.title,
+          attempts: newAttempts,
+          ownerId: contact.ownerId,
+        });
+      }
 
       logger.info(
         { taskId: task.id, attempts: newAttempts },

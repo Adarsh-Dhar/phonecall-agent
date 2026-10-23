@@ -73,6 +73,16 @@ export default function IndividualApp() {
         description: event.question,
       });
       setLocation('/queries');
+    },
+    (event) => {
+      // The agent placed (scheduled call) or answered (auto-answer) a call by itself.
+      toast({
+        title: event.direction === 'outbound' ? 'Your agent is calling' : 'Your agent answered a call',
+        description:
+          event.direction === 'outbound'
+            ? `${event.contactName ?? 'A contact'}${event.title ? ` — ${event.title}` : ''}. Open Calls to watch the transcript.`
+            : `${event.contactName ?? 'A business'} called. Open Calls to watch the transcript.`,
+      });
     }
   );
 

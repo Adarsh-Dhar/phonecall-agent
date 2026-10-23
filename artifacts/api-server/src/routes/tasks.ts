@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
 import { runExtraction } from "../services/taskExtraction";
 import { syncTaskToCalendar } from "../services/googleCalendar";
+import { nudgeScheduler } from "../services/callScheduler";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sourcesInclude, contactCardSelect } from "../lib/prismaSelects";
 
@@ -131,6 +132,9 @@ router.post("/", asyncHandler(async (req, res) => {
     include: { ...sourcesInclude, contact: true },
   });
 
+  // Arm the exact-time wake-up so a task due in the next few seconds fires on time.
+  if (task.dueDate) nudgeScheduler();
+
   // Sync to Google Calendar (non-blocking)
   if (task.dueDate) {
     syncTaskToCalendar({
@@ -201,6 +205,8 @@ router.patch("/tasks/:id", asyncHandler(async (req, res) => {
     data: updateData,
     include: { ...sourcesInclude, contact: true },
   });
+
+  if (dueDateChanged) nudgeScheduler();
 
   // Sync to Google Calendar (non-blocking)
   const shouldSync = dueDate !== undefined || status !== undefined || title !== undefined;

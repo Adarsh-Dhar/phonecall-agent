@@ -25,3 +25,4 @@ export {
   listChangedEvents,
   syncTaskToCalendar,
 } from "./taskSync";
+export type { ChangedCalendarEvent } from "./taskSync";

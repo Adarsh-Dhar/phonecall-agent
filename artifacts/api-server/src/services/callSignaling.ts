@@ -44,6 +44,18 @@ export async function isContact(callerId: string, receiverId: string): Promise<b
 }
 
 /**
+ * RECEIVE side of the agent's call tools: does this individual let their AI agent pick up
+ * incoming business calls itself? (Account.agentAutoAnswer, toggled via PATCH /api/user/agent-auto-answer.)
+ */
+export async function agentWillAutoAnswer(individualId: string): Promise<boolean> {
+  const account = await prisma.account.findUnique({
+    where: { id: individualId },
+    select: { agentAutoAnswer: true, isService: true },
+  });
+  return !!account && !account.isService && account.agentAutoAnswer === true;
+}
+
+/**
  * Determine which role initiated the call.
  */
 export function initiatorRoleOf(call: { initiatedBy: string | null }): CallRole | null {
@@ -272,8 +284,9 @@ export async function dialCallAs(
   contactId: string,
   taskId: string | null,
   dialerId: string,
-  dialerRole: CallRole
-) {
+  dialerRole: CallRole,
+  opts: { agent?: boolean } = {}
+): Promise<{ call: any; status: 'missed' | 'ringing' | 'in-progress'; delivered?: boolean }> {
   if (!contactId) {
     throw new Error('contactId is required');
   }
@@ -454,9 +467,12 @@ export async function dialCallAs(
 
   // Mark any previous ringing calls from the same dialer as missed
   // This ensures only the latest call shows Accept/Decline buttons
+  // Agent-placed calls (several calendar events can fall on the same minute) must not hang up each
+  // other's ringing calls to DIFFERENT businesses, so for those only supersede a ring to the same callee.
   const previousRingingCalls = await prisma.call.findMany({
     where: {
       status: 'ringing',
+      ...(opts.agent ? { calleeAccountId } : {}),
       OR: [
         { individualId: dialerId },
         { businessId: dialerId },
@@ -483,7 +499,11 @@ export async function dialCallAs(
     }
   }
 
-  if (!online) {
+  // A business calling an individual whose agent auto-answers: the call starts in-progress, no ring,
+  // and the individual does not have to be online.
+  const autoAnswer = dialerRole === 'business' && (await agentWillAutoAnswer(calleeAccountId));
+
+  if (!online && !autoAnswer) {
     // Create missed call
     const call = await prisma.call.create({
       data: {
@@ -507,6 +527,43 @@ export async function dialCallAs(
     });
 
     return { call, status: 'missed' };
+  }
+
+  if (autoAnswer) {
+    const answeredAt = new Date();
+    const call = await prisma.call.create({
+      data: {
+        status: 'in-progress',
+        ringingAt: answeredAt,
+        acceptedAt: answeredAt,
+        startedAt: answeredAt,
+        contactId: callContactId,
+        calleeAccountId,
+        conversationId: conversation.id,
+        from: calleeAccountId,
+        to: calleeAccountId,
+        taskId,
+        individualId,
+        businessId,
+        initiatedBy: dialerRole,
+      },
+    });
+
+    const callerAccount = await prisma.account.findUnique({ where: { id: dialerId }, select: { name: true } });
+
+    sendToAccount(dialerId, { type: 'call_created', callId: call.id });
+    sendToAccount(dialerId, { type: 'call_status', callId: call.id, status: 'in-progress' });
+    // Let the individual's open tabs know their agent just picked up (they can observe the transcript).
+    sendToAccount(calleeAccountId, {
+      type: 'agent_call',
+      direction: 'inbound',
+      callId: call.id,
+      contactName: callerAccount?.name ?? null,
+      title: null,
+    });
+
+    logger.info({ callId: call.id, individualId }, 'dialCallAs: agent auto-answered incoming business call');
+    return { call, status: 'in-progress', delivered: online };
   }
 
   // Create ringing call

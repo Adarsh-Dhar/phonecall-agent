@@ -39,6 +39,7 @@ export function Preferences({ onClose }: { onClose: () => void }) {
   const [timezone, setTimezone] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [quietHoursStart, setQuietHoursStart] = useState<number | null>(null);
   const [quietHoursEnd, setQuietHoursEnd] = useState<number | null>(null);
+  const [agentAutoAnswer, setAgentAutoAnswer] = useState(false);
   const { permission, subscribe } = usePushSubscription();
 
   const toggle = (id: string) =>
@@ -55,6 +56,13 @@ export function Preferences({ onClose }: { onClose: () => void }) {
       })
       .catch(() => {
         // Default to browser timezone
+      });
+
+    apiFetch('/api/user/agent-auto-answer')
+      .then((res) => res.json())
+      .then((data) => setAgentAutoAnswer(data.enabled === true))
+      .catch(() => {
+        // Default to off
       });
 
     apiFetch('/api/user/quiet-hours')
@@ -84,6 +92,12 @@ export function Preferences({ onClose }: { onClose: () => void }) {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quietHoursStart, quietHoursEnd }),
+      });
+
+      await apiFetch('/api/user/agent-auto-answer', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: agentAutoAnswer }),
       });
     } catch (err) {
       console.error('Failed to save preferences:', err);
@@ -139,6 +153,24 @@ export function Preferences({ onClose }: { onClose: () => void }) {
                 />
               </div>
             ))}
+          </div>
+
+          {/* Agent auto-answer */}
+          <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
+            <div className="flex-1">
+              <Label htmlFor="pref-agent-auto-answer" className="cursor-pointer text-sm font-medium leading-none">
+                Let my agent answer calls
+              </Label>
+              <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                When a business calls you, your AI agent picks up and talks for you, even if you're offline.
+              </p>
+            </div>
+            <Switch
+              id="pref-agent-auto-answer"
+              data-testid="switch-agent-auto-answer"
+              checked={agentAutoAnswer}
+              onCheckedChange={setAgentAutoAnswer}
+            />
           </div>
 
           {/* Timezone selector */}

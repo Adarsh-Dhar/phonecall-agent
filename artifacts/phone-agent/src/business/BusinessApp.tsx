@@ -22,6 +22,11 @@ export default function BusinessApp() {
         // Reload calls to show the missed call in history
         return;
       }
+      if (r.status === 'in-progress') {
+        // The individual's AI agent auto-answered: there is no ringing phase, join straight away.
+        setActiveCallId(r.callId);
+        return;
+      }
       setDialingId(r.callId);
     } catch (error) {
       console.error('Failed to dial:', error);

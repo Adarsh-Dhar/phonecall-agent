@@ -6,7 +6,9 @@
  */
 
 import { prisma } from "@workspace/db-prisma";
-import { listChangedEvents } from "./googleCalendar";
+import { listChangedEvents, type ChangedCalendarEvent } from "./googleCalendar";
+import { ingestCalendarEvent } from "./calendarIngest";
+import { nudgeScheduler } from "./callScheduler";
 import { logger } from "../lib/logger";
 
 // ---------------------------------------------------------------------------
@@ -67,6 +69,9 @@ export async function manualSync(userId: string): Promise<{
   return await syncCalendarChanges(userId);
 }
 
+/** One sync at a time per account, so a manual sync can't race the poller into double-creating tasks. */
+const syncing = new Set<string>();
+
 // ---------------------------------------------------------------------------
 // Internal Implementation
 // ---------------------------------------------------------------------------
@@ -107,6 +112,12 @@ async function syncCalendarChanges(userId: string): Promise<{
   errors: number;
 }> {
   const result = { synced: 0, errors: 0 };
+
+  if (syncing.has(userId)) {
+    logger.debug({ userId }, "Calendar sync already running for account, skipping");
+    return result;
+  }
+  syncing.add(userId);
 
   try {
     // Get current sync token from database
@@ -153,6 +164,8 @@ async function syncCalendarChanges(userId: string): Promise<{
   } catch (error) {
     logger.error({ error, userId }, "Calendar sync failed");
     result.errors++;
+  } finally {
+    syncing.delete(userId);
   }
 
   return result;
@@ -161,14 +174,7 @@ async function syncCalendarChanges(userId: string): Promise<{
 /**
  * Process a single calendar event change and update the corresponding task.
  */
-async function processEventChange(event: {
-  id: string;
-  summary: string | null;
-  description: string | null;
-  start: { dateTime?: string; date?: string } | null;
-  end: { dateTime?: string; date?: string } | null;
-  status: string;
-}, userId: string): Promise<void> {
+async function processEventChange(event: ChangedCalendarEvent, userId: string): Promise<void> {
   // Find task by Google event ID, scoped to this login account's service contacts
   const task = await prisma.task.findFirst({
     where: {
@@ -179,7 +185,12 @@ async function processEventChange(event: {
   });
 
   if (!task) {
-    logger.debug({ eventId: event.id, userId }, "No task found for calendar event, skipping");
+    // Not an event the app created. If it is a "call" event the user typed into Google Calendar,
+    // turn it into a scheduled call task (no-op for every other kind of event).
+    const result = await ingestCalendarEvent(event, userId);
+    if (result.status === "skipped" && result.reason !== "not_call_event") {
+      logger.debug({ eventId: event.id, userId, reason: result.reason }, "Calendar event not ingested");
+    }
     return;
   }
 
@@ -241,5 +252,8 @@ async function processEventChange(event: {
       where: { id: task.id },
       data:  updateData,
     });
+
+    // The event moved: re-arm the exact-time wake-up for its new start.
+    if (updateData.nextAttemptAt) nudgeScheduler();
   }
 }

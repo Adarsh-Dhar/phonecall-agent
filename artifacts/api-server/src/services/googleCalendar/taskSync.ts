@@ -240,19 +240,40 @@ export async function deleteEvent(task: {
   }
 }
 
+/** One event as returned by listChangedEvents(), flattened to what calendarSync/calendarIngest need. */
+export interface ChangedCalendarEvent {
+  id: string;
+  summary: string | null;
+  description: string | null;
+  start: { dateTime?: string; date?: string } | null;
+  end: { dateTime?: string; date?: string } | null;
+  status: string;
+  /** True when the signed-in user created / organizes the event (false for invites from others). */
+  creatorSelf: boolean;
+  organizerSelf: boolean;
+}
+
+/** How far back the very first (token-less) sync looks. Anything older can never trigger a call. */
+const INITIAL_SYNC_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+const MAX_SYNC_PAGES = 20;
+
+function isGoneError(error: any): boolean {
+  return error?.code === 410 || error?.status === 410 || error?.response?.status === 410;
+}
+
 /**
  * List changed events using incremental sync with syncToken.
  * Returns the new syncToken and array of changed events.
+ *
+ * - singleEvents: true expands recurring events into concrete instances, each with its own exact
+ *   start time (a recurring "Call the bank" fires on every occurrence, not only the first).
+ * - Follows nextPageToken: Google only returns nextSyncToken on the LAST page, so reading one page
+ *   silently broke sync for calendars with more than 250 changed events.
+ * - HTTP 410 (sync token expired/invalidated) clears the stored token and restarts with a full sync
+ *   instead of failing forever.
  */
 export async function listChangedEvents(userId: string, syncToken?: string): Promise<{
-  events: Array<{
-    id: string;
-    summary: string | null;
-    description: string | null;
-    start: { dateTime?: string; date?: string } | null;
-    end: { dateTime?: string; date?: string } | null;
-    status: string;
-  }>;
+  events: ChangedCalendarEvent[];
   nextSyncToken: string | null;
 }> {
   const auth = await getAuthedClient(userId);
@@ -261,30 +282,61 @@ export async function listChangedEvents(userId: string, syncToken?: string): Pro
     return { events: [], nextSyncToken: null };
   }
 
+  const calendar = google.calendar({ version: "v3", auth });
+
+  const fetchAll = async (token?: string) => {
+    const items: any[] = [];
+    let pageToken: string | undefined;
+    let nextSyncToken: string | null = null;
+
+    for (let page = 0; page < MAX_SYNC_PAGES; page++) {
+      const response: any = await calendar.events.list({
+        calendarId: GOOGLE_CALENDAR_ID,
+        singleEvents: true,
+        maxResults: 250,
+        pageToken,
+        // Google rejects timeMin together with syncToken, so only the initial sync is windowed.
+        ...(token
+          ? { syncToken: token }
+          : { timeMin: new Date(Date.now() - INITIAL_SYNC_LOOKBACK_MS).toISOString() }),
+      });
+      items.push(...(response.data.items || []));
+      pageToken = response.data.nextPageToken || undefined;
+      if (!pageToken) {
+        nextSyncToken = response.data.nextSyncToken || null;
+        break;
+      }
+    }
+    return { items, nextSyncToken };
+  };
+
   try {
-    const calendar = google.calendar({ version: "v3", auth });
+    let result;
+    try {
+      result = await fetchAll(syncToken);
+    } catch (error) {
+      if (!syncToken || !isGoneError(error)) throw error;
+      logger.warn({ userId }, "Calendar sync token expired (410), restarting with a full sync");
+      await prisma.account.update({ where: { id: userId }, data: { syncToken: null } });
+      result = await fetchAll(undefined);
+    }
 
-    const response = await calendar.events.list({
-      calendarId: GOOGLE_CALENDAR_ID,
-      syncToken: syncToken,
-    });
-
-    const events = (response.data.items || []).map((event) => ({
+    const events: ChangedCalendarEvent[] = result.items.map((event: any) => ({
       id: event.id || "",
       summary: event.summary || null,
       description: event.description || null,
-      start: event.start ? {
-        dateTime: event.start.dateTime || undefined,
-        date: event.start.date || undefined,
-      } : null,
-      end: event.end ? {
-        dateTime: event.end.dateTime || undefined,
-        date: event.end.date || undefined,
-      } : null,
+      start: event.start
+        ? { dateTime: event.start.dateTime || undefined, date: event.start.date || undefined }
+        : null,
+      end: event.end
+        ? { dateTime: event.end.dateTime || undefined, date: event.end.date || undefined }
+        : null,
       status: event.status || "",
+      creatorSelf: event.creator?.self === true,
+      organizerSelf: event.organizer?.self === true,
     }));
 
-    const nextSyncToken = response.data.nextSyncToken || null;
+    const nextSyncToken = result.nextSyncToken;
 
     // Update sync token in database if we got a new one
     if (nextSyncToken) {

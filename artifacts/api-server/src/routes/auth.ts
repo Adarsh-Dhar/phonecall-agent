@@ -189,6 +189,51 @@ router.post("/auth/logout", asyncHandler(async (req, res) => {
 }, "Failed to logout"));
 
 // ---------------------------------------------------------------------------
+// GET /user/agent-auto-answer
+// PATCH /user/agent-auto-answer   Body: { enabled: boolean }
+// When enabled, the individual's AI agent answers incoming business calls itself
+// (no ring, works while the owner is offline). Individuals only.
+// ---------------------------------------------------------------------------
+router.get("/user/agent-auto-answer", requireAuth, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { agentAutoAnswer: true },
+  });
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+  res.json({ enabled: account.agentAutoAnswer });
+}, "Failed to get agent auto-answer setting"));
+
+router.patch("/user/agent-auto-answer", requireAuth, asyncHandler(async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== "boolean") {
+    res.status(400).json({ error: "enabled must be a boolean" });
+    return;
+  }
+
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { isService: true },
+  });
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+  if (account.isService) {
+    res.status(403).json({ error: "Only individual accounts have an AI agent that can auto-answer" });
+    return;
+  }
+
+  await prisma.account.update({
+    where: { id: req.userId! },
+    data: { agentAutoAnswer: enabled },
+  });
+  res.json({ enabled });
+}, "Failed to update agent auto-answer setting"));
+
+// ---------------------------------------------------------------------------
 // GET /auth/me
 // Return current login account or 401
 // ---------------------------------------------------------------------------

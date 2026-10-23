@@ -37,6 +37,7 @@ model Account {
   quietHoursStart           Int?
   quietHoursEnd             Int?
   businessHoursJson         String?
+  agentAutoAnswer           Boolean            @default(false)
   owner                     Account?           @relation("AccountOwnership", fields: [ownerId], references: [id], onDelete: Cascade)
   contacts                  Account[]          @relation("AccountOwnership")
   closures                  BusinessClosure[]

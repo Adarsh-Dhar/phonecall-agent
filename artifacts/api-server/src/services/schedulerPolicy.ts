@@ -45,6 +45,19 @@ export function computeNextAttempt(attempts: number, now: Date): Date {
   return new Date(now.getTime() + getBackoffMs(attempts));
 }
 
+/**
+ * Retry cadence when the AGENT dials the business itself (callScheduler → agentPlaceCall).
+ * A business that was offline or didn't pick up at the scheduled minute should be retried soon,
+ * not 15 minutes later: attempt 1 → +2 min, attempt 2 → +10 min, then the normal backoff.
+ * Override the first gap with AUTO_DIAL_RETRY_MS.
+ */
+export function computeAutoDialRetry(attempts: number, now: Date): Date {
+  const first = Number(process.env.AUTO_DIAL_RETRY_MS) || 2 * 60 * 1000;
+  if (attempts <= 1) return new Date(now.getTime() + first);
+  if (attempts === 2) return new Date(now.getTime() + 5 * first);
+  return computeNextAttempt(attempts, now);
+}
+
 function getBackoffMs(attempts: number): number {
   const schedule = [15 * 60 * 1000, 60 * 60 * 1000, 4 * 60 * 60 * 1000];
   if (attempts <= 0) return schedule[0];

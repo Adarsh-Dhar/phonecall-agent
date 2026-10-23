@@ -53,6 +53,10 @@ model Account {
   // Business hours for contacts (service accounts only): JSON schedule
   businessHoursJson String?
 
+  // When true, the individual's AI agent answers incoming business calls itself
+  // (no accept tap, works while the owner is offline).
+  agentAutoAnswer Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
