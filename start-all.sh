@@ -28,15 +28,15 @@ kill_port 5175
 kill_port 5176
 echo "Ports cleared."
 
-# Start PostgreSQL Docker container if not running
-echo "Checking PostgreSQL Docker container..."
-if ! docker ps | grep -q phone-agent-postgres; then
-  echo "Starting PostgreSQL Docker container..."
-  docker compose up -d
+# Start local PostgreSQL service (Homebrew)
+echo "Checking local PostgreSQL service..."
+if ! brew services list | grep -q "postgresql@16.*started"; then
+  echo "Starting PostgreSQL service..."
+  brew services start postgresql@16
   echo "Waiting for PostgreSQL to be ready..."
-  sleep 5
+  sleep 3
 else
-  echo "PostgreSQL container is already running"
+  echo "PostgreSQL service is already running"
 fi
 
 # Run Prisma migrations for PostgreSQL

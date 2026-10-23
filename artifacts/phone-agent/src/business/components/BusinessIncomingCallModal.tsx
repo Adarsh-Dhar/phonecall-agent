@@ -16,6 +16,7 @@ interface BusinessIncomingCallModalProps {
 
 export function BusinessIncomingCallModal({ incomingCall, onClose }: BusinessIncomingCallModalProps) {
   const [accepted, setAccepted] = useState(false);
+  const [open, setOpen] = useState(true);
 
   const handleAccept = async () => {
     try {
@@ -29,27 +30,24 @@ export function BusinessIncomingCallModal({ incomingCall, onClose }: BusinessInc
   const handleDecline = async () => {
     try {
       await declineCall(incomingCall.callId);
+      setOpen(false);
       onClose();
     } catch (error) {
       console.error('Failed to decline call:', error);
     }
   };
 
+  const handleEnded = () => {
+    setOpen(false);
+    onClose();
+  };
+
   if (accepted) {
-    return (
-      <Dialog open onOpenChange={onClose}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Call in Progress</DialogTitle>
-          </DialogHeader>
-          <BusinessCallWidget callId={incomingCall.callId} onEnded={onClose} />
-        </DialogContent>
-      </Dialog>
-    );
+    return <BusinessCallWidget callId={incomingCall.callId} onEnded={handleEnded} />;
   }
 
   return (
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(newOpen) => { if (!newOpen) { setOpen(false); onClose(); } }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Incoming Call</DialogTitle>

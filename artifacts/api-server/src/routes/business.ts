@@ -105,6 +105,28 @@ router.post('/calls/dial', asyncHandler(async (req, res) => {
       res.status(403).json({ error: e.message, code: 'NOT_IN_CONTACTS' });
       return;
     }
+    // Handle business hours/closure errors from dialCallAs
+    if (e instanceof Error && (e as any).code) {
+      const error = e as any;
+      if (error.code === 'BUSINESS_CLOSED') {
+        res.status(409).json({
+          error: error.message,
+          code: error.code,
+          reopensAt: error.reopensAt,
+          kind: error.kind,
+          label: error.label,
+        });
+        return;
+      }
+      if (error.code === 'OUTSIDE_BUSINESS_HOURS') {
+        res.status(409).json({
+          error: error.message,
+          code: error.code,
+          nextOpenAt: error.nextOpenAt,
+        });
+        return;
+      }
+    }
     res.status(400).json({ error: e instanceof Error ? e.message : 'Failed to dial call' });
     return;
   }

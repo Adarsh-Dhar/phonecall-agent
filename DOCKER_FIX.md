@@ -21,7 +21,7 @@ The `docker-compose.yml` has been updated to disable the PostgreSQL services (co
 
 ## Required .env Changes
 
-Update your `.env` file to use the local PostgreSQL on port 5435:
+Your `.env` file should use the local PostgreSQL on port 5435:
 
 ```bash
 # Database Configuration
@@ -29,7 +29,7 @@ DATABASE_URL=postgresql://phoneagent:phoneagent_password@localhost:5435/phone_ag
 TEST_DATABASE_URL=postgresql://phoneagent:phoneagent_password@localhost:5435/phone_agent_test
 ```
 
-Note: Both databases are now on the same PostgreSQL 16 instance (port 5435). The original setup had them on different ports (5434 and 5435) via Docker.
+Note: Both databases are on the same PostgreSQL 16 instance (port 5435). The original setup had them on different ports (5434 and 5435) via Docker.
 
 ## Running Services
 

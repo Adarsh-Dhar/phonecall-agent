@@ -128,7 +128,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
             // Get the user's name and timezone (the person making the call)
             const user = await prisma.account.findUnique({
               where: { id: contact.ownerId ?? undefined },
-              select: { id: true, name: true, timezone: true, isService: true },
+              select: { id: true, name: true, timezone: true, isService: true, quietHoursStart: true, quietHoursEnd: true },
             });
 
             if (!user) {
@@ -138,6 +138,25 @@ export function createBrowserVoiceStream(): WebSocketServer {
             // Browser test calls are only available to individual accounts
             if (user.isService) {
               throw new Error("Browser test calls are only available to individual accounts");
+            }
+
+            // Check if within individual's quiet hours
+            const now = new Date();
+            if (user.quietHoursStart !== null && user.quietHoursEnd !== null) {
+              const localParts = new Intl.DateTimeFormat('en-US', {
+                timeZone: user.timezone ?? process.env.DEFAULT_TIMEZONE ?? "Asia/Kolkata",
+                hour: 'numeric',
+                hourCycle: 'h23',
+              }).formatToParts(now);
+              const hour = Number(localParts.find((p) => p.type === 'hour')?.value ?? '0');
+              // Check if hour is in quiet hours range (handles wrap-around like 22-6)
+              const inRange = (h: number, start: number, end: number) => {
+                if (start <= end) return h >= start && h < end;
+                return h >= start || h < end;
+              };
+              if (inRange(hour, user.quietHoursStart, user.quietHoursEnd)) {
+                throw new Error("Cannot make test calls during quiet hours");
+              }
             }
 
             const startedAt = new Date();

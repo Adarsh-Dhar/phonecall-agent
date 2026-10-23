@@ -1,6 +1,8 @@
 import { prisma } from '@workspace/db-prisma';
 import { isOnline, sendToAccount } from './presence';
 import { logger } from '../lib/logger';
+import { isWithinAllowedWindow, DEFAULT_BUSINESS_HOURS } from './schedulerPolicy';
+import { loadClosureInfo } from './businessClosures';
 
 export type CallRole = 'individual' | 'business';
 
@@ -315,6 +317,49 @@ export async function dialCallAs(
     // For business dialing, we only need the business to have the individual as a contact
     // (the individual doesn't need to have the business saved)
     // Skip mutual contact check for business dialing
+
+    // Check business working hours and closures
+    const business = await prisma.account.findUnique({
+      where: { id: dialerId },
+      select: { businessHoursJson: true, timezone: true, isService: true },
+    });
+
+    if (business && business.isService) {
+      const now = new Date();
+      const ownerTz = business.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
+      const hours = business.businessHoursJson
+        ? JSON.parse(business.businessHoursJson)
+        : DEFAULT_BUSINESS_HOURS;
+
+      // Load closures for this business
+      const closureInfo = await loadClosureInfo([dialerId], now);
+      const activeClosure = closureInfo.get(dialerId)?.active ?? null;
+      const closures = activeClosure ? [{ startsAt: activeClosure.startsAt, endsAt: activeClosure.endsAt }] : [];
+
+      const windowCheck = isWithinAllowedWindow(
+        now,
+        ownerTz,
+        null, // quiet hours don't apply to business dialing
+        null,
+        hours,
+        closures
+      );
+
+      if (!windowCheck.allowed) {
+        if (activeClosure && activeClosure.blockCalls) {
+          const error = new Error(activeClosure.message || 'Business is not taking calls right now');
+          (error as any).code = 'BUSINESS_CLOSED';
+          (error as any).reopensAt = activeClosure.endsAt?.toISOString() ?? null;
+          (error as any).kind = activeClosure.kind;
+          (error as any).label = activeClosure.label;
+          throw error;
+        }
+        const error = new Error('Business is outside working hours');
+        (error as any).code = 'OUTSIDE_BUSINESS_HOURS';
+        (error as any).nextOpenAt = windowCheck.nextAllowedTime?.toISOString() ?? null;
+        throw error;
+      }
+    }
   } else {
     // For individual dialing: check mutual contacts
     const contactCheck = await isContact(dialerId, otherId);
@@ -407,6 +452,37 @@ export async function dialCallAs(
   // Check if callee is online
   const online = isOnline(calleeAccountId);
 
+  // Mark any previous ringing calls from the same dialer as missed
+  // This ensures only the latest call shows Accept/Decline buttons
+  const previousRingingCalls = await prisma.call.findMany({
+    where: {
+      status: 'ringing',
+      OR: [
+        { individualId: dialerId },
+        { businessId: dialerId },
+      ],
+    },
+    select: { id: true, individualId: true, businessId: true },
+  });
+
+  if (previousRingingCalls.length > 0) {
+    await prisma.call.updateMany({
+      where: {
+        id: { in: previousRingingCalls.map(c => c.id) },
+      },
+      data: { status: 'missed' },
+    });
+
+    // Notify the dialer about the status changes
+    for (const call of previousRingingCalls) {
+      sendToAccount(dialerId, {
+        type: 'call_status_changed',
+        callId: call.id,
+        status: 'missed',
+      });
+    }
+  }
+
   if (!online) {
     // Create missed call
     const call = await prisma.call.create({
@@ -422,6 +498,12 @@ export async function dialCallAs(
         businessId,
         initiatedBy: dialerRole,
       },
+    });
+
+    // Notify the caller so their call list updates
+    sendToAccount(dialerId, {
+      type: 'call_created',
+      callId: call.id,
     });
 
     return { call, status: 'missed' };
@@ -466,6 +548,12 @@ export async function dialCallAs(
       title: taskContext.title,
       description: taskContext.description,
     } : null,
+  });
+
+  // Also notify the caller so their call list updates
+  sendToAccount(dialerId, {
+    type: 'call_created',
+    callId: call.id,
   });
 
   // Start timeout to auto-miss after 25 seconds

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PhoneOff, X, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -12,6 +12,7 @@ interface BusinessCallWidgetProps {
 export function BusinessCallWidget({ callId, onEnded }: BusinessCallWidgetProps) {
   const { status, errorMessage, transcript, start, stop } = useBusinessVoiceCall(callId);
   const [initError, setInitError] = useState<string | null>(null);
+  const hasCalledOnEnded = useRef(false);
 
   useEffect(() => {
     // Auto-start the call when the widget mounts
@@ -26,10 +27,18 @@ export function BusinessCallWidget({ callId, onEnded }: BusinessCallWidgetProps)
     };
   }, [callId, start, stop]);
 
+  // Auto-close when call ends (either by manual end or remote hangup)
+  useEffect(() => {
+    if ((status === 'ended' || status === 'error') && !hasCalledOnEnded.current) {
+      console.log('BusinessCallWidget: call ended, closing modal');
+      hasCalledOnEnded.current = true;
+      onEnded();
+    }
+  }, [status, onEnded]);
+
   const handleEndCall = () => {
-    console.log('BusinessCallWidget: ending call');
+    console.log('BusinessCallWidget: manually ending call');
     stop();
-    onEnded();
   };
 
   return (

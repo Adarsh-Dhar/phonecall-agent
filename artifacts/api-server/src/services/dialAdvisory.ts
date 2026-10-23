@@ -9,8 +9,8 @@ import { isWithinAllowedWindow, resolveEffectiveHours } from "./schedulerPolicy"
 import { loadClosureInfo } from "./businessClosures";
 
 export type DialAdvisory = {
-  blocked?: { message: string; reopensAt: string | null; kind: string; label: string | null };
-  warning?: "OUTSIDE_BUSINESS_HOURS" | "BUSINESS_CLOSED";
+  blocked?: { message: string; reopensAt: string | null; kind: string | null; label: string | null };
+  warning?: "BUSINESS_CLOSED";
   nextOpenAt?: string | null;
   closure?: { kind: string; label: string | null; message: string | null; reopensAt: string | null };
 };
@@ -62,7 +62,14 @@ export async function getDialAdvisory(contactId: string, ownerId: string, now = 
   });
   const check = isWithinAllowedWindow(now, ownerTz, null, null, hours);
   if (!check.allowed && check.nextAllowedTime) {
-    return { warning: "OUTSIDE_BUSINESS_HOURS", nextOpenAt: check.nextAllowedTime.toISOString() };
+    return {
+      blocked: {
+        message: "This business is outside its working hours.",
+        reopensAt: check.nextAllowedTime.toISOString(),
+        kind: null,
+        label: null,
+      },
+    };
   }
   return {};
 }

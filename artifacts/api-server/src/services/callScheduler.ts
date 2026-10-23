@@ -23,13 +23,15 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
 import { broadcastCallDue, broadcastCallExhausted } from "./notifications";
-import { computeNextAttempt, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS, resolveEffectiveHours } from "./schedulerPolicy";
+import { sendToAccount } from "./presence";
+import { computeNextAttempt, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS, resolveEffectiveHours, DEFAULT_BUSINESS_HOURS } from "./schedulerPolicy";
 import type { Closure } from "./closurePolicy";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
 const STALE_WINDOW_MS = (Number(process.env.SCHEDULER_STALE_HOURS) || 24) * 60 * 60 * 1000;
 const CLAIM_TTL_MS = Number(process.env.SCHEDULER_CLAIM_TTL_MS) || 5 * 60 * 1000;
 const CONCURRENCY_LIMIT = 5;
+const RINGING_TIMEOUT_MS = Number(process.env.RINGING_TIMEOUT_MS) || 60 * 1000; // 1 minute
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let isRunning = false;
@@ -64,6 +66,49 @@ export async function checkDueTasks(): Promise<void> {
   try {
     const now = new Date();
     const staleThreshold = new Date(now.getTime() - STALE_WINDOW_MS);
+    const ringingTimeoutThreshold = new Date(now.getTime() - RINGING_TIMEOUT_MS);
+
+    // Mark stale ringing calls as missed (calls that have been ringing too long)
+    const staleRingingCalls = await prisma.call.findMany({
+      where: {
+        status: 'ringing',
+        ringingAt: { lt: ringingTimeoutThreshold },
+      },
+      select: {
+        id: true,
+        individualId: true,
+        businessId: true,
+      },
+    });
+
+    if (staleRingingCalls.length > 0) {
+      await prisma.call.updateMany({
+        where: {
+          id: { in: staleRingingCalls.map(c => c.id) },
+        },
+        data: { status: 'missed' },
+      });
+
+      logger.info({ count: staleRingingCalls.length }, "callScheduler: marked stale ringing calls as missed");
+
+      // Notify both parties about the status change
+      for (const call of staleRingingCalls) {
+        if (call.individualId) {
+          sendToAccount(call.individualId, {
+            type: 'call_status_changed',
+            callId: call.id,
+            status: 'missed',
+          });
+        }
+        if (call.businessId) {
+          sendToAccount(call.businessId, {
+            type: 'call_status_changed',
+            callId: call.id,
+            status: 'missed',
+          });
+        }
+      }
+    }
 
     // Mark stale tasks (older than STALE_WINDOW) as 'stale' so they don't fire
     const staleResult = await prisma.task.updateMany({
@@ -161,6 +206,21 @@ export async function checkDueTasks(): Promise<void> {
       closuresByBusiness.set(row.businessId, list);
     }
 
+    // Also load closures for the business owners (who are making outbound calls)
+    const ownerIds = [...new Set(tasks.map(t => t.contact.ownerId).filter(Boolean))] as string[];
+    const ownerClosureRows = ownerIds.length
+      ? await prisma.businessClosure.findMany({
+          where: { businessId: { in: ownerIds }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+          select: { businessId: true, startsAt: true, endsAt: true },
+        })
+      : [];
+    const closuresByOwner = new Map<string, Closure[]>();
+    for (const row of ownerClosureRows) {
+      const list = closuresByOwner.get(row.businessId) ?? [];
+      list.push({ startsAt: row.startsAt, endsAt: row.endsAt });
+      closuresByOwner.set(row.businessId, list);
+    }
+
     // Process tasks with concurrency limit
     const chunks: typeof tasks[] = [];
     for (let i = 0; i < tasks.length; i += CONCURRENCY_LIMIT) {
@@ -168,7 +228,7 @@ export async function checkDueTasks(): Promise<void> {
     }
 
     for (const chunk of chunks) {
-      await Promise.all(chunk.map((task) => processTask(task, now, linkedMap, closuresByBusiness)));
+      await Promise.all(chunk.map((task) => processTask(task, now, linkedMap, closuresByBusiness, closuresByOwner)));
     }
   } catch (err) {
     logger.error({ err }, "callScheduler: failed to check due tasks");
@@ -182,6 +242,7 @@ async function processTask(
   now: Date,
   linkedMap: Map<string, any>,
   closuresByBusiness: Map<string, Closure[]> = new Map(),
+  closuresByOwner: Map<string, Closure[]> = new Map(),
 ): Promise<void> {
   try {
     const { contact } = task;
@@ -199,13 +260,15 @@ async function processTask(
       return;
     }
 
-    // Load owner account for timezone and quiet hours
+    // Load owner account for timezone, quiet hours, and business hours
     const owner = await prisma.account.findUnique({
       where: { id: contact.ownerId },
       select: {
         timezone: true,
         quietHoursStart: true,
         quietHoursEnd: true,
+        businessHoursJson: true,
+        isService: true,
       },
     });
 
@@ -224,20 +287,46 @@ async function processTask(
     // Check if within allowed window (quiet hours, business hours)
     const ownerTz = owner.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
     const biz = contact.linkedAccountId ? linkedMap.get(contact.linkedAccountId) : undefined;
-    const { hours: businessHours } = resolveEffectiveHours({
-      contactJson: contact.businessHoursJson,
-      businessJson: biz?.businessHoursJson,
-      businessTz: biz?.timezone,
-      contactTz: contact.timezone,
-      ownerTz,
-    });
+
+    // If the owner is a business (isService: true, meaning it's a login account that can own service accounts), use their business hours for outbound calls
+    // Otherwise, use the contact's business hours (individual calling business)
+    let businessHours;
+    if (owner.isService) {
+      // Business making outbound calls - use business's own hours
+      businessHours = owner.businessHoursJson
+        ? JSON.parse(owner.businessHoursJson)
+        : DEFAULT_BUSINESS_HOURS;
+    } else {
+      // Individual making outbound calls - use contact's business hours
+      const { hours: resolvedHours } = resolveEffectiveHours({
+        contactJson: contact.businessHoursJson,
+        businessJson: biz?.businessHoursJson,
+        businessTz: biz?.timezone,
+        contactTz: contact.timezone,
+        ownerTz,
+      });
+      businessHours = resolvedHours;
+    }
+
+    // Load closures for the business being called (if applicable)
+    let closures;
+    if (owner.isService) {
+      // Business making outbound calls - check business's own closures
+      closures = closuresByOwner.get(contact.ownerId) ?? [];
+    } else {
+      // Individual making outbound calls - check called business's closures
+      closures = biz && closuresByBusiness.has(biz.id)
+        ? closuresByBusiness.get(biz.id) ?? []
+        : [];
+    }
+
     const windowCheck = isWithinAllowedWindow(
       now,
       ownerTz,
       owner.quietHoursStart,
       owner.quietHoursEnd,
       businessHours || null,
-      contact.linkedAccountId ? closuresByBusiness.get(contact.linkedAccountId) ?? [] : [],
+      closures,
     );
 
     if (!windowCheck.allowed) {
