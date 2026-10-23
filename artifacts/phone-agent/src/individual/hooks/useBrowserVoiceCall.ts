@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * Free, in-browser call — talks to the same Gemini voice agent over a plain
- * WebSocket + the browser mic. No telephony carrier, no per-minute cost.
+ * WebSocket + the browser mic. In-app only by design (see callScheduler.ts header);
+ * no phone numbers or carriers.
  *
  * Protocol matches artifacts/api-server/src/services/voiceStreamBrowser.ts:
  *   → {type:"start", contactId?}   → {type:"audio", payload: base64 pcm16 16k}   → {type:"stop"}

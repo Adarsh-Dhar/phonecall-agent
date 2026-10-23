@@ -181,7 +181,8 @@ export function pcm16ToTwilioPayload(
 
 // ---------------------------------------------------------------------------
 // Browser test-call transport — raw PCM16 (no μ-law), base64, over a plain
-// WebSocket from the browser mic. No telephony carrier involved.
+// WebSocket from the browser mic. In-app only by design (see callScheduler.ts header);
+// no phone numbers or carriers.
 //
 // The browser downsamples its mic (usually 44.1/48 kHz) to 16 kHz itself
 // before sending, so inbound decode just needs 16k → 24k for Gemini. Outbound

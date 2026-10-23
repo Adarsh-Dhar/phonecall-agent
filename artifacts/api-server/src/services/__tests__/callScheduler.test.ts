@@ -72,6 +72,9 @@ async function cleanup() {
   await prisma.task.deleteMany({ where });
   await prisma.conversation.deleteMany({ where: { id: { in: made.conversations } } });
   await prisma.account.deleteMany({ where: { id: { in: made.accounts } } });
+  // Also clean up regression test data by runId pattern
+  await prisma.account.deleteMany({ where: { googleId: { contains: `t-reg` } } });
+  await prisma.account.deleteMany({ where: { googleId: { contains: `t-reg2` } } });
   made.accounts = []; made.conversations = []; made.tasks = [];
 }
 
@@ -344,5 +347,136 @@ describe('applyCallOutcomeToTask (real DB)', () => {
     expect(t.schedulerStatus).toBe('pending');
     expect(t.callAttempts).toBe(1);
     expect(t.nextAttemptAt!.getTime()).toBeGreaterThan(Date.now());
+  });
+});
+
+describe('Regression: scheduler never creates Call rows (no auto-dial)', () => {
+  afterEach(async () => {
+    vi.clearAllMocks();
+    // Clean up regression test data
+    await prisma.call.deleteMany({});
+    await prisma.task.deleteMany({ where: { title: { contains: 'Test Task' } } });
+    await prisma.conversation.deleteMany({});
+    await prisma.account.deleteMany({ where: { googleId: { contains: `t-reg` } } });
+  });
+
+  it('does not create a Call row even when contact has a phone number', async () => {
+    const originalEnv = process.env.AUTODIAL_ENABLED;
+    try {
+      // Create a task with a contact that has a phone number
+      const owner = await prisma.account.create({
+        data: {
+          googleId: `t-reg-o-${runId}`,
+          email: `t-reg-o-${runId}@example.com`,
+          isService: false,
+          timezone: 'Asia/Kolkata',
+        },
+      });
+
+      const contact = await prisma.account.create({
+        data: {
+          googleId: `t-reg-c-${runId}`,
+          email: `t-reg-c-${runId}@example.com`,
+          isService: true,
+          ownerId: owner.id,
+          name: 'Test Contact',
+          phone: '+1234567890', // Has a phone number
+        },
+      });
+
+      const conversation = await prisma.conversation.create({
+        data: {
+          contactId: contact.id,
+        },
+      });
+
+      const task = await prisma.task.create({
+        data: {
+          kind: 'call',
+          status: 'open',
+          schedulerStatus: 'pending',
+          contactId: contact.id,
+          conversationId: conversation.id,
+          title: 'Test Task',
+          dueDate: new Date(),
+          nextAttemptAt: new Date(Date.now() - 1000), // Due now
+          callAttempts: 0,
+        },
+      });
+
+      // Run one scheduler cycle
+      await checkDueTasks();
+
+      // Assert no Call row was created
+      const callCount = await prisma.call.count({ where: { taskId: task.id } });
+      expect(callCount).toBe(0);
+
+      // Assert broadcastCallDue was called
+      expect(broadcastCallDue).toHaveBeenCalled();
+
+      // Assert task was claimed and processed
+      const updatedTask = await prisma.task.findUnique({ where: { id: task.id } });
+      expect(updatedTask?.schedulerStatus).toBe('pending'); // Released after processing
+      expect(updatedTask?.callAttempts).toBe(1);
+    } finally {
+      process.env.AUTODIAL_ENABLED = originalEnv;
+    }
+  });
+
+  it('AUTODIAL_ENABLED env var does not trigger auto-dial', async () => {
+    const originalEnv = process.env.AUTODIAL_ENABLED;
+    try {
+      // Set AUTODIAL_ENABLED to true - should have no effect
+      process.env.AUTODIAL_ENABLED = 'true';
+
+      const owner = await prisma.account.create({
+        data: {
+          googleId: `t-reg2-o-${runId}`,
+          email: `t-reg2-o-${runId}@example.com`,
+          isService: false,
+          timezone: 'Asia/Kolkata',
+        },
+      });
+
+      const contact = await prisma.account.create({
+        data: {
+          googleId: `t-reg2-c-${runId}`,
+          email: `t-reg2-c-${runId}@example.com`,
+          isService: true,
+          ownerId: owner.id,
+          name: 'Test Contact 2',
+          phone: '+9876543210',
+        },
+      });
+
+      const conversation = await prisma.conversation.create({
+        data: {
+          contactId: contact.id,
+        },
+      });
+
+      const task = await prisma.task.create({
+        data: {
+          kind: 'call',
+          status: 'open',
+          schedulerStatus: 'pending',
+          contactId: contact.id,
+          conversationId: conversation.id,
+          title: 'Test Task 2',
+          dueDate: new Date(),
+          nextAttemptAt: new Date(Date.now() - 1000),
+          callAttempts: 0,
+        },
+      });
+
+      // Run one scheduler cycle
+      await checkDueTasks();
+
+      // Still no Call row even with AUTODIAL_ENABLED=true
+      const callCount = await prisma.call.count({ where: { taskId: task.id } });
+      expect(callCount).toBe(0);
+    } finally {
+      process.env.AUTODIAL_ENABLED = originalEnv;
+    }
   });
 });

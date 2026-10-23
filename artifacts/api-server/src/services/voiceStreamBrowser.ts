@@ -3,8 +3,8 @@
  *
  * A plain WebSocket from a browser mic feeds the Gemini Live pipeline
  * (STT+LLM+TTS in one streaming session) and plays the response back through
- * the Web Audio API. No telephony carrier, no phone number, no per-minute
- * cost — every "call" happens over your own network connection.
+ * the Web Audio API. In-app only by design (see callScheduler.ts header);
+ * no phone numbers or carriers — every "call" happens over your own network connection.
  *
  * Wire protocol (JSON messages over the WebSocket):
  *   → { type: "start", contactId?: string, taskId?: string, userId?: string }  browser → server

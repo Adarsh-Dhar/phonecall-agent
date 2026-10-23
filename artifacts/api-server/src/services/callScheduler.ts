@@ -3,23 +3,13 @@
  * Task.dueDate, which is kept in sync with Google Calendar by
  * services/calendarSync.ts) and decides when it's time to call a contact.
  *
- * IMPORTANT — what this actually does and does not do:
- *
- * There is still no telephony carrier wired into this app (see the note at
- * the top of services/voiceStreamBrowser.ts) — this scheduler cannot dial a
- * real phone number. What it DOES do: every poll cycle, it looks for tasks
- * whose nextAttemptAt has arrived and haven't been claimed yet, and broadcasts
- * a "call_due" notification over the presence registry (see services/presence.ts)
- * to any browser tab that's currently open and connected. Falls back to push
- * notifications (services/push.ts) if the user is offline. The frontend
- * (hooks/useCallDueNotifications.ts) reacts to that by auto-opening the same
- * mic-based call widget used everywhere else — so a human sitting at that
- * browser can pick it up immediately and talk, without having to notice the
- * due time and click "Call" themselves.
- *
- * If AUTODIAL_ENABLED is set and a telephony provider is configured, the
- * scheduler will attempt to place a real phone call instead of just notifying.
- * See services/telephony.ts for the telephony provider interface.
+ * DESIGN DECISION: calls are in-app only. This scheduler never dials a phone
+ * number. When a task's nextAttemptAt arrives it broadcasts "call_due" to the
+ * owner's open browser tabs (services/presence.ts), falling back to push
+ * (services/push.ts) when they are offline. The frontend then opens the
+ * browser-mic call widget. Do not reintroduce a carrier dial path here: it
+ * would create Call rows with no individualId/businessId, which every
+ * ownership check in services/callSignaling.ts relies on.
  *
  * When a task exhausts its maximum retry attempts (MAX_ATTEMPTS), the scheduler
  * broadcasts a "call_exhausted" notification to inform the user that the contact
@@ -34,7 +24,6 @@ import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
 import { broadcastCallDue, broadcastCallExhausted } from "./notifications";
 import { computeNextAttempt, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS, resolveEffectiveHours } from "./schedulerPolicy";
-import { placeCall, isAutoDialEnabled } from "./telephony";
 import type { Closure } from "./closurePolicy";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
@@ -142,7 +131,6 @@ export async function checkDueTasks(): Promise<void> {
             id: true,
             name: true,
             ownerId: true,
-            phone: true,
             businessHoursJson: true,
             timezone: true,
             linkedAccountId: true,
@@ -292,65 +280,18 @@ async function processTask(
       return;
     }
 
-    // Try auto-dial if enabled and contact has a phone number
-    let autoDialed = false;
-    if (isAutoDialEnabled() && contact.phone) {
-      // Create a call record for the auto-dial
-      const call = await prisma.call.create({
-        data: {
-          status: "initiated",
-          direction: "outbound",
-          from: process.env.EXOTEL_CALLER_ID || "unknown",
-          to: contact.phone,
-          calleeAccountId: contact.id,
-          taskId: task.id,
-          conversationId: task.conversationId,
-          contactId: task.contactId,
-        },
-      });
-
-      const dialResult = await placeCall({
-        to: contact.phone,
-        from: process.env.EXOTEL_CALLER_ID || "unknown",
-        taskId: task.id,
-        callId: call.id,
-      });
-
-      if (dialResult.success) {
-        autoDialed = true;
-        logger.info(
-          { taskId: task.id, callId: call.id, providerCallId: dialResult.providerCallId },
-          "callScheduler: auto-dial placed successfully"
-        );
-      } else {
-        // Auto-dial failed, fall back to notification
-        logger.warn(
-          { taskId: task.id, error: dialResult.error },
-          "callScheduler: auto-dial failed, falling back to notification"
-        );
-        // Clean up the failed call record
-        await prisma.call.delete({ where: { id: call.id } });
-      }
-    }
-
-    // Attempt to notify the user (if auto-dial didn't succeed or wasn't attempted)
-    let delivered = false;
-    if (!autoDialed) {
-      delivered = await broadcastCallDue({
-        type: "call_due",
-        taskId: task.id,
-        contactId: task.contactId,
-        contactName: contact.name,
-        title: task.title,
-        description: task.description,
-        ownerId: contact.ownerId,
-        attempt: task.callAttempts + 1,
-        maxAttempts: MAX_ATTEMPTS,
-      });
-    } else {
-      // Auto-dial succeeded, count as delivered
-      delivered = true;
-    }
+    // Attempt to notify the user
+    const delivered = await broadcastCallDue({
+      type: "call_due",
+      taskId: task.id,
+      contactId: task.contactId,
+      contactName: contact.name,
+      title: task.title,
+      description: task.description,
+      ownerId: contact.ownerId,
+      attempt: task.callAttempts + 1,
+      maxAttempts: MAX_ATTEMPTS,
+    });
 
     // Increment attempt count and set lastAttemptAt
     const newAttempts = task.callAttempts + 1;

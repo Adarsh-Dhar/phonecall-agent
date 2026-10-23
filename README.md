@@ -49,7 +49,6 @@ and it overrides `DATABASE_URL` with it, so tests can never touch your dev or pr
 - `SCHEDULER_MAX_ATTEMPTS` (default: 3) - Maximum number of retry attempts for a task notification
 - `SCHEDULER_CLAIM_TTL_MS` (default: 300000) - Time in milliseconds after which a stuck claim is released (5 minutes)
 - `CALL_SCHEDULER_POLL_MS` (default: 30000) - Poll interval in milliseconds for the call scheduler (30 seconds)
-- `AUTODIAL_ENABLED` (default: false) - Enable real auto-dial via telephony provider (requires provider setup)
 
 ### Timezone Settings
 
@@ -99,16 +98,6 @@ Example: `{"days":[1,2,3,4,5],"start":9,"end":17,"tz":"Asia/Kolkata"}` means Mon
 - `VAPID_PUBLIC_KEY` - VAPID public key for web push
 - `VAPID_PRIVATE_KEY` - VAPID private key for web push
 - `VAPID_SUBJECT` - VAPID subject (contact email)
-
-### Exotel Telephony (Optional)
-
-- `EXOTEL_SID` - Exotel SID
-- `EXOTEL_API_KEY` - Exotel API key
-- `EXOTEL_API_TOKEN` - Exotel API token
-- `EXOTEL_SUBDOMAIN` - Exotel subdomain
-- `EXOTEL_CALLER_ID` - Exotel caller ID
-- `EXOTEL_APP_ID` - Exotel app ID
-- `EXOTEL_PASSTHRU_SECRET` - Exotel passthrough secret for webhooks
 
 ### Other
 

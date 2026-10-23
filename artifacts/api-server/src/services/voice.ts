@@ -3,11 +3,11 @@
  * "upgrade" event.
  *
  * Three paths are routed here: `/media/browser` (the in-browser test call —
- * mic in, Gemini Live audio out, no telephony carrier involved), `/media/service`
- * (real calls to service accounts), `/presence` (live presence registry), and
- * `/notifications` (server → browser push, used by services/callScheduler.ts
- * to tell an open tab a task's due date has arrived). Route by `req.url`
- * here rather than having each transport register its own
+ * mic in, Gemini Live audio out; in-app only by design (see callScheduler.ts header);
+ * no phone numbers or carriers), `/media/service` (real calls to service accounts),
+ * `/presence` (live presence registry), and `/notifications` (server → browser push,
+ * used by services/callScheduler.ts to tell an open tab a task's due date has arrived).
+ * Route by `req.url` here rather than having each transport register its own
  * `server.on("upgrade", ...)` listener — every listener sees every upgrade
  * request, so uncoordinated listeners can steal or destroy each other's
  * connections.
