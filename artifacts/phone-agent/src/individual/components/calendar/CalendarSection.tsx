@@ -28,10 +28,11 @@ export function CalendarSection() {
       let dated: api.Task[] = [];
       try {
         const allTasks = await api.fetchTasks();
+        console.log('[CalendarSection] All tasks fetched:', allTasks.length, allTasks);
         dated = allTasks
           .filter((t) => t.dueDate && t.status !== 'cancelled')
           .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
-        console.log('[CalendarSection] Loaded calendar items:', dated.length);
+        console.log('[CalendarSection] Loaded calendar items:', dated.length, dated);
       } catch (err) {
         console.log('[CalendarSection] No tasks found or no contacts yet');
         dated = [];

@@ -41,7 +41,7 @@ router.use("/tasks", requireIndividual, tasksRouter);
 router.use("/knowledge", requireIndividual, knowledgeRouter);
 router.use("/owner-info", requireIndividual, ownerInfoRouter);
 router.use("/calls", requireIndividual, callsRouter);
-router.use("/calendarEvents", requireIndividual, calendarEventsRouter);
+router.use("/calendar/events", requireIndividual, calendarEventsRouter);
 router.use("", requireIndividual, contactsRouter);
 
 export default router;

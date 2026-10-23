@@ -355,8 +355,8 @@ export async function dialCallAs(
           throw error;
         }
         const error = new Error('Business is outside working hours');
-        (error as any).code = 'OUTSIDE_BUSINESS_HOURS';
-        (error as any).nextOpenAt = windowCheck.nextAllowedTime?.toISOString() ?? null;
+        (error as any).code = 'BUSINESS_CLOSED';
+        (error as any).reopensAt = windowCheck.nextAllowedTime?.toISOString() ?? null;
         throw error;
       }
     }

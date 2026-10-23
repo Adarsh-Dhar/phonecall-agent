@@ -70,7 +70,7 @@ router.get("/contacts/:id/tasks", asyncHandler(async (req, res) => {
 // Global task inbox — cross-contact, filterable by status / priority / contactId
 // e.g. GET /tasks?status=open&priority=high
 // ---------------------------------------------------------------------------
-router.get("/tasks", asyncHandler(async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   const { status, priority, contactId } = req.query;
 
   const tasks = await prisma.task.findMany({
@@ -95,7 +95,7 @@ router.get("/tasks", asyncHandler(async (req, res) => {
 // Manual task creation — source: "user", skips "suggested", goes to "open"
 // Body: { title, description?, dueDate?, priority?, kind?, conversationId, contactId }
 // ---------------------------------------------------------------------------
-router.post("/tasks", asyncHandler(async (req, res) => {
+router.post("/", asyncHandler(async (req, res) => {
   const { title, description, dueDate, priority, kind, conversationId, contactId } = req.body;
 
   if (!title || !conversationId || !contactId) {

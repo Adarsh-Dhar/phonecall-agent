@@ -4,6 +4,7 @@ import { asyncHandler } from '../lib/asyncHandler';
 import { isOnline } from '../services/presence';
 import { requireBusiness } from '../lib/roles';
 import { getAccountRole } from '../lib/roles';
+import { syncTaskToCalendar } from '../services/googleCalendar';
 import {
   listCallsFor,
   getCallFor,
@@ -109,20 +110,84 @@ router.post('/calls/dial', asyncHandler(async (req, res) => {
     if (e instanceof Error && (e as any).code) {
       const error = e as any;
       if (error.code === 'BUSINESS_CLOSED') {
+        // Create a task to call back at the next available time
+        if (error.reopensAt) {
+          try {
+            const contact = await prisma.account.findUnique({
+              where: { id: String(contactId) },
+              select: { id: true, name: true },
+            });
+            if (contact) {
+              // Find or create a conversation for this contact
+              let conversation = await prisma.conversation.findFirst({
+                where: { contactId: contact.id },
+              });
+              if (!conversation) {
+                conversation = await prisma.conversation.create({
+                  data: {
+                    contactId: contact.id,
+                    title: `Chat with ${contact.name}`,
+                  },
+                });
+              }
+
+              const nextAttemptAt = new Date(error.reopensAt);
+              
+              // Check if a task already exists for this contact at the same time
+              const existingTask = await prisma.task.findFirst({
+                where: {
+                  contactId: contact.id,
+                  dueDate: nextAttemptAt,
+                  status: { in: ['open', 'suggested'] },
+                },
+              });
+
+              if (!existingTask) {
+                const task = await prisma.task.create({
+                  data: {
+                    title: `Call ${contact.name}`,
+                    description: 'Call rescheduled due to business hours',
+                    status: 'open',
+                    kind: 'call',
+                    contactId: contact.id,
+                    conversationId: conversation.id,
+                    dueDate: nextAttemptAt,
+                    nextAttemptAt: nextAttemptAt,
+                    schedulerStatus: 'pending',
+                    callAttempts: 0,
+                  },
+                  include: { contact: true },
+                });
+                logger.info({ contactId: contact.id, nextAttemptAt }, 'Created callback task for blocked call');
+
+                // Sync to Google Calendar (non-blocking)
+                syncTaskToCalendar({
+                  id: task.id,
+                  title: task.title,
+                  description: task.description,
+                  dueDate: task.dueDate,
+                  status: task.status,
+                  googleEventId: task.googleEventId,
+                  contact: { name: task.contact.name || '', business: task.contact.business || '' },
+                  userId: req.userId!,
+                }).catch((err) => {
+                  logger.error({ err, taskId: task.id }, 'Failed to sync task to calendar');
+                });
+              } else {
+                logger.info({ contactId: contact.id, nextAttemptAt, existingTaskId: existingTask.id }, 'Task already exists for this time, skipping creation');
+              }
+            }
+          } catch (taskError) {
+            logger.error({ error: taskError }, 'Failed to create callback task for blocked call');
+          }
+        }
+
         res.status(409).json({
           error: error.message,
           code: error.code,
           reopensAt: error.reopensAt,
           kind: error.kind,
           label: error.label,
-        });
-        return;
-      }
-      if (error.code === 'OUTSIDE_BUSINESS_HOURS') {
-        res.status(409).json({
-          error: error.message,
-          code: error.code,
-          nextOpenAt: error.nextOpenAt,
         });
         return;
       }

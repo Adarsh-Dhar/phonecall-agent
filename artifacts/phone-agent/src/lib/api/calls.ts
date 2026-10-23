@@ -47,7 +47,7 @@ export type Call = {
 export type DialCallResponse = {
   callId: string;
   status: 'ringing' | 'missed';
-  warning?: 'OUTSIDE_BUSINESS_HOURS' | 'BUSINESS_CLOSED';
+  warning?: 'BUSINESS_CLOSED';
   nextOpenAt?: string | null;
   closure?: {
     kind: 'holiday' | 'out_of_service' | 'emergency';

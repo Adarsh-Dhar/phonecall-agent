@@ -81,7 +81,7 @@ export function ContactDetailPage() {
         }
 
         // Show warning if call is outside business hours
-        if (data.warning === 'OUTSIDE_BUSINESS_HOURS') {
+        if (data.warning === 'BUSINESS_CLOSED') {
           const nextOpenMsg = data.nextOpenAt
             ? ` Next available: ${new Date(data.nextOpenAt).toLocaleString()}`
             : '';
