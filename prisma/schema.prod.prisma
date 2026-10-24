@@ -56,6 +56,7 @@ model Account {
   // When true, the individual's AI agent answers incoming business calls itself
   // (no accept tap, works while the owner is offline).
   agentAutoAnswer Boolean @default(false)
+  agentMode       Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

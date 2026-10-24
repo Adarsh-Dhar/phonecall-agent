@@ -4,7 +4,7 @@ import * as api from '@/lib/api';
 import { getDaysInMonth, isToday } from './calendarDateUtils';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 
-type CalendarEvent = { id: string; title: string; type: 'task' | 'google'; contactId?: string; start?: string; end?: string; description?: string | null };
+type CalendarEvent = { id: string; title: string; type: 'task' | 'google'; contactId?: string; start?: string | null; end?: string | null; description?: string | null };
 
 /**
  * Calendar card on the History ("Tasks") page: task due-dates + connected
@@ -144,10 +144,44 @@ export function CalendarSection() {
       return eventDate.getUTCFullYear() === targetYear &&
              eventDate.getUTCMonth() === targetMonth &&
              eventDate.getUTCDate() === targetDay;
-    }).map(e => ({ id: e.id, title: e.summary, type: 'google' as const, start: e.start?.dateTime || e.start?.date, end: e.end?.dateTime || e.end?.date, description: e.description }));
+    }).map(e => ({ id: e.id, title: e.summary, type: 'google' as const, start: e.start?.dateTime || e.start?.date || undefined, end: e.end?.dateTime || e.end?.date || undefined, description: e.description }));
 
-    return [...taskEvents, ...googleEvents];
+    // Deduplicate: if a Google Calendar event matches a task by title and time, prefer the task
+    // (tasks have more detail like contactId, description, and are editable)
+    const taskSignatures = new Set(
+      taskEvents.map(t => {
+        const taskDate = new Date(t.start!);
+        return `${t.title.toLowerCase()}-${taskDate.toISOString()}`;
+      })
+    );
+
+    const deduplicatedGoogleEvents = googleEvents.filter(e => {
+      const eventDate = new Date(e.start!);
+      const signature = `${e.title.toLowerCase()}-${eventDate.toISOString()}`;
+      return !taskSignatures.has(signature);
+    });
+
+    return [...taskEvents, ...deduplicatedGoogleEvents];
   };
+
+  // Get total count of deduplicated upcoming events
+  const getUpcomingCount = useCallback(() => {
+    const activeTasks = calendarItems.filter(t => t.status !== 'done' && t.dueDate);
+    const taskSignatures = new Set(
+      activeTasks.map(t => {
+        const taskDate = new Date(t.dueDate!);
+        return `${t.title.toLowerCase()}-${taskDate.toISOString()}`;
+      })
+    );
+
+    const deduplicatedGoogleEvents = googleCalendarEvents.filter(e => {
+      const eventDate = new Date(e.start?.dateTime || e.start?.date || '');
+      const signature = `${e.summary.toLowerCase()}-${eventDate.toISOString()}`;
+      return !taskSignatures.has(signature);
+    });
+
+    return activeTasks.length + deduplicatedGoogleEvents.length;
+  }, [calendarItems, googleCalendarEvents]);
 
   return (
     <div className="mt-8 rounded-[22px] border border-card-border bg-card p-5">
@@ -157,7 +191,7 @@ export function CalendarSection() {
         </div>
         <div>
           <h3 className="text-sm font-bold tracking-tight">Calendar</h3>
-          <p className="text-[10px] text-[#af5c1c]">{calendarItems.filter((t) => t.status !== 'done').length + googleCalendarEvents.length} upcoming</p>
+          <p className="text-[10px] text-[#af5c1c]">{getUpcomingCount()} upcoming</p>
         </div>
         <div className="ml-auto flex items-center gap-1">
           {googleAuthStatus?.connected ? (
@@ -348,7 +382,7 @@ export function CalendarSection() {
                   <button
                     type="button"
                     onClick={async () => {
-                      if (!editedDateTime || !selectedEvent.type === 'task') return;
+                      if (!editedDateTime || selectedEvent.type !== 'task') return;
                       
                       const newDate = new Date(editedDateTime);
                       const now = new Date();

@@ -226,12 +226,65 @@ router.patch("/user/agent-auto-answer", requireAuth, asyncHandler(async (req, re
     return;
   }
 
+  // DEPRECATED: Redirect to the new agent-mode field
+  // This old endpoint is kept for backward compatibility with older clients
   await prisma.account.update({
     where: { id: req.userId! },
-    data: { agentAutoAnswer: enabled },
+    data: { agentMode: enabled, agentAutoAnswer: enabled },
   });
   res.json({ enabled });
 }, "Failed to update agent auto-answer setting"));
+
+// ---------------------------------------------------------------------------
+// GET /user/agent-mode
+// PATCH /user/agent-mode   Body: { enabled: boolean }
+// Master switch for the individual's AI agent. When enabled the agent places scheduled calls
+// and answers incoming business calls on the owner's behalf, with no action from the owner.
+// Individuals only (business accounts get 403).
+// ---------------------------------------------------------------------------
+router.get("/user/agent-mode", requireAuth, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { agentMode: true, isService: true },
+  });
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+  if (account.isService) {
+    res.status(403).json({ error: "Agent mode is only available to individual accounts" });
+    return;
+  }
+  res.json({ enabled: account.agentMode });
+}, "Failed to get agent mode"));
+
+router.patch("/user/agent-mode", requireAuth, asyncHandler(async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== "boolean") {
+    res.status(400).json({ error: "enabled must be a boolean" });
+    return;
+  }
+
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { isService: true },
+  });
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+  if (account.isService) {
+    res.status(403).json({ error: "Agent mode is only available to individual accounts" });
+    return;
+  }
+
+  // agentAutoAnswer is kept in sync so anything still reading the old column behaves the same.
+  await prisma.account.update({
+    where: { id: req.userId! },
+    data: { agentMode: enabled, agentAutoAnswer: enabled },
+  });
+  res.json({ enabled });
+}, "Failed to update agent mode"));
 
 // ---------------------------------------------------------------------------
 // GET /auth/me
@@ -249,6 +302,7 @@ router.get("/auth/me", requireAuth, asyncHandler(async (req, res) => {
       isService: true,
       description: true,
       createdAt: true,
+      agentMode: true,
     },
   });
 

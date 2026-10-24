@@ -18,6 +18,11 @@ export async function askUserDuringCall(opts: {
   question: string;
   knowledgeKey?: string;
   knowledgeCategory?: string;
+  /**
+   * Agent mode: the owner is not watching, so don't hold the live call waiting for an answer.
+   * The question is still saved (with its open loop + push) for the owner to answer afterwards.
+   */
+  nonBlocking?: boolean;
 }): Promise<string> {
   const q = await prisma.query.create({
     data: {
@@ -70,6 +75,12 @@ export async function askUserDuringCall(opts: {
       body: opts.question,
       url: "/queries",
     });
+  }
+
+  if (opts.nonBlocking) {
+    // Same sentinel as a timeout: the prompt already tells the agent to say it will call back
+    // and end the call with outcome needs_user.
+    return "USER_UNAVAILABLE";
   }
 
   return new Promise<string>((resolve) => {

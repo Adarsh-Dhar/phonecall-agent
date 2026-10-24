@@ -125,6 +125,7 @@ export function buildAgentCallSystemInstruction({
   timezone,
   ownerInfo = [],
   memoryBlock = '',
+  agentMode = false,
 }: {
   individualName: string;
   businessName: string;
@@ -135,6 +136,8 @@ export function buildAgentCallSystemInstruction({
   ownerInfo?: OwnerInfoFact[];
   /** Output of renderMemoryBlock(); history of earlier calls. Added to, never replaces, the rules. */
   memoryBlock?: string;
+  /** Owner turned on agent mode: they are not on the line and cannot be asked mid-call. */
+  agentMode?: boolean;
 }): string {
   const action = direction === 'inbound' ? 'taking a call' : 'calling';
   const intro =
@@ -152,7 +155,22 @@ export function buildAgentCallSystemInstruction({
     `${individualName} and get back to them — don't guess or invent details.\n\n`;
 
   const baseInstruction = buildBaseCallInstruction(businessName, knowledgeFacts, taskContext, timezone);
-  return intro + baseInstruction + memoryBlock + buildOwnerInfoBlock(individualName, ownerInfo);
+  return intro + baseInstruction + memoryBlock + buildOwnerInfoBlock(individualName, ownerInfo) + buildAgentModeBlock(individualName, agentMode);
+}
+
+/**
+ * Extra rules when the owner is not available (agent mode). Empty string when agent mode is off,
+ * so the normal prompt is unchanged.
+ */
+function buildAgentModeBlock(individualName: string, agentMode: boolean): string {
+  if (!agentMode) return '';
+  return (
+    `\n\nAUTONOMOUS MODE: ${individualName} is NOT available during this call and cannot be asked questions, ` +
+    `so ask_user will return USER_UNAVAILABLE straight away. Handle everything you can from the facts above. ` +
+    `Never agree to a fee, deposit, payment, cancellation charge or any commitment that was not already approved, ` +
+    `and never share personal details beyond what is listed above. When something needs ${individualName}'s decision, ` +
+    `say you will check with them and get back, then call end_call with outcome needs_user and a summary of exactly what is needed.`
+  );
 }
 
 /**

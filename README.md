@@ -41,6 +41,20 @@ Tests run against a real PostgreSQL database. All commands from the **repo root*
 `vitest.setup.ts` refuses to run unless `TEST_DATABASE_URL` is set and its database name ends in `_test`,
 and it overrides `DATABASE_URL` with it, so tests can never touch your dev or prod database.
 
+## Agent mode (individuals only)
+
+Individual accounts have an **Agent mode** switch (Preferences, `GET/PATCH /api/user/agent-mode`, default off).
+When on, the individual's AI agent acts without the owner doing anything:
+
+- **Sends:** when a call task is due (including ones created from Google Calendar), the scheduler dials the linked business itself. With it off, the owner only gets a "call due" notification.
+- **Receives:** incoming business calls are answered immediately (no ring), even while the owner is offline.
+- **During the call:** the agent never waits for the owner. `ask_user` returns `USER_UNAVAILABLE` at once; the question is saved for the owner and the call ends with outcome `needs_user`.
+
+Business accounts cannot use agent mode (403). The business side of every call is still a human using the app.
+`CALL_SCHEDULER_AUTO_DIAL=0` disables agent-placed calls for everyone.
+
+**Note:** The legacy `PATCH /api/user/agent-auto-answer` endpoint is deprecated but kept for backward compatibility. It now redirects to the new `agentMode` field.
+
 ## Settings
 
 ### Scheduler Configuration

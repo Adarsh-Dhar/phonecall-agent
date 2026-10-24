@@ -39,7 +39,7 @@ export function Preferences({ onClose }: { onClose: () => void }) {
   const [timezone, setTimezone] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [quietHoursStart, setQuietHoursStart] = useState<number | null>(null);
   const [quietHoursEnd, setQuietHoursEnd] = useState<number | null>(null);
-  const [agentAutoAnswer, setAgentAutoAnswer] = useState(false);
+  const [agentMode, setAgentMode] = useState(false);
   const { permission, subscribe } = usePushSubscription();
 
   const toggle = (id: string) =>
@@ -58,9 +58,9 @@ export function Preferences({ onClose }: { onClose: () => void }) {
         // Default to browser timezone
       });
 
-    apiFetch('/api/user/agent-auto-answer')
+    apiFetch('/api/user/agent-mode')
       .then((res) => res.json())
-      .then((data) => setAgentAutoAnswer(data.enabled === true))
+      .then((data) => setAgentMode(data.enabled === true))
       .catch(() => {
         // Default to off
       });
@@ -94,10 +94,10 @@ export function Preferences({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({ quietHoursStart, quietHoursEnd }),
       });
 
-      await apiFetch('/api/user/agent-auto-answer', {
+      await apiFetch('/api/user/agent-mode', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: agentAutoAnswer }),
+        body: JSON.stringify({ enabled: agentMode }),
       });
     } catch (err) {
       console.error('Failed to save preferences:', err);
@@ -155,21 +155,23 @@ export function Preferences({ onClose }: { onClose: () => void }) {
             ))}
           </div>
 
-          {/* Agent auto-answer */}
+          {/* Agent mode (master switch) */}
           <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
             <div className="flex-1">
-              <Label htmlFor="pref-agent-auto-answer" className="cursor-pointer text-sm font-medium leading-none">
-                Let my agent answer calls
+              <Label htmlFor="pref-agent-mode" className="cursor-pointer text-sm font-medium leading-none">
+                Agent mode
               </Label>
               <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-                When a business calls you, your AI agent picks up and talks for you, even if you're offline.
+                Your AI agent places your scheduled calls and answers business calls for you, with no action from you,
+                even when you're offline. You can still watch live and review every transcript. Turn off to be
+                asked first (you get a notification when a call is due and calls ring for you).
               </p>
             </div>
             <Switch
-              id="pref-agent-auto-answer"
-              data-testid="switch-agent-auto-answer"
-              checked={agentAutoAnswer}
-              onCheckedChange={setAgentAutoAnswer}
+              id="pref-agent-mode"
+              data-testid="switch-agent-mode"
+              checked={agentMode}
+              onCheckedChange={setAgentMode}
             />
           </div>
 

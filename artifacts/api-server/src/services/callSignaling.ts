@@ -13,6 +13,13 @@ export class NotInContactsError extends Error {
   }
 }
 
+export class AgentModeOffError extends Error {
+  constructor(message = 'Agent mode is off') {
+    super(message);
+    this.name = 'AgentModeOffError';
+  }
+}
+
 /**
  * Does `ownerId` have `targetId` saved as a contact?
  */
@@ -44,15 +51,23 @@ export async function isContact(callerId: string, receiverId: string): Promise<b
 }
 
 /**
- * RECEIVE side of the agent's call tools: does this individual let their AI agent pick up
- * incoming business calls itself? (Account.agentAutoAnswer, toggled via PATCH /api/user/agent-auto-answer.)
+ * Master switch: has this individual turned on agent mode? (Account.agentMode, toggled via
+ * PATCH /api/user/agent-mode.) Only individuals can have it on; business accounts never do.
  */
-export async function agentWillAutoAnswer(individualId: string): Promise<boolean> {
+export async function isAgentModeOn(individualId: string): Promise<boolean> {
   const account = await prisma.account.findUnique({
     where: { id: individualId },
-    select: { agentAutoAnswer: true, isService: true },
+    select: { agentMode: true, isService: true },
   });
-  return !!account && !account.isService && account.agentAutoAnswer === true;
+  return !!account && !account.isService && account.agentMode === true;
+}
+
+/**
+ * RECEIVE side of the agent's call tools: does this individual let their AI agent pick up
+ * incoming business calls itself? Same as agent mode.
+ */
+export async function agentWillAutoAnswer(individualId: string): Promise<boolean> {
+  return isAgentModeOn(individualId);
 }
 
 /**
@@ -304,6 +319,14 @@ export async function dialCallAs(
 
   if (!contact) {
     throw new Error('Contact not found');
+  }
+
+  // The agent may only dial on its own when the owner has agent mode on (server-side guard, so it
+  // holds even if the toggle was switched off after the scheduler claimed the task).
+  if (opts.agent) {
+    if (dialerRole !== 'individual' || !(await isAgentModeOn(dialerId))) {
+      throw new AgentModeOffError();
+    }
   }
 
   // Determine the parties using linkedAccountId

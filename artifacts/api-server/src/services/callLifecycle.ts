@@ -91,6 +91,8 @@ export function createCallLifecycle(opts: {
   ownerId: string;
   contactId: string;
   startedAt: Date;
+  /** Owner has agent mode on: nobody is watching, so ask_user must not block the live call. */
+  agentMode?: boolean;
   send: (msg: object) => void;
   closeSocket: () => void;
   getGemini: () => { close: () => void } | null;
@@ -230,6 +232,7 @@ export function createCallLifecycle(opts: {
       conversationId: opts.conversationId,
       contactId: opts.contactId,
       ownerId: opts.ownerId,
+      nonBlocking: opts.agentMode === true,
       ...args,
     });
   }

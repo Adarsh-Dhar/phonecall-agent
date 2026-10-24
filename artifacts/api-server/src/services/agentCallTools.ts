@@ -6,9 +6,10 @@
  * one (acceptCallAs) were only reachable from HTTP routes, i.e. from a human clicking a button.
  *
  *   SEND     agentPlaceCall()        ← used by callScheduler.ts when a task's due time arrives
- *                                      (including tasks created from Google Calendar events)
+ *                                      (including tasks created from Google Calendar events).
+ *                                      Only runs for individuals who turned on agent mode.
  *   RECEIVE  agentWillAutoAnswer()   ← lives in callSignaling.ts and is used by dialCallAs(): when a
- *                                      business calls an individual who enabled `agentAutoAnswer`, the
+ *                                      business calls an individual who turned on agent mode (Account.agentMode), the
  *                                      call is created already in-progress and the agent talks for them.
  *
  * Calls stay in-app (browser mic ↔ Gemini Live). There is deliberately no carrier/PSTN path — see
@@ -16,7 +17,7 @@
  */
 
 import { logger } from "../lib/logger";
-import { dialCallAs, NotInContactsError } from "./callSignaling";
+import { dialCallAs, NotInContactsError, AgentModeOffError } from "./callSignaling";
 import { sendToAccount } from "./presence";
 
 export type AgentCallOutcome =
@@ -60,11 +61,13 @@ export async function agentPlaceCall(input: {
     return { kind: "ringing", callId: result.call.id };
   } catch (err) {
     const reason =
-      err instanceof NotInContactsError
-        ? "not_in_contacts"
-        : err instanceof Error
-          ? err.message
-          : "unknown_error";
+      err instanceof AgentModeOffError
+        ? "agent_mode_off"
+        : err instanceof NotInContactsError
+          ? "not_in_contacts"
+          : err instanceof Error
+            ? err.message
+            : "unknown_error";
     logger.warn({ err, contactId, taskId, reason }, "agentPlaceCall: could not place call");
     return { kind: "unavailable", reason };
   }

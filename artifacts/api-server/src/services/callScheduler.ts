@@ -5,11 +5,12 @@
  *
  * DESIGN DECISION: calls are in-app only. This scheduler never dials a phone
  * number. When a task's nextAttemptAt arrives:
- *   1. If the task's contact is linked to a business account, the AGENT places the
+ *   1. If the owner turned on AGENT MODE (Account.agentMode) and the task's contact is linked
+ *      to a real business account (that is what dialCallAs needs), the AGENT places the
  *      call itself (services/agentCallTools.ts → dialCallAs): the business's app
  *      rings, and once they accept, the individual's AI agent talks to them.
- *      Set CALL_SCHEDULER_AUTO_DIAL=0 to disable this and only notify.
- *   2. Otherwise (no linked business account, or the call can't be created) it
+ *      CALL_SCHEDULER_AUTO_DIAL=0 is a global kill switch: nobody's agent dials, owners are only notified.
+ *   2. Otherwise (agent mode off, no linked business account, or the call can't be created) it
  *      broadcasts "call_due" to the owner's open browser tabs (services/presence.ts),
  *      falling back to push (services/push.ts) when they are offline.
  * Do not reintroduce a carrier dial path here: it would create Call rows with no
@@ -348,6 +349,7 @@ async function processTask(
         quietHoursEnd: true,
         businessHoursJson: true,
         isService: true,
+        agentMode: true,
       },
     });
 
@@ -453,10 +455,11 @@ async function processTask(
     }
 
     // Preferred path: the agent places the call itself. It only applies when the owner is an
-    // individual and the contact is linked to a real business account (that is what dialCallAs needs).
+    // individual who turned agent mode ON and the contact is linked to a real business account
+    // (that is what dialCallAs needs). With agent mode off the owner is notified instead.
     let autoDialed = false;
     let delivered = false;
-    if (AUTO_DIAL && !owner.isService && contact.linkedAccountId) {
+    if (AUTO_DIAL && owner.agentMode && !owner.isService && contact.linkedAccountId && biz) {
       const outcome = await agentPlaceCall({
         ownerId: contact.ownerId,
         contactId: contact.id,

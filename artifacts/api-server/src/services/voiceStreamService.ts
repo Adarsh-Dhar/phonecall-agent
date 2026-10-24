@@ -26,7 +26,7 @@ import { buildAgentCallSystemInstruction } from './callAnalysis';
 import { createCallLifecycle } from './callLifecycle';
 import { logger } from '../lib/logger';
 import { sendToAccount } from './presence';
-import { roleInCall, recipientIdOf, initiatorIdOf, type CallRole } from './callSignaling';
+import { roleInCall, recipientIdOf, initiatorIdOf, isAgentModeOn, type CallRole } from './callSignaling';
 import { loadOwnerInfo } from './ownerInfo';
 import { buildBriefing, renderMemoryBlock } from './memory';
 
@@ -331,6 +331,8 @@ async function startGeminiSession(room: Room, call: any) {
   }
 
   const taskContext = await getTaskContextForCall(call.taskId, call.contactId);
+  // Read once per call: if the owner flips the switch mid-call, the running call keeps its mode.
+  const agentMode = await isAgentModeOn(room.individualId);
   const tz = individual.timezone ?? process.env.DEFAULT_TIMEZONE ?? 'Asia/Kolkata';
   const direction = room.initiatedBy === 'individual' ? 'outbound' : 'inbound';
 
@@ -356,6 +358,7 @@ async function startGeminiSession(room: Room, call: any) {
     ownerId: room.individualId, // Always use individualId for lifecycle
     contactId: call.contactId,
     startedAt,
+    agentMode,
     send: (msg) => {
       // Send to business socket
       if (room.businessSocket) {
@@ -389,6 +392,7 @@ async function startGeminiSession(room: Room, call: any) {
       timezone: tz,
       ownerInfo,
       memoryBlock,
+      agentMode,
     }),
     onAudioOut: (pcm24k) => {
       room.lifecycle?.noteAudioOut(pcm24k);

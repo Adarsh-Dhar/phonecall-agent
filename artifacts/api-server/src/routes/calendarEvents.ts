@@ -77,7 +77,9 @@ router.get("/", asyncHandler(async (req, res) => {
       logger.info("Google Calendar not connected, returning database events");
       const tasks = await prisma.task.findMany({
         where: {
-          ownerId: req.userId!,
+          contact: {
+            ownerId: req.userId!,
+          },
           googleEventId: { not: null },
           status: { not: 'cancelled' },
         },
