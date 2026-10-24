@@ -169,7 +169,7 @@ export function ContactDetailPage() {
       toast({ description: 'Contact settings saved' });
     } catch (error) {
       console.error('Error saving contact:', error);
-      toast({ variant: 'destructive', description: 'Failed to save contact settings' });
+      toast({ variant: 'destructive', description: error instanceof Error ? error.message : 'Failed to save contact settings' });
     } finally {
       setSavingContact(false);
     }
