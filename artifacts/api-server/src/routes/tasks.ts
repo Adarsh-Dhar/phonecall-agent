@@ -1,41 +1,11 @@
 import { Router, type IRouter } from "express";
 import { prisma } from "@workspace/db-prisma";
-import { runExtraction } from "../services/taskExtraction";
 import { syncTaskToCalendar } from "../services/googleCalendar";
 import { nudgeScheduler } from "../services/callScheduler";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sourcesInclude, contactCardSelect } from "../lib/prismaSelects";
 
 const router: IRouter = Router();
-
-// ---------------------------------------------------------------------------
-// GET /conversations/:id/tasks
-// Tasks for a single conversation thread
-// ---------------------------------------------------------------------------
-router.get("/conversations/:id/tasks", asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.query;
-
-  // Verify conversation belongs to user
-  const conversation = await prisma.conversation.findFirst({
-    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
-  });
-  if (!conversation) {
-    res.status(404).json({ error: "Conversation not found" });
-    return;
-  }
-
-  const tasks = await prisma.task.findMany({
-    where: {
-      conversationId: String(id),
-      ...(status ? { status: String(status) } : {}),
-    },
-    include: sourcesInclude,
-    orderBy: { createdAt: "asc" },
-  });
-
-  res.json(tasks);
-}, "Failed to fetch conversation tasks"));
 
 // ---------------------------------------------------------------------------
 // GET /contacts/:id/tasks
@@ -47,7 +17,7 @@ router.get("/contacts/:id/tasks", asyncHandler(async (req, res) => {
 
   // Verify contact belongs to user
   const contact = await prisma.account.findFirst({
-    where: { id: String(id), ownerId: req.userId!, isService: true },
+    where: { id: String(id), ownerId: req.userId! },
   });
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
@@ -76,9 +46,9 @@ router.get("/", asyncHandler(async (req, res) => {
 
   const tasks = await prisma.task.findMany({
     where: {
-      contact: { ownerId: req.userId!, isService: true },
+      contact: { ownerId: req.userId! },
       ...(status    ? { status: String(status) }       : {}),
-      ...(priority  ? { priority: String(priority) }   : {}),
+      ...(priority ? { priority: String(priority) }   : {}),
       ...(contactId ? { contactId: String(contactId) } : {}),
     },
     include: {
@@ -106,7 +76,7 @@ router.post("/", asyncHandler(async (req, res) => {
 
   // Verify contact belongs to this user
   const contact = await prisma.account.findFirst({
-    where: { id: String(contactId), ownerId: req.userId!, isService: true },
+    where: { id: String(contactId), ownerId: req.userId! },
   });
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
@@ -163,11 +133,11 @@ router.patch("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status, title, description, dueDate, priority, kind } = req.body;
 
-  const existing = await prisma.task.findUnique({
-    where: { id: String(id) },
+  const existing = await prisma.task.findFirst({
+    where: { id: String(id), contact: { ownerId: req.userId! } },
     include: { contact: true },
   });
-  
+
   if (!existing) {
     res.status(404).json({ error: "Task not found" });
     return;
@@ -237,7 +207,7 @@ router.delete("/tasks/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const existing = await prisma.task.findFirst({
-    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
+    where: { id: String(id), contact: { ownerId: req.userId! } },
   });
   if (!existing) {
     res.status(404).json({ error: "Task not found" });
@@ -255,25 +225,5 @@ router.delete("/tasks/:id", asyncHandler(async (req, res) => {
   await prisma.task.delete({ where: { id: String(id) } });
   res.json({ success: true });
 }, "Failed to delete task"));
-
-// ---------------------------------------------------------------------------
-// POST /conversations/:id/extract
-// Manual "extract now" — bypasses debounce. Useful for the UI "Check for tasks"
-// button or for backfilling old conversations.
-// ---------------------------------------------------------------------------
-router.post("/conversations/:id/extract", asyncHandler(async (req, res) => {
-  const { id } = req.params;
-
-  const conversation = await prisma.conversation.findFirst({
-    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
-  });
-  if (!conversation) {
-    res.status(404).json({ error: "Conversation not found" });
-    return;
-  }
-
-  const result = await runExtraction(String(id));
-  res.json({ ok: true, ...result });
-}, "Extraction failed"));
 
 export default router;

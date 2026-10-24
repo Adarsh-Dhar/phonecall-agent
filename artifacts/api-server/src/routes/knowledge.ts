@@ -11,7 +11,7 @@ router.get("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
 
   // Verify contact belongs to user
   const contact = await prisma.account.findFirst({
-    where: { id: String(id), ownerId: req.userId!, isService: true },
+    where: { id: String(id), ownerId: req.userId! },
   });
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
@@ -42,7 +42,7 @@ router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
 
   // Verify contact belongs to user
   const contact = await prisma.account.findFirst({
-    where: { id: String(id), ownerId: req.userId!, isService: true },
+    where: { id: String(id), ownerId: req.userId! },
   });
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
@@ -75,9 +75,9 @@ router.patch("/knowledge/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { value, status } = req.body;
 
-  // Verify ownership via contact (service account) → owner
+  // Verify ownership via contact → owner
   const existing = await prisma.contactKnowledge.findFirst({
-    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
+    where: { id: String(id), contact: { ownerId: req.userId! } },
   });
   if (!existing) {
     res.status(404).json({ error: "Knowledge fact not found" });
@@ -97,9 +97,9 @@ router.patch("/knowledge/:id", asyncHandler(async (req, res) => {
 router.delete("/knowledge/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  // Verify ownership via contact (service account) → owner
+  // Verify ownership via contact → owner
   const existing = await prisma.contactKnowledge.findFirst({
-    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
+    where: { id: String(id), contact: { ownerId: req.userId! } },
   });
   if (!existing) {
     res.status(404).json({ error: "Knowledge fact not found" });
