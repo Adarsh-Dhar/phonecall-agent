@@ -169,7 +169,7 @@ router.post('/calls/dial', asyncHandler(async (req, res) => {
                   status: task.status,
                   googleEventId: task.googleEventId,
                   kind: task.kind,
-                  meta: task.meta,
+                  meta: task.meta as any,
                   contact: { name: task.contact.name || '', business: task.contact.business || '' },
                   userId: req.userId!,
                 }).catch((err) => {

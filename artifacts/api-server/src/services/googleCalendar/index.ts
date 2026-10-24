@@ -17,12 +17,24 @@
 
 export { getAuthedClient, getAuthedClientOrReason } from "./authClient";
 export type { AuthedClientResult } from "./authClient";
-export { insertCalendarEvent, listAllCalendarEvents } from "./eventsApi";
+export {
+  insertCalendarEvent,
+  listAllCalendarEvents,
+  getBusyIntervals,
+  insertHoldEvent,
+  deleteCalendarEventById,
+  listHoldEvents,
+} from "./eventsApi";
+export type { BusyInterval } from "./eventsApi";
 export {
   createEvent,
   updateEvent,
   deleteEvent,
   listChangedEvents,
   syncTaskToCalendar,
+  eventSummaryFor,
+  titleFromEventSummary,
+  buildEventDescription,
+  APPOINTMENT_MINUTES,
 } from "./taskSync";
 export type { ChangedCalendarEvent } from "./taskSync";

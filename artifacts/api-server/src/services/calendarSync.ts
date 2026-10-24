@@ -6,10 +6,12 @@
  */
 
 import { prisma } from "@workspace/db-prisma";
-import { listChangedEvents, type ChangedCalendarEvent } from "./googleCalendar";
+import { listChangedEvents, titleFromEventSummary, type ChangedCalendarEvent } from "./googleCalendar";
 import { ingestCalendarEvent } from "./calendarIngest";
 import { nudgeScheduler } from "./callScheduler";
 import { logger } from "../lib/logger";
+import { firstFireAt, normalizeKind } from "./taskKinds";
+import { sweepStaleHolds } from "./callCalendarTools";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -97,6 +99,8 @@ async function syncAllUsersCalendarChanges(): Promise<void> {
       } catch (error) {
         logger.error({ error, userId: account.id }, "Failed to sync calendar for account");
       }
+      // Remove HOLD events a crashed call never cleaned up (self-throttled, never throws).
+      await sweepStaleHolds(account.id);
     }
   } catch (error) {
     logger.error({ error }, "Failed to get accounts for calendar sync");
@@ -214,8 +218,9 @@ async function processEventChange(event: ChangedCalendarEvent, userId: string): 
   const eventStart = event.start?.dateTime || event.start?.date;
   const newDueDate = eventStart ? new Date(eventStart) : null;
 
-  // Extract title (remove checkmark prefix if present)
-  const newTitle = event.summary?.replace(/^✓\s*/, "") || task.title;
+  // Strip the checkmark AND the kind prefix we add ("Pay: "), otherwise the prefix is
+  // written into Task.title on every pull and re-added on the next push.
+  const newTitle = event.summary ? titleFromEventSummary(task.kind, event.summary) || task.title : task.title;
 
   // Build update data
   const updateData: {
@@ -235,8 +240,9 @@ async function processEventChange(event: ChangedCalendarEvent, userId: string): 
 
   if (newDueDate && (!task.dueDate || newDueDate.getTime() !== task.dueDate.getTime())) {
     updateData.dueDate = newDueDate;
-    // Reset scheduler fields when due date changes via calendar sync
-    updateData.nextAttemptAt = newDueDate;
+    // Owner-executed kinds (pay, bring, appointment) wake on their reminder plan, not at the due instant.
+    const owner = await prisma.account.findUnique({ where: { id: userId }, select: { timezone: true } });
+    updateData.nextAttemptAt = firstFireAt(normalizeKind(task.kind), newDueDate, owner?.timezone ?? "UTC");
     updateData.callAttempts = 0;
     updateData.schedulerStatus = "pending";
   }

@@ -5,6 +5,7 @@ import { nudgeScheduler } from "../services/callScheduler";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sourcesInclude, contactCardSelect } from "../lib/prismaSelects";
 import { normalizeKind, sanitizeMeta, firstFireAt, syncsToCalendar } from "../services/taskKinds";
+import type { Prisma } from "@workspace/db-prisma";
 
 const router: IRouter = Router();
 
@@ -89,7 +90,7 @@ router.post("/", asyncHandler(async (req, res) => {
 
   // Load owner for timezone
   const owner = await prisma.account.findUnique({
-    where: { id: contact.ownerId },
+    where: { id: contact.ownerId ?? "" },
     select: { timezone: true },
   });
   const ownerTz = owner?.timezone ?? "UTC";
@@ -101,7 +102,7 @@ router.post("/", asyncHandler(async (req, res) => {
     return;
   }
 
-  const sanitizedMeta = sanitizeMeta(k, meta);
+  const sanitizedMeta = sanitizeMeta(k, meta) as any;
 
   const task = await prisma.task.create({
     data: {
@@ -111,7 +112,7 @@ router.post("/", asyncHandler(async (req, res) => {
       priority:    priority ?? "normal",
       kind:        k,
       meta:        sanitizedMeta,
-      parentTaskId: parentTaskId ?? null,
+      parentTaskId: parentTaskId ?? undefined,
       status:      "open",   // user-created tasks skip "suggested"
       source:      "user",
       confidence:  1.0,
@@ -137,8 +138,8 @@ router.post("/", asyncHandler(async (req, res) => {
       status:       task.status,
       googleEventId: task.googleEventId,
       kind:         task.kind,
-      meta:         task.meta,
-      contact:      { name: task.contact.name || '', business: task.contact.business || '' },
+      meta:         task.meta as any,
+      contact:      { name: contact.name || '', business: contact.business || '' },
       userId:       req.userId!,
     }).catch((err) => {
       console.error("Failed to sync task to calendar:", err);
@@ -169,7 +170,7 @@ router.patch("/:id", asyncHandler(async (req, res) => {
 
   // Load owner for timezone
   const owner = await prisma.account.findUnique({
-    where: { id: existing.contact.ownerId },
+    where: { id: existing.contact.ownerId ?? "" },
     select: { timezone: true },
   });
   const ownerTz = owner?.timezone ?? "UTC";
@@ -224,7 +225,7 @@ router.patch("/:id", asyncHandler(async (req, res) => {
       status:        task.status,
       googleEventId: task.googleEventId,
       kind:          task.kind,
-      meta:          task.meta,
+      meta:          task.meta as Record<string, unknown> | null,
       contact:       { name: task.contact.name || '', business: task.contact.business || '' },
       userId:        req.userId!,
     }).catch((err) => {

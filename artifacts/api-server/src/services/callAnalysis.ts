@@ -74,9 +74,15 @@ function buildBaseCallInstruction(
       "need to act on — reference numbers, claim or order IDs, addresses, names — ask for the exact value " +
       "rather than accepting a vague or partial one. If the other person genuinely doesn't have it on hand, " +
       "confirm that plainly (so it's clear it was asked and unavailable, not skipped) before moving on.\n\n" +
-      "Never agree to a fee, deposit, cancellation charge, or a time not already approved. Say 'one moment', " +
-      "call ask_user, and use its answer. If it returns USER_UNAVAILABLE, tell them you'll call back, then " +
-      "call end_call with outcome needs_user.\n\n" +
+      "SCHEDULING TOOLS: When the other person offers a specific day and time, call check_availability BEFORE " +
+      "accepting (say 'one moment' first). If it says free, call hold_slot, then confirm the slot out loud and " +
+      "repeat the exact date and time. If it says busy, politely decline that time and offer the alternatives it " +
+      "returned (read the 'spoken' field). If it says outsideUsualHours, or calendarChecked is false, do NOT " +
+      "accept on your own: use ask_user. If a tool returns an error, retry once with a corrected startsAt " +
+      "(ISO 8601 with UTC offset), then fall back to ask_user. Use the exact time you held as confirmedAt in end_call.\n\n" +
+      "Never agree to a fee, deposit or cancellation charge, or to a time that check_availability has not " +
+      "reported as free. Say 'one moment', call ask_user, and use its answer. If it returns USER_UNAVAILABLE, tell " +
+      "them you'll call back, then call end_call with outcome needs_user.\n\n" +
       "ENDING THE CALL: This call has a natural end point — don't drag it out. As soon as the purpose " +
       "of the call is resolved (the other person has said goodbye, confirmed there's nothing else, " +
       "or the conversation has clearly wound down), say a brief, warm goodbye and then call the " +
@@ -202,8 +208,9 @@ function buildAgentModeBlock(individualName: string, agentMode: boolean): string
   return (
     `\n\nAUTONOMOUS MODE: ${individualName} is NOT available during this call and cannot be asked questions, ` +
     `so ask_user will return USER_UNAVAILABLE straight away. Handle everything you can from the facts above. ` +
-    `Never agree to a fee, deposit, payment, cancellation charge or any commitment that was not already approved, ` +
-    `and never share personal details beyond what is listed above. When something needs ${individualName}'s decision, ` +
+    `Never agree to a fee, deposit, payment, cancellation charge or any commitment that was not already approved. ` +
+    `The one exception is a time slot: you may accept it when check_availability reports it free and calendarChecked is true. ` +
+    `Never share personal details beyond what is listed above. When something needs ${individualName}'s decision, ` +
     `say you will check with them and get back, then call end_call with outcome needs_user and a summary of exactly what is needed.`
   );
 }

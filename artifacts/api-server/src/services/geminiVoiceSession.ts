@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { logger } from "../lib/logger";
+import { isCalendarTool } from "./callCalendarTools";
 
 const MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-3.8-live";
 const LANGUAGE_CODE = process.env.GEMINI_LIVE_LANGUAGE_CODE ?? "en-US";
@@ -50,7 +51,7 @@ const END_CALL = {
 const ASK_USER = {
   name: "ask_user",
   description:
-    "Ask your user a question you cannot answer. Say 'one moment please' first. Use before agreeing to any fee, deposit, or time not already approved. If the question is about a knowledge gap, provide a short snake_case knowledgeKey (3-41 characters, starts with a letter, only lowercase letters, numbers, and underscores).",
+    "Ask your user a question you cannot answer. Say 'one moment please' first. Use before agreeing to any fee or deposit, or to a time you could not verify with check_availability. If the question is about a knowledge gap, provide a short snake_case knowledgeKey (3-41 characters, starts with a letter, only lowercase letters, numbers, and underscores).",
   parameters: {
     type: Type.OBJECT,
     required: ["question"],
@@ -61,6 +62,35 @@ const ASK_USER = {
         description: "Short snake_case key for this knowledge (3-41 chars, starts with letter, only lowercase letters, numbers, underscores). Reuse existing keys when possible.",
       },
       knowledgeCategory: { type: Type.STRING },
+    },
+  },
+};
+
+const CHECK_AVAILABILITY = {
+  name: "check_availability",
+  description:
+    "Check whether your user is free at a time the other person just offered. Call this BEFORE agreeing to any specific day and time. Returns free true/false; when busy it returns alternatives you can offer instead. If it returns an error, retry once with a corrected startsAt, otherwise fall back to ask_user.",
+  parameters: {
+    type: Type.OBJECT,
+    required: ["startsAt"],
+    properties: {
+      startsAt: { type: Type.STRING, description: "Start of the offered slot: ISO 8601 date-time WITH the UTC offset, in the future" },
+      durationMin: { type: Type.NUMBER, description: "Length in minutes. Omit for a normal appointment (60)." },
+    },
+  },
+};
+
+const HOLD_SLOT = {
+  name: "hold_slot",
+  description:
+    "Tentatively reserve a slot on your user's calendar while you finish the call. Call it once check_availability says the time is free, then confirm the slot with the other person. Holds are released automatically if the call does not end booked.",
+  parameters: {
+    type: Type.OBJECT,
+    required: ["startsAt"],
+    properties: {
+      startsAt: { type: Type.STRING, description: "Start of the slot: ISO 8601 date-time WITH the UTC offset" },
+      durationMin: { type: Type.NUMBER },
+      label: { type: Type.STRING, description: "Short label, e.g. the business name and purpose" },
     },
   },
 };
@@ -76,6 +106,8 @@ export async function openGeminiLiveSession(opts: {
   onUserTurnText: (text: string) => void;
   onAgentTurnText: (text: string) => void;
   onAskUser?: (args: { question: string; knowledgeKey?: string; knowledgeCategory?: string }) => Promise<string>;
+  /** Runs check_availability / hold_slot. Must resolve (never reject) with the tool response. */
+  onToolCall?: (name: string, args: any) => Promise<unknown>;
   onEndCallRequested?: (args: EndCallArgs) => void;
   onClosed?: () => void;
 }): Promise<GeminiVoiceSession> {
@@ -114,7 +146,7 @@ export async function openGeminiLiveSession(opts: {
         inputAudioTranscription: {},
         outputAudioTranscription: {},
         speechConfig: { languageCode: LANGUAGE_CODE },
-        tools: [{ functionDeclarations: [END_CALL, ASK_USER] }],
+        tools: [{ functionDeclarations: [END_CALL, ASK_USER, CHECK_AVAILABILITY, HOLD_SLOT] }],
       },
       callbacks: {
         onmessage: async (msg) => {
@@ -136,6 +168,12 @@ export async function openGeminiLiveSession(opts: {
                 if (fc.name === "ask_user") {
                   const answer = await opts.onAskUser?.(fc.args as any).catch(() => "USER_UNAVAILABLE");
                   return { id: fc.id, name: fc.name, response: { answer: answer ?? "USER_UNAVAILABLE" } };
+                }
+                if (fc.name && isCalendarTool(fc.name)) {
+                  const result = await opts
+                    .onToolCall?.(fc.name, fc.args ?? {})
+                    .catch(() => ({ error: "calendar_unavailable" }));
+                  return { id: fc.id, name: fc.name, response: (result ?? { error: "calendar_unavailable" }) as Record<string, unknown> };
                 }
                 return { id: fc.id, name: fc.name, response: { error: "unknown tool" } };
               })

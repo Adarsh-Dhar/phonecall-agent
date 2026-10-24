@@ -33,6 +33,43 @@ const MINUTES: Record<string, number> = {
   other: 15,
 };
 
+/** Length of an appointment event; also the default slot length the voice agent checks. */
+export const APPOINTMENT_MINUTES = MINUTES.appointment;
+
+export function eventSummaryFor(kind: string, title: string, status?: string): string {
+  const prefix = PREFIX[normalizeKind(kind)] || "";
+  const body = prefix && title.toLowerCase().startsWith(prefix.toLowerCase()) ? title : `${prefix}${title}`;
+  return status === "done" ? `✓ ${body}` : body;
+}
+
+/** Inverse of eventSummaryFor(): strips the checkmark and the kind prefix we added. */
+export function titleFromEventSummary(kind: string, summary: string): string {
+  let t = summary.replace(/^✓\s*/, "").trim();
+  const prefix = PREFIX[normalizeKind(kind)] || "";
+  if (prefix && t.toLowerCase().startsWith(prefix.toLowerCase())) t = t.slice(prefix.length).trim();
+  return t;
+}
+
+/** Event description: free text, then facts for the owner's phone, then the contact line. */
+export function buildEventDescription(task: {
+  description: string | null;
+  meta: Record<string, unknown> | null;
+  contact: { name: string; business: string | null };
+}): string {
+  const lines: string[] = [];
+  if (task.description) lines.push(task.description);
+  const m = (typeof task.meta === "object" && task.meta) || {};
+  const facts: string[] = [];
+  if (typeof m.ref === "string" && m.ref) facts.push(`Confirmation ref: ${m.ref}`);
+  if (typeof m.location === "string" && m.location) facts.push(`Location: ${m.location}`);
+  if (typeof m.payAtVisit === "string" && m.payAtVisit) facts.push(`Pay at visit: ${m.payAtVisit}`);
+  if (Array.isArray(m.items) && m.items.length) facts.push(`Bring: ${m.items.join(", ")}`);
+  if (facts.length) lines.push(facts.join("\n"));
+  // calendarEventParser.contactLine() reads this exact "Contact:" line, keep the format.
+  lines.push(`Contact: ${task.contact.name} (${task.contact.business ?? ""})`);
+  return lines.join("\n\n");
+}
+
 /**
  * Create a Google Calendar event from a task.
  * Returns the event ID or null if creation failed.
@@ -70,7 +107,6 @@ export async function createEvent(task: {
 
     const kind = normalizeKind(task.kind);
     const duration = MINUTES[kind] || DEFAULT_EVENT_DURATION_MINUTES;
-    const prefix = PREFIX[kind] || "";
     const allDay = typeof task.meta === 'object' && task.meta?.allDay === true;
 
     const startTime = new Date(task.dueDate);
@@ -78,12 +114,10 @@ export async function createEvent(task: {
       ? new Date(startTime.getTime() + 24 * 60 * 60 * 1000) // All-day events end at midnight next day
       : new Date(startTime.getTime() + duration * 60000);
 
-    const description = task.description
-      ? `${task.description}\n\nContact: ${task.contact.name} (${task.contact.business ?? ""})`
-      : `Contact: ${task.contact.name} (${task.contact.business ?? ""})`;
+    const description = buildEventDescription(task);
 
     const event: any = {
-      summary: `${prefix}${task.title}`,
+      summary: eventSummaryFor(kind, task.title),
       description,
     };
 
@@ -177,7 +211,6 @@ export async function updateEvent(task: {
 
     const kind = normalizeKind(task.kind);
     const duration = MINUTES[kind] || DEFAULT_EVENT_DURATION_MINUTES;
-    const prefix = PREFIX[kind] || "";
     const allDay = typeof task.meta === 'object' && task.meta?.allDay === true;
 
     const startTime = task.dueDate ? new Date(task.dueDate) : new Date(existingEvent.data.start?.dateTime || Date.now());
@@ -187,8 +220,12 @@ export async function updateEvent(task: {
           : new Date(startTime.getTime() + duration * 60000))
       : new Date(existingEvent.data.end?.dateTime || Date.now() + DEFAULT_EVENT_DURATION_MINUTES * 60000);
 
-    // Reset scheduler fields when due date changes via calendar sync
-    if (task.dueDate) {
+    // Reset scheduler fields only when the start actually moved.
+    const existingStartMs = existingEvent.data.start?.dateTime
+      ? new Date(existingEvent.data.start.dateTime).getTime()
+      : null;
+    const startMoved = existingStartMs === null || existingStartMs !== startTime.getTime();
+    if (task.dueDate && startMoved) {
       const owner = await prisma.account.findUnique({
         where: { id: task.userId },
         select: { timezone: true },
@@ -204,12 +241,10 @@ export async function updateEvent(task: {
       });
     }
 
-    const description = task.description
-      ? `${task.description}\n\nContact: ${task.contact.name} (${task.contact.business ?? ""})`
-      : `Contact: ${task.contact.name} (${task.contact.business ?? ""})`;
+    const description = buildEventDescription(task);
 
-    // If task is done, prefix title with checkmark
-    const summary = task.status === "done" ? `✓ ${prefix}${task.title}` : `${prefix}${task.title}`;
+    // Kind prefix + checkmark when done
+    const summary = eventSummaryFor(kind, task.title, task.status);
 
     const event: any = {
       summary,

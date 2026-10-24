@@ -7,6 +7,7 @@ import { computeNextAttempt, MAX_ATTEMPTS } from "./schedulerPolicy";
 import { getOrCreateRelationship, ingestMessage, scheduleConsolidation } from "./memory";
 import { broadcastCallExhausted } from "./notifications";
 import { applyPostCallTasks } from "./postCallTasks";
+import { createCallCalendarTools, isCalendarTool } from "./callCalendarTools";
 
 interface EndCallArgs {
   outcome: "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed";
@@ -142,6 +143,12 @@ export function createCallLifecycle(opts: {
   let relationshipId: string | null = null;
   let turnIndex = 0;
 
+  const calendarTools = createCallCalendarTools({
+    callId: opts.callId,
+    ownerId: opts.ownerId,
+    contactId: opts.contactId,
+  });
+
   async function logTurn(role: "user" | "assistant", content: string) {
     const currentConversationId = opts.conversationId;
     const currentCallId = opts.callId;
@@ -252,8 +259,16 @@ export function createCallLifecycle(opts: {
       logger.error({ err, callId: opts.callId }, "callLifecycle: failed to apply outcome to task")
     );
 
-    await applyPostCallTasks(opts.callId, args?.followUps).catch((err) =>
-      logger.error({ err, callId: opts.callId }, "callLifecycle: post-call tasks failed")
+    // The hold matching the confirmed time becomes the appointment's event; the rest are deleted.
+    let adoptedEventId: string | undefined;
+    try {
+      const post = await applyPostCallTasks(opts.callId, args?.followUps, { holds: calendarTools.activeHolds() });
+      adoptedEventId = post?.adoptedEventId;
+    } catch (err) {
+      logger.error({ err, callId: opts.callId }, "callLifecycle: post-call tasks failed");
+    }
+    await calendarTools.releaseHolds(adoptedEventId).catch((err) =>
+      logger.error({ err, callId: opts.callId }, "callLifecycle: failed to release calendar holds")
     );
 
     // Phase 3: Schedule consolidation for post-call memory processing
@@ -279,6 +294,20 @@ export function createCallLifecycle(opts: {
     });
   }
 
+  /** check_availability / hold_slot. Capped at 8 s so a slow Google call can't leave dead air. */
+  async function onToolCall(name: string, args: unknown): Promise<unknown> {
+    if (!isCalendarTool(name)) return { error: "unknown tool" };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<unknown>((resolve) => {
+      timer = setTimeout(() => resolve({ error: "calendar_unavailable" }), 8000);
+    });
+    try {
+      return await Promise.race([calendarTools.handle(name, args), timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   return {
     logTurn,
     noteAudioOut,
@@ -286,5 +315,6 @@ export function createCallLifecycle(opts: {
     end,
     onGeminiClosed,
     onAskUser,
+    onToolCall,
   };
 }

@@ -455,6 +455,7 @@ async function startGeminiSession(room: Room, call: any) {
       room.individualSockets.forEach(ws => ws.send(msg));
     },
     onAskUser: (args) => room.lifecycle?.onAskUser(args) ?? Promise.resolve('USER_UNAVAILABLE'),
+    onToolCall: (name, args) => room.lifecycle?.onToolCall(name, args) ?? Promise.resolve({ error: 'calendar_unavailable' }),
     onEndCallRequested: (args) => room.lifecycle?.onEndCall(args),
     onClosed: () => room.lifecycle?.onGeminiClosed(),
   });

@@ -67,6 +67,10 @@ export function isCallEvent(event: CalendarEventLike): boolean {
   if (event.status === "cancelled") return false;
   if (!event.start?.dateTime) return false; // all-day / undated → no exact time
 
+  // Tentative slots the agent itself holds during a live call ("HOLD: Sharma Clinic call"):
+  // never turn those into call tasks.
+  if (/^\s*HOLD:/i.test(event.summary ?? "")) return false;
+
   // Calendar invites from other people land on your calendar automatically. Their
   // title/description would become instructions for the agent, so refuse them.
   const selfOwned = event.organizerSelf === true || event.creatorSelf === true;

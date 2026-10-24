@@ -268,6 +268,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
                 browserWs.send(JSON.stringify({ type: "transcript", role: "assistant", text }));
               },
               onAskUser: (args) => lifecycle?.onAskUser(args) ?? Promise.resolve('USER_UNAVAILABLE'),
+              onToolCall: (name, args) => lifecycle?.onToolCall(name, args) ?? Promise.resolve({ error: 'calendar_unavailable' }),
               onEndCallRequested: (args) => lifecycle?.onEndCall(args),
               onClosed: () => lifecycle?.onGeminiClosed(),
             });

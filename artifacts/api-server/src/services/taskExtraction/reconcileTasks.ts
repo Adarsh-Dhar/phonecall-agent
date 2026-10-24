@@ -70,8 +70,8 @@ export async function reconcileTaskActions(
   const kindById = new Map(activeRows.map((t) => [t.id, t.kind]));
   const refMap = new Map<string, string>();
 
-  const skip = (a: TaskAction, reason: SkippedAction["reason"]) => {
-    skipped.push({ kind: "task", type: a.type, ref: a.taskId, reason });
+  const skip = (a: TaskAction, reason: string) => {
+    skipped.push({ kind: "task", type: a.type, ref: a.taskId, reason: reason as SkippedAction["reason"] });
     logger.warn({ conversationId, type: a.type, taskId: a.taskId, reason }, "reconcileTasks: action skipped");
   };
 
@@ -205,7 +205,7 @@ export async function reconcileTaskActions(
 
       const t = await tx.task.update({ where: { id: taskId }, data });
       updated.push(taskId);
-      if (data.dueDate && syncsToCalendar(kind)) tasksToSync.push(syncPayload(t));
+      if (data.dueDate && syncsToCalendar(kind)) tasksToSync.push(syncPayload({ ...t, kind, meta: t.meta as any }));
 
       // If this is an appointment and the due date changed, shift its children
       if (data.dueDate && kind === "appointment" && row?.dueDate) {
@@ -230,7 +230,7 @@ export async function reconcileTaskActions(
       });
       completed.push(taskId);
       activeIds.delete(taskId);
-      if (t.googleEventId) tasksToSync.push(syncPayload(t));
+      if (t.googleEventId) tasksToSync.push(syncPayload({ ...t, kind: t.kind, meta: t.meta as any }));
       await linkSources(taskId, sourceIds, "completed");
 
       // Phase 4: Resolve open loops associated with this task
@@ -250,7 +250,7 @@ export async function reconcileTaskActions(
       });
       cancelled.push(taskId);
       activeIds.delete(taskId);
-      if (t.googleEventId && syncsToCalendar(kind)) tasksToSync.push(syncPayload(t));
+      if (t.googleEventId && syncsToCalendar(kind)) tasksToSync.push(syncPayload({ ...t, kind, meta: t.meta as any }));
 
       // If this is an appointment, cancel its active children too
       if (kind === "appointment") {
