@@ -17,9 +17,9 @@ type ChatMessage = {
 };
 
 // Mounted under /api/orchestrator (see routes/index.ts), so the full path is
-// /api/orchestrator/gemini/chat — the frontend (lib/api/orchestrator.ts) calls
-// exactly that. The "gemini" segment is a legacy name; the model is Nebius.
-router.post("/gemini/chat", async (req, res) => {
+// /api/orchestrator/chat — the frontend (lib/api/orchestrator.ts) calls
+// exactly that.
+router.post("/chat", async (req, res) => {
   const messages = req.body?.messages as ChatMessage[] | undefined;
   const contactId = req.body?.contactId as string | undefined;
 

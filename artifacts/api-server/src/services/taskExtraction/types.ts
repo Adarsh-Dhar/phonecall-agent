@@ -19,7 +19,7 @@ export type ExistingTask = {
  */
 export type NewMessage = {
   id: string;
-  speaker: string; // e.g. "contact (on the call)", "owner (in the app)"
+  speaker?: string; // e.g. "contact (on the call)", "owner (in the app)"
   source: "phone_call" | "app_chat";
   content: string;
   time: string;
@@ -38,7 +38,7 @@ export type TaskAction = {
   description?: string;
   dueDate?: string;
   priority?: "low" | "normal" | "high";
-  kind?: "call" | "reminder";
+  kind?: "call";
   confidence: number;
   sourceMessageIds: string[];
 };

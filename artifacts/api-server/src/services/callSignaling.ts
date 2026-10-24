@@ -1,8 +1,11 @@
 import { prisma } from '@workspace/db-prisma';
 import { isOnline, sendToAccount } from './presence';
 import { logger } from '../lib/logger';
-import { isWithinAllowedWindow, DEFAULT_BUSINESS_HOURS } from './schedulerPolicy';
+import { isWithinAllowedWindow, DEFAULT_BUSINESS_HOURS, parseBusinessHours } from './schedulerPolicy';
 import { loadClosureInfo } from './businessClosures';
+
+// Shared ringing timeout constant (30 seconds)
+export const RINGING_TIMEOUT_MS = 30000;
 
 export type CallRole = 'individual' | 'business';
 
@@ -363,9 +366,7 @@ export async function dialCallAs(
     if (business && business.isService) {
       const now = new Date();
       const ownerTz = business.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
-      const hours = business.businessHoursJson
-        ? JSON.parse(business.businessHoursJson)
-        : DEFAULT_BUSINESS_HOURS;
+      const hours = parseBusinessHours(business.businessHoursJson) ?? DEFAULT_BUSINESS_HOURS;
 
       // Load closures for this business
       const closureInfo = await loadClosureInfo([dialerId], now);

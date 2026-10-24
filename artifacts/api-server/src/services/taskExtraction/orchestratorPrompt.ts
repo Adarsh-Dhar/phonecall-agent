@@ -72,7 +72,7 @@ Rules for tasks:
 - Do not create a task that duplicates an existing open task; use "update" instead.
 - confidence is a float 0.0–1.0 reflecting certainty. Use >= 0.9 for complete/cancel/update only when the messages clearly state it.
 - dueDate: only set this if the conversation states (or unambiguously implies) BOTH a specific date AND a specific time — e.g. "Tuesday the 9th at 3pm" is fine, but "sometime next week" or "in the morning" is not. Never invent a time of day. If only a vague timeframe was mentioned, leave dueDate unset. Format: ISO 8601 date-time WITH the UTC offset of the owner's timezone, e.g. "${todayISO}T15:00:00${offset}". A dueDate without an offset (or "Z") is invalid.
-- kind: "call" if the task involves contacting the external person (phone call, email, etc.), "reminder" if it's a personal note or internal task that doesn't require contacting them. Default to "call" when in doubt.
+- kind: "call" if the task involves contacting the external person (phone call, email, etc.), Default to "call".
 - sourceMessageIds is the array of message IDs from new_messages that support this action. It must not be empty.
 
 Rules for knowledge:
@@ -94,7 +94,7 @@ JSON schema:
       "description": "<string, optional>",
       "dueDate": "<ISO 8601 with UTC offset, optional>",
       "priority": "low" | "normal" | "high",
-      "kind": "call" | "reminder",
+      "kind": "call",
       "confidence": <number 0-1>,
       "sourceMessageIds": ["<messageId>", ...]
     }

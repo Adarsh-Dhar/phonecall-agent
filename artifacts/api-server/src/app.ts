@@ -32,16 +32,29 @@ app.use(
 app.use(cors({
   credentials: true,
   origin: (origin, callback) => {
-    // Allow requests with no origin (curl, server-to-server) and any localhost port
-    if (!origin || /^https?:\/\/localhost(:\d+)?$/.test(origin)) {
+    // Allow requests with no origin (curl, server-to-server)
+    if (!origin) {
       callback(null, true);
-    } else {
-      const allowed = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
-      if (allowed.includes(origin)) {
+      return;
+    }
+    
+    // In development, allow only the specific Vite port
+    if (process.env.NODE_ENV === 'development') {
+      const devOrigin = process.env.FRONTEND_URL || 'http://localhost:5177';
+      if (origin === devOrigin) {
         callback(null, true);
       } else {
-        callback(new Error(`CORS: origin ${origin} not allowed`));
+        callback(new Error(`CORS: development only allows ${devOrigin}, got ${origin}`));
       }
+      return;
+    }
+    
+    // In production, allow configured FRONTEND_URL(s)
+    const allowed = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: origin ${origin} not allowed`));
     }
   },
 }));

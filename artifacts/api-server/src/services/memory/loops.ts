@@ -151,22 +151,4 @@ export async function createOpenLoopFromTask(opts: {
   });
 }
 
-/**
- * Create an open loop from a promise (commitment)
- */
-export async function createOpenLoopFromPromise(opts: {
-  relationshipId: string;
-  sourceCallId: string;
-  text: string;
-  by: "agent" | "business";
-  dueAt?: Date;
-}) {
-  return createOpenLoop({
-    relationshipId: opts.relationshipId,
-    kind: "commitment",
-    text: opts.text,
-    sourceCallId: opts.sourceCallId,
-    dueAt: opts.dueAt,
-    visibility: opts.by === "agent" ? "individual_only" : "both",
-  });
-}
+

@@ -11,9 +11,6 @@ interface EndCallArgs {
   summary: string;
   confirmedAt?: string;
   confirmationRef?: string;
-  // Phase 4: Optional proposals and promises from the agent
-  proposals?: Array<{ what: string; when?: string }>;
-  promises?: Array<{ by: "agent" | "business"; what: string; dueAt?: string }>;
 }
 
 /**
@@ -26,11 +23,14 @@ interface EndCallArgs {
  *
  * Runs after post-call analysis so call.outcome reflects the analysis when the
  * agent didn't report one.
+ *
+ * If the call came from the scheduler (has schedulerClaimedAt), we do NOT increment
+ * callAttempts here - the scheduler counts its own attempts. Only manual calls increment.
  */
 export async function applyCallOutcomeToTask(callId: string): Promise<void> {
   const call = await prisma.call.findUnique({
     where: { id: callId },
-    select: { taskId: true, outcome: true },
+    select: { taskId: true, outcome: true, schedulerClaimedAt: true },
   });
 
   if (!call || !call.taskId) {
@@ -39,6 +39,7 @@ export async function applyCallOutcomeToTask(callId: string): Promise<void> {
 
   const now = new Date();
   const outcome = call.outcome;
+  const fromScheduler = call.schedulerClaimedAt !== null;
 
   // Determine task update based on outcome
   if (outcome === "booked" || outcome === "rescheduled" || outcome === "cancelled" || outcome === "info_gathered") {
@@ -69,19 +70,35 @@ export async function applyCallOutcomeToTask(callId: string): Promise<void> {
       select: { callAttempts: true },
     });
 
-    const newAttempts = (task?.callAttempts ?? 0) + 1;
+    // Only increment attempts for manual calls, not scheduler calls
+    const newAttempts = fromScheduler ? (task?.callAttempts ?? 0) : (task?.callAttempts ?? 0) + 1;
     const nextAttemptAt = computeNextAttempt(newAttempts, now);
 
-    await prisma.task.update({
-      where: { id: call.taskId },
-      data: {
-        callAttempts: newAttempts,
-        lastAttemptAt: now,
-        schedulerStatus: "pending",
-        nextAttemptAt,
-      },
-    });
-    logger.info({ callId, taskId: call.taskId, outcome, nextAttemptAt }, "callLifecycle: task rescheduled");
+    // Check for exhaustion (MAX_ATTEMPTS from schedulerPolicy)
+    const MAX_ATTEMPTS = 5;
+    if (newAttempts >= MAX_ATTEMPTS) {
+      await prisma.task.update({
+        where: { id: call.taskId },
+        data: {
+          callAttempts: newAttempts,
+          lastAttemptAt: now,
+          schedulerStatus: "done",
+          status: "cancelled",
+        },
+      });
+      logger.info({ callId, taskId: call.taskId, outcome, attempts: newAttempts }, "callLifecycle: task exhausted");
+    } else {
+      await prisma.task.update({
+        where: { id: call.taskId },
+        data: {
+          callAttempts: newAttempts,
+          lastAttemptAt: now,
+          schedulerStatus: "pending",
+          nextAttemptAt,
+        },
+      });
+      logger.info({ callId, taskId: call.taskId, outcome, nextAttemptAt, fromScheduler }, "callLifecycle: task rescheduled");
+    }
   }
 }
 

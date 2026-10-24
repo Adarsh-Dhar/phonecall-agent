@@ -37,13 +37,13 @@ import { broadcastCallDue, broadcastCallExhausted } from "./notifications";
 import { sendToAccount } from "./presence";
 import { computeNextAttempt, computeAutoDialRetry, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS, resolveEffectiveHours, DEFAULT_BUSINESS_HOURS } from "./schedulerPolicy";
 import { agentPlaceCall } from "./agentCallTools";
+import { RINGING_TIMEOUT_MS } from "./callSignaling";
 import type { Closure } from "./closurePolicy";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
 const STALE_WINDOW_MS = (Number(process.env.SCHEDULER_STALE_HOURS) || 24) * 60 * 60 * 1000;
 const CLAIM_TTL_MS = Number(process.env.SCHEDULER_CLAIM_TTL_MS) || 5 * 60 * 1000;
 const CONCURRENCY_LIMIT = 5;
-const RINGING_TIMEOUT_MS = Number(process.env.RINGING_TIMEOUT_MS) || 60 * 1000; // 1 minute
 
 /** The agent dials by itself when the task's contact is a linked business. 0 = notify only. */
 const AUTO_DIAL = process.env.CALL_SCHEDULER_AUTO_DIAL !== "0";

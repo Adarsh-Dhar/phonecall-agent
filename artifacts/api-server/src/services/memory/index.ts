@@ -40,7 +40,6 @@ export {
   resolveOpenLoopsByTaskId,
   createOpenLoopFromQuery,
   createOpenLoopFromTask,
-  createOpenLoopFromPromise,
   type OpenLoopKind,
   type OpenLoopStatus,
 } from "./loops";

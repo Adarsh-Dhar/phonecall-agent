@@ -2,7 +2,7 @@ import type { KnowledgeAction, TaskAction } from "./types";
 
 const TASK_TYPES = ["create", "update", "complete", "cancel"] as const;
 const PRIORITIES = ["low", "normal", "high"] as const;
-const KINDS = ["call", "reminder"] as const;
+const KINDS = ["call"] as const;
 const KNOWLEDGE_TYPES = ["upsert", "invalidate"] as const;
 export const KNOWLEDGE_CATEGORIES = ["preference", "fact", "history", "constraint", "contact_info"] as const;
 

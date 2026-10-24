@@ -230,7 +230,7 @@ async function runExtractionOnce(
         const knowledgeOutcome = await reconcileKnowledgeActions(tx, {
           knowledgeActions,
           contactId: conversation.contactId,
-          deltaMessages,
+          deltaMessages: deltaMessages.map((m) => ({ id: m.id, speaker: m.speaker ?? undefined })),
         });
         result.knowledgeUpserted = knowledgeOutcome.knowledgeUpserted;
         result.knowledgeSuggested = knowledgeOutcome.knowledgeSuggested;

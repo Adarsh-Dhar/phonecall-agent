@@ -1,14 +1,13 @@
 import { apiFetch } from './shared';
 
 // ─── Orchestrator Chat API ────────────────────────────────────────────────────
-// Backed by Nebius Token Factory on the server; the route path (/api/orchestrator/gemini/chat)
-// is kept as-is for compatibility — see routes/orchestrator.ts.
+// Backed by Nebius Token Factory on the server; the route path is /api/orchestrator/chat.
 
 export const sendOrchestratorMessage = async (
   messages: Array<{ role: string; content: string }>,
   contactId?: string,
 ) => {
-  const response = await apiFetch('/api/orchestrator/gemini/chat', {
+  const response = await apiFetch('/api/orchestrator/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages, contactId }),

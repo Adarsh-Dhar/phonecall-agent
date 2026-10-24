@@ -170,10 +170,28 @@ Key distinctions:
       return { success: false };
     }
 
-    // Build rolling summary (simple: append this call's summary to previous)
-    const newRollingSummary = previousSummary
-      ? `${previousSummary}\n\n${parsed.summary}`
-      : parsed.summary;
+    // Build rolling summary (rewrite previous summary + new call into one summary capped at ~800 chars)
+    const summaryPrompt = previousSummary
+      ? `Previous summary: ${previousSummary}\n\nNew call: ${parsed.summary}\n\nRewrite this into a single concise summary (max 800 characters) that captures the key points from both.`
+      : `New call: ${parsed.summary}\n\nSummarize this concisely (max 800 characters).`;
+
+    const summaryTurns = [
+      {
+        role: "user" as const,
+        content: summaryPrompt,
+      },
+    ];
+
+    const { text: summaryText } = await generateOrchestratorText({
+      systemInstructionText: "You are summarizing call history. Keep it concise (max 800 characters).",
+      turns: summaryTurns,
+      jsonResponse: false,
+      temperature: 0.3,
+      maxTokens: 500,
+      purpose: "summary_consolidation",
+    });
+
+    const newRollingSummary = summaryText.trim().slice(0, 800);
 
     // Create CallSummary
     await prisma.callSummary.create({

@@ -33,10 +33,10 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Validate JWT_SECRET at startup (not lazy-loaded)
-const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'development' ? 'dev-only-jwt-secret-do-not-use-in-production' : null);
+// Validate JWT_SECRET at startup (required in all environments)
+const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required in production');
+  throw new Error('JWT_SECRET environment variable is required');
 }
 
 // ---------------------------------------------------------------------------
