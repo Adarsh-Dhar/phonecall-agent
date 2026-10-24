@@ -101,7 +101,7 @@ export async function resolveOpenLoopsByQueryId(queryId: string) {
  */
 export async function resolveOpenLoopsByTaskId(taskId: string) {
   const openLoops = await prisma.openLoop.findMany({
-    where: { taskId, status: "open" },
+    where: { status: "open", OR: [{ taskId }, { followUpTaskId: taskId }] },
   });
 
   for (const openLoop of openLoops) {

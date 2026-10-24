@@ -15,6 +15,7 @@ import { extractJsonObject } from "../../lib/extractJson";
 import { updateRelationshipSummary, markConsolidating, unmarkConsolidating } from "./relationship";
 import { reconcileTaskActions } from "../taskExtraction/reconcileTasks";
 import { reconcileKnowledgeActions } from "../taskExtraction/reconcileKnowledge";
+import { createLoopsFromPromises } from "./promiseLoops";
 
 interface ConsolidateResult {
   success: boolean;
@@ -134,7 +135,7 @@ Return ONLY a JSON object with these fields:
 Key distinctions:
 - "agreements": confirmed by both parties (e.g., "confirmed for tomorrow 11 AM")
 - "proposals": offered but NOT confirmed (e.g., "how about tomorrow 11 AM?" with no confirmation)
-- "promises": commitments made by one party (e.g., "I'll send you the invoice by Friday")`;
+- "promises": commitments made by one party (e.g., "I'll send you the invoice by Friday"). Set dueAt to an ISO 8601 date-time with UTC offset, or YYYY-MM-DD when only a day is given; null if no deadline was stated. Resolve relative words ("by Friday") against today's date.`;
 
     const turns = [
       {
@@ -235,6 +236,21 @@ Key distinctions:
     // Phase 3: Reconcile tasks and knowledge from the consolidator output
     // The consolidator model could also extract task/knowledge actions in the future
     // For now, we rely on the existing extraction pipeline which runs separately
+
+    // Promises -> open loops (business promises get a check-in when overdue; ours get a reminder).
+    // A failure here must not fail the consolidation.
+    try {
+      await createLoopsFromPromises({
+        relationshipId: relationship.id,
+        callId: call.id,
+        conversationId: call.conversationId,
+        contactId: call.contactId,
+        ownerId: call.individualId!,
+        promises: parsed.promises,
+      });
+    } catch (err) {
+      logger.error({ err, callId }, "consolidator: creating loops from promises failed");
+    }
 
     // Mark call as consolidated
     await prisma.call.update({

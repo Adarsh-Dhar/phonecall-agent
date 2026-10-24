@@ -32,6 +32,9 @@ export {
   scheduleConsolidation,
 } from "./consolidator";
 
+export { createLoopsFromPromises } from "./promiseLoops";
+export { sweepOverdueLoops } from "./loopSweeper";
+
 export {
   createOpenLoop,
   resolveOpenLoop,

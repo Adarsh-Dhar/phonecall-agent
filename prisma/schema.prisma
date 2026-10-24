@@ -39,6 +39,7 @@ model Account {
   businessHoursJson         String?
   agentAutoAnswer           Boolean            @default(false)
   agentMode                 Boolean            @default(false)
+  emailFallback             Boolean            @default(true)
   owner                     Account?           @relation("AccountOwnership", fields: [ownerId], references: [id], onDelete: Cascade)
   contacts                  Account[]          @relation("AccountOwnership")
   closures                  BusinessClosure[]
@@ -128,9 +129,13 @@ model OpenLoop {
   visibility     String       @default("individual_only")
   createdAt      DateTime     @default(now())
   resolvedAt     DateTime?
+  followUpTaskId String?
+  lastActionAt   DateTime?
   relationship   Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
 
   @@index([relationshipId, status])
+  @@index([status, dueAt])
+  @@index([followUpTaskId])
 }
 
 model Message {

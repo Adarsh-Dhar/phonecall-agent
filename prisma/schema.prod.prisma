@@ -58,6 +58,9 @@ model Account {
   agentAutoAnswer Boolean @default(false)
   agentMode       Boolean @default(false)
 
+  // Owner opted in to an email when push / open tabs cannot be reached (exhausted calls, reminders).
+  emailFallback Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

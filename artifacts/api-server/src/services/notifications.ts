@@ -102,7 +102,7 @@ export const PUSH_TITLE: Record<string, string> = {
   other: "Task due",
 };
 
-export async function broadcastTaskDue(task: { id: string; kind: string; title: string; dueDate: Date | null; meta?: unknown, contact: { ownerId: string } }): boolean {
+export async function broadcastTaskDue(task: { id: string; kind: string; title: string; dueDate: Date | null; meta?: unknown, contact: { ownerId: string } }): Promise<boolean> {
   const delivered = sendToAccount(task.contact.ownerId, {
     type: "task_due",
     taskId: task.id,

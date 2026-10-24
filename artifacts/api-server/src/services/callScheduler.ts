@@ -40,6 +40,8 @@ import { agentPlaceCall } from "./agentCallTools";
 import { RINGING_TIMEOUT_MS } from "./callSignaling";
 import type { Closure } from "./closurePolicy";
 import { AGENT_KINDS, normalizeKind, nextFireAfter } from "./taskKinds";
+import { sweepOverdueLoops } from "./memory/loopSweeper";
+import { notifyOwnerFallback } from "./outbound";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
 const STALE_WINDOW_MS = (Number(process.env.SCHEDULER_STALE_HOURS) || 24) * 60 * 60 * 1000;
@@ -196,6 +198,10 @@ export async function checkDueTasks(): Promise<void> {
     if (staleResult.count > 0) {
       logger.info({ count: staleResult.count }, "callScheduler: marked stale tasks");
     }
+
+    // Overdue promises -> check-in call tasks. Runs before the due-task query below so a new
+    // check-in can fire in this same cycle. Never throws.
+    await sweepOverdueLoops(now);
 
     // Recover stuck claims (claimed for longer than CLAIM_TTL_MS)
     const claimStaleThreshold = new Date(now.getTime() - CLAIM_TTL_MS);
@@ -556,7 +562,7 @@ async function processTask(
       // If the final attempt just started ringing, don't tell the user "couldn't reach" yet — the
       // Call row shows how it ended.
       if (!(autoDialed && delivered)) {
-        await broadcastCallExhausted({
+        const reached = await broadcastCallExhausted({
           type: "call_exhausted",
           taskId: task.id,
           contactId: task.contactId,
@@ -565,6 +571,14 @@ async function processTask(
           attempts: newAttempts,
           ownerId: contact.ownerId,
         });
+        // No open tab and no push subscription: fall back to email.
+        if (!reached) {
+          await notifyOwnerFallback(contact.ownerId, {
+            subject: `Couldn't reach ${contact.name}`,
+            text: `Your agent tried ${newAttempts} times to reach ${contact.name} about "${task.title}" and couldn't get through (they may be offline or unavailable).`,
+            url: `/tasks/${task.id}`,
+          });
+        }
       }
 
       logger.info(
@@ -643,7 +657,14 @@ async function processOwnerTask(task: any, now: Date): Promise<void> {
     return;
   }
 
-  broadcastTaskDue({ ...task, contact: { ownerId: task.contact.ownerId } });
+  const reached = await broadcastTaskDue({ ...task, contact: { ownerId: task.contact.ownerId } });
+  if (!reached) {
+    await notifyOwnerFallback(task.contact.ownerId, {
+      subject: `Reminder: ${task.title}`.slice(0, 120),
+      text: task.dueDate ? `${task.title}\nDue: ${task.dueDate.toISOString()}` : task.title,
+      url: `/tasks/${task.id}`,
+    });
+  }
   const kind = normalizeKind(task.kind);
   const next = nextFireAfter(kind, task.dueDate, tz, now);
   await prisma.task.update({
