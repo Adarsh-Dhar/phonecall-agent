@@ -619,7 +619,7 @@ export async function dialCallAs(
   // Get task context if provided
   const taskContext = taskId ? await prisma.task.findUnique({
     where: { id: taskId },
-    select: { id: true, title: true, description: true },
+    select: { id: true, title: true, description: true, kind: true, dueDate: true, meta: true, parentTaskId: true },
   }) : null;
 
   // Send incoming call notification to callee

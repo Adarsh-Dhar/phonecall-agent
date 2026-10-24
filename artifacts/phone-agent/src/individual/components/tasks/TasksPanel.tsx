@@ -17,6 +17,7 @@ export function TasksPanel({
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [filter, setFilter] = useState<'active' | 'all'>('active');
+  const [kindFilter, setKindFilter] = useState<string>('');
 
   const loadTasks = useCallback(async () => {
     if (!conversationId) return;
@@ -72,6 +73,10 @@ export function TasksPanel({
   const visible = filter === 'active'
     ? tasks.filter((t) => ACTIVE_STATUSES.includes(t.status as api.TaskStatus))
     : tasks;
+
+  const filtered = kindFilter
+    ? visible.filter((t) => t.kind === kindFilter)
+    : visible;
 
   const suggestedCount = tasks.filter((t) => t.status === 'suggested').length;
 
@@ -136,6 +141,31 @@ export function TasksPanel({
         ))}
       </div>
 
+      {/* Kind filter */}
+      <div className="mt-2 flex flex-wrap gap-1">
+        <button
+          type="button"
+          onClick={() => setKindFilter('')}
+          className={`rounded-full px-2 py-0.5 text-[9px] font-medium transition-colors ${
+            !kindFilter ? 'bg-[#edf1ec] text-[#3f8274]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]'
+          }`}
+        >
+          All kinds
+        </button>
+        {(['appointment', 'bring', 'pay', 'submit', 'follow_up', 'call', 'reminder'] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setKindFilter(k)}
+            className={`rounded-full px-2 py-0.5 text-[9px] font-medium capitalize transition-colors ${
+              kindFilter === k ? 'bg-[#edf1ec] text-[#3f8274]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]'
+            }`}
+          >
+            {k.replace('_', ' ')}
+          </button>
+        ))}
+      </div>
+
       {/* Inline add form */}
       {showAddForm && (
         <div className="mt-3 flex gap-2">
@@ -167,12 +197,12 @@ export function TasksPanel({
           <div className="flex items-center justify-center py-6">
             <LoaderCircle size={14} className="animate-spin text-[hsl(var(--muted-foreground))]" />
           </div>
-        ) : visible.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <p className="py-3 text-center text-xs text-[hsl(var(--muted-foreground))]">
             {filter === 'active' ? 'No active tasks — hit Scan to mine the conversation.' : 'No tasks yet.'}
           </p>
         ) : (
-          visible.map((task) => (
+          filtered.map((task) => (
             <TaskRow key={task.id} task={task} onStatusChange={handleStatusChange} />
           ))
         )}

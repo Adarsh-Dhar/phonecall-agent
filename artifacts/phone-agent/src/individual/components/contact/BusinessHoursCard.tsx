@@ -9,6 +9,7 @@ interface BusinessHoursCardProps {
   initial: string | null;
   effectiveHours?: BusinessHours;
   hoursSource?: HoursSource;
+  isBusinessContact?: boolean;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -19,7 +20,7 @@ const SOURCE_LABELS: Record<HoursSource, string> = {
   override: 'Your override',
 };
 
-export function BusinessHoursCard({ contactId, initial, effectiveHours, hoursSource }: BusinessHoursCardProps) {
+export function BusinessHoursCard({ contactId, initial, effectiveHours, hoursSource, isBusinessContact = false }: BusinessHoursCardProps) {
   const [editing, setEditing] = useState(false);
   const [businessHours, setBusinessHours] = useState<BusinessHours | null>(
     effectiveHours || (initial ? JSON.parse(initial) : null)
@@ -94,13 +95,15 @@ export function BusinessHoursCard({ contactId, initial, effectiveHours, hoursSou
               )}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-[#3b82f6] hover:bg-[#f0f7ff]"
-          >
-            {businessHours ? 'Edit' : 'Set Hours'}
-          </button>
+          {!isBusinessContact && hoursSource !== 'business' && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-[#3b82f6] hover:bg-[#f0f7ff]"
+            >
+              {businessHours ? 'Edit' : 'Set Hours'}
+            </button>
+          )}
         </div>
       </div>
     );

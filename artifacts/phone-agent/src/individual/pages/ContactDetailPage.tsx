@@ -217,9 +217,9 @@ export function ContactDetailPage() {
         {!loading && contact && <ContactTasksCard contactId={id} />}
         {!loading && contact && <ContactQuestionsCard contactId={id} />}
         {!loading && contact && <ContactFilesCard />}
-        {!loading && contact && <BusinessHoursCard contactId={id} initial={contact.businessHoursJson ?? null} effectiveHours={contact.effectiveHours} hoursSource={contact.hoursSource} />}
+        {!loading && contact && <BusinessHoursCard contactId={id} initial={contact.businessHoursJson ?? null} effectiveHours={contact.effectiveHours} hoursSource={contact.hoursSource} isBusinessContact={!!contact.linkedAccountId} />}
         {!loading && contact && <ContactClosureBanner closure={contact.closure ?? null} upcoming={contact.upcomingClosures ?? []} />}
-        {!loading && contact && <KnowledgeBoardPanel contactId={id} />}
+        {!loading && contact && <KnowledgeBoardPanel contactId={id} isBusinessContact={!!contact.linkedAccountId} />}
 
         {testCallWidget && (
           <TestCallWidget

@@ -40,7 +40,7 @@ app.use(cors({
     
     // In development, allow only the specific Vite port
     if (process.env.NODE_ENV === 'development') {
-      const devOrigin = process.env.FRONTEND_URL || 'http://localhost:5177';
+      const devOrigin = process.env.FRONTEND_URL || 'http://localhost:5175';
       if (origin === devOrigin) {
         callback(null, true);
       } else {
@@ -81,7 +81,7 @@ if (fs.existsSync(frontendDistPath)) {
   
   logger.info("Frontend static files enabled");
 } else if (process.env.NODE_ENV === 'development') {
-  logger.info("Development mode: frontend served by Vite at http://localhost:5177");
+  logger.info("Development mode: frontend served by Vite at http://localhost:5175");
 } else {
   logger.warn("Frontend static files not found, serving API only");
 }

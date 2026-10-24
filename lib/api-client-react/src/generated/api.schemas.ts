@@ -110,8 +110,20 @@ export type TaskKind = typeof TaskKind[keyof typeof TaskKind];
 
 
 export const TaskKind = {
+  appointment: 'appointment',
+  bring: 'bring',
+  pay: 'pay',
+  submit: 'submit',
+  follow_up: 'follow_up',
   call: 'call',
+  reminder: 'reminder',
+  other: 'other',
 } as const;
+
+/**
+ * @nullable
+ */
+export type TaskMeta = { [key: string]: unknown } | null;
 
 export type TaskSchedulerStatus = typeof TaskSchedulerStatus[keyof typeof TaskSchedulerStatus];
 
@@ -140,12 +152,42 @@ export interface Task {
   /** @nullable */
   completedAt?: string | null;
   kind: TaskKind;
+  /** @nullable */
+  meta?: TaskMeta;
+  /** @nullable */
+  parentTaskId?: string | null;
   callAttempts: number;
   /** @nullable */
   lastAttemptAt?: string | null;
   /** @nullable */
   nextAttemptAt?: string | null;
   schedulerStatus: TaskSchedulerStatus;
+}
+
+export interface Contact {
+  id: string;
+  name: string;
+  /** @nullable */
+  business?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  initials?: string | null;
+  /** @nullable */
+  color?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  businessHoursJson?: string | null;
+  online: boolean;
+  /** @nullable */
+  linkedAccountId?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type GoogleAuthDisconnect200 = {

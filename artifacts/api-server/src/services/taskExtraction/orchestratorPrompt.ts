@@ -71,8 +71,19 @@ Rules for tasks:
 - For "update", "complete", "cancel" — taskId MUST be copied exactly from the existing open tasks list. Never invent an id. If no existing task matches, use "create" or do nothing.
 - Do not create a task that duplicates an existing open task; use "update" instead.
 - confidence is a float 0.0–1.0 reflecting certainty. Use >= 0.9 for complete/cancel/update only when the messages clearly state it.
-- dueDate: only set this if the conversation states (or unambiguously implies) BOTH a specific date AND a specific time — e.g. "Tuesday the 9th at 3pm" is fine, but "sometime next week" or "in the morning" is not. Never invent a time of day. If only a vague timeframe was mentioned, leave dueDate unset. Format: ISO 8601 date-time WITH the UTC offset of the owner's timezone, e.g. "${todayISO}T15:00:00${offset}". A dueDate without an offset (or "Z") is invalid.
-- kind: "call" if the task involves contacting the external person (phone call, email, etc.), Default to "call".
+- kind (REQUIRED on create). Pick the FIRST that matches:
+  1 appointment: the business CONFIRMED a specific slot the owner must attend or be reachable at. Not a proposal ("maybe Tuesday"), not the phone call itself. Put the reference/location in meta.
+  2 bring: a document or item must be carried or prepared for an appointment. Needs a parent (parentTaskId or parentRef); without one, skip it. One task per call, items in meta.items[].
+  3 pay: the owner owes money with a stated deadline or amount (deposit, advance, bill). "Pay at the counter" is NOT pay: put it in the appointment's meta.payAtVisit.
+  4 submit: the owner must file, upload, sign or send something by a deadline, and it cannot be done by phone.
+  5 follow_up: the BUSINESS promised to act (callback, quote, refund, delivery) and the owner is waiting.
+  6 call: the agent should contact the business and the next move is OURS. If the business owes the next step, use follow_up.
+  7 reminder: only if the owner personally asked to be reminded. Never from the contact's speech.
+  8 other: never choose this yourself.
+  One utterance yields at most one main task plus its children.
+- A requirement the CONTACT states becomes bring/pay/submit only if the agent accepted it or it is a precondition of the confirmed appointment.
+- dueDate: appointment/call/bring/reminder need date, time and offset. pay/submit/follow_up may be a date only (YYYY-MM-DD). bring inherits its parent's time.
+- ref: a short label ("a1") on an appointment you create, so children in the same batch can set parentRef="a1".
 - sourceMessageIds is the array of message IDs from new_messages that support this action. It must not be empty.
 
 Rules for knowledge:
@@ -92,9 +103,11 @@ JSON schema:
       "taskId": "<string, required for update/complete/cancel>",
       "title": "<string, required for create; optional for update>",
       "description": "<string, optional>",
-      "dueDate": "<ISO 8601 with UTC offset, optional>",
+      "dueDate": "<ISO 8601 with UTC offset, or YYYY-MM-DD for pay/submit/follow_up, optional>",
       "priority": "low" | "normal" | "high",
-      "kind": "call",
+      "kind": "appointment" | "bring" | "pay" | "submit" | "follow_up" | "call" | "reminder",
+      "ref": "<optional>", "parentTaskId": "<existing id, optional>", "parentRef": "<ref in this batch, optional>",
+      "meta": { "items": ["..."], "amount": 0, "currency": "INR", "ref": "...", "location": "...", "payAtVisit": "..." },
       "confidence": <number 0-1>,
       "sourceMessageIds": ["<messageId>", ...]
     }
@@ -118,7 +131,11 @@ export function buildExtractionUserContent(context: {
   existingTasks: ExistingTask[];
   existingKnowledge: ExistingKnowledge[];
   newMessages: NewMessage[];
+  lastCall?: { outcome: string; outcomeSummary?: string; confirmedAt?: Date; confirmationRef?: string; taskId?: string };
 }): string {
+  const callBlock = context.lastCall
+    ? `\nCALL RESULT (already applied, do not recreate):\noutcome: ${context.lastCall.outcome}\nsummary: ${context.lastCall.outcomeSummary ?? ""}\nconfirmedAt: ${context.lastCall.confirmedAt?.toISOString() ?? "none"}\nref: ${context.lastCall.confirmationRef ?? "none"}\ngoal task: ${context.lastCall.taskId ?? "none"}\n`
+    : "";
   return `Contact: ${context.contactName} (${context.contactBusiness ?? ""})
 
 Existing open tasks:
@@ -126,7 +143,7 @@ ${context.existingTasks.length === 0 ? "(none)" : JSON.stringify(context.existin
 
 Known facts about this contact:
 ${context.existingKnowledge.length === 0 ? "(none)" : JSON.stringify(context.existingKnowledge, null, 2)}
-
+${callBlock}
 New messages to analyse:
 ${JSON.stringify(context.newMessages, null, 2)}
 

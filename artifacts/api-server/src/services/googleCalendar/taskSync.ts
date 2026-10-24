@@ -11,6 +11,27 @@ import { google } from "googleapis";
 import { logger } from "../../lib/logger";
 import { getAuthedClient } from "./authClient";
 import { GOOGLE_CALENDAR_ID, DEFAULT_EVENT_DURATION_MINUTES } from "./config";
+import { normalizeKind, firstFireAt } from "../taskKinds";
+
+const PREFIX: Record<string, string> = {
+  pay: "Pay: ",
+  bring: "Bring: ",
+  submit: "Submit: ",
+  appointment: "",
+  follow_up: "Follow-up: ",
+  call: "Call: ",
+  other: "",
+};
+
+const MINUTES: Record<string, number> = {
+  appointment: 60,
+  call: 15,
+  follow_up: 15,
+  bring: 15,
+  pay: 15,
+  submit: 15,
+  other: 15,
+};
 
 /**
  * Create a Google Calendar event from a task.
@@ -21,6 +42,8 @@ export async function createEvent(task: {
   title: string;
   description: string | null;
   dueDate: Date | null;
+  kind: string;
+  meta: Record<string, unknown> | null;
   contact: { name: string; business: string | null };
   userId: string;
 }): Promise<string | null> {
@@ -45,25 +68,38 @@ export async function createEvent(task: {
       return null;
     }
 
+    const kind = normalizeKind(task.kind);
+    const duration = MINUTES[kind] || DEFAULT_EVENT_DURATION_MINUTES;
+    const prefix = PREFIX[kind] || "";
+    const allDay = typeof task.meta === 'object' && task.meta?.allDay === true;
+
     const startTime = new Date(task.dueDate);
-    const endTime = new Date(startTime.getTime() + DEFAULT_EVENT_DURATION_MINUTES * 60000);
+    const endTime = allDay 
+      ? new Date(startTime.getTime() + 24 * 60 * 60 * 1000) // All-day events end at midnight next day
+      : new Date(startTime.getTime() + duration * 60000);
 
     const description = task.description
       ? `${task.description}\n\nContact: ${task.contact.name} (${task.contact.business ?? ""})`
       : `Contact: ${task.contact.name} (${task.contact.business ?? ""})`;
 
-    const event = {
-      summary: task.title,
+    const event: any = {
+      summary: `${prefix}${task.title}`,
       description,
-      start: {
+    };
+
+    if (allDay) {
+      event.start = { date: startTime.toISOString().split('T')[0] };
+      event.end = { date: endTime.toISOString().split('T')[0] };
+    } else {
+      event.start = {
         dateTime: startTime.toISOString(),
         timeZone: "UTC",
-      },
-      end: {
+      };
+      event.end = {
         dateTime: endTime.toISOString(),
         timeZone: "UTC",
-      },
-    };
+      };
+    }
 
     const response = await calendar.events.insert({
       calendarId: GOOGLE_CALENDAR_ID,
@@ -75,7 +111,7 @@ export async function createEvent(task: {
       logger.info({ 
         taskId: task.id, 
         eventId, 
-        eventTitle: task.title,
+        eventTitle: event.summary,
         calendarId: GOOGLE_CALENDAR_ID,
         userId: task.userId 
       }, "Created Google Calendar event");
@@ -109,6 +145,8 @@ export async function updateEvent(task: {
   description: string | null;
   dueDate: Date | null;
   status: string;
+  kind: string;
+  meta: Record<string, unknown> | null;
   contact: { name: string; business: string | null };
   userId: string;
 }): Promise<boolean> {
@@ -137,17 +175,29 @@ export async function updateEvent(task: {
       return false;
     }
 
+    const kind = normalizeKind(task.kind);
+    const duration = MINUTES[kind] || DEFAULT_EVENT_DURATION_MINUTES;
+    const prefix = PREFIX[kind] || "";
+    const allDay = typeof task.meta === 'object' && task.meta?.allDay === true;
+
     const startTime = task.dueDate ? new Date(task.dueDate) : new Date(existingEvent.data.start?.dateTime || Date.now());
     const endTime = task.dueDate
-      ? new Date(startTime.getTime() + DEFAULT_EVENT_DURATION_MINUTES * 60000)
+      ? (allDay 
+          ? new Date(startTime.getTime() + 24 * 60 * 60 * 1000)
+          : new Date(startTime.getTime() + duration * 60000))
       : new Date(existingEvent.data.end?.dateTime || Date.now() + DEFAULT_EVENT_DURATION_MINUTES * 60000);
 
     // Reset scheduler fields when due date changes via calendar sync
     if (task.dueDate) {
+      const owner = await prisma.account.findUnique({
+        where: { id: task.userId },
+        select: { timezone: true },
+      });
+      const tz = owner?.timezone ?? "UTC";
       await prisma.task.update({
         where: { id: task.id },
         data: {
-          nextAttemptAt: task.dueDate,
+          nextAttemptAt: firstFireAt(kind, task.dueDate, tz),
           callAttempts: 0,
           schedulerStatus: "pending",
         },
@@ -159,20 +209,26 @@ export async function updateEvent(task: {
       : `Contact: ${task.contact.name} (${task.contact.business ?? ""})`;
 
     // If task is done, prefix title with checkmark
-    const summary = task.status === "done" ? `✓ ${task.title}` : task.title;
+    const summary = task.status === "done" ? `✓ ${prefix}${task.title}` : `${prefix}${task.title}`;
 
-    const event = {
+    const event: any = {
       summary,
       description,
-      start: {
+    };
+
+    if (allDay) {
+      event.start = { date: startTime.toISOString().split('T')[0] };
+      event.end = { date: endTime.toISOString().split('T')[0] };
+    } else {
+      event.start = {
         dateTime: startTime.toISOString(),
         timeZone: "UTC",
-      },
-      end: {
+      };
+      event.end = {
         dateTime: endTime.toISOString(),
         timeZone: "UTC",
-      },
-    };
+      };
+    }
 
     const response = await calendar.events.update({
       calendarId: GOOGLE_CALENDAR_ID,
@@ -366,6 +422,8 @@ export async function syncTaskToCalendar(task: {
   dueDate: Date | null;
   status: string;
   googleEventId: string | null;
+  kind: string;
+  meta: Record<string, unknown> | null;
   contact: { name: string; business: string | null };
   userId: string;
 }): Promise<boolean> {

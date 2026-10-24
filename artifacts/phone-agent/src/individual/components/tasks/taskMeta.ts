@@ -15,6 +15,17 @@ export const PRIORITY_BADGE: Record<string, string> = {
   low:    'bg-[#f3f0ea] text-[#7a7060]',
 };
 
+export const KIND_META: Record<string, { label: string; icon: string }> = {
+  appointment: { label: 'Appointment', icon: 'calendar' },
+  bring: { label: 'Bring', icon: 'briefcase' },
+  pay: { label: 'Pay', icon: 'wallet' },
+  submit: { label: 'Submit', icon: 'upload' },
+  follow_up: { label: 'Follow-up', icon: 'clock' },
+  call: { label: 'Call', icon: 'phone' },
+  reminder: { label: 'Reminder', icon: 'bell' },
+  other: { label: 'Task', icon: 'circle' },
+};
+
 export const SCHEDULER_META: Record<string, { label: string; color: string }> = {
   pending: { label: 'Pending', color: 'text-[#3b9a83]' },
   claimed: { label: 'Claimed', color: 'text-[#4168e5]' },

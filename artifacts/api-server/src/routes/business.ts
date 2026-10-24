@@ -168,6 +168,8 @@ router.post('/calls/dial', asyncHandler(async (req, res) => {
                   dueDate: task.dueDate,
                   status: task.status,
                   googleEventId: task.googleEventId,
+                  kind: task.kind,
+                  meta: task.meta,
                   contact: { name: task.contact.name || '', business: task.contact.business || '' },
                   userId: req.userId!,
                 }).catch((err) => {

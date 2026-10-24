@@ -153,16 +153,27 @@ async function runExtractionOnce(
     }
 
     // 3. Existing open tasks + known facts (so the model can update/dedupe/invalidate)
-    const [openTasks, knowledge] = await Promise.all([
+    const [openTasks, knowledge, lastCall] = await Promise.all([
       prisma.task.findMany({
-        where: { conversationId, status: { in: ["suggested", "open", "in_progress", "waiting_user"] } },
-        select: { id: true, title: true, description: true, dueDate: true, status: true, priority: true },
+        where: {
+          status: { in: ["suggested", "open", "in_progress", "waiting_user"] },
+          OR: [
+            { conversationId },
+            { contactId: conversation.contactId, kind: { in: ["appointment", "bring"] } },
+          ],
+        },
+        select: { id: true, title: true, description: true, dueDate: true, status: true, priority: true, kind: true, parentTaskId: true },
       }),
       prisma.contactKnowledge.findMany({
         where: { contactId: conversation.contactId, status: "active" },
         select: { key: true, category: true, value: true },
         orderBy: { updatedAt: "desc" },
         take: 100,
+      }),
+      prisma.call.findFirst({
+        where: { conversationId, status: "completed" },
+        orderBy: { endedAt: "desc" },
+        select: { outcome: true, outcomeSummary: true, confirmedAt: true, confirmationRef: true, taskId: true },
       }),
     ]);
 
@@ -178,6 +189,8 @@ async function runExtractionOnce(
         dueDate: t.dueDate?.toISOString() ?? null,
         status: t.status,
         priority: t.priority,
+        kind: t.kind,
+        parentTaskId: t.parentTaskId,
       })),
       existingKnowledge: knowledge,
       newMessages: deltaMessages.map((m) => ({
@@ -187,6 +200,13 @@ async function runExtractionOnce(
         time: m.time,
       })),
       timezone: owner?.timezone ?? undefined,
+      lastCall: lastCall ? {
+        outcome: lastCall.outcome,
+        outcomeSummary: lastCall.outcomeSummary ?? undefined,
+        confirmedAt: lastCall.confirmedAt ?? undefined,
+        confirmationRef: lastCall.confirmationRef ?? undefined,
+        taskId: lastCall.taskId ?? undefined,
+      } : undefined,
     });
 
     if (taskActions.length === 0 && knowledgeActions.length === 0) {
@@ -220,6 +240,8 @@ async function runExtractionOnce(
           contactBusiness: conversation.contact.business || '',
           deltaMessages,
           relationshipId,
+          ownerTz: owner?.timezone ?? "UTC",
+          agentMode: conversation.contact.agentMode ?? false,
         });
         result.created = taskOutcome.created;
         result.updated = taskOutcome.updated;

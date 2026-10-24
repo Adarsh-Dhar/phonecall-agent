@@ -1,7 +1,18 @@
 import { useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, X, Calendar, Briefcase, Wallet, Upload, Clock, Phone, Bell, Circle } from 'lucide-react';
 import type * as api from '@/lib/api';
-import { STATUS_META, PRIORITY_BADGE, SCHEDULER_META } from './taskMeta';
+import { STATUS_META, PRIORITY_BADGE, SCHEDULER_META, KIND_META } from './taskMeta';
+
+const ICONS: Record<string, any> = {
+  calendar: Calendar,
+  briefcase: Briefcase,
+  wallet: Wallet,
+  upload: Upload,
+  clock: Clock,
+  phone: Phone,
+  bell: Bell,
+  circle: Circle,
+};
 
 export function TaskRow({
   task,
@@ -12,6 +23,8 @@ export function TaskRow({
 }) {
   const [open, setOpen] = useState(false);
   const meta = STATUS_META[task.status] ?? STATUS_META.open;
+  const kindMeta = KIND_META[task.kind] ?? KIND_META.other;
+  const KindIcon = ICONS[kindMeta.icon] ?? Circle;
   const isDone = task.status === 'done' || task.status === 'cancelled';
 
   // Next logical status to advance to on checkbox click
@@ -47,13 +60,31 @@ export function TaskRow({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
+            <KindIcon size={12} className="text-[hsl(var(--muted-foreground))]" />
             <span className={`text-xs font-semibold leading-4 ${isDone ? 'line-through text-[hsl(var(--muted-foreground))]' : ''}`}>
               {task.title}
             </span>
             <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[.07em] ${PRIORITY_BADGE[task.priority] ?? PRIORITY_BADGE.normal}`}>
               {task.priority}
             </span>
+            <span className="rounded bg-[#f3f0ea] px-1.5 py-0.5 text-[9px] font-medium text-[#7a7060]">
+              {kindMeta.label}
+            </span>
           </div>
+
+          {/* Meta display for pay and bring */}
+          {task.meta && typeof task.meta === 'object' && (
+            <div className="mt-1 flex items-center gap-2 text-[10px] text-[hsl(var(--muted-foreground))]">
+              {task.kind === 'pay' && 'amount' in task.meta && typeof task.meta.amount === 'number' && (
+                <span>
+                  {task.meta.currency || 'INR'} {task.meta.amount}
+                </span>
+              )}
+              {task.kind === 'bring' && 'items' in task.meta && Array.isArray(task.meta.items) && (
+                <span>{task.meta.items.join(', ')}</span>
+              )}
+            </div>
+          )}
 
           {/* Status + due date */}
           <div className="mt-1 flex items-center gap-2">

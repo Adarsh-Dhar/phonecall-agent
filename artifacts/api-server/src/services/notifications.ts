@@ -83,6 +83,44 @@ export type CallExhaustedNotification = {
   attempts: number;
 };
 
+export type TaskDueMessage = {
+  type: "task_due";
+  taskId: string;
+  kind: string;
+  title: string;
+  dueDate: string | null;
+  meta?: unknown;
+};
+
+export const PUSH_TITLE: Record<string, string> = {
+  appointment: "Appointment coming up",
+  bring: "Bring documents",
+  pay: "Payment due",
+  submit: "Submission due",
+  reminder: "Reminder",
+  follow_up: "Follow-up due",
+  other: "Task due",
+};
+
+export async function broadcastTaskDue(task: { id: string; kind: string; title: string; dueDate: Date | null; meta?: unknown, contact: { ownerId: string } }): boolean {
+  const delivered = sendToAccount(task.contact.ownerId, {
+    type: "task_due",
+    taskId: task.id,
+    kind: task.kind,
+    title: task.title,
+    dueDate: task.dueDate?.toISOString() ?? null,
+    meta: task.meta,
+  });
+  if (!delivered) {
+    return sendPushToAccount(task.contact.ownerId, {
+      title: PUSH_TITLE[task.kind] || PUSH_TITLE.other,
+      body: task.title,
+      url: `/tasks/${task.id}`,
+    });
+  }
+  return delivered;
+}
+
 export async function broadcastCallExhausted(
   payload: CallExhaustedNotification & { ownerId: string },
 ): Promise<boolean> {

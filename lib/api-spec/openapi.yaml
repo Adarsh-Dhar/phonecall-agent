@@ -323,7 +323,14 @@ components:
           nullable: true
         kind:
           type: string
-          enum: [call]
+          enum: [appointment, bring, pay, submit, follow_up, call, reminder, other]
+        meta:
+          type: object
+          nullable: true
+          additionalProperties: true
+        parentTaskId:
+          type: string
+          nullable: true
         callAttempts:
           type: integer
         lastAttemptAt:

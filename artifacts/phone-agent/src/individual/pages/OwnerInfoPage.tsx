@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { UserRound, Plus, Pencil, Trash2, LoaderCircle, RefreshCw, Info } from 'lucide-react';
+import { UserRound, Plus, Pencil, Trash2, LoaderCircle, RefreshCw, Info, CircleHelp } from 'lucide-react';
 import * as api from '@/lib/api';
 import { AppLayout } from '@/individual/components/layout';
 import { useSharedState } from '@/hooks/useSharedState';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { QueryRow } from '@/individual/components/questions/QueryRow';
 
 const CATEGORY_LABELS: Record<string, string> = {
   identity: 'Identity',
@@ -32,6 +33,13 @@ export function OwnerInfoPage() {
   });
   const [error, setError] = useState<string | null>(null);
 
+  // Questions state
+  const [queries, setQueries] = useState<api.Question[]>([]);
+  const [queriesLoading, setQueriesLoading] = useState(false);
+  const [queryFilter, setQueryFilter] = useState<'pending' | 'all'>('pending');
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
+
   const loadFacts = useCallback(async () => {
     setLoading(true);
     try {
@@ -45,9 +53,27 @@ export function OwnerInfoPage() {
     }
   }, []);
 
+  const loadQueries = useCallback(async () => {
+    setQueriesLoading(true);
+    try {
+      const data = await api.fetchQuestions();
+      setQueries(data);
+    } catch {
+      // non-critical
+    } finally {
+      setQueriesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadFacts();
   }, [loadFacts]);
+
+  useEffect(() => {
+    void loadQueries();
+    const interval = setInterval(() => void loadQueries(), 15000);
+    return () => clearInterval(interval);
+  }, [loadQueries]);
 
   const handleSave = async () => {
     if (!formData.key.trim() || !formData.value.trim()) return;
@@ -107,11 +133,36 @@ export function OwnerInfoPage() {
     });
   };
 
+  const handleAnswer = async (query: api.Question) => {
+    const answer = (drafts[query.id] ?? '').trim();
+    if (!answer || submitting[query.id]) return;
+    setSubmitting((s) => ({ ...s, [query.id]: true }));
+    try {
+      const updated = await api.answerQuestion(query.id, answer);
+      setQueries((prev) => prev.map((q) => q.id === query.id ? updated : q));
+      setDrafts((d) => { const n = { ...d }; delete n[query.id]; return n; });
+    } catch { /* no-op */ } finally {
+      setSubmitting((s) => ({ ...s, [query.id]: false }));
+    }
+  };
+
+  const handleDismiss = async (id: string) => {
+    try {
+      const updated = await api.dismissQuestion(id);
+      setQueries((prev) => prev.map((q) => q.id === id ? updated : q));
+    } catch { /* no-op */ }
+  };
+
   const groupedFacts = facts.reduce((acc, fact) => {
     if (!acc[fact.category]) acc[fact.category] = [];
     acc[fact.category].push(fact);
     return acc;
   }, {} as Record<string, api.OwnerInfoFact[]>);
+
+  const pendingCount = queries.filter((q) => q.status === 'pending' || q.status === 'expired').length;
+  const visibleQueries = queryFilter === 'pending'
+    ? queries.filter((q) => q.status === 'pending' || q.status === 'expired')
+    : queries;
 
   return (
     <AppLayout
@@ -131,10 +182,10 @@ export function OwnerInfoPage() {
           <button
             type="button"
             aria-label="Refresh"
-            onClick={() => void loadFacts()}
+            onClick={() => { void loadFacts(); void loadQueries(); }}
             className="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
           >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={15} className={(loading || queriesLoading) ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
@@ -145,6 +196,62 @@ export function OwnerInfoPage() {
           <p className="text-sm text-[#e26951]">
             Never enter card numbers, passwords or ID numbers. The agent reads these facts, and private ones are never read out.
           </p>
+        </div>
+
+        {/* Questions section */}
+        <div className="mb-12">
+          <div className="mb-6 flex items-end justify-between">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[.2em] text-[#6b4fc8]">Questions inbox</p>
+              <h2 className="mt-2 font-serif text-3xl tracking-[-.04em]">Questions</h2>
+            </div>
+          </div>
+
+          {/* Filter tabs */}
+          <div className="mb-6 flex gap-2">
+            {(['pending', 'all'] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setQueryFilter(f)}
+                className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[.08em] transition-colors ${
+                  queryFilter === f ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {f === 'pending' ? `Pending (${pendingCount})` : 'All'}
+              </button>
+            ))}
+          </div>
+
+          {/* Query list */}
+          {queriesLoading && queries.length === 0 ? (
+            <div className="flex items-center justify-center py-20">
+              <LoaderCircle size={24} className="animate-spin text-muted-foreground" />
+            </div>
+          ) : visibleQueries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+              <div className="grid h-12 w-12 place-items-center rounded-full bg-muted">
+                <CircleHelp size={24} className="text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {queryFilter === 'pending' ? 'No pending questions — good to go.' : 'No questions yet.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {visibleQueries.map((query) => (
+                <QueryRow
+                  key={query.id}
+                  query={query}
+                  draft={drafts[query.id] ?? ''}
+                  submitting={!!submitting[query.id]}
+                  onDraftChange={(v) => setDrafts((d) => ({ ...d, [query.id]: v }))}
+                  onAnswer={() => void handleAnswer(query)}
+                  onDismiss={() => void handleDismiss(query.id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Add form */}

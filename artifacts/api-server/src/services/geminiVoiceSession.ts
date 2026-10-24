@@ -9,6 +9,7 @@ interface EndCallArgs {
   summary: string;
   confirmedAt?: string;
   confirmationRef?: string;
+  followUps?: Array<{ kind: "bring"|"pay"|"submit"|"follow_up"; title: string; dueAt?: string; details?: string }>;
 }
 
 const END_CALL = {
@@ -25,9 +26,23 @@ const END_CALL = {
       summary: { type: Type.STRING },
       confirmedAt: {
         type: Type.STRING,
-        description: "ISO date-time if an appointment was confirmed",
+        description: "REQUIRED when outcome is booked or rescheduled: ISO date-time with the UTC offset of the confirmed slot",
       },
       confirmationRef: { type: Type.STRING },
+      followUps: {
+        type: Type.ARRAY,
+        description: "Things the OWNER must do or the BUSINESS promised, stated on this call. One entry each. Omit if none.",
+        items: {
+          type: Type.OBJECT,
+          required: ["kind", "title"],
+          properties: {
+            kind: { type: Type.STRING, enum: ["bring", "pay", "submit", "follow_up"] },
+            title: { type: Type.STRING },
+            dueAt: { type: Type.STRING, description: "ISO date-time with offset, or YYYY-MM-DD" },
+            details: { type: Type.STRING },
+          },
+        },
+      },
     },
   },
 };

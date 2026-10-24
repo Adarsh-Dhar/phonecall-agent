@@ -4,12 +4,11 @@ import { CallsPage } from '@/individual/pages/CallsPage';
 import { HistoryPage } from '@/individual/pages/HistoryPage';
 import { ContactsPage } from '@/individual/pages/ContactsPage';
 import { ContactDetailPage } from '@/individual/pages/ContactDetailPage';
-import { QueriesPage } from '@/individual/pages/QueriesPage';
 import { OwnerInfoPage } from '@/individual/pages/OwnerInfoPage';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 import { IncomingCallModal } from '@/individual/components/IncomingCallModal';
 import { LiveQuestionModal } from '@/individual/components/LiveQuestionModal';
-import { useCallDueNotifications, type CallDueNotification } from '@/individual/hooks/useCallDueNotifications';
+import { useCallDueNotifications, type CallDueNotification, type TaskDueNotification } from '@/individual/hooks/useCallDueNotifications';
 import { usePresence } from '@/hooks/usePresence';
 import { toast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
@@ -34,7 +33,22 @@ export default function IndividualApp() {
     (n) => toast({
       title: 'Could not reach contact',
       description: `Couldn't reach ${n.contactName} about "${n.title}" after ${n.attempts} attempts. Open the task to call manually.`,
-    })
+    }),
+    (m) => {
+      const titles: Record<string, string> = {
+        appointment: 'Appointment coming up',
+        bring: 'Bring documents',
+        pay: 'Payment due',
+        submit: 'Submission due',
+        reminder: 'Reminder',
+        follow_up: 'Follow-up due',
+        other: 'Task due',
+      };
+      toast({
+        title: titles[m.kind] || titles.other,
+        description: m.title,
+      });
+    }
   );
 
   // Enable presence for individual users to get call status updates and live questions
@@ -66,7 +80,7 @@ export default function IndividualApp() {
         title: 'Your call agent has a question',
         description: event.question,
       });
-      setLocation('/queries');
+      setLocation('/my-info');
     },
     (event) => {
       // The agent placed (scheduled call) or answered (auto-answer) a call by itself.
@@ -87,7 +101,7 @@ export default function IndividualApp() {
         <Route path="/history"  component={HistoryPage} />
         <Route path="/contacts" component={ContactsPage} />
         <Route path="/contacts/:id" component={ContactDetailPage} />
-        <Route path="/queries"  component={QueriesPage} />
+        <Route path="/queries"  component={() => <Redirect to="/my-info" />} />
         <Route path="/my-info"  component={OwnerInfoPage} />
         <Route path="/"         component={() => <Redirect to="/contacts" />} />
       </Switch>

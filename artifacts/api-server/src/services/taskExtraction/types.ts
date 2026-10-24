@@ -1,4 +1,5 @@
 import type { prisma } from "@workspace/db-prisma";
+import type { TaskKind } from "../taskKinds";
 
 /** The client type available inside `prisma.$transaction(async (tx) => ...)`. */
 export type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
@@ -10,6 +11,8 @@ export type ExistingTask = {
   dueDate: string | null;
   status: string;
   priority: string;
+  kind: string;
+  parentTaskId: string | null;
 };
 
 /**
@@ -38,7 +41,11 @@ export type TaskAction = {
   description?: string;
   dueDate?: string;
   priority?: "low" | "normal" | "high";
-  kind?: "call";
+  kind?: TaskKind;
+  ref?: string;            // lets a child point at an appointment created in the same batch
+  parentTaskId?: string;   // existing appointment id
+  parentRef?: string;      // ref of an appointment in this batch
+  meta?: Record<string, unknown>;
   confidence: number;
   sourceMessageIds: string[];
 };
@@ -60,6 +67,8 @@ export type TaskToSync = {
   dueDate: Date | null;
   status: string;
   googleEventId: string | null;
+  kind: string;
+  meta: Record<string, unknown> | null;
   contact: { name: string; business: string | null };
 };
 

@@ -4,6 +4,7 @@ import { syncTaskToCalendar } from "../services/googleCalendar";
 import { nudgeScheduler } from "../services/callScheduler";
 import { asyncHandler } from "../lib/asyncHandler";
 import { sourcesInclude, contactCardSelect } from "../lib/prismaSelects";
+import { normalizeKind, sanitizeMeta, firstFireAt, syncsToCalendar } from "../services/taskKinds";
 
 const router: IRouter = Router();
 
@@ -13,7 +14,7 @@ const router: IRouter = Router();
 // ---------------------------------------------------------------------------
 router.get("/contacts/:id/tasks", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { status } = req.query;
+  const { status, kind } = req.query;
 
   // Verify contact belongs to user
   const contact = await prisma.account.findFirst({
@@ -28,6 +29,7 @@ router.get("/contacts/:id/tasks", asyncHandler(async (req, res) => {
     where: {
       contactId: String(id),
       ...(status ? { status: String(status) } : {}),
+      ...(kind ? { kind: { in: String(kind).split(",") } } : {}),
     },
     include: sourcesInclude,
     orderBy: { createdAt: "desc" },
@@ -38,11 +40,11 @@ router.get("/contacts/:id/tasks", asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // GET /tasks
-// Global task inbox — cross-contact, filterable by status / priority / contactId
-// e.g. GET /tasks?status=open&priority=high
+// Global task inbox — cross-contact, filterable by status / priority / contactId / kind
+// e.g. GET /tasks?status=open&priority=high&kind=appointment,bring
 // ---------------------------------------------------------------------------
 router.get("/", asyncHandler(async (req, res) => {
-  const { status, priority, contactId } = req.query;
+  const { status, priority, contactId, kind } = req.query;
 
   const tasks = await prisma.task.findMany({
     where: {
@@ -50,6 +52,7 @@ router.get("/", asyncHandler(async (req, res) => {
       ...(status    ? { status: String(status) }       : {}),
       ...(priority ? { priority: String(priority) }   : {}),
       ...(contactId ? { contactId: String(contactId) } : {}),
+      ...(kind      ? { kind: { in: String(kind).split(",") } } : {}),
     },
     include: {
       ...sourcesInclude,
@@ -64,10 +67,10 @@ router.get("/", asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /tasks
 // Manual task creation — source: "user", skips "suggested", goes to "open"
-// Body: { title, description?, dueDate?, priority?, kind?, conversationId, contactId }
+// Body: { title, description?, dueDate?, priority?, kind?, conversationId, contactId, meta?, parentTaskId? }
 // ---------------------------------------------------------------------------
 router.post("/", asyncHandler(async (req, res) => {
-  const { title, description, dueDate, priority, kind, conversationId, contactId } = req.body;
+  const { title, description, dueDate, priority, kind, conversationId, contactId, meta, parentTaskId } = req.body;
 
   if (!title || !conversationId || !contactId) {
     res.status(400).json({ error: "title, conversationId, and contactId are required" });
@@ -77,27 +80,46 @@ router.post("/", asyncHandler(async (req, res) => {
   // Verify contact belongs to this user
   const contact = await prisma.account.findFirst({
     where: { id: String(contactId), ownerId: req.userId! },
+    select: { id: true, ownerId: true, name: true, business: true },
   });
   if (!contact) {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
 
+  // Load owner for timezone
+  const owner = await prisma.account.findUnique({
+    where: { id: contact.ownerId },
+    select: { timezone: true },
+  });
+  const ownerTz = owner?.timezone ?? "UTC";
+
+  const k = normalizeKind(kind ?? "call");
+  const due = dueDate ? new Date(dueDate) : null;
+  if (due && Number.isNaN(due.getTime())) {
+    res.status(400).json({ error: "Invalid dueDate" });
+    return;
+  }
+
+  const sanitizedMeta = sanitizeMeta(k, meta);
+
   const task = await prisma.task.create({
     data: {
       title,
       description: description ?? null,
-      dueDate:     dueDate ? new Date(dueDate) : null,
+      dueDate:     due,
       priority:    priority ?? "normal",
-      kind:        kind ?? "call",
+      kind:        k,
+      meta:        sanitizedMeta,
+      parentTaskId: parentTaskId ?? null,
       status:      "open",   // user-created tasks skip "suggested"
       source:      "user",
       confidence:  1.0,
       conversationId,
       contactId,
-      nextAttemptAt: dueDate ? new Date(dueDate) : null,
+      nextAttemptAt: firstFireAt(k, due, ownerTz),
       callAttempts: 0,
-      schedulerStatus: dueDate ? "pending" : "pending",
+      schedulerStatus: "pending",
     },
     include: { ...sourcesInclude, contact: true },
   });
@@ -106,7 +128,7 @@ router.post("/", asyncHandler(async (req, res) => {
   if (task.dueDate) nudgeScheduler();
 
   // Sync to Google Calendar (non-blocking)
-  if (task.dueDate) {
+  if (due && syncsToCalendar(k)) {
     syncTaskToCalendar({
       id:           task.id,
       title:        task.title,
@@ -114,6 +136,8 @@ router.post("/", asyncHandler(async (req, res) => {
       dueDate:      task.dueDate,
       status:       task.status,
       googleEventId: task.googleEventId,
+      kind:         task.kind,
+      meta:         task.meta,
       contact:      { name: task.contact.name || '', business: task.contact.business || '' },
       userId:       req.userId!,
     }).catch((err) => {
@@ -131,7 +155,7 @@ router.post("/", asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 router.patch("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { status, title, description, dueDate, priority, kind } = req.body;
+  const { status, title, description, dueDate, priority, kind, meta } = req.body;
 
   const existing = await prisma.task.findFirst({
     where: { id: String(id), contact: { ownerId: req.userId! } },
@@ -143,9 +167,20 @@ router.patch("/:id", asyncHandler(async (req, res) => {
     return;
   }
 
+  // Load owner for timezone
+  const owner = await prisma.account.findUnique({
+    where: { id: existing.contact.ownerId },
+    select: { timezone: true },
+  });
+  const ownerTz = owner?.timezone ?? "UTC";
+
   const isCompleting = status === "done" && existing.status !== "done";
   const isCancelling = status === "cancelled" && existing.status !== "cancelled";
   const dueDateChanged = dueDate !== undefined && existing.dueDate?.getTime() !== (dueDate ? new Date(dueDate).getTime() : null);
+  const kindChanged = kind !== undefined && existing.kind !== kind;
+
+  const effectiveKind = kind ?? existing.kind;
+  const effectiveDue = dueDate !== undefined ? (dueDate ? new Date(dueDate) : null) : existing.dueDate;
 
   const updateData: any = {
     ...(status      !== undefined ? { status }                               : {}),
@@ -153,17 +188,16 @@ router.patch("/:id", asyncHandler(async (req, res) => {
     ...(description !== undefined ? { description }                          : {}),
     ...(priority    !== undefined ? { priority }                             : {}),
     ...(kind        !== undefined ? { kind }                                 : {}),
+    ...(meta        !== undefined ? { meta: sanitizeMeta(effectiveKind, meta) } : {}),
     ...(isCompleting              ? { completedAt: new Date() }              : {}),
   };
 
-  // Handle dueDate changes with scheduler re-arm
-  if (dueDate !== undefined) {
-    updateData.dueDate = dueDate ? new Date(dueDate) : null;
-    if (dueDateChanged) {
-      updateData.nextAttemptAt = dueDate ? new Date(dueDate) : null;
-      updateData.callAttempts = 0;
-      updateData.schedulerStatus = dueDate ? "pending" : "pending";
-    }
+  // Handle dueDate or kind changes with scheduler re-arm
+  if (dueDateChanged || kindChanged) {
+    updateData.dueDate = effectiveDue;
+    updateData.nextAttemptAt = firstFireAt(effectiveKind, effectiveDue, ownerTz);
+    updateData.callAttempts = 0;
+    updateData.schedulerStatus = "pending";
   }
 
   // Handle completion/cancellation
@@ -177,11 +211,11 @@ router.patch("/:id", asyncHandler(async (req, res) => {
     include: { ...sourcesInclude, contact: true },
   });
 
-  if (dueDateChanged) nudgeScheduler();
+  if (dueDateChanged || kindChanged) nudgeScheduler();
 
   // Sync to Google Calendar (non-blocking)
-  const shouldSync = dueDate !== undefined || status !== undefined || title !== undefined;
-  if (shouldSync) {
+  const shouldSync = dueDate !== undefined || status !== undefined || title !== undefined || kind !== undefined;
+  if (shouldSync && syncsToCalendar(effectiveKind)) {
     syncTaskToCalendar({
       id:            task.id,
       title:         task.title,
@@ -189,6 +223,8 @@ router.patch("/:id", asyncHandler(async (req, res) => {
       dueDate:       task.dueDate,
       status:        task.status,
       googleEventId: task.googleEventId,
+      kind:          task.kind,
+      meta:          task.meta,
       contact:       { name: task.contact.name || '', business: task.contact.business || '' },
       userId:        req.userId!,
     }).catch((err) => {

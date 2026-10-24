@@ -161,7 +161,7 @@ export function ContactTasksCard({ contactId }: { contactId: string | undefined 
 
       {pendingQueries.length > 0 && (
         <Link
-          href="/queries"
+          href="/my-info"
           className="mt-4 flex items-center gap-2 rounded-xl border border-[#ff9478] bg-[#fff0df] px-3 py-2 text-xs font-bold text-[#af5c1c] hover:bg-[#ffe8d0]"
         >
           <AlertCircle size={14} />

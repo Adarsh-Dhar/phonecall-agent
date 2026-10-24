@@ -50,15 +50,48 @@ const rooms = new Map<string, Room>();
 export async function getTaskContextForCall(
   taskId: string | null | undefined,
   contactId: string
-): Promise<{ title: string; description: string | null } | null> {
+): Promise<{
+  title: string;
+  description: string | null;
+  kind: string;
+  dueDate: Date | null;
+  meta: Record<string, unknown> | null;
+  parentTaskId: string | null;
+  appointment?: { title: string; dueDate: Date | null; ref?: string } | null;
+} | null> {
   if (!taskId) return null;
 
   const task = await prisma.task.findFirst({
     where: { id: taskId, contactId },
-    select: { title: true, description: true },
+    select: { title: true, description: true, kind: true, dueDate: true, meta: true, parentTaskId: true },
   });
 
-  return task ? { title: task.title, description: task.description } : null;
+  if (!task) return null;
+
+  let appointment = null;
+  if (task.parentTaskId) {
+    const parent = await prisma.task.findUnique({
+      where: { id: task.parentTaskId },
+      select: { title: true, dueDate: true, meta: true },
+    });
+    if (parent && parent.kind === 'appointment') {
+      appointment = {
+        title: parent.title,
+        dueDate: parent.dueDate,
+        ref: typeof parent.meta === 'object' && parent.meta?.ref ? String(parent.meta.ref) : undefined,
+      };
+    }
+  }
+
+  return {
+    title: task.title,
+    description: task.description,
+    kind: task.kind,
+    dueDate: task.dueDate,
+    meta: task.meta,
+    parentTaskId: task.parentTaskId,
+    appointment,
+  };
 }
 
 export function createServiceVoiceStream(): WebSocketServer {

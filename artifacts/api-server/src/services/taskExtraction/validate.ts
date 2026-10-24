@@ -1,8 +1,8 @@
 import type { KnowledgeAction, TaskAction } from "./types";
+import { TASK_KINDS, normalizeKind, allowsDateOnly, sanitizeMeta, localAt } from "../taskKinds";
 
 const TASK_TYPES = ["create", "update", "complete", "cancel"] as const;
 const PRIORITIES = ["low", "normal", "high"] as const;
-const KINDS = ["call"] as const;
 const KNOWLEDGE_TYPES = ["upsert", "invalidate"] as const;
 export const KNOWLEDGE_CATEGORIES = ["preference", "fact", "history", "constraint", "contact_info"] as const;
 
@@ -27,15 +27,24 @@ function sourceIdsOf(v: unknown): string[] | null {
 
 /**
  * ISO 8601 date-time WITH an explicit UTC offset ("Z" or ±hh:mm), in the future
- * and within ~2 years. Anything else returns null: a missing offset would be
- * read in server time, a date-only value has no time, and a past/far-future
- * value is a model slip.
+ * and within ~2 years. For certain kinds, also accepts date-only (YYYY-MM-DD)
+ * which is interpreted as 18:00 owner-local time (with allDay meta flag).
  */
-export function parseModelDueDate(value: unknown, now = new Date()): Date | null {
+export function parseModelDueDate(
+  value: unknown, now = new Date(),
+  opts: { allowDateOnly?: boolean; tz?: string } = {}
+): Date | null {
   if (typeof value !== "string") return null;
   const v = value.trim();
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/i.test(v)) return null;
-  const d = new Date(v);
+  let d: Date;
+  if (opts.allowDateOnly && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    const noon = new Date(`${v}T12:00:00Z`);
+    if (Number.isNaN(noon.getTime())) return null;
+    d = localAt(noon, opts.tz ?? "UTC", 0, 18);
+  } else {
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/i.test(v)) return null;
+    d = new Date(v);
+  }
   if (Number.isNaN(d.getTime())) return null;
   if (d.getTime() < now.getTime()) return null;
   if (d.getTime() > now.getTime() + 2 * 365 * 24 * 3600 * 1000) return null;
@@ -56,6 +65,7 @@ export function sanitizeTaskAction(raw: unknown): TaskAction | null {
   if (a.type === "create" && !title) return null;
   if (a.type !== "create" && !taskId) return null;
 
+  const kind = normalizeKind(a.kind);
   return {
     type: a.type,
     taskId,
@@ -63,7 +73,11 @@ export function sanitizeTaskAction(raw: unknown): TaskAction | null {
     description: str(a.description, 2000),
     dueDate: str(a.dueDate, 40),
     priority: oneOf(PRIORITIES, a.priority) ? a.priority : undefined,
-    kind: oneOf(KINDS, a.kind) ? a.kind : undefined,
+    kind,
+    ref: str(a.ref, 40),
+    parentTaskId: str(a.parentTaskId, 100),
+    parentRef: str(a.parentRef, 40),
+    meta: sanitizeMeta(kind, a.meta),
     confidence,
     sourceMessageIds,
   };

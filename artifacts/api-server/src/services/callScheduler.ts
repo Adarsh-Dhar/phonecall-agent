@@ -33,12 +33,13 @@
 
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
-import { broadcastCallDue, broadcastCallExhausted } from "./notifications";
+import { broadcastCallDue, broadcastCallExhausted, broadcastTaskDue } from "./notifications";
 import { sendToAccount } from "./presence";
 import { computeNextAttempt, computeAutoDialRetry, isWithinAllowedWindow, parseBusinessHours, MAX_ATTEMPTS, resolveEffectiveHours, DEFAULT_BUSINESS_HOURS } from "./schedulerPolicy";
 import { agentPlaceCall } from "./agentCallTools";
 import { RINGING_TIMEOUT_MS } from "./callSignaling";
 import type { Closure } from "./closurePolicy";
+import { AGENT_KINDS, normalizeKind, nextFireAfter } from "./taskKinds";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
 const STALE_WINDOW_MS = (Number(process.env.SCHEDULER_STALE_HOURS) || 24) * 60 * 60 * 1000;
@@ -102,7 +103,6 @@ async function armWake(): Promise<void> {
     const now = new Date();
     const next = await prisma.task.findFirst({
       where: {
-        kind: "call",
         status: { in: ["open", "in_progress"] },
         schedulerStatus: "pending",
         nextAttemptAt: { gt: now },
@@ -185,7 +185,7 @@ export async function checkDueTasks(): Promise<void> {
     // Mark stale tasks (older than STALE_WINDOW) as 'stale' so they don't fire
     const staleResult = await prisma.task.updateMany({
       where: {
-        kind: "call",
+        kind: { in: AGENT_KINDS },
         status: { in: ["open", "in_progress"] },
         schedulerStatus: "pending",
         nextAttemptAt: { lt: staleThreshold },
@@ -214,10 +214,10 @@ export async function checkDueTasks(): Promise<void> {
       logger.info({ count: recoveredResult.count }, "callScheduler: recovered stuck claims");
     }
 
-    // Atomic claim: update tasks from pending to claimed in one transaction
+    // Atomic claim: update agent tasks from pending to claimed in one transaction
     const claimed = await prisma.task.updateMany({
       where: {
-        kind: "call",
+        kind: { in: AGENT_KINDS },
         status: { in: ["open", "in_progress"] },
         schedulerStatus: "pending",
         nextAttemptAt: { lte: now },
@@ -232,12 +232,12 @@ export async function checkDueTasks(): Promise<void> {
       return;
     }
 
-    logger.info({ count: claimed.count }, "callScheduler: claimed tasks for processing");
+    logger.info({ count: claimed.count }, "callScheduler: claimed agent tasks for processing");
 
-    // Fetch the claimed tasks with owner account
+    // Fetch the claimed agent tasks with owner account
     const tasks = await prisma.task.findMany({
       where: {
-        kind: "call",
+        kind: { in: AGENT_KINDS },
         status: { in: ["open", "in_progress"] },
         schedulerStatus: "claimed",
         schedulerClaimedAt: now,
@@ -301,6 +301,47 @@ export async function checkDueTasks(): Promise<void> {
 
     for (const chunk of chunks) {
       await Promise.all(chunk.map((task) => processTask(task, now, linkedMap, closuresByBusiness, closuresByOwner)));
+    }
+
+    // Second claim for owner kinds (bring, pay, submit, reminder)
+    const ownerClaimed = await prisma.task.updateMany({
+      where: {
+        kind: { notIn: AGENT_KINDS },
+        status: "open",
+        schedulerStatus: "pending",
+        nextAttemptAt: { lte: now },
+      },
+      data: {
+        schedulerStatus: "claimed",
+        schedulerClaimedAt: now,
+      },
+    });
+
+    if (ownerClaimed.count > 0) {
+      logger.info({ count: ownerClaimed.count }, "callScheduler: claimed owner tasks for processing");
+
+      const ownerTasks = await prisma.task.findMany({
+        where: {
+          kind: { notIn: AGENT_KINDS },
+          status: "open",
+          schedulerStatus: "claimed",
+          schedulerClaimedAt: now,
+        },
+        include: {
+          contact: {
+            select: {
+              id: true,
+              ownerId: true,
+            },
+          },
+        },
+      });
+
+      for (const task of ownerTasks) {
+        await processOwnerTask(task, now).catch((err) => {
+          logger.error({ err, taskId: task.id }, "callScheduler: failed to process owner task");
+        });
+      }
     }
   } catch (err) {
     logger.error({ err }, "callScheduler: failed to check due tasks");
@@ -575,3 +616,47 @@ async function processTask(
     logger.error({ err, taskId: task.id }, "callScheduler: failed to process task");
   }
 }
+
+async function processOwnerTask(task: any, now: Date): Promise<void> {
+  const owner = await prisma.account.findUnique({
+    where: { id: task.contact.ownerId },
+    select: { timezone: true, quietHoursStart: true, quietHoursEnd: true },
+  });
+  if (!owner || !task.dueDate) {
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { schedulerStatus: "pending", schedulerClaimedAt: null },
+    });
+    return;
+  }
+
+  const tz = owner.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
+
+  // Quiet hours only. Business hours and closures do not apply to owner kinds.
+  if (!isWithinAllowedWindow(now, tz, null, owner.quietHoursStart, owner.quietHoursEnd).allowed) {
+    const next = computeNextAttempt(task.callAttempts + 1, now);
+    // Defer without consuming the reminder: lastAttemptAt and callAttempts stay untouched.
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { nextAttemptAt: next, schedulerClaimedAt: null },
+    });
+    return;
+  }
+
+  broadcastTaskDue({ ...task, contact: { ownerId: task.contact.ownerId } });
+  const kind = normalizeKind(task.kind);
+  const next = nextFireAfter(kind, task.dueDate, tz, now);
+  await prisma.task.update({
+    where: { id: task.id },
+    data: {
+      callAttempts: { increment: 1 },
+      lastAttemptAt: now,
+      schedulerClaimedAt: null,
+      nextAttemptAt: next,
+      schedulerStatus: next ? "pending" : "done",
+    },
+  });
+  // Never emit call_exhausted for owner kinds.
+}
+
+

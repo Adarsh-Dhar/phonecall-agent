@@ -144,6 +144,7 @@ model Task {
 
   // Scheduler fields
   kind              String @default("call")
+  meta              Json?
   callAttempts      Int    @default(0)
   lastAttemptAt     DateTime?
   nextAttemptAt     DateTime?
@@ -160,6 +161,8 @@ model Task {
   @@index([status])
   @@index([googleEventId])
   @@index([schedulerStatus, nextAttemptAt])
+  @@index([parentTaskId])
+  @@index([contactId, kind, status])
 }
 
 model TaskSourceMessage {

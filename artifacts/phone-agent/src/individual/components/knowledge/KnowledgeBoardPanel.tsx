@@ -4,7 +4,7 @@ import * as api from '@/lib/api';
 
 type Tab = 'active' | 'suggested' | 'invalid';
 
-export function KnowledgeBoardPanel({ contactId }: { contactId: string | undefined }) {
+export function KnowledgeBoardPanel({ contactId, isBusinessContact = false }: { contactId: string | undefined; isBusinessContact?: boolean }) {
   const [facts, setFacts] = useState<api.KnowledgeFact[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -114,14 +114,16 @@ export function KnowledgeBoardPanel({ contactId }: { contactId: string | undefin
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button
-            type="button"
-            aria-label="Add knowledge fact"
-            onClick={() => setShowAddForm((v) => !v)}
-            className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
-          >
-            <Plus size={14} />
-          </button>
+          {!isBusinessContact && (
+            <button
+              type="button"
+              aria-label="Add knowledge fact"
+              onClick={() => setShowAddForm((v) => !v)}
+              className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+            >
+              <Plus size={14} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -242,44 +244,46 @@ export function KnowledgeBoardPanel({ contactId }: { contactId: string | undefin
                           <p className="text-[9px] font-bold uppercase tracking-[.07em] text-muted-foreground">{fact.key}</p>
                           <p className="text-xs text-foreground">{fact.value}</p>
                         </div>
-                        <div className="flex shrink-0 gap-1">
-                          {activeTab === 'suggested' && (
-                            <>
-                              <button
-                                type="button"
-                                aria-label="Approve fact"
-                                onClick={() => void handleApprove(fact.id)}
-                                className="grid h-6 w-6 place-items-center rounded-lg text-[#3f8274] hover:bg-[#e8f5e9]"
-                              >
-                                <Check size={11} />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label="Dismiss fact"
-                                onClick={() => void handleDismiss(fact.id)}
-                                className="grid h-6 w-6 place-items-center rounded-lg text-[#b44343] hover:bg-[#fde8e8]"
-                              >
-                                <X size={11} />
-                              </button>
-                            </>
-                          )}
-                          <button
-                            type="button"
-                            aria-label="Edit fact"
-                            onClick={() => { setEditingId(fact.id); setEditValue(fact.value); }}
-                            className="grid h-6 w-6 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
-                          >
-                            <Pencil size={11} />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Delete fact"
-                            onClick={() => void handleDelete(fact.id)}
-                            className="grid h-6 w-6 place-items-center rounded-lg text-muted-foreground hover:bg-[#fde8e8] hover:text-[#b44343]"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        </div>
+                        {!isBusinessContact && (
+                          <div className="flex shrink-0 gap-1">
+                            {activeTab === 'suggested' && (
+                              <>
+                                <button
+                                  type="button"
+                                  aria-label="Approve fact"
+                                  onClick={() => void handleApprove(fact.id)}
+                                  className="grid h-6 w-6 place-items-center rounded-lg text-[#3f8274] hover:bg-[#e8f5e9]"
+                                >
+                                  <Check size={11} />
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label="Dismiss fact"
+                                  onClick={() => void handleDismiss(fact.id)}
+                                  className="grid h-6 w-6 place-items-center rounded-lg text-[#b44343] hover:bg-[#fde8e8]"
+                                >
+                                  <X size={11} />
+                                </button>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              aria-label="Edit fact"
+                              onClick={() => { setEditingId(fact.id); setEditValue(fact.value); }}
+                              className="grid h-6 w-6 place-items-center rounded-lg text-muted-foreground hover:bg-muted"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Delete fact"
+                              onClick={() => void handleDelete(fact.id)}
+                              className="grid h-6 w-6 place-items-center rounded-lg text-muted-foreground hover:bg-[#fde8e8] hover:text-[#b44343]"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

@@ -9,7 +9,6 @@ const navItems = [
   { path: '/calls', label: 'Calls', icon: <PhoneIcon size={16} />, testId: 'nav-calls' },
   { path: '/history', label: 'Task history', icon: <History size={16} />, testId: 'nav-history' },
   { path: '/contacts', label: 'Contacts', icon: <Users size={16} />, testId: 'nav-contacts' },
-  { path: '/queries', label: 'Questions', icon: <CircleHelp size={16} />, testId: 'nav-queries' },
   { path: '/my-info', label: 'My info', icon: <UserRound size={16} />, testId: 'nav-my-info' },
 ] as const;
 

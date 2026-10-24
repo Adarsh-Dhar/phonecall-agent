@@ -20,6 +20,15 @@ export type CallExhaustedNotification = {
   attempts: number;
 };
 
+export type TaskDueNotification = {
+  type: 'task_due';
+  taskId: string;
+  kind: string;
+  title: string;
+  dueDate: string | null;
+  meta?: unknown;
+};
+
 /**
  * Keeps a WebSocket open to the server's call-scheduler notification
  * channel (services/notifications.ts + services/callScheduler.ts) for as
@@ -31,6 +40,9 @@ export type CallExhaustedNotification = {
  * When a task exhausts its maximum retry attempts, the server pushes a
  * "call_exhausted" message and `onCallExhausted` fires to notify the user.
  *
+ * When an owner-kind task (bring, pay, submit, reminder) fires, the server
+ * pushes a "task_due" message and `onTaskDue` fires.
+ *
  * The scheduler now supports retries with exponential backoff, so ignored
  * notifications will re-notify the user (up to MAX_ATTEMPTS). The notification
  * includes attempt/maxAttempts to show retry progress.
@@ -39,11 +51,17 @@ export type CallExhaustedNotification = {
  * users, and falls back to push notifications (services/push.ts) if the user
  * is offline. Reconnects automatically with a short backoff if the connection drops.
  */
-export function useCallDueNotifications(onCallDue: (n: CallDueNotification) => void, onCallExhausted?: (n: CallExhaustedNotification) => void) {
+export function useCallDueNotifications(
+  onCallDue: (n: CallDueNotification) => void,
+  onCallExhausted?: (n: CallExhaustedNotification) => void,
+  onTaskDue?: (n: TaskDueNotification) => void,
+) {
   const handlerRef = useRef(onCallDue);
   handlerRef.current = onCallDue;
   const exhaustedRef = useRef(onCallExhausted);
   exhaustedRef.current = onCallExhausted;
+  const taskDueRef = useRef(onTaskDue);
+  taskDueRef.current = onTaskDue;
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -65,6 +83,9 @@ export function useCallDueNotifications(onCallDue: (n: CallDueNotification) => v
           }
           if (msg?.type === 'call_exhausted') {
             exhaustedRef.current?.(msg as CallExhaustedNotification);
+          }
+          if (msg?.type === 'task_due') {
+            taskDueRef.current?.(msg as TaskDueNotification);
           }
         } catch {
           // Ignore malformed messages rather than crashing the listener.

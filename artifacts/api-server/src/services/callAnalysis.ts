@@ -31,7 +31,14 @@ export function buildCallTimeContext(tz: string, now = new Date()): string {
 function buildBaseCallInstruction(
   contactName: string,
   knowledgeFacts: Array<{ category: string; key: string; value: string }> = [],
-  taskContext: { title: string; description: string | null } | null = null,
+  taskContext: {
+    title: string;
+    description: string | null;
+    kind?: string;
+    dueDate?: Date | null;
+    appointment?: { title: string; dueDate: Date | null; ref?: string } | null;
+    meta?: Record<string, unknown> | null;
+  } | null = null,
   timezone: string
 ): string {
   const knowledgeBlock =
@@ -41,11 +48,18 @@ function buildBaseCallInstruction(
         "\n\nUse these facts when relevant instead of asking the other person to repeat them. They were noted from earlier conversations and may be out of date: if the other person contradicts one, accept their version, do not argue, and mention the discrepancy in your end_call summary."
       : "";
 
-  const taskBlock = taskContext
-    ? `\n\nTHE REASON FOR THIS CALL: You are calling specifically to resolve this: "${taskContext.title}"` +
-      (taskContext.description ? ` — ${taskContext.description}` : "") +
-      " Open the call by getting straight to this, and keep the conversation focused on it."
-    : "";
+  function buildTaskBlock(t: NonNullable<typeof taskContext>, tz: string): string {
+    const when = (d?: Date | null) => d ? new Intl.DateTimeFormat("en-US", { timeZone: tz, dateStyle: "full", timeStyle: "short" }).format(d) : "";
+    const base = `\n\nTHE REASON FOR THIS CALL: "${t.title}"` + (t.description ? ` — ${t.description}` : "") + ". ";
+    if (t.kind === "follow_up")
+      return base + "The business promised something. Ask for the status, get a firm new date AND time if it is not done, and do not re-explain the whole background.";
+    if (t.appointment)
+      return base + `This concerns the existing appointment "${t.appointment.title}" on ${when(t.appointment.dueDate)}` +
+        (t.appointment.ref ? ` (reference ${t.appointment.ref})` : "") + ". Reschedule or cancel THAT booking, not a new one.";
+    return base + "Get straight to this and keep the conversation focused on it.";
+  }
+
+  const taskBlock = taskContext ? buildTaskBlock(taskContext, timezone) : "";
 
   const timeContext = buildCallTimeContext(timezone);
 
@@ -69,7 +83,7 @@ function buildBaseCallInstruction(
       "end_call function immediately in the same turn — do not keep chatting, ask another open-ended " +
       "question, or wait for further confirmation first. If the other person explicitly asks to end " +
       "the call or hang up, do the same right away. Never call end_call before you've said goodbye out loud. " +
-      "When finished, call end_call with outcome, summary, and confirmedAt/confirmationRef if known." +
+      "CLOSING CHECKLIST: Before saying goodbye on a booked, rescheduled or info_gathered call, ask ONCE, in one short turn: what to bring, any fee or deposit and its deadline, any form to submit, arrival time and place, a reference number, and any callback they promised and by when. You may NOTE a fee they state, but never agree to it. Put each answer in end_call: followUps entries, confirmationRef, and the exact confirmedAt." +
       taskBlock +
       knowledgeBlock
   );
@@ -92,7 +106,14 @@ export function buildInboundCallSystemInstruction(
   onBehalfOfName: string,
   contactName: string,
   knowledgeFacts: Array<{ category: string; key: string; value: string }> = [],
-  taskContext: { title: string; description: string | null } | null = null,
+  taskContext: {
+    title: string;
+    description: string | null;
+    kind?: string;
+    dueDate?: Date | null;
+    appointment?: { title: string; dueDate: Date | null; ref?: string } | null;
+    meta?: Record<string, unknown> | null;
+  } | null = null,
   timezone: string
 ): string {
   const intro = buildCallIntro(onBehalfOfName, contactName, "inbound");
@@ -104,7 +125,14 @@ export function buildOutboundCallSystemInstruction(
   onBehalfOfName: string,
   calleeName: string,
   knowledgeFacts: Array<{ category: string; key: string; value: string }> = [],
-  taskContext: { title: string; description: string | null } | null = null,
+  taskContext: {
+    title: string;
+    description: string | null;
+    kind?: string;
+    dueDate?: Date | null;
+    appointment?: { title: string; dueDate: Date | null; ref?: string } | null;
+    meta?: Record<string, unknown> | null;
+  } | null = null,
   timezone: string
 ): string {
   const intro = buildCallIntro(onBehalfOfName, calleeName, "outbound");
@@ -131,7 +159,14 @@ export function buildAgentCallSystemInstruction({
   businessName: string;
   direction: 'inbound' | 'outbound';
   knowledgeFacts?: Array<{ category: string; key: string; value: string }>;
-  taskContext?: { title: string; description: string | null } | null;
+  taskContext?: {
+    title: string;
+    description: string | null;
+    kind?: string;
+    dueDate?: Date | null;
+    appointment?: { title: string; dueDate: Date | null; ref?: string } | null;
+    meta?: Record<string, unknown> | null;
+  } | null;
   timezone: string;
   ownerInfo?: OwnerInfoFact[];
   /** Output of renderMemoryBlock(); history of earlier calls. Added to, never replaces, the rules. */

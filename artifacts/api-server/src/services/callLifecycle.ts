@@ -6,12 +6,14 @@ import { logger } from "../lib/logger";
 import { computeNextAttempt, MAX_ATTEMPTS } from "./schedulerPolicy";
 import { getOrCreateRelationship, ingestMessage, scheduleConsolidation } from "./memory";
 import { broadcastCallExhausted } from "./notifications";
+import { applyPostCallTasks } from "./postCallTasks";
 
 interface EndCallArgs {
   outcome: "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed";
   summary: string;
   confirmedAt?: string;
   confirmationRef?: string;
+  followUps?: Array<{ kind: "bring"|"pay"|"submit"|"follow_up"; title: string; dueAt?: string; details?: string }>;
 }
 
 /**
@@ -248,6 +250,10 @@ export function createCallLifecycle(opts: {
 
     await applyCallOutcomeToTask(opts.callId).catch((err) =>
       logger.error({ err, callId: opts.callId }, "callLifecycle: failed to apply outcome to task")
+    );
+
+    await applyPostCallTasks(opts.callId, args?.followUps).catch((err) =>
+      logger.error({ err, callId: opts.callId }, "callLifecycle: post-call tasks failed")
     );
 
     // Phase 3: Schedule consolidation for post-call memory processing
