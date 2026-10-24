@@ -107,7 +107,10 @@ export const updateContact = async (
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error('Failed to update contact');
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || err.detail || 'Failed to update contact');
+  }
   return response.json();
 };
 
