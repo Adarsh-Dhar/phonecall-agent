@@ -167,14 +167,14 @@ export async function checkDueTasks(): Promise<void> {
       for (const call of staleRingingCalls) {
         if (call.individualId) {
           sendToAccount(call.individualId, {
-            type: 'call_status_changed',
+            type: 'call_status',
             callId: call.id,
             status: 'missed',
           });
         }
         if (call.businessId) {
           sendToAccount(call.businessId, {
-            type: 'call_status_changed',
+            type: 'call_status',
             callId: call.id,
             status: 'missed',
           });

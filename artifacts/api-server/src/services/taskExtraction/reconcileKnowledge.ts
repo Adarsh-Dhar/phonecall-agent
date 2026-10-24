@@ -59,9 +59,21 @@ export async function reconcileKnowledgeActions(
       if (!confident && existing?.status === "active") { skip(action, "would_overwrite_active_fact"); continue; }
 
       // Facts from contact's own speech or sensitive categories are always "suggested"
-      // However, if an existing fact is already active, keep it active unless confidence is low
-      const shouldSuggest = !confident || (allFromContact && !existing) || (isSensitive && !existing);
-      const status = shouldSuggest ? "suggested" : (existing?.status === "active" ? "active" : (confident ? "active" : "suggested"));
+      // and should never change an existing fact's status to active
+      const contactOnlyOrSensitive = allFromContact || isSensitive;
+      
+      // For contact-only or sensitive facts, always suggest (never auto-activate)
+      // For other facts, use confidence-based activation
+      const status = contactOnlyOrSensitive 
+        ? "suggested"
+        : (confident ? "active" : "suggested");
+      
+      // If contact-only or sensitive, don't update existing active facts - skip instead
+      if (contactOnlyOrSensitive && existing?.status === "active") {
+        skip(action, "would_overwrite_active_fact");
+        continue;
+      }
+      
       const fact = await tx.contactKnowledge.upsert({
         where,
         create: { contactId, category: action.category, key: action.key, value, confidence: action.confidence, status },
