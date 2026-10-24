@@ -6,6 +6,7 @@ import { logger } from "../lib/logger";
 import { signToken } from "../lib/jwt";
 import { requireAuth } from "../lib/authMiddleware";
 import crypto from 'crypto';
+import { emailConfigured } from "../services/outbound/email";
 
 const router: IRouter = Router();
 
@@ -285,6 +286,42 @@ router.patch("/user/agent-mode", requireAuth, asyncHandler(async (req, res) => {
   });
   res.json({ enabled });
 }, "Failed to update agent mode"));
+
+// ---------------------------------------------------------------------------
+// GET /user/email-fallback
+// PATCH /user/email-fallback   Body: { enabled: boolean }
+// When on (the default), the owner gets an email at their login address if neither an open tab nor
+// web push could be reached (call attempts exhausted, reminders). `canEmail` is false when the
+// account has no email address; `configured` is false when the server has no mail provider set up.
+// ---------------------------------------------------------------------------
+router.get("/user/email-fallback", requireAuth, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { emailFallback: true, email: true },
+  });
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+  res.json({ enabled: account.emailFallback, canEmail: !!account.email, configured: emailConfigured() });
+}, "Failed to get email fallback setting"));
+
+router.patch("/user/email-fallback", requireAuth, asyncHandler(async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== "boolean") {
+    res.status(400).json({ error: "enabled must be a boolean" });
+    return;
+  }
+  const { count } = await prisma.account.updateMany({
+    where: { id: req.userId! },
+    data: { emailFallback: enabled },
+  });
+  if (count === 0) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+  res.json({ enabled });
+}, "Failed to update email fallback setting"));
 
 // ---------------------------------------------------------------------------
 // GET /auth/me

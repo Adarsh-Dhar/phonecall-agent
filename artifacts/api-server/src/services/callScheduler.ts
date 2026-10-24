@@ -41,7 +41,7 @@ import { RINGING_TIMEOUT_MS } from "./callSignaling";
 import type { Closure } from "./closurePolicy";
 import { AGENT_KINDS, normalizeKind, nextFireAfter } from "./taskKinds";
 import { sweepOverdueLoops } from "./memory/loopSweeper";
-import { notifyOwnerFallback } from "./outbound";
+import { notifyOwnerFallback, messageBusinessFallback } from "./outbound";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
 const STALE_WINDOW_MS = (Number(process.env.SCHEDULER_STALE_HOURS) || 24) * 60 * 60 * 1000;
@@ -128,6 +128,87 @@ async function armWake(): Promise<void> {
   }
 }
 
+/**
+ * Everything that follows "the agent could not get through and will not try again": tell the owner
+ * (tabs, push, then the email fallback) and, when the agent itself was the caller and the owner opted
+ * this contact in, message the business too. Never throws (both senders swallow their own errors).
+ */
+async function announceUnreached(p: {
+  taskId: string;
+  contactId: string;
+  contactName: string;
+  title: string;
+  ownerId: string;
+  attempts: number;
+  /** True only when the agent was the caller. If the owner was the one asked to call, the business is not contacted. */
+  messageBusiness: boolean;
+}): Promise<void> {
+  const reached = await broadcastCallExhausted({
+    type: "call_exhausted",
+    taskId: p.taskId,
+    contactId: p.contactId,
+    contactName: p.contactName,
+    title: p.title,
+    attempts: p.attempts,
+    ownerId: p.ownerId,
+  });
+  // No open tab and no push subscription: fall back to email.
+  if (!reached) {
+    await notifyOwnerFallback(p.ownerId, {
+      subject: `Couldn't reach ${p.contactName}`,
+      text: `Your agent tried ${p.attempts} times to reach ${p.contactName} about "${p.title}" and couldn't get through (they may be offline or unavailable).`,
+      url: `/tasks/${p.taskId}`,
+      taskId: p.taskId,
+    });
+  }
+  if (p.messageBusiness) {
+    await messageBusinessFallback({
+      ownerId: p.ownerId,
+      contactId: p.contactId,
+      taskId: p.taskId,
+      taskTitle: p.title,
+      attempts: p.attempts,
+    });
+  }
+}
+
+/**
+ * The final attempt rang but nobody picked up, so the ring timed out and the call just became
+ * "missed". Only now do we know the task really is unreachable, so announce it (once: a call
+ * leaves "ringing" exactly once).
+ */
+async function handleFinalMissedAgentCall(callId: string, taskId: string): Promise<void> {
+  try {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        id: true,
+        title: true,
+        contactId: true,
+        callAttempts: true,
+        schedulerStatus: true,
+        contact: { select: { ownerId: true, name: true } },
+      },
+    });
+    if (!task || !task.contact.ownerId) return;
+    if (task.schedulerStatus !== "exhausted" || task.callAttempts < MAX_ATTEMPTS) return;
+    // Only the task's most recent call counts; an older ring timing out is not the end of the story.
+    const latest = await prisma.call.findFirst({ where: { taskId }, orderBy: { createdAt: "desc" }, select: { id: true } });
+    if (latest?.id !== callId) return;
+    await announceUnreached({
+      taskId: task.id,
+      contactId: task.contactId,
+      contactName: task.contact.name ?? "the contact",
+      title: task.title,
+      ownerId: task.contact.ownerId,
+      attempts: task.callAttempts,
+      messageBusiness: true,
+    });
+  } catch (err) {
+    logger.error({ err, callId, taskId }, "callScheduler: failed to announce final missed call");
+  }
+}
+
 export async function checkDueTasks(): Promise<void> {
   if (isRunning) {
     logger.debug("callScheduler: previous cycle still running, skipping");
@@ -152,6 +233,8 @@ export async function checkDueTasks(): Promise<void> {
         id: true,
         individualId: true,
         businessId: true,
+        taskId: true,
+        placedByAgent: true,
       },
     });
 
@@ -181,6 +264,11 @@ export async function checkDueTasks(): Promise<void> {
             status: 'missed',
           });
         }
+      }
+      // The agent's last allowed attempt rang out unanswered: now the owner (and an opted-in
+      // business) can be told the contact could not be reached.
+      for (const call of staleRingingCalls) {
+        if (call.taskId && call.placedByAgent) await handleFinalMissedAgentCall(call.id, call.taskId);
       }
     }
 
@@ -562,23 +650,17 @@ async function processTask(
       // If the final attempt just started ringing, don't tell the user "couldn't reach" yet — the
       // Call row shows how it ended.
       if (!(autoDialed && delivered)) {
-        const reached = await broadcastCallExhausted({
-          type: "call_exhausted",
+        await announceUnreached({
           taskId: task.id,
           contactId: task.contactId,
           contactName: contact.name,
           title: task.title,
-          attempts: newAttempts,
           ownerId: contact.ownerId,
+          attempts: newAttempts,
+          // autoDialed here means the agent dialled and the business was offline (a "missed" call).
+          // If the owner was merely notified to call, the owner is responsible and the business is left alone.
+          messageBusiness: autoDialed,
         });
-        // No open tab and no push subscription: fall back to email.
-        if (!reached) {
-          await notifyOwnerFallback(contact.ownerId, {
-            subject: `Couldn't reach ${contact.name}`,
-            text: `Your agent tried ${newAttempts} times to reach ${contact.name} about "${task.title}" and couldn't get through (they may be offline or unavailable).`,
-            url: `/tasks/${task.id}`,
-          });
-        }
       }
 
       logger.info(
@@ -663,6 +745,7 @@ async function processOwnerTask(task: any, now: Date): Promise<void> {
       subject: `Reminder: ${task.title}`.slice(0, 120),
       text: task.dueDate ? `${task.title}\nDue: ${task.dueDate.toISOString()}` : task.title,
       url: `/tasks/${task.id}`,
+      taskId: task.id,
     });
   }
   const kind = normalizeKind(task.kind);

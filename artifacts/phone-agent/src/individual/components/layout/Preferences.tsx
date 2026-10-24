@@ -40,6 +40,7 @@ export function Preferences({ onClose }: { onClose: () => void }) {
   const [quietHoursStart, setQuietHoursStart] = useState<number | null>(null);
   const [quietHoursEnd, setQuietHoursEnd] = useState<number | null>(null);
   const [agentMode, setAgentMode] = useState(false);
+  const [emailFallback, setEmailFallback] = useState(true);
   const { permission, subscribe } = usePushSubscription();
 
   const toggle = (id: string) =>
@@ -74,6 +75,13 @@ export function Preferences({ onClose }: { onClose: () => void }) {
       .catch(() => {
         // Default to no quiet hours
       });
+
+    apiFetch('/api/user/email-fallback')
+      .then((res) => res.json())
+      .then((data) => setEmailFallback(data.enabled ?? true))
+      .catch(() => {
+        // Default to enabled
+      });
   }, []);
 
   // Get all available timezones, plus the current one if not in the list
@@ -98,6 +106,12 @@ export function Preferences({ onClose }: { onClose: () => void }) {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: agentMode }),
+      });
+
+      await apiFetch('/api/user/email-fallback', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: emailFallback }),
       });
     } catch (err) {
       console.error('Failed to save preferences:', err);
@@ -253,6 +267,23 @@ export function Preferences({ onClose }: { onClose: () => void }) {
               )}
             </div>
           )}
+
+          {/* Email fallback */}
+          <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
+            <div className="flex-1">
+              <Label htmlFor="pref-email-fallback" className="cursor-pointer text-sm font-medium leading-none">
+                Email fallback
+              </Label>
+              <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                Send you an email when you're unreachable (no open tab and no push subscription). You can turn this off if you prefer notifications only.
+              </p>
+            </div>
+            <Switch
+              id="pref-email-fallback"
+              checked={emailFallback}
+              onCheckedChange={setEmailFallback}
+            />
+          </div>
         </div>
 
         {/* Fixed bottom section with Save button */}

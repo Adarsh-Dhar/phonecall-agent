@@ -4,6 +4,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { isOnline } from "../services/presence";
 import { validateBusinessHours, resolveEffectiveHours } from "../services/schedulerPolicy";
 import { loadClosureInfo, closureForIndividual } from "../services/businessClosures";
+import { parseContactEmail, parseAllowFallback, hasUsableChannel, messagingView, NO_CHANNEL_ERROR } from "../services/outbound/contactFields";
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -246,6 +247,8 @@ router.get("/contacts", asyncHandler(async (req, res) => {
       business: true,
       category: true,
       phone: true,
+      contactEmail: true,
+      allowFallbackMessage: true,
       initials: true,
       color: true,
       note: true,
@@ -295,6 +298,7 @@ router.get("/contacts", asyncHandler(async (req, res) => {
     });
     return {
       ...contact,
+      ...messagingView(contact),
       online: contact.linkedAccountId ? isOnline(contact.linkedAccountId) : contact.online,
       effectiveHours,
       hoursSource,
@@ -310,6 +314,16 @@ router.get("/contacts", asyncHandler(async (req, res) => {
 // If `withConversation` is truthy, also creates the first chat thread.
 router.post("/contacts", asyncHandler(async (req, res) => {
   const { name, business, category, phone, initials, color, note, withConversation } = req.body;
+  const email = parseContactEmail(req.body.contactEmail);
+  const allow = parseAllowFallback(req.body.allowFallbackMessage);
+  if (!email.ok || !allow.ok) {
+    res.status(400).json({ error: (!email.ok ? email.error : !allow.ok ? allow.error : "") });
+    return;
+  }
+  if (allow.value && !hasUsableChannel(email.value, phone)) {
+    res.status(400).json({ error: NO_CHANNEL_ERROR });
+    return;
+  }
 
   // Validate required fields
   if (!name) {
@@ -330,6 +344,8 @@ router.post("/contacts", asyncHandler(async (req, res) => {
       business,
       category,
       phone,
+      ...(email.value !== undefined ? { contactEmail: email.value } : {}),
+      ...(allow.value !== undefined ? { allowFallbackMessage: allow.value } : {}),
       initials,
       color,
       note,
@@ -340,7 +356,7 @@ router.post("/contacts", asyncHandler(async (req, res) => {
     },
     include: { conversations: true },
   });
-  res.json(contact);
+  res.json(messagingView(contact));
   return;
 }, "Failed to create contact"));
 
@@ -377,11 +393,20 @@ router.get("/contacts/:id/conversation", asyncHandler(async (req, res) => {
 router.put("/contacts/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, business, category, phone, initials, color, note, businessHoursJson } = req.body;
+  const email = parseContactEmail(req.body.contactEmail);
+  const allow = parseAllowFallback(req.body.allowFallbackMessage);
+  if (!email.ok || !allow.ok) {
+    res.status(400).json({ error: (!email.ok ? email.error : !allow.ok ? allow.error : "") });
+    return;
+  }
   // Verify ownership before update
   const existing = await prisma.account.findFirst({
     where: { id: String(id), ownerId: req.userId!, isService: true },
     select: {
       id: true,
+      phone: true,
+      contactEmail: true,
+      allowFallbackMessage: true,
       businessHoursJson: true,
       timezone: true,
       linkedAccountId: true,
@@ -389,6 +414,16 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
   });
   if (!existing) {
     res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  // Judge the result of the update, not just the request: clearing the only channel while messaging
+  // stays on (or turning it on with no channel) is refused.
+  const nextEmail = email.value !== undefined ? email.value : existing.contactEmail;
+  const nextPhone = phone !== undefined ? phone : existing.phone;
+  const nextAllow = allow.value !== undefined ? allow.value : existing.allowFallbackMessage;
+  if (nextAllow && !hasUsableChannel(nextEmail, nextPhone)) {
+    res.status(400).json({ error: NO_CHANNEL_ERROR });
     return;
   }
 
@@ -413,6 +448,8 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
       business,
       category,
       phone,
+      ...(email.value !== undefined ? { contactEmail: email.value } : {}),
+      ...(allow.value !== undefined ? { allowFallbackMessage: allow.value } : {}),
       initials,
       color,
       note,
@@ -424,6 +461,8 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
       business: true,
       category: true,
       phone: true,
+      contactEmail: true,
+      allowFallbackMessage: true,
       initials: true,
       color: true,
       note: true,
@@ -463,7 +502,7 @@ router.put("/contacts/:id", asyncHandler(async (req, res) => {
     ? (await loadClosureInfo([existing.linkedAccountId], now)).get(existing.linkedAccountId)
     : undefined;
 
-  res.json({ ...contact, effectiveHours, hoursSource, ...closureForIndividual(closureInfo, now) });
+  res.json({ ...messagingView(contact), effectiveHours, hoursSource, ...closureForIndividual(closureInfo, now) });
   return;
 }, "Failed to update contact"));
 

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import pushRouter from "./push";
+import outboundRouter from "./outbound";
 import orchestratorRouter from "./orchestrator";
 import contactsRouter from "./contacts";
 import conversationsRouter from "./conversations";
@@ -22,6 +23,7 @@ const router: IRouter = Router();
 router.use(healthRouter);
 router.use(authRouter);
 router.use(pushRouter);
+router.use(outboundRouter); // opt-out links from messages sent to businesses (signed token, no login)
 
 // ── Protected routes (require authentication) ─────────────────────────────
 router.use(requireAuth);

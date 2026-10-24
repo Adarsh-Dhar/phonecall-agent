@@ -40,6 +40,8 @@ model Account {
   agentAutoAnswer           Boolean            @default(false)
   agentMode                 Boolean            @default(false)
   emailFallback             Boolean            @default(true)
+  contactEmail              String?
+  allowFallbackMessage      Boolean            @default(false)
   owner                     Account?           @relation("AccountOwnership", fields: [ownerId], references: [id], onDelete: Cascade)
   contacts                  Account[]          @relation("AccountOwnership")
   closures                  BusinessClosure[]
@@ -47,6 +49,7 @@ model Account {
   knowledge                 ContactKnowledge[]
   conversations             Conversation[]
   ownerInfo                 OwnerInfo[]
+  outboundMessages          OutboundMessage[]
   pushSubscriptions         PushSubscription[]
   queries                   Query[]
   relationshipsAsBusiness   Relationship[]     @relation("RelBusiness")
@@ -379,4 +382,21 @@ model BusinessClosure {
 
   @@index([businessId, startsAt])
   @@index([businessId, endsAt])
+}
+
+model OutboundMessage {
+  id        String   @id @default(cuid())
+  ownerId   String
+  contactId String?
+  taskId    String?
+  audience  String
+  channel   String
+  status    String
+  error     String?
+  createdAt DateTime @default(now())
+  owner     Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, audience, status, createdAt])
+  @@index([contactId, audience, status, createdAt])
+  @@index([ownerId, createdAt])
 }

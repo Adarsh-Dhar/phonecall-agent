@@ -9,91 +9,136 @@ datasource db {
 }
 
 model Account {
-  id        String  @id @default(cuid())
-  isService Boolean @default(false)
-
-  // Self-relation: a login account (isService: false) owns N service
-  // accounts (isService: true — today's "contacts")
-  ownerId  String?
-  owner    Account?  @relation("AccountOwnership", fields: [ownerId], references: [id], onDelete: Cascade)
-  contacts Account[] @relation("AccountOwnership")
-
-  // --- Login-only fields (Google OAuth identity) — null for service accounts ---
-  googleId     String?   @unique
-  email        String?   @unique
-  picture      String?
-  accessToken  String?
-  refreshToken String?
-  expiryDate   DateTime?
-  scope        String?
-  syncToken    String?
-
-  // --- Shared / contact-ish fields ---
-  name        String
-  description String?
-  business    String?
-  category    String?
-  phone       String?
-  initials    String?
-  color       String?
-  note        String?
-  online      Boolean  @default(false)
-
-  // When this row was created as a contact mirror of another Account,
-  // this stores the source account's id for deduplication checks.
-  linkedAccountId String?
-
-  lastSeenAt DateTime?
-  timezone     String?
-
-  // Quiet hours for the owner (login account only): hour of day (0-23)
-  quietHoursStart Int?
-  quietHoursEnd   Int?
-
-  // Business hours for contacts (service accounts only): JSON schedule
-  businessHoursJson String?
-
-  // When true, the individual's AI agent answers incoming business calls itself
-  // (no accept tap, works while the owner is offline).
-  agentAutoAnswer Boolean @default(false)
-  agentMode       Boolean @default(false)
-
-  // Owner opted in to an email when push / open tabs cannot be reached (exhausted calls, reminders).
-  emailFallback Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  calls            Call[]
-  knowledge        ContactKnowledge[]
-  conversations    Conversation[]
-  queries          Query[]
-  tasks            Task[]
-  pushSubscriptions PushSubscription[]
+  id                        String             @id(map: "User_pkey") @default(cuid())
+  googleId                  String?            @unique
+  email                     String?            @unique
+  name                      String?
+  picture                   String?
+  accessToken               String?
+  refreshToken              String?
+  expiryDate                DateTime?
+  scope                     String?
+  syncToken                 String?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  isService                 Boolean            @default(false)
+  ownerId                   String?
+  business                  String?
+  category                  String?
+  phone                     String?
+  initials                  String?
+  color                     String?
+  note                      String?
+  online                    Boolean            @default(false)
+  linkedAccountId           String?
+  description               String?
+  lastSeenAt                DateTime?
+  timezone                  String?
+  quietHoursStart           Int?
+  quietHoursEnd             Int?
+  businessHoursJson         String?
+  agentAutoAnswer           Boolean            @default(false)
+  agentMode                 Boolean            @default(false)
+  emailFallback             Boolean            @default(true)
+  contactEmail              String?
+  allowFallbackMessage      Boolean            @default(false)
+  owner                     Account?           @relation("AccountOwnership", fields: [ownerId], references: [id], onDelete: Cascade)
+  contacts                  Account[]          @relation("AccountOwnership")
+  closures                  BusinessClosure[]
+  calls                     Call[]
+  knowledge                 ContactKnowledge[]
+  conversations             Conversation[]
+  ownerInfo                 OwnerInfo[]
+  outboundMessages          OutboundMessage[]
+  pushSubscriptions         PushSubscription[]
+  queries                   Query[]
+  relationshipsAsBusiness   Relationship[]     @relation("RelBusiness")
+  relationshipsAsIndividual Relationship[]     @relation("RelIndividual")
+  tasks                     Task[]
 
   @@index([ownerId])
 }
 
 model Conversation {
-  id                     String    @id @default(cuid())
-  title                  String?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-  lastExtractedMessageId String?
-  lastExtractedAt        DateTime?
-  status                 String    @default("active")
-  endedAt                DateTime?
-  topicSummary           String?
-  contactId              String
-  calls                  Call[]
-  contact                Account   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  history                History[]
-  messages               Message[]
-  queries                Query[]
-  tasks                  Task[]
+  id                      String    @id @default(cuid())
+  title                   String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  lastExtractedMessageId  String?
+  lastExtractedAt         DateTime?
+  status                  String    @default("active")
+  endedAt                 DateTime?
+  topicSummary            String?
+  contactId               String
+  extractionFailureCount  Int       @default(0)
+  extractionFailureCursor String?
+  calls                   Call[]
+  contact                 Account   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  history                 History[]
+  messages                Message[]
+  queries                 Query[]
+  tasks                   Task[]
 
   @@index([contactId])
   @@index([contactId, status])
+}
+
+model Relationship {
+  id             String     @id @default(cuid())
+  individualId   String
+  businessId     String
+  contactId      String
+  summary        String     @default("")
+  summaryUpTo    DateTime?
+  summaryVersion Int        @default(0)
+  lastCallId     String?
+  lastCallAt     DateTime?
+  consolidating  Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  openLoops      OpenLoop[]
+  business       Account    @relation("RelBusiness", fields: [businessId], references: [id], onDelete: Cascade)
+  individual     Account    @relation("RelIndividual", fields: [individualId], references: [id], onDelete: Cascade)
+
+  @@unique([individualId, businessId])
+}
+
+model CallSummary {
+  callId         String   @id
+  relationshipId String
+  outcome        String
+  summary        String
+  agreements     Json     @default("[]")
+  proposals      Json     @default("[]")
+  promises       Json     @default("[]")
+  businessTerms  Json     @default("{}")
+  createdAt      DateTime @default(now())
+  model          String
+  promptVersion  Int
+
+  @@index([relationshipId])
+}
+
+model OpenLoop {
+  id             String       @id @default(cuid())
+  relationshipId String
+  kind           String
+  text           String
+  status         String       @default("open")
+  dueAt          DateTime?
+  sourceCallId   String?
+  taskId         String?
+  queryId        String?
+  visibility     String       @default("individual_only")
+  createdAt      DateTime     @default(now())
+  resolvedAt     DateTime?
+  followUpTaskId String?
+  lastActionAt   DateTime?
+  relationship   Relationship @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+
+  @@index([relationshipId, status])
+  @@index([status, dueAt])
+  @@index([followUpTaskId])
 }
 
 model Message {
@@ -106,11 +151,18 @@ model Message {
   updatedAt        DateTime                 @updatedAt
   conversationId   String
   callId           String?
+  relationshipId   String?
+  seq              BigInt?
+  speaker          String?
+  visibility       String                   @default("both")
   knowledgeSources KnowledgeSourceMessage[]
   call             Call?                    @relation(fields: [callId], references: [id])
   conversation     Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   querySources     QuerySourceMessage[]
   taskSources      TaskSourceMessage[]
+
+  @@unique([relationshipId, seq])
+  @@index([relationshipId, seq])
 }
 
 model History {
@@ -126,38 +178,35 @@ model History {
 }
 
 model Task {
-  id              String              @id @default(cuid())
-  title           String
-  description     String?
-  status          String              @default("suggested")
-  priority        String              @default("normal")
-  dueDate         DateTime?
-  confidence      Float               @default(1.0)
-  source          String              @default("agent")
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  completedAt     DateTime?
-  conversationId  String
-  contactId       String
-  googleEtag      String?
-  googleEventId   String?
-  lastSyncedAt    DateTime?
-  callTriggeredAt DateTime?
-  parentTaskId    String?
-
-  // Scheduler fields
-  kind              String @default("call")
-  meta              Json?
-  callAttempts      Int    @default(0)
-  lastAttemptAt     DateTime?
-  nextAttemptAt     DateTime?
+  id                 String              @id @default(cuid())
+  title              String
+  description        String?
+  status             String              @default("suggested")
+  priority           String              @default("normal")
+  dueDate            DateTime?
+  confidence         Float               @default(1.0)
+  source             String              @default("agent")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  completedAt        DateTime?
+  conversationId     String
+  contactId          String
+  googleEtag         String?
+  googleEventId      String?
+  lastSyncedAt       DateTime?
+  callTriggeredAt    DateTime?
+  parentTaskId       String?
+  kind               String              @default("call")
+  meta               Json?
+  callAttempts       Int                 @default(0)
+  lastAttemptAt      DateTime?
+  nextAttemptAt      DateTime?
   schedulerClaimedAt DateTime?
-  schedulerStatus   String @default("pending") // "pending", "claimed", "done", "exhausted", "stale"
-
-  contact         Account             @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  conversation    Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sources         TaskSourceMessage[]
-  calls           Call[]
+  schedulerStatus    String              @default("pending")
+  calls              Call[]
+  contact            Account             @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation       Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sources            TaskSourceMessage[]
 
   @@index([conversationId])
   @@index([contactId])
@@ -191,10 +240,10 @@ model Query {
   isKnowledgeGap    Boolean              @default(false)
   knowledgeKey      String?
   knowledgeCategory String?
-  callId            String?
-  urgent            Boolean              @default(false)
   conversationId    String
   contactId         String
+  callId            String?
+  urgent            Boolean              @default(false)
   contact           Account              @relation(fields: [contactId], references: [id], onDelete: Cascade)
   conversation      Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sources           QuerySourceMessage[]
@@ -223,35 +272,35 @@ model Call {
   direction         String       @default("outbound")
   from              String
   to                String
-  calleeAccountId  String?
   recordingUrl      String?
   startedAt         DateTime?
   endedAt           DateTime?
   durationSec       Int?
   disconnectedBy    String?
   isEnoughKnowledge Boolean?
-  ringingAt         DateTime?
-  acceptedAt        DateTime?
-  taskId            String?
-  outcome           String?
-  outcomeSummary    String?
-  confirmedAt       DateTime?
-  confirmationRef   String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   conversationId    String
   contactId         String
-  contact           Account      @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  messages          Message[]
-  task              Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
-
-  // The two parties of a call. The AI agent ALWAYS speaks for `individualId`;
-  // `businessId` is the human on the other end. `initiatedBy` is who dialed.
+  calleeAccountId   String?
+  ringingAt         DateTime?
+  acceptedAt        DateTime?
+  confirmationRef   String?
+  confirmedAt       DateTime?
+  outcome           String?
+  outcomeSummary    String?
+  taskId            String?
   individualId      String?
   businessId        String?
-  initiatedBy       String? // "individual" | "business"
+  initiatedBy       String?
   placedByAgent     Boolean      @default(false)
+  briefingSnapshot  Json?
+  briefingVersion   Int?
+  consolidatedAt    DateTime?
+  contact           Account      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  task              Task?        @relation(fields: [taskId], references: [id])
+  messages          Message[]
 
   @@index([conversationId])
   @@index([contactId])
@@ -284,8 +333,8 @@ model KnowledgeSourceMessage {
   knowledgeId String
   messageId   String
   role        String
-  message     Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
   knowledge   ContactKnowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+  message     Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@unique([knowledgeId, messageId, role])
 }
@@ -300,4 +349,54 @@ model PushSubscription {
   account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId])
+}
+
+model OwnerInfo {
+  id        String   @id @default(cuid())
+  ownerId   String
+  category  String
+  key       String
+  value     String
+  shareable Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  owner     Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, key])
+  @@index([ownerId])
+}
+
+model BusinessClosure {
+  id         String    @id @default(cuid())
+  businessId String
+  kind       String
+  label      String?
+  message    String?
+  startsAt   DateTime
+  endsAt     DateTime?
+  allDay     Boolean   @default(false)
+  blockCalls Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  business   Account   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, startsAt])
+  @@index([businessId, endsAt])
+}
+
+model OutboundMessage {
+  id        String   @id @default(cuid())
+  ownerId   String
+  contactId String?
+  taskId    String?
+  audience  String
+  channel   String
+  status    String
+  error     String?
+  createdAt DateTime @default(now())
+  owner     Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, audience, status, createdAt])
+  @@index([contactId, audience, status, createdAt])
+  @@index([ownerId, createdAt])
 }

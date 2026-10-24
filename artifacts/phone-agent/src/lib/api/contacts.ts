@@ -47,6 +47,9 @@ export type Contact = {
   hoursSource?: HoursSource;
   closure?: ContactClosure | null;
   upcomingClosures?: UpcomingClosure[];
+  contactEmail?: string | null;
+  allowFallbackMessage?: boolean;
+  whatsappReachable?: boolean;
   createdAt: string;
   updatedAt: string;
   conversations?: Array<{
@@ -92,6 +95,19 @@ export const deleteContact = async (contactId: string): Promise<{ success: boole
     method: 'DELETE',
   });
   if (!response.ok) throw new Error('Failed to delete contact');
+  return response.json();
+};
+
+export const updateContact = async (
+  contactId: string,
+  data: Partial<Pick<Contact, 'note' | 'contactEmail' | 'allowFallbackMessage'>>,
+): Promise<Contact> => {
+  const response = await apiFetch(`${API_BASE_URL}/contacts/${contactId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to update contact');
   return response.json();
 };
 

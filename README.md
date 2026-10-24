@@ -88,6 +88,28 @@ Business hours can be set on contacts to control when the scheduler attempts to 
 
 Example: `{"days":[1,2,3,4,5],"start":9,"end":17,"tz":"Asia/Kolkata"}` means Monday through Friday, 9 AM to 5 PM IST.
 
+## Fallback messages
+
+When the agent cannot get through, the owner and (optionally) the business are told.
+
+| Situation | Owner | Business |
+|---|---|---|
+| Attempts used up, or the final call rings out unanswered | Open tabs, then web push, then **email** (Preferences: "Email me when I can't be reached") | Only if the agent made the call **and** the contact has "Message if unreachable" on |
+| Owner was asked to call and did not | Same as above | Never |
+
+Business messages try **email** (needs `contactEmail`), then **WhatsApp** (needs a phone number in
+international format plus the `WHATSAPP_*` variables). The first channel that delivers wins.
+
+Safety rules, all enforced in `services/outbound`:
+- Off by default; opt-in per contact. The toggle cannot be enabled with no usable channel.
+- At most one message per task and two per contact in any 24 hours.
+- The text contains only your display name, the contact's name and the task title.
+- Every message carries a signed opt-out link (`/api/outbound/opt-out`, also one-click `List-Unsubscribe`). With no `APP_URL` nothing is sent.
+- Every attempt (sent or failed) is stored in `OutboundMessage`.
+- Replies go to your login email (`Reply-To`), which therefore becomes visible to the business.
+
+Inbound email handling (`/api/emails`) is not part of this codebase.
+
 ## Environment Variables
 
 ### API Keys
