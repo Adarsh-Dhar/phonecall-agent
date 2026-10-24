@@ -4,8 +4,8 @@ import { logger } from '../lib/logger';
 import { isWithinAllowedWindow, DEFAULT_BUSINESS_HOURS, parseBusinessHours } from './schedulerPolicy';
 import { loadClosureInfo } from './businessClosures';
 
-// Shared ringing timeout constant (30 seconds)
-export const RINGING_TIMEOUT_MS = 30000;
+// Shared ringing timeout constant (default 30 seconds, override via env)
+export const RINGING_TIMEOUT_MS = Number(process.env.RINGING_TIMEOUT_MS) || 30000;
 
 export type CallRole = 'individual' | 'business';
 
@@ -541,6 +541,7 @@ export async function dialCallAs(
         individualId,
         businessId,
         initiatedBy: dialerRole,
+        placedByAgent: opts.agent ?? false,
       },
     });
 
@@ -570,6 +571,7 @@ export async function dialCallAs(
         individualId,
         businessId,
         initiatedBy: dialerRole,
+        placedByAgent: opts.agent ?? false,
       },
     });
 
@@ -604,6 +606,7 @@ export async function dialCallAs(
       individualId,
       businessId,
       initiatedBy: dialerRole,
+      placedByAgent: opts.agent ?? false,
     },
   });
 
@@ -637,28 +640,7 @@ export async function dialCallAs(
     callId: call.id,
   });
 
-  // Start timeout to auto-miss after 25 seconds
-  setTimeout(async () => {
-    const updatedCall = await prisma.call.findUnique({
-      where: { id: call.id },
-      select: { status: true },
-    });
-
-    if (updatedCall?.status === 'ringing') {
-      await prisma.call.update({
-        where: { id: call.id },
-        data: { status: 'missed' },
-      });
-
-      sendToAccount(dialerId, {
-        type: 'call_status',
-        callId: call.id,
-        status: 'missed',
-      });
-
-      logger.info({ callId: call.id }, 'Call automatically marked as missed after timeout');
-    }
-  }, 25000);
+  // Note: Ringing timeout is handled by the scheduler sweep, not a local setTimeout
 
   return { call, status: 'ringing', delivered };
 }

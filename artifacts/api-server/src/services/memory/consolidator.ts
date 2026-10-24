@@ -171,27 +171,41 @@ Key distinctions:
     }
 
     // Build rolling summary (rewrite previous summary + new call into one summary capped at ~800 chars)
-    const summaryPrompt = previousSummary
-      ? `Previous summary: ${previousSummary}\n\nNew call: ${parsed.summary}\n\nRewrite this into a single concise summary (max 800 characters) that captures the key points from both.`
-      : `New call: ${parsed.summary}\n\nSummarize this concisely (max 800 characters).`;
+    // Fall back to simple append if the rewrite fails
+    let newRollingSummary: string;
+    try {
+      const summaryPrompt = previousSummary
+        ? `Previous summary: ${previousSummary}\n\nNew call: ${parsed.summary}\n\nRewrite this into a single concise summary (max 800 characters) that captures the key points from both.`
+        : `New call: ${parsed.summary}\n\nSummarize this concisely (max 800 characters).`;
 
-    const summaryTurns = [
-      {
-        role: "user" as const,
-        content: summaryPrompt,
-      },
-    ];
+      const summaryTurns = [
+        {
+          role: "user" as const,
+          content: summaryPrompt,
+        },
+      ];
 
-    const { text: summaryText } = await generateOrchestratorText({
-      systemInstructionText: "You are summarizing call history. Keep it concise (max 800 characters).",
-      turns: summaryTurns,
-      jsonResponse: false,
-      temperature: 0.3,
-      maxTokens: 500,
-      purpose: "summary_consolidation",
-    });
+      const { text: summaryText } = await generateOrchestratorText({
+        systemInstructionText: "You are summarizing call history. Keep it concise (max 800 characters).",
+        turns: summaryTurns,
+        jsonResponse: false,
+        temperature: 0.3,
+        maxTokens: 1000,
+        purpose: "summary_consolidation",
+      });
 
-    const newRollingSummary = summaryText.trim().slice(0, 800);
+      const trimmed = summaryText.trim();
+      if (!trimmed) {
+        throw new Error("Empty summary rewrite");
+      }
+      newRollingSummary = trimmed.slice(0, 800);
+    } catch (err) {
+      logger.warn({ err, callId }, "consolidator: summary rewrite failed, falling back to append");
+      // Fallback: simple append, truncated to 800 chars
+      newRollingSummary = previousSummary
+        ? `${previousSummary}\n\n${parsed.summary}`.slice(0, 800)
+        : parsed.summary.slice(0, 800);
+    }
 
     // Create CallSummary
     await prisma.callSummary.create({

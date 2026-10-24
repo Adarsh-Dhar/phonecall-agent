@@ -3,8 +3,9 @@ import { scheduleExtraction } from "./taskExtraction";
 import { analyzeCallForEscalation } from "./callAnalysis";
 import { askUserDuringCall, rejectLiveQueries } from "./liveEscalation";
 import { logger } from "../lib/logger";
-import { computeNextAttempt } from "./schedulerPolicy";
+import { computeNextAttempt, MAX_ATTEMPTS } from "./schedulerPolicy";
 import { getOrCreateRelationship, ingestMessage, scheduleConsolidation } from "./memory";
+import { broadcastCallExhausted } from "./notifications";
 
 interface EndCallArgs {
   outcome: "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed";
@@ -24,13 +25,13 @@ interface EndCallArgs {
  * Runs after post-call analysis so call.outcome reflects the analysis when the
  * agent didn't report one.
  *
- * If the call came from the scheduler (has schedulerClaimedAt), we do NOT increment
+ * If the call was placed by the agent (placedByAgent=true), we do NOT increment
  * callAttempts here - the scheduler counts its own attempts. Only manual calls increment.
  */
 export async function applyCallOutcomeToTask(callId: string): Promise<void> {
   const call = await prisma.call.findUnique({
     where: { id: callId },
-    select: { taskId: true, outcome: true, schedulerClaimedAt: true },
+    select: { taskId: true, outcome: true, placedByAgent: true, individualId: true },
   });
 
   if (!call || !call.taskId) {
@@ -39,7 +40,7 @@ export async function applyCallOutcomeToTask(callId: string): Promise<void> {
 
   const now = new Date();
   const outcome = call.outcome;
-  const fromScheduler = call.schedulerClaimedAt !== null;
+  const fromAgent = call.placedByAgent;
 
   // Determine task update based on outcome
   if (outcome === "booked" || outcome === "rescheduled" || outcome === "cancelled" || outcome === "info_gathered") {
@@ -67,15 +68,14 @@ export async function applyCallOutcomeToTask(callId: string): Promise<void> {
     // failed or no outcome - reschedule with backoff
     const task = await prisma.task.findUnique({
       where: { id: call.taskId },
-      select: { callAttempts: true },
+      select: { callAttempts: true, contactId: true },
     });
 
-    // Only increment attempts for manual calls, not scheduler calls
-    const newAttempts = fromScheduler ? (task?.callAttempts ?? 0) : (task?.callAttempts ?? 0) + 1;
+    // Only increment attempts for manual calls, not agent calls
+    const newAttempts = fromAgent ? (task?.callAttempts ?? 0) : (task?.callAttempts ?? 0) + 1;
     const nextAttemptAt = computeNextAttempt(newAttempts, now);
 
-    // Check for exhaustion (MAX_ATTEMPTS from schedulerPolicy)
-    const MAX_ATTEMPTS = 5;
+    // Check for exhaustion
     if (newAttempts >= MAX_ATTEMPTS) {
       await prisma.task.update({
         where: { id: call.taskId },
@@ -87,6 +87,25 @@ export async function applyCallOutcomeToTask(callId: string): Promise<void> {
         },
       });
       logger.info({ callId, taskId: call.taskId, outcome, attempts: newAttempts }, "callLifecycle: task exhausted");
+      
+      // Notify owner about exhaustion
+      if (call.individualId && task?.contactId) {
+        const taskDetails = await prisma.task.findUnique({
+          where: { id: call.taskId },
+          select: { title: true, contact: { select: { name: true } } },
+        });
+        broadcastCallExhausted({
+          type: 'call_exhausted',
+          ownerId: call.individualId,
+          contactId: task.contactId,
+          taskId: call.taskId,
+          contactName: taskDetails?.contact.name || 'Unknown',
+          title: taskDetails?.title || 'Unknown',
+          attempts: newAttempts,
+        }).catch((err) => {
+          logger.error({ err, callId, taskId: call.taskId }, "callLifecycle: failed to broadcast call exhausted");
+        });
+      }
     } else {
       await prisma.task.update({
         where: { id: call.taskId },
@@ -97,7 +116,7 @@ export async function applyCallOutcomeToTask(callId: string): Promise<void> {
           nextAttemptAt,
         },
       });
-      logger.info({ callId, taskId: call.taskId, outcome, nextAttemptAt, fromScheduler }, "callLifecycle: task rescheduled");
+      logger.info({ callId, taskId: call.taskId, outcome, nextAttemptAt, fromAgent }, "callLifecycle: task rescheduled");
     }
   }
 }

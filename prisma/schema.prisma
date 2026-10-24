@@ -282,7 +282,7 @@ model Call {
   individualId      String?
   businessId        String?
   initiatedBy       String?
-  schedulerClaimedAt DateTime?
+  placedByAgent     Boolean      @default(false)
   briefingSnapshot  Json?
   briefingVersion   Int?
   consolidatedAt    DateTime?

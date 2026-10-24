@@ -1,13 +1,12 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'development' ? 'dev-only-jwt-secret-do-not-use-in-production' : null);
+const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required in production');
+  throw new Error('JWT_SECRET environment variable is required');
 }
 
-// Non-null assertion is safe here because we throw above if JWT_SECRET is null
-const SECRET = JWT_SECRET as string;
+const SECRET = JWT_SECRET;
 
 export interface JWTPayload {
   userId: string;

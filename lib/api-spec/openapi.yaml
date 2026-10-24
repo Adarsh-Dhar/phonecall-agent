@@ -323,7 +323,7 @@ components:
           nullable: true
         kind:
           type: string
-          enum: [call, reminder]
+          enum: [call]
         callAttempts:
           type: integer
         lastAttemptAt:

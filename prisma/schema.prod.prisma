@@ -143,7 +143,7 @@ model Task {
   parentTaskId    String?
 
   // Scheduler fields
-  kind              String @default("call") // "call" or "reminder"
+  kind              String @default("call")
   callAttempts      Int    @default(0)
   lastAttemptAt     DateTime?
   nextAttemptAt     DateTime?
@@ -245,6 +245,7 @@ model Call {
   individualId      String?
   businessId        String?
   initiatedBy       String? // "individual" | "business"
+  placedByAgent     Boolean      @default(false)
 
   @@index([conversationId])
   @@index([contactId])

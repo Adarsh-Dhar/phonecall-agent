@@ -66,7 +66,7 @@ export type Task = {
   googleEtag: string | null;
   lastSyncedAt: string | null;
   // Scheduler fields
-  kind: 'call' | 'reminder';
+  kind: 'call';
   callAttempts: number;
   lastAttemptAt: string | null;
   nextAttemptAt: string | null;

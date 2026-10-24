@@ -127,8 +127,8 @@ describe('callScheduler (real DB)', () => {
     expect((await reload(task.id)).schedulerStatus).toBe('stale');
   });
 
-  it('never triggers a call for a reminder', async () => {
-    const { task } = await seed({ kind: 'reminder' });
+  it('never triggers a call for a non-call kind', async () => {
+    const { task } = await seed({ kind: 'email' });
     await checkDueTasks();
     expect(calledFor(task.id)).toBe(0);
     expect((await reload(task.id)).schedulerStatus).toBe('pending');

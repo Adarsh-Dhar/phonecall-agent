@@ -39,7 +39,7 @@ const OPT_OUT_RE = /#no[-_ ]?call\b/i;
 /** Removed before matching the rest of the title against contact names. */
 const NOISE_WORDS = new Set([
   "call", "calls", "callback", "back", "phone", "ring", "dial", "with", "to", "the", "a", "an",
-  "about", "re", "for", "and", "regarding", "follow", "up", "followup", "reminder", "schedule",
+  "about", "re", "for", "and", "regarding", "follow", "up", "followup", "schedule",
   "scheduled", "agent", "ai", "please", "my", "at", "on", "of",
 ]);
 

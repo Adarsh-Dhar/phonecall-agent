@@ -61,11 +61,6 @@ export function TaskRow({
               <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
               {meta.label}
             </span>
-            {task.kind === 'reminder' && (
-              <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
-                Reminder
-              </span>
-            )}
             {task.dueDate && (
               <span className="text-[10px] text-[hsl(var(--muted-foreground))]">
                 Due {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

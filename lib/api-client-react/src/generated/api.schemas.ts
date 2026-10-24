@@ -111,7 +111,6 @@ export type TaskKind = typeof TaskKind[keyof typeof TaskKind];
 
 export const TaskKind = {
   call: 'call',
-  reminder: 'reminder',
 } as const;
 
 export type TaskSchedulerStatus = typeof TaskSchedulerStatus[keyof typeof TaskSchedulerStatus];
