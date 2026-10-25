@@ -41,6 +41,7 @@ import { RINGING_TIMEOUT_MS } from "./callSignaling";
 import type { Closure } from "./closurePolicy";
 import { AGENT_KINDS, normalizeKind, nextFireAfter } from "./taskKinds";
 import { sweepOverdueLoops } from "./memory/loopSweeper";
+import { isIntroTask, recordIntroOutcome } from "./introCall";
 import { notifyOwnerFallback, messageBusinessFallback } from "./outbound";
 import { runDigestCycle } from "./ownerDigest";
 
@@ -188,6 +189,7 @@ async function handleFinalMissedAgentCall(callId: string, taskId: string): Promi
         contactId: true,
         callAttempts: true,
         schedulerStatus: true,
+        meta: true,
         contact: { select: { ownerId: true, name: true } },
       },
     });
@@ -203,7 +205,7 @@ async function handleFinalMissedAgentCall(callId: string, taskId: string): Promi
       title: task.title,
       ownerId: task.contact.ownerId,
       attempts: task.callAttempts,
-      messageBusiness: true,
+      messageBusiness: !isIntroTask(task),
     });
   } catch (err) {
     logger.error({ err, callId, taskId }, "callScheduler: failed to announce final missed call");
@@ -637,7 +639,8 @@ async function processTask(
 
     // Increment attempt count and set lastAttemptAt
     const newAttempts = task.callAttempts + 1;
-    const nextAttemptTime = autoDialed
+    // An intro call is not urgent: retry on the normal 15 min / 1 h / 4 h steps, not 2 and 10 minutes.
+    const nextAttemptTime = autoDialed && !isIntroTask(task)
       ? computeAutoDialRetry(newAttempts, now)
       : computeNextAttempt(newAttempts, now);
 
@@ -651,6 +654,7 @@ async function processTask(
           schedulerStatus: "exhausted",
         },
       });
+      await recordIntroOutcome(task.id, "final_failure");
 
       // If the final attempt just started ringing, don't tell the user "couldn't reach" yet — the
       // Call row shows how it ended.
@@ -664,7 +668,8 @@ async function processTask(
           attempts: newAttempts,
           // autoDialed here means the agent dialled and the business was offline (a "missed" call).
           // If the owner was merely notified to call, the owner is responsible and the business is left alone.
-          messageBusiness: autoDialed,
+          // Never send the fallback message to a business for an intro call.
+          messageBusiness: autoDialed && !isIntroTask(task),
         });
       }
 

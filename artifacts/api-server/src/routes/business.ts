@@ -15,6 +15,7 @@ import {
   NotInContactsError,
 } from '../services/callSignaling';
 import { logger } from '../lib/logger';
+import { queueIntroCall, cancelIntroCall } from '../services/introCall';
 import { validateBusinessHours, DEFAULT_BUSINESS_HOURS } from '../services/schedulerPolicy';
 import { validateClosureInput, CLOSURE_LIMITS, closureStatus } from '../services/closurePolicy';
 import { loadClosureInfo, toPublicClosure, type ClosureRow } from '../services/businessClosures';
@@ -454,6 +455,9 @@ router.post('/contacts/from-account/:accountId', requireBusiness, asyncHandler(a
     include: { conversations: true },
   });
 
+  // If this individual has already saved the business, queue the intro call. Never blocks or fails the add.
+  void queueIntroCall(req.userId!, target.id);
+
   res.status(201).json(contact);
 }, 'Failed to add contact from account'));
 
@@ -472,6 +476,7 @@ router.delete('/contacts/:id', requireBusiness, asyncHandler(async (req, res) =>
     res.status(404).json({ error: 'Contact not found' });
     return;
   }
+  if (existing.linkedAccountId) await cancelIntroCall(existing.linkedAccountId, req.userId!);
   await prisma.account.delete({ where: { id: String(id) } });
   res.json({ success: true });
 }, 'Failed to delete contact'));

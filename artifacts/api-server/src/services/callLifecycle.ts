@@ -6,6 +6,7 @@ import { logger } from "../lib/logger";
 import { computeNextAttempt, MAX_ATTEMPTS } from "./schedulerPolicy";
 import { getOrCreateRelationship, ingestMessage, scheduleConsolidation } from "./memory";
 import { broadcastCallExhausted } from "./notifications";
+import { recordIntroOutcome } from "./introCall";
 import { applyPostCallTasks } from "./postCallTasks";
 import { createCallCalendarTools, isCalendarTool } from "./callCalendarTools";
 import { createCallApproval, type ApprovalRuleLite } from "./approvalRules";
@@ -44,6 +45,9 @@ export async function applyCallOutcomeToTask(callId: string): Promise<void> {
   if (!call || !call.taskId) {
     return;
   }
+
+  // Intro-call bookkeeping: a no-op for every other task.
+  await recordIntroOutcome(call.taskId, call.outcome);
 
   const now = new Date();
   const outcome = call.outcome;
@@ -94,6 +98,7 @@ export async function applyCallOutcomeToTask(callId: string): Promise<void> {
         },
       });
       logger.info({ callId, taskId: call.taskId, outcome, attempts: newAttempts }, "callLifecycle: task exhausted");
+      await recordIntroOutcome(call.taskId, "final_failure");
       
       // Notify owner about exhaustion
       if (call.individualId && task?.contactId) {

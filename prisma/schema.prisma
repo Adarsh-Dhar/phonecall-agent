@@ -100,6 +100,9 @@ model Relationship {
   lastCallId     String?
   lastCallAt     DateTime?
   consolidating  Boolean    @default(false)
+  introStatus    String     @default("none")
+  introTaskId    String?
+  introQueuedAt  DateTime?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   openLoops      OpenLoop[]

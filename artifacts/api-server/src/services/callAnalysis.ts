@@ -52,6 +52,12 @@ function buildBaseCallInstruction(
   function buildTaskBlock(t: NonNullable<typeof taskContext>, tz: string): string {
     const when = (d?: Date | null) => d ? new Intl.DateTimeFormat("en-US", { timeZone: tz, dateStyle: "full", timeStyle: "short" }).format(d) : "";
     const base = `\n\nTHE REASON FOR THIS CALL: "${t.title}"` + (t.description ? ` — ${t.description}` : "") + ". ";
+    if (t.meta && t.meta.purpose === "intro")
+      return base +
+        "This is a first, friendly introduction. Say you are the AI assistant for your user, who has just added this business. " +
+        "Ask, one at a time: what they offer, how booking works, their usual hours, prices and deposits, what a new client should bring, and how they prefer to be contacted. " +
+        "Do not book anything, agree to any fee, or share personal details beyond the facts you are allowed to say out loud. " +
+        "Keep it to about five minutes, then run the normal closing checklist.";
     if (t.kind === "follow_up")
       return base + "The business promised something. Ask for the status, get a firm new date AND time if it is not done, and do not re-explain the whole background.";
     if (t.appointment)

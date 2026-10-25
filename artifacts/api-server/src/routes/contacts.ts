@@ -5,6 +5,7 @@ import { isOnline } from "../services/presence";
 import { validateBusinessHours, resolveEffectiveHours } from "../services/schedulerPolicy";
 import { loadClosureInfo, closureForIndividual } from "../services/businessClosures";
 import { parseContactEmail, parseAllowFallback, hasUsableChannel, messagingView, NO_CHANNEL_ERROR } from "../services/outbound/contactFields";
+import { queueIntroCall, cancelIntroCall } from '../services/introCall';
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -229,6 +230,9 @@ router.post("/contacts/from-account/:accountId", asyncHandler(async (req, res) =
     },
     include: { conversations: true },
   });
+
+  // If the business has already saved this individual, queue the intro call. Never blocks or fails the add.
+  void queueIntroCall(req.userId!, target.id);
 
   res.status(201).json(contact);
   return;
@@ -517,6 +521,7 @@ router.delete("/contacts/:id", asyncHandler(async (req, res) => {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
+  if (existing.linkedAccountId) await cancelIntroCall(req.userId!, existing.linkedAccountId);
   await prisma.account.delete({ where: { id: String(id) } });
   res.json({ success: true });
   return;
