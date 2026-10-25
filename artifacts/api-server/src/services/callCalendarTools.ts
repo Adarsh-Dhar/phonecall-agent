@@ -8,6 +8,7 @@ import {
   listHoldEvents,
 } from "./googleCalendar";
 import { localAt } from "./taskKinds";
+import type { SlotApproval } from "./approvalRules";
 
 export interface Interval {
   start: Date;
@@ -120,7 +121,13 @@ export const CALENDAR_TOOL_NAMES = ["check_availability", "hold_slot"] as const;
 export const isCalendarTool = (n: string): n is (typeof CALENDAR_TOOL_NAMES)[number] =>
   (CALENDAR_TOOL_NAMES as readonly string[]).includes(n);
 
-export function createCallCalendarTools(ctx: { callId: string; ownerId: string; contactId: string }) {
+export function createCallCalendarTools(ctx: {
+  callId: string;
+  ownerId: string;
+  contactId: string;
+  /** Agent-mode standing rules. Absent = no gating (tests, owner on the line). */
+  approval?: SlotApproval;
+}) {
   const holds: CallHold[] = [];
   const ownEventIds = () => holds.map((h) => h.eventId).filter((x): x is string => !!x);
 
@@ -163,13 +170,24 @@ export function createCallCalendarTools(ctx: { callId: string; ownerId: string; 
     const conflict = findConflict(slot, busy);
 
     if (!conflict) {
+      // Free is not the same as allowed: tell the model now, so it does not offer a forbidden time.
+      const verdict = ctx.approval?.decide(p.start, p.durationMin);
       return {
         free: true,
         calendarChecked,
         ...(isWithinWorkingHours(slot, tz) ? {} : { outsideUsualHours: true }),
+        ...(verdict && verdict.decision !== "allow"
+          ? { approval: verdict.decision, approvalReason: verdict.reason, instruction: verdict.instruction }
+          : {}),
       };
     }
-    const alts = suggestAlternatives({ from: p.start, durationMin: p.durationMin, tz, busy, now });
+    // With rules, search wider and keep only the alternatives the rules would let the agent accept.
+    const wanted = ctx.approval ? 12 : undefined;
+    const raw = suggestAlternatives({ from: p.start, durationMin: p.durationMin, tz, busy, now, max: wanted });
+    const alts = (ctx.approval ? raw.filter((d) => ctx.approval!.decide(d, p.durationMin).decision === "allow") : raw).slice(
+      0,
+      MAX_ALTERNATIVES,
+    );
     return {
       free: false,
       calendarChecked,
@@ -184,6 +202,20 @@ export function createCallCalendarTools(ctx: { callId: string; ownerId: string; 
     if (!availability.free) return { held: false, ...availability };
 
     const p = parseSlotArgs(args, now) as Extract<ParsedSlot, { ok: true }>;
+
+    // Hard gate: whatever the model was told, a slot the rules do not allow is never held.
+    if (ctx.approval) {
+      const verdict = ctx.approval.decide(p.start, p.durationMin);
+      if (verdict.decision !== "allow") {
+        ctx.approval.record(verdict, { startsAt: p.start.toISOString(), via: "hold_slot" });
+        return {
+          held: false,
+          approval: verdict.decision,
+          approvalReason: verdict.reason,
+          instruction: verdict.instruction,
+        };
+      }
+    }
     const existing = holds.find((h) => Math.abs(+h.start - +p.start) <= 60_000);
     if (existing) return { held: true, alreadyHeld: true, calendarChecked: availability.calendarChecked };
 

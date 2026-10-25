@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Redirect, Route, Switch } from 'wouter';
 import { CallsPage } from '@/individual/pages/CallsPage';
 import { HistoryPage } from '@/individual/pages/HistoryPage';
@@ -8,6 +8,7 @@ import { OwnerInfoPage } from '@/individual/pages/OwnerInfoPage';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 import { IncomingCallModal } from '@/individual/components/IncomingCallModal';
 import { LiveQuestionModal } from '@/individual/components/LiveQuestionModal';
+import { CallObserverWidget } from '@/individual/components/CallObserverWidget';
 import { useCallDueNotifications, type CallDueNotification, type TaskDueNotification } from '@/individual/hooks/useCallDueNotifications';
 import { usePresence } from '@/hooks/usePresence';
 import { toast } from '@/hooks/use-toast';
@@ -17,7 +18,20 @@ export default function IndividualApp() {
   const [dueCall, setDueCall] = useState<CallDueNotification | null>(null);
   const [incomingCall, setIncomingCall] = useState<{ callId: string; callerName: string; taskContext?: { taskId: string; title: string; description: string | null } | null } | null>(null);
   const [liveQuestion, setLiveQuestion] = useState<{ queryId: string; callId: string; question: string; urgent: boolean } | null>(null);
+  // The agent asked to patch the owner into a live call. The widget joins the call and shows the request.
+  const [handoffCall, setHandoffCall] = useState<{ callId: string; contactName: string; handoff: { id: string; reason?: string; summary?: string } } | null>(null);
   const [location, setLocation] = useLocation();
+
+  // Opened from the push notification: /calls?handoff=<id>&call=<id>
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const handoffId = p.get('handoff');
+    const callId = p.get('call');
+    if (handoffId && callId) {
+      setHandoffCall({ callId, contactName: 'your call', handoff: { id: handoffId, reason: 'Your agent asked you to join' } });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   useCallDueNotifications(
     (notification) => {
@@ -91,6 +105,13 @@ export default function IndividualApp() {
             ? `${event.contactName ?? 'A contact'}${event.title ? ` — ${event.title}` : ''}. Open Calls to watch the transcript.`
             : `${event.contactName ?? 'A business'} called. Open Calls to watch the transcript.`,
       });
+    },
+    (event) => {
+      setHandoffCall({
+        callId: event.callId,
+        contactName: event.contactName || 'the business',
+        handoff: { id: event.handoffId, reason: event.reason, summary: event.summary },
+      });
     }
   );
 
@@ -127,6 +148,17 @@ export default function IndividualApp() {
           key={liveQuestion.queryId}
           liveQuestion={liveQuestion}
           onClose={() => setLiveQuestion(null)}
+        />
+      )}
+
+      {handoffCall && (
+        <CallObserverWidget
+          key={handoffCall.handoff.id}
+          callId={handoffCall.callId}
+          businessName={handoffCall.contactName}
+          mode="outgoing"
+          incomingHandoff={handoffCall.handoff}
+          onClose={() => setHandoffCall(null)}
         />
       )}
     </>

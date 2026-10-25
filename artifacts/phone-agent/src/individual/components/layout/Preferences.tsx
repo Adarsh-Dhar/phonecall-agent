@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { apiFetch } from '@/lib/api/shared';
 import { usePushSubscription } from '@/individual/hooks/usePushSubscription';
+import { AgentAutonomySettings } from './AgentAutonomySettings';
 
 type Pref = { id: string; label: string; description: string; enabled: boolean };
 
@@ -188,6 +189,9 @@ export function Preferences({ onClose }: { onClose: () => void }) {
               onCheckedChange={setAgentMode}
             />
           </div>
+
+          {/* Standing rules, agent summary and learned lessons (agent mode) */}
+          {agentMode && <AgentAutonomySettings />}
 
           {/* Timezone selector */}
           <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">

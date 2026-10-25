@@ -42,6 +42,7 @@ import type { Closure } from "./closurePolicy";
 import { AGENT_KINDS, normalizeKind, nextFireAfter } from "./taskKinds";
 import { sweepOverdueLoops } from "./memory/loopSweeper";
 import { notifyOwnerFallback, messageBusinessFallback } from "./outbound";
+import { runDigestCycle } from "./ownerDigest";
 
 const POLL_INTERVAL_MS = Number(process.env.CALL_SCHEDULER_POLL_MS) || 30_000;
 const STALE_WINDOW_MS = (Number(process.env.SCHEDULER_STALE_HOURS) || 24) * 60 * 60 * 1000;
@@ -290,6 +291,10 @@ export async function checkDueTasks(): Promise<void> {
     // Overdue promises -> check-in call tasks. Runs before the due-task query below so a new
     // check-in can fire in this same cycle. Never throws.
     await sweepOverdueLoops(now);
+
+    // Owner digest (agent mode). Throttled and claim-guarded inside; fire and forget so a slow
+    // email provider never delays dialing.
+    void runDigestCycle(now);
 
     // Recover stuck claims (claimed for longer than CLAIM_TTL_MS)
     const claimStaleThreshold = new Date(now.getTime() - CLAIM_TTL_MS);

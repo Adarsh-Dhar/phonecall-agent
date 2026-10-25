@@ -8,6 +8,10 @@ import { getOrCreateRelationship, ingestMessage, scheduleConsolidation } from ".
 import { broadcastCallExhausted } from "./notifications";
 import { applyPostCallTasks } from "./postCallTasks";
 import { createCallCalendarTools, isCalendarTool } from "./callCalendarTools";
+import { createCallApproval, type ApprovalRuleLite } from "./approvalRules";
+import { requestHandoff, handoffToolResponse, endLiveHandoff, closeCallHandoffs, type HandoffRequestInfo } from "./handoff";
+import { scoreCall } from "./callQuality";
+import { notifyAgentCallDone } from "./ownerDigest";
 
 interface EndCallArgs {
   outcome: "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed";
@@ -132,6 +136,12 @@ export function createCallLifecycle(opts: {
   startedAt: Date;
   /** Owner has agent mode on: nobody is watching, so ask_user must not block the live call. */
   agentMode?: boolean;
+  /** Standing approval rules (agent mode). Loaded once when the call starts. */
+  approvalRules?: ApprovalRuleLite[];
+  ownerTz?: string;
+  contactName?: string;
+  /** The room forwards a handoff request to owner sockets already inside the call. */
+  onHandoffRequested?: (info: HandoffRequestInfo) => void;
   send: (msg: object) => void;
   closeSocket: () => void;
   getGemini: () => { close: () => void } | null;
@@ -143,11 +153,24 @@ export function createCallLifecycle(opts: {
   let relationshipId: string | null = null;
   let turnIndex = 0;
 
+  const approval = createCallApproval({
+    callId: opts.callId,
+    ownerId: opts.ownerId,
+    agentMode: opts.agentMode === true,
+    tz: opts.ownerTz ?? process.env.DEFAULT_TIMEZONE ?? "UTC",
+    rules: opts.approvalRules ?? [],
+  });
+
   const calendarTools = createCallCalendarTools({
     callId: opts.callId,
     ownerId: opts.ownerId,
     contactId: opts.contactId,
+    // Only gate in agent mode; with the owner on the line ask_user still decides.
+    approval: opts.agentMode === true ? approval.slot : undefined,
   });
+
+  // Seconds the owner spent live on this call; > 0 means a human did part of the work.
+  let handoffLiveSec = 0;
 
   async function logTurn(role: "user" | "assistant", content: string) {
     const currentConversationId = opts.conversationId;
@@ -225,6 +248,19 @@ export function createCallLifecycle(opts: {
     if (ended) return;
     ended = true;
 
+    // Close any handoff first: it tells us whether the owner took part in this call.
+    const liveSec = await endLiveHandoff(opts.callId).catch(() => null);
+    if (liveSec) handoffLiveSec += liveSec;
+    await closeCallHandoffs(opts.callId).catch(() => {});
+    const ownerTookOver = handoffLiveSec > 0;
+
+    // If the owner spoke to the business live and the agent never reported an outcome, the human
+    // dealt with it: record that instead of letting the analysis call it a failed attempt. The
+    // human part of the call is not transcribed, so there is nothing for the analysis to read.
+    const outcome: string | undefined = args?.outcome ?? (ownerTookOver ? "info_gathered" : undefined);
+    const outcomeSummary =
+      args?.summary ?? (ownerTookOver ? `Owner took over the call live for ${handoffLiveSec}s. That part was not transcribed.` : undefined);
+
     const gemini = opts.getGemini();
     if (gemini) {
       gemini.close();
@@ -239,8 +275,9 @@ export function createCallLifecycle(opts: {
         endedAt,
         durationSec: Math.round((endedAt.getTime() - opts.startedAt.getTime()) / 1000),
         disconnectedBy: by,
-        outcome: args?.outcome,
-        outcomeSummary: args?.summary,
+        outcome,
+        outcomeSummary,
+        autonomous: opts.agentMode === true,
         confirmedAt: args?.confirmedAt ? new Date(args.confirmedAt) : null,
         confirmationRef: args?.confirmationRef,
       },
@@ -277,6 +314,12 @@ export function createCallLifecycle(opts: {
     // Extract tasks/knowledge once, from the complete transcript, after the call.
     // (Extracting per turn would run mid-call on partial context.)
     scheduleExtraction(opts.conversationId);
+
+    // Fire and forget: neither may delay hanging up or ever fail the call.
+    void scoreCall(opts.callId).catch((err) => logger.error({ err, callId: opts.callId }, "callLifecycle: quality scoring failed"));
+    if (opts.agentMode) {
+      void notifyAgentCallDone(opts.callId).catch((err) => logger.error({ err, callId: opts.callId }, "callLifecycle: per-call notice failed"));
+    }
   }
 
   async function onGeminiClosed() {
@@ -294,8 +337,9 @@ export function createCallLifecycle(opts: {
     });
   }
 
-  /** check_availability / hold_slot. Capped at 8 s so a slow Google call can't leave dead air. */
+  /** check_availability / hold_slot / check_approval. Capped at 8 s so a slow Google call can't leave dead air. */
   async function onToolCall(name: string, args: unknown): Promise<unknown> {
+    if (name === "check_approval") return approval.handle(args);
     if (!isCalendarTool(name)) return { error: "unknown tool" };
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<unknown>((resolve) => {
@@ -308,6 +352,28 @@ export function createCallLifecycle(opts: {
     }
   }
 
+  /** request_human_handoff: waits for the owner (HANDOFF_TIMEOUT_MS), then tells the model what happened. */
+  async function onHandoff(args: { reason: string; summary?: string }): Promise<Record<string, unknown>> {
+    const result = await requestHandoff({
+      callId: opts.callId,
+      ownerId: opts.ownerId,
+      contactName: opts.contactName ?? "",
+      reason: args?.reason,
+      summary: args?.summary,
+      onRequested: opts.onHandoffRequested,
+    });
+    return handoffToolResponse(result);
+  }
+
+  /** Owner handed back: record the time and tell the agent to pick the conversation up again. */
+  function onHandoffEnded(seconds: number, resume: (text: string) => void) {
+    handoffLiveSec += seconds;
+    resume(
+      "[SYSTEM] Your user has finished speaking with the other person and has left the call. You are back in charge. " +
+        "Briefly check with the other person what was settled, then continue your task, or finish with end_call and an accurate outcome.",
+    );
+  }
+
   return {
     logTurn,
     noteAudioOut,
@@ -316,5 +382,7 @@ export function createCallLifecycle(opts: {
     onGeminiClosed,
     onAskUser,
     onToolCall,
+    onHandoff,
+    onHandoffEnded,
   };
 }

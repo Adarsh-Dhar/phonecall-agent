@@ -42,6 +42,9 @@ model Account {
   emailFallback             Boolean            @default(true)
   contactEmail              String?
   allowFallbackMessage      Boolean            @default(false)
+  digestMode                String             @default("daily")
+  digestHour                Int                @default(18)
+  lastDigestAt              DateTime?
   owner                     Account?           @relation("AccountOwnership", fields: [ownerId], references: [id], onDelete: Cascade)
   contacts                  Account[]          @relation("AccountOwnership")
   closures                  BusinessClosure[]
@@ -50,6 +53,9 @@ model Account {
   conversations             Conversation[]
   ownerInfo                 OwnerInfo[]
   outboundMessages          OutboundMessage[]
+  approvalRules             ApprovalRule[]
+  handoffs                  Handoff[]
+  promptLessons             PromptLesson[]
   pushSubscriptions         PushSubscription[]
   queries                   Query[]
   relationshipsAsBusiness   Relationship[]     @relation("RelBusiness")
@@ -297,6 +303,10 @@ model Call {
   briefingSnapshot  Json?
   briefingVersion   Int?
   consolidatedAt    DateTime?
+  autonomous        Boolean      @default(false)
+  qualityScore      Int?
+  qualityJson       Json?
+  qualityAt         DateTime?
   contact           Account      @relation(fields: [contactId], references: [id], onDelete: Cascade)
   conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   task              Task?        @relation(fields: [taskId], references: [id])
@@ -399,4 +409,70 @@ model OutboundMessage {
   @@index([taskId, audience, status, createdAt])
   @@index([contactId, audience, status, createdAt])
   @@index([ownerId, createdAt])
+}
+
+model ApprovalRule {
+  id        String   @id @default(cuid())
+  ownerId   String
+  contactId String?
+  category  String
+  effect    String
+  params    Json?
+  note      String?
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  owner     Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, enabled])
+}
+
+model RuleDecision {
+  id        String   @id @default(cuid())
+  callId    String
+  ownerId   String
+  ruleId    String?
+  category  String
+  decision  String
+  source    String
+  detail    Json?
+  createdAt DateTime @default(now())
+
+  @@index([callId])
+  @@index([ownerId, createdAt])
+}
+
+model Handoff {
+  id          String    @id @default(cuid())
+  callId      String
+  ownerId     String
+  reason      String
+  summary     String?
+  status      String    @default("requested")
+  requestedAt DateTime  @default(now())
+  acceptedAt  DateTime?
+  endedAt     DateTime?
+  liveSec     Int?
+  owner       Account   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+  @@index([ownerId, requestedAt])
+}
+
+model PromptLesson {
+  id           String   @id @default(cuid())
+  ownerId      String
+  contactId    String?
+  code         String
+  text         String
+  seenCount    Int      @default(1)
+  appliedCount Int      @default(0)
+  sourceCallId String?
+  status       String   @default("active")
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  owner        Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, status, expiresAt])
 }

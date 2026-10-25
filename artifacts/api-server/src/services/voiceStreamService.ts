@@ -29,6 +29,9 @@ import { sendToAccount } from './presence';
 import { roleInCall, recipientIdOf, initiatorIdOf, isAgentModeOn, type CallRole } from './callSignaling';
 import { loadOwnerInfo } from './ownerInfo';
 import { buildBriefing, renderMemoryBlock } from './memory';
+import { loadRulesForCall } from './approvalRules';
+import { loadLessons, renderLessonsBlock } from './callQuality';
+import { acceptHandoff, declineHandoff, endLiveHandoff, setRoomWatchProbe, type HandoffRequestInfo } from './handoff';
 
 interface Room {
   callId: string;
@@ -40,9 +43,42 @@ interface Room {
   businessId: string;
   initiatedBy: string;
   history: Array<{ role: string; text: string }>;
+  /** Set while the owner is live on the call: their mic goes to the business and vice versa. */
+  handoff: { id: string; ownerSocket: WebSocket } | null;
 }
 
 const rooms = new Map<string, Room>();
+
+// A handoff request counts as reachable when an owner socket is already inside the call.
+setRoomWatchProbe((callId) => (rooms.get(callId)?.individualSockets.size ?? 0) > 0);
+
+const sendJson = (ws: WebSocket | null | undefined, msg: object) => {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+};
+
+/** Audio between the two humans. Same 24 kHz payload the business already plays for agent audio. */
+function relayHumanAudio(payload: string, to: WebSocket | null | undefined) {
+  if (!to || to.readyState !== WebSocket.OPEN) return;
+  try {
+    const pcm = browserPayloadToPcm16(payload);
+    if (pcm.length === 0) return;
+    to.send(JSON.stringify({ type: 'audio', payload: pcm16ToBrowserPayload(pcm) }));
+  } catch (err) {
+    logger.error({ err }, 'voiceStreamService: failed to relay handoff audio');
+  }
+}
+
+/** Owner leaves the line (handed back, disconnected). The agent is told to pick the call up again. */
+async function finishHandoff(room: Room, why: 'handed_back' | 'owner_disconnected') {
+  if (!room.handoff) return;
+  room.handoff = null;
+  const seconds = (await endLiveHandoff(room.callId)) ?? 0;
+  const msg = { type: 'handoff', state: 'ended', reason: why };
+  sendJson(room.businessSocket, msg);
+  room.individualSockets.forEach((ws) => sendJson(ws, msg));
+  room.lifecycle?.onHandoffEnded(seconds, (text) => room.gemini?.sendText?.(text));
+  logger.info({ callId: room.callId, why, seconds }, 'voiceStreamService: handoff ended');
+}
 
 /**
  * Exported for testing: retrieves the task context for a call based on call.taskId
@@ -178,6 +214,7 @@ export function createServiceVoiceStream(): WebSocketServer {
                 businessId: call.businessId,
                 initiatedBy: call.initiatedBy || 'individual',
                 history: [],
+                handoff: null,
               };
               rooms.set(callIdParam, room);
             }
@@ -280,6 +317,14 @@ export function createServiceVoiceStream(): WebSocketServer {
           const room = rooms.get(callId);
           if (!room) return;
 
+          // Owner is live: audio flows between the two humans and the model hears nothing.
+          if (room.handoff) {
+            if (typeof msg.payload !== 'string' || !msg.payload) return;
+            if (role === 'business') relayHumanAudio(msg.payload, room.handoff.ownerSocket);
+            else if (ws === room.handoff.ownerSocket) relayHumanAudio(msg.payload, room.businessSocket);
+            return;
+          }
+
           // Only business audio is sent to Gemini
           if (role === 'business' && room.gemini) {
             if (typeof msg.payload !== 'string') return;
@@ -302,6 +347,33 @@ export function createServiceVoiceStream(): WebSocketServer {
             await endCall(callId, userId);
           }
           break;
+
+        case 'handoff_accept': {
+          if (!callId || role !== 'individual' || typeof msg.handoffId !== 'string') return;
+          const room = rooms.get(callId);
+          if (!room) return;
+          const accepted = await acceptHandoff(msg.handoffId, userId, callId, () => {
+            // Runs before the agent's tool call resolves, so routing is switched before it can speak.
+            room.handoff = { id: msg.handoffId, ownerSocket: ws };
+            sendJson(room.businessSocket, { type: 'handoff', state: 'live' });
+            room.individualSockets.forEach((s) => sendJson(s, { type: 'handoff', state: 'live', handoffId: msg.handoffId, you: s === ws }));
+          });
+          if (!accepted) sendJson(ws, { type: 'handoff', state: 'gone', handoffId: msg.handoffId });
+          break;
+        }
+
+        case 'handoff_decline': {
+          if (!callId || role !== 'individual' || typeof msg.handoffId !== 'string') return;
+          await declineHandoff(msg.handoffId, userId, callId);
+          break;
+        }
+
+        case 'handoff_end': {
+          if (!callId) return;
+          const room = rooms.get(callId);
+          if (room?.handoff && room.handoff.ownerSocket === ws) await finishHandoff(room, 'handed_back');
+          break;
+        }
       }
     });
 
@@ -316,7 +388,8 @@ export function createServiceVoiceStream(): WebSocketServer {
         logger.info({ callId }, 'voiceStreamService: business socket closed, ending call');
         await endCall(callId, userId);
       } else {
-        // Individual socket closing does not end the call
+        // Individual socket closing does not end the call (but a live owner dropping hands it back)
+        if (room.handoff?.ownerSocket === ws) await finishHandoff(room, 'owner_disconnected');
         room.individualSockets.delete(ws);
         logger.info({ callId, remainingIndividuals: room.individualSockets.size }, 'voiceStreamService: individual socket closed');
       }
@@ -383,6 +456,11 @@ async function startGeminiSession(room: Room, call: any) {
     logger.error({ err, callId: call.id }, 'voiceStreamService: briefing failed, starting call without memory');
   }
 
+  // Standing rules only matter when nobody is on the line; lessons help in either mode.
+  const approvalRules = agentMode ? await loadRulesForCall(room.individualId, call.contactId) : [];
+  const lessons = await loadLessons(room.individualId, call.contactId);
+  const lessonsBlock = renderLessonsBlock(lessons);
+
   const startedAt = call.startedAt ? new Date(call.startedAt) : new Date();
 
   room.lifecycle = createCallLifecycle({
@@ -392,6 +470,12 @@ async function startGeminiSession(room: Room, call: any) {
     contactId: call.contactId,
     startedAt,
     agentMode,
+    approvalRules,
+    ownerTz: tz,
+    contactName: call.contact?.name ?? business.name ?? '',
+    onHandoffRequested: (info: HandoffRequestInfo) => {
+      room.individualSockets.forEach((ws) => sendJson(ws, { type: 'handoff_request', ...info }));
+    },
     send: (msg) => {
       // Send to business socket
       if (room.businessSocket) {
@@ -426,8 +510,13 @@ async function startGeminiSession(room: Room, call: any) {
       ownerInfo,
       memoryBlock,
       agentMode,
+      approvalRules,
+      lessonsBlock,
+      contactId: call.contactId,
     }),
     onAudioOut: (pcm24k) => {
+      // While the owner is live the model must stay silent, even if it tries to say something.
+      if (room.handoff) return;
       room.lifecycle?.noteAudioOut(pcm24k);
       // Send audio only to business socket
       if (room.businessSocket) {
@@ -445,6 +534,7 @@ async function startGeminiSession(room: Room, call: any) {
       room.individualSockets.forEach(ws => ws.send(msg));
     },
     onAgentTurnText: (text) => {
+      if (room.handoff) return;
       void room.lifecycle?.logTurn('assistant', text);
       room.history.push({ role: 'agent', text });
       // Send transcript to both business and individual
@@ -456,6 +546,7 @@ async function startGeminiSession(room: Room, call: any) {
     },
     onAskUser: (args) => room.lifecycle?.onAskUser(args) ?? Promise.resolve('USER_UNAVAILABLE'),
     onToolCall: (name, args) => room.lifecycle?.onToolCall(name, args) ?? Promise.resolve({ error: 'calendar_unavailable' }),
+    onHandoff: (args) => room.lifecycle?.onHandoff(args) ?? Promise.resolve({ status: 'owner_unavailable' }),
     onEndCallRequested: (args) => room.lifecycle?.onEndCall(args),
     onClosed: () => room.lifecycle?.onGeminiClosed(),
   });

@@ -1,6 +1,7 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { logger } from "../lib/logger";
 import { isCalendarTool } from "./callCalendarTools";
+import { handoffToolResponse } from "./handoff";
 
 const MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-3.8-live";
 const LANGUAGE_CODE = process.env.GEMINI_LIVE_LANGUAGE_CODE ?? "en-US";
@@ -95,8 +96,42 @@ const HOLD_SLOT = {
   },
 };
 
+const CHECK_APPROVAL = {
+  name: "check_approval",
+  description:
+    "Check your user's standing rules BEFORE you agree to a time slot, a payment, fee or deposit, sharing personal details, or any commitment. Returns decision allow, deny, ask or handoff plus what to do next. Follow it exactly. If it returns an error, treat it as ask.",
+  parameters: {
+    type: Type.OBJECT,
+    required: ["category"],
+    properties: {
+      category: { type: Type.STRING, enum: ["scheduling", "money", "personal_info", "commitment", "other"] },
+      startsAt: { type: Type.STRING, description: "scheduling only: start of the offered slot, ISO 8601 WITH the UTC offset, in the future" },
+      durationMin: { type: Type.NUMBER, description: "scheduling only: length in minutes" },
+      amount: { type: Type.NUMBER, description: "money only: the amount being asked for" },
+      currency: { type: Type.STRING, description: "money only: 3-letter currency code, e.g. USD" },
+      description: { type: Type.STRING, description: "What exactly is being asked, in a few words (for personal_info say which detail)" },
+    },
+  },
+};
+
+const REQUEST_HUMAN_HANDOFF = {
+  name: "request_human_handoff",
+  description:
+    "Patch your user into this live call so they can speak to the other person directly. Use it when the stakes are high: a payment or commitment your rules send to your user, an identity check you cannot pass, or the other person insists on speaking with your user. Say 'one moment, I'm connecting [your user]' FIRST. Returns owner_joined (then stay silent) or owner_unavailable (then end the call with needs_user).",
+  parameters: {
+    type: Type.OBJECT,
+    required: ["reason"],
+    properties: {
+      reason: { type: Type.STRING, description: "One short sentence your user will read on their phone: why they are needed" },
+      summary: { type: Type.STRING, description: "Two sentences of context so they can pick up mid-conversation" },
+    },
+  },
+};
+
 export interface GeminiVoiceSession {
   sendAudio: (pcm24k: Int16Array) => void;
+  /** Injects a text message into the live conversation (e.g. "your user has left, resume"). */
+  sendText?: (text: string) => void;
   close: () => void;
 }
 
@@ -108,6 +143,8 @@ export async function openGeminiLiveSession(opts: {
   onAskUser?: (args: { question: string; knowledgeKey?: string; knowledgeCategory?: string }) => Promise<string>;
   /** Runs check_availability / hold_slot. Must resolve (never reject) with the tool response. */
   onToolCall?: (name: string, args: any) => Promise<unknown>;
+  /** request_human_handoff. Resolves with the tool response; absent = handoff not supported here. */
+  onHandoff?: (args: { reason: string; summary?: string }) => Promise<Record<string, unknown>>;
   onEndCallRequested?: (args: EndCallArgs) => void;
   onClosed?: () => void;
 }): Promise<GeminiVoiceSession> {
@@ -146,7 +183,7 @@ export async function openGeminiLiveSession(opts: {
         inputAudioTranscription: {},
         outputAudioTranscription: {},
         speechConfig: { languageCode: LANGUAGE_CODE },
-        tools: [{ functionDeclarations: [END_CALL, ASK_USER, CHECK_AVAILABILITY, HOLD_SLOT] }],
+        tools: [{ functionDeclarations: [END_CALL, ASK_USER, CHECK_AVAILABILITY, HOLD_SLOT, CHECK_APPROVAL, REQUEST_HUMAN_HANDOFF] }],
       },
       callbacks: {
         onmessage: async (msg) => {
@@ -169,7 +206,13 @@ export async function openGeminiLiveSession(opts: {
                   const answer = await opts.onAskUser?.(fc.args as any).catch(() => "USER_UNAVAILABLE");
                   return { id: fc.id, name: fc.name, response: { answer: answer ?? "USER_UNAVAILABLE" } };
                 }
-                if (fc.name && isCalendarTool(fc.name)) {
+                if (fc.name === "request_human_handoff") {
+                  const result = opts.onHandoff
+                    ? await opts.onHandoff(fc.args as any).catch(() => handoffToolResponse("unavailable"))
+                    : handoffToolResponse("unavailable");
+                  return { id: fc.id, name: fc.name, response: result };
+                }
+                if (fc.name && (isCalendarTool(fc.name) || fc.name === "check_approval")) {
                   const result = await opts
                     .onToolCall?.(fc.name, fc.args ?? {})
                     .catch(() => ({ error: "calendar_unavailable" }));
@@ -247,6 +290,14 @@ export async function openGeminiLiveSession(opts: {
           });
         } catch (err) {
           logger.error({ err }, "geminiVoiceSession: failed to send audio");
+        }
+      },
+      sendText: (text: string) => {
+        if (sessionClosed) return;
+        try {
+          session.sendClientContent({ turns: [{ role: "user", parts: [{ text }] }], turnComplete: true });
+        } catch (err) {
+          logger.error({ err }, "geminiVoiceSession: failed to send text");
         }
       },
       close: () => {

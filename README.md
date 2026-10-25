@@ -55,6 +55,22 @@ Business accounts cannot use agent mode (403). The business side of every call i
 
 **Note:** The legacy `PATCH /api/user/agent-auto-answer` endpoint is deprecated but kept for backward compatibility. It now redirects to the new `agentMode` field.
 
+### Owner Autonomy (Standing Rules & Handoff)
+
+When agent mode is on, owners can configure **standing rules** that guide the agent's behavior without waiting for questions:
+
+- **Approval rules:** Define when the agent should ask, deny, or handoff for scheduling, money, personal info, or commitments
+- **Live handoff:** The agent can request the owner to join a live call when stakes are high (payments, identity checks, insisted requests)
+- **Lessons:** The system learns from past calls and suggests improvements for future autonomous behavior
+- **Quality scoring:** Each autonomous call is scored (1-100) based on outcome, duration, and resolution
+- **Digest:** Owners receive a daily summary of autonomous calls (configurable hour, can be disabled)
+
+These features are managed via:
+- `GET/POST/PUT/DELETE /api/agent/rules` - CRUD for approval rules
+- `GET/PUT /api/agent/settings` - Digest configuration
+- `GET /api/agent/lessons` - View learned lessons
+- Preferences UI includes "Standing Rules" section when agent mode is enabled
+
 ## Settings
 
 ### Scheduler Configuration

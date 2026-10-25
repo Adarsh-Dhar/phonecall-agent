@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Phone, PhoneOff } from 'lucide-react';
+import { X, Phone, PhoneOff, PhoneForwarded, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useCallObserver } from '@/individual/hooks/useCallObserver';
@@ -9,12 +9,15 @@ interface CallObserverWidgetProps {
   businessName: string;
   mode: 'outgoing' | 'incoming';
   onClose: () => void;
+  /** Set when opened from a "your agent needs you" prompt, so the request shows immediately. */
+  incomingHandoff?: { id: string; reason?: string; summary?: string } | null;
 }
 
-export function CallObserverWidget({ callId, businessName, mode, onClose }: CallObserverWidgetProps) {
-  const { status, transcript, leave } = useCallObserver({
+export function CallObserverWidget({ callId, businessName, mode, onClose, incomingHandoff }: CallObserverWidgetProps) {
+  const { status, transcript, leave, handoff, handoffError, acceptHandoff, declineHandoff, endHandoff } = useCallObserver({
     callId,
     onEnded: onClose,
+    incomingHandoff,
   });
 
   const getStatusText = () => {
@@ -50,6 +53,35 @@ export function CallObserverWidget({ callId, businessName, mode, onClose }: Call
           <X className="h-4 w-4" />
         </Button>
       </div>
+
+      {handoff?.phase === 'requested' && (
+        <div className="border-b bg-amber-50 p-4 text-sm" data-testid="handoff-request">
+          <div className="flex items-center gap-2 font-semibold text-amber-900">
+            <PhoneForwarded className="h-4 w-4" /> Your agent needs you on the line
+          </div>
+          {handoff.reason && <p className="mt-1 text-amber-900">{handoff.reason}</p>}
+          {handoff.summary && <p className="mt-1 text-xs text-amber-800">{handoff.summary}</p>}
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" onClick={acceptHandoff} data-testid="button-take-call">Take the call</Button>
+            <Button size="sm" variant="outline" onClick={declineHandoff}>Not now</Button>
+          </div>
+        </div>
+      )}
+      {handoff?.phase === 'live' && handoff.mine && (
+        <div className="border-b bg-green-50 p-4 text-sm" data-testid="handoff-live">
+          <p className="font-semibold text-green-900">You are speaking with {businessName}. Your agent is silent.</p>
+          <Button size="sm" className="mt-3" onClick={endHandoff} data-testid="button-hand-back">
+            <Bot className="mr-1 h-4 w-4" /> Hand back to agent
+          </Button>
+        </div>
+      )}
+      {handoff?.phase === 'live' && !handoff.mine && (
+        <div className="border-b bg-muted p-3 text-xs text-muted-foreground">You joined this call from another window.</div>
+      )}
+      {handoff?.phase === 'ended' && (
+        <div className="border-b bg-muted p-3 text-xs text-muted-foreground">You handed the call back. Your agent has resumed.</div>
+      )}
+      {handoffError && <div className="border-b bg-red-50 p-3 text-xs text-red-800">{handoffError}</div>}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {transcript.length === 0 && status === 'connecting' && (

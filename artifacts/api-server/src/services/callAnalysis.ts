@@ -5,6 +5,7 @@ import { slugify, normalizeKnowledgeKey } from "../lib/utils";
 import { extractJsonObject } from "../lib/extractJson";
 import { notifyOwnerOfQuestion } from "./questionNotify";
 import { buildOwnerInfoBlock, type OwnerInfoFact } from "./ownerInfo";
+import { renderRulesBlock, type ApprovalRuleLite } from "./approvalRules";
 
 export function buildCallTimeContext(tz: string, now = new Date()): string {
   const defaultTz = process.env.DEFAULT_TIMEZONE || "Asia/Kolkata";
@@ -160,6 +161,9 @@ export function buildAgentCallSystemInstruction({
   ownerInfo = [],
   memoryBlock = '',
   agentMode = false,
+  approvalRules = [],
+  lessonsBlock = '',
+  contactId,
 }: {
   individualName: string;
   businessName: string;
@@ -179,6 +183,12 @@ export function buildAgentCallSystemInstruction({
   memoryBlock?: string;
   /** Owner turned on agent mode: they are not on the line and cannot be asked mid-call. */
   agentMode?: boolean;
+  /** Standing rules; only rendered in agent mode. */
+  approvalRules?: ApprovalRuleLite[];
+  /** Output of renderLessonsBlock(): soft hints learned from earlier calls. */
+  lessonsBlock?: string;
+  /** Lets contact-specific rules be filtered to this contact. */
+  contactId?: string;
 }): string {
   const action = direction === 'inbound' ? 'taking a call' : 'calling';
   const intro =
@@ -196,14 +206,39 @@ export function buildAgentCallSystemInstruction({
     `${individualName} and get back to them — don't guess or invent details.\n\n`;
 
   const baseInstruction = buildBaseCallInstruction(businessName, knowledgeFacts, taskContext, timezone);
-  return intro + baseInstruction + memoryBlock + buildOwnerInfoBlock(individualName, ownerInfo) + buildAgentModeBlock(individualName, agentMode);
+  return (
+    intro +
+    baseInstruction +
+    memoryBlock +
+    buildOwnerInfoBlock(individualName, ownerInfo) +
+    lessonsBlock +
+    buildHandoffBlock(individualName) +
+    buildAgentModeBlock(individualName, agentMode, approvalRules, contactId)
+  );
+}
+
+/** When the agent should bring the owner onto the line instead of only asking them a question. */
+function buildHandoffBlock(individualName: string): string {
+  return (
+    `\n\nLIVE HANDOFF: if the stakes are high, call request_human_handoff so ${individualName} can speak to the other person ` +
+    `directly. Use it when a rule tells you to, when the other person insists on speaking with ${individualName} or on an ` +
+    `identity check you cannot pass, or when a payment or commitment is above what you are allowed to agree to. Say ` +
+    `"one moment, I'm connecting ${individualName}" first. If it returns owner_joined, say nothing more until told ` +
+    `${individualName} has left. If it returns owner_unavailable, do not agree to anything: say ${individualName} will ` +
+    `follow up and end the call with outcome needs_user. For ordinary questions, keep using ask_user.`
+  );
 }
 
 /**
  * Extra rules when the owner is not available (agent mode). Empty string when agent mode is off,
  * so the normal prompt is unchanged.
  */
-function buildAgentModeBlock(individualName: string, agentMode: boolean): string {
+function buildAgentModeBlock(
+  individualName: string,
+  agentMode: boolean,
+  approvalRules: ApprovalRuleLite[] = [],
+  contactId?: string,
+): string {
   if (!agentMode) return '';
   return (
     `\n\nAUTONOMOUS MODE: ${individualName} is NOT available during this call and cannot be asked questions, ` +
@@ -211,7 +246,8 @@ function buildAgentModeBlock(individualName: string, agentMode: boolean): string
     `Never agree to a fee, deposit, payment, cancellation charge or any commitment that was not already approved. ` +
     `The one exception is a time slot: you may accept it when check_availability reports it free and calendarChecked is true. ` +
     `Never share personal details beyond what is listed above. When something needs ${individualName}'s decision, ` +
-    `say you will check with them and get back, then call end_call with outcome needs_user and a summary of exactly what is needed.`
+    `say you will check with them and get back, then call end_call with outcome needs_user and a summary of exactly what is needed.` +
+    renderRulesBlock(approvalRules, individualName, contactId)
   );
 }
 
