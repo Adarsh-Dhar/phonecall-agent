@@ -22,7 +22,6 @@ const NOW = new Date("2026-10-30T12:00:00Z");
 describe("queueIntroCall", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.INTRO_CALL_ENABLED = "true";
     prisma.account.findUnique.mockImplementation(async ({ where }: any) => (where.id === "i1" ? IND : where.id === "b1" ? BIZ : null));
     // first findFirst = individual's contact for the business, second = business's contact for the individual
     prisma.account.findFirst
@@ -31,12 +30,6 @@ describe("queueIntroCall", () => {
     prisma.relationship.updateMany.mockResolvedValue({ count: 1 });
     prisma.relationship.count.mockResolvedValue(1);
     prisma.task.create.mockResolvedValue({ id: "T1" });
-  });
-
-  it("does nothing when the flag is off", async () => {
-    process.env.INTRO_CALL_ENABLED = "false";
-    expect(await queueIntroCall("i1", "b1", NOW)).toEqual({ queued: false, reason: "disabled" });
-    expect(prisma.task.create).not.toHaveBeenCalled();
   });
 
   it("does nothing when only one side has saved the other", async () => {

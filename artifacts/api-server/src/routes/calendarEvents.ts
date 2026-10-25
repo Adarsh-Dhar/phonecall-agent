@@ -7,6 +7,7 @@ import {
   insertCalendarEvent,
   listAllCalendarEvents,
 } from "../services/googleCalendar";
+import { deleteCalendarEventById } from "../services/googleCalendar/eventsApi";
 import { prisma } from "@workspace/db-prisma";
 
 const router: IRouter = Router();
@@ -114,5 +115,26 @@ router.get("/", asyncHandler(async (req, res) => {
     res.status(500).json({ error: "Failed to fetch calendar events" });
   }
 }, "Failed to fetch Google Calendar events"));
+
+// ---------------------------------------------------------------------------
+// DELETE /:eventId
+// Delete a Google Calendar event
+// ---------------------------------------------------------------------------
+router.delete("/:eventId", asyncHandler(async (req, res) => {
+  try {
+    logger.info({ eventId: req.params.eventId }, "Deleting Google Calendar event");
+
+    const success = await deleteCalendarEventById(req.userId!, req.params.eventId);
+    if (!success) {
+      res.status(500).json({ error: "Failed to delete calendar event" });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error({ error, eventId: req.params.eventId }, "Failed to delete Google Calendar event");
+    res.status(500).json({ error: "Failed to delete calendar event" });
+  }
+}, "Failed to delete Google Calendar event"));
 
 export default router;

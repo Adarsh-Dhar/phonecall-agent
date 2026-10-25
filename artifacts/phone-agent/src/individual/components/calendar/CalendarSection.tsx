@@ -1,10 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, LoaderCircle, Phone, RefreshCw, X, Clock, Info } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, LoaderCircle, Phone, RefreshCw, X, Clock, Info, Trash2 } from 'lucide-react';
 import * as api from '@/lib/api';
 import { getDaysInMonth, isToday } from './calendarDateUtils';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 
 type CalendarEvent = { id: string; title: string; type: 'task' | 'google'; contactId?: string; start?: string | null; end?: string | null; description?: string | null };
+
+// A task synced to Google Calendar comes back as a second event ("Call: <title>", same start).
+// Hide the Google copy when it is the task's own mirror: match by googleEventId first, then by
+// title (ignoring the sync prefix) + start time as a fallback for rows linked before the id was stored.
+const SYNC_PREFIX = /^(pay|bring|submit|follow-up|call):\s*/i;
+const normTitle = (t: string) => t.replace(SYNC_PREFIX, '').trim().toLowerCase();
+const isTaskMirror = (
+  tasks: { title: string; dueDate?: string | null; googleEventId?: string | null }[],
+  e: { id: string; summary?: string | null; start?: { dateTime?: string | null; date?: string | null } | null },
+): boolean => {
+  if (tasks.some(t => t.googleEventId && t.googleEventId === e.id)) return true;
+  const raw = e.start?.dateTime || e.start?.date;
+  if (!raw) return false;
+  const when = new Date(raw).getTime();
+  const title = normTitle(e.summary ?? '');
+  return tasks.some(t => t.dueDate && new Date(t.dueDate).getTime() === when && normTitle(t.title) === title);
+};
 
 /**
  * Calendar card on the History ("Tasks") page: task due-dates + connected
@@ -116,16 +133,16 @@ export function CalendarSection() {
   };
 
   const getEventsForDate = (date: Date): CalendarEvent[] => {
-    const targetYear = date.getUTCFullYear();
-    const targetMonth = date.getUTCMonth();
-    const targetDay = date.getUTCDate();
+    const targetYear = date.getFullYear();
+    const targetMonth = date.getMonth();
+    const targetDay = date.getDate();
 
     const taskEvents = calendarItems.filter(t => {
       if (!t.dueDate) return false;
       const taskDate = new Date(t.dueDate);
-      return taskDate.getUTCFullYear() === targetYear &&
-             taskDate.getUTCMonth() === targetMonth &&
-             taskDate.getUTCDate() === targetDay;
+      return taskDate.getFullYear() === targetYear &&
+             taskDate.getMonth() === targetMonth &&
+             taskDate.getDate() === targetDay;
     }).map(t => ({ id: t.id, title: t.title, type: 'task' as const, contactId: t.contactId, start: t.dueDate, description: t.description }));
 
     const googleEvents = googleCalendarEvents.filter(e => {
@@ -141,25 +158,13 @@ export function CalendarSection() {
 
       if (!eventDate) return false;
 
-      return eventDate.getUTCFullYear() === targetYear &&
-             eventDate.getUTCMonth() === targetMonth &&
-             eventDate.getUTCDate() === targetDay;
+      return eventDate.getFullYear() === targetYear &&
+             eventDate.getMonth() === targetMonth &&
+             eventDate.getDate() === targetDay;
     }).map(e => ({ id: e.id, title: e.summary, type: 'google' as const, start: e.start?.dateTime || e.start?.date || undefined, end: e.end?.dateTime || e.end?.date || undefined, description: e.description }));
 
-    // Deduplicate: if a Google Calendar event matches a task by title and time, prefer the task
-    // (tasks have more detail like contactId, description, and are editable)
-    const taskSignatures = new Set(
-      taskEvents.map(t => {
-        const taskDate = new Date(t.start!);
-        return `${t.title.toLowerCase()}-${taskDate.toISOString()}`;
-      })
-    );
-
-    const deduplicatedGoogleEvents = googleEvents.filter(e => {
-      const eventDate = new Date(e.start!);
-      const signature = `${e.title.toLowerCase()}-${eventDate.toISOString()}`;
-      return !taskSignatures.has(signature);
-    });
+    // Deduplicate: hide Google events that are mirrors of a task (prefer the task: editable, has contact).
+    const deduplicatedGoogleEvents = googleEvents.filter(e => !isTaskMirror(calendarItems, { id: e.id, summary: e.title, start: { dateTime: e.start } }));
 
     return [...taskEvents, ...deduplicatedGoogleEvents];
   };
@@ -167,18 +172,7 @@ export function CalendarSection() {
   // Get total count of deduplicated upcoming events
   const getUpcomingCount = useCallback(() => {
     const activeTasks = calendarItems.filter(t => t.status !== 'done' && t.dueDate);
-    const taskSignatures = new Set(
-      activeTasks.map(t => {
-        const taskDate = new Date(t.dueDate!);
-        return `${t.title.toLowerCase()}-${taskDate.toISOString()}`;
-      })
-    );
-
-    const deduplicatedGoogleEvents = googleCalendarEvents.filter(e => {
-      const eventDate = new Date(e.start?.dateTime || e.start?.date || '');
-      const signature = `${e.summary.toLowerCase()}-${eventDate.toISOString()}`;
-      return !taskSignatures.has(signature);
-    });
+    const deduplicatedGoogleEvents = googleCalendarEvents.filter(e => !isTaskMirror(activeTasks, e));
 
     return activeTasks.length + deduplicatedGoogleEvents.length;
   }, [calendarItems, googleCalendarEvents]);
@@ -537,6 +531,60 @@ export function CalendarSection() {
                   >
                     <Phone size={16} />
                     Call Now
+                  </button>
+                </div>
+              )}
+
+              {/* Delete button for task events - only show if task exists in user's calendarItems */}
+              {selectedEvent.type === 'task' && calendarItems.find((t) => t.id === selectedEvent.id) && (
+                <div className="pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm('Are you sure you want to delete this task? This will also remove it from Google Calendar if synced.')) {
+                        return;
+                      }
+                      try {
+                        await api.deleteTask(selectedEvent.id);
+                        await loadCalendar();
+                        setSelectedEvent(null);
+                      } catch (err: any) {
+                        console.error('Failed to delete task:', err);
+                        const errorMessage = err?.message || 'Failed to delete task. Please try again.';
+                        alert(errorMessage);
+                      }
+                    }}
+                    className="w-full rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-bold text-red-600 transition-all hover:bg-red-100 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={16} />
+                    Delete Task
+                  </button>
+                </div>
+              )}
+
+              {/* Delete button for Google Calendar events */}
+              {selectedEvent.type === 'google' && (
+                <div className="pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm('Are you sure you want to delete this Google Calendar event?')) {
+                        return;
+                      }
+                      try {
+                        await api.deleteGoogleCalendarEvent(selectedEvent.id);
+                        await loadCalendar();
+                        setSelectedEvent(null);
+                      } catch (err: any) {
+                        console.error('Failed to delete Google Calendar event:', err);
+                        const errorMessage = err?.message || 'Failed to delete event. Please try again.';
+                        alert(errorMessage);
+                      }
+                    }}
+                    className="w-full rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-bold text-red-600 transition-all hover:bg-red-100 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={16} />
+                    Delete Event
                   </button>
                 </div>
               )}

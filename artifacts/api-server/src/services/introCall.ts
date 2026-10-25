@@ -9,12 +9,12 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
 import { getOrCreateRelationship } from "./memory/relationship";
+import { resolveEffectiveHours, isWithinAllowedWindow, DEFAULT_BUSINESS_HOURS } from "./schedulerPolicy";
 
 export const INTRO_PURPOSE = "intro";
 const HOUR_MS = 3_600_000;
 const SPREAD_MS = 2 * 60_000;
 
-const enabled = () => process.env.INTRO_CALL_ENABLED === "true";
 const hourlyCap = () => Number(process.env.INTRO_CALL_MAX_PER_BUSINESS_HOUR) || 10;
 
 export function isIntroTask(task: { meta?: unknown } | null | undefined): boolean {
@@ -26,8 +26,6 @@ export type QueueIntroResult = { queued: boolean; reason?: string; taskId?: stri
 
 export async function queueIntroCall(ownerId: string, targetId: string, now = new Date()): Promise<QueueIntroResult> {
   try {
-    if (!enabled()) return { queued: false, reason: "disabled" };
-
     const [owner, target] = await Promise.all([
       prisma.account.findUnique({ where: { id: ownerId }, select: { id: true, isService: true, agentMode: true, name: true } }),
       prisma.account.findUnique({ where: { id: targetId }, select: { id: true, isService: true, agentMode: true, name: true } }),
@@ -55,11 +53,24 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
       contactId: individualContact.id,
     });
 
+    // Check if there's already an intro task for this relationship (to prevent duplicates)
+    if (relationship.introTaskId) {
+      const existingTask = await prisma.task.findUnique({
+        where: { id: relationship.introTaskId },
+        select: { id: true, status: true },
+      });
+      if (existingTask && existingTask.status !== "cancelled") {
+        logger.info({ relationshipId: relationship.id, existingTaskId: existingTask.id }, "introCall: already has active task");
+        return { queued: false, reason: "already_has_task" };
+      }
+    }
+
     // Claim once per pair. Two adds at the same moment: only one updateMany matches.
     const claim = await prisma.relationship.updateMany({
       where: { id: relationship.id, introStatus: "none" },
       data: { introStatus: "queued", introQueuedAt: now },
     });
+    logger.info({ relationshipId: relationship.id, claimCount: claim.count }, "introCall: claim attempt");
     if (claim.count === 0) return { queued: false, reason: "already_handled" };
 
     try {
@@ -67,7 +78,45 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
       const recent = await prisma.relationship.count({
         where: { businessId: business.id, introQueuedAt: { gte: new Date(+now - HOUR_MS) } },
       });
-      const dueAt = new Date(+now + Math.max(0, recent - hourlyCap()) * SPREAD_MS);
+      logger.info({ businessId: business.id, recent, hourlyCap: hourlyCap() }, "introCall: rate check");
+
+      // Fetch business hours and owner timezone to schedule within business hours
+      const [businessAccount, ownerAccount] = await Promise.all([
+        prisma.account.findUnique({
+          where: { id: business.id },
+          select: { businessHoursJson: true, timezone: true },
+        }),
+        prisma.account.findUnique({
+          where: { id: individual.id },
+          select: { timezone: true, quietHoursStart: true, quietHoursEnd: true },
+        }),
+      ]);
+
+      const ownerTz = ownerAccount?.timezone ?? "UTC";
+      const { hours: businessHours } = resolveEffectiveHours({
+        businessJson: businessAccount?.businessHoursJson,
+        businessTz: businessAccount?.timezone,
+        contactTz: ownerTz,
+        ownerTz,
+      });
+
+      // Start with minimum delay (5 min + rate limiting spread)
+      let candidateTime = new Date(+now + 5 * 60_000 + Math.max(0, recent - hourlyCap()) * SPREAD_MS);
+
+      // Find the next available slot within business hours
+      const windowCheck = isWithinAllowedWindow(
+        candidateTime,
+        ownerTz,
+        ownerAccount?.quietHoursStart ?? null,
+        ownerAccount?.quietHoursEnd ?? null,
+        businessHours,
+      );
+
+      const dueAt = windowCheck.nextAllowedTime ?? candidateTime;
+      logger.info(
+        { candidateTime: candidateTime.toISOString(), dueAt: dueAt.toISOString(), allowed: windowCheck.allowed },
+        "introCall: business hours check"
+      );
 
       const conversationId =
         individualContact.conversations[0]?.id ??
@@ -77,6 +126,7 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
         })).id;
 
       const businessName = individualContact.name ?? business.name ?? "the business";
+      logger.info({ individualId: individual.id, businessId: business.id, conversationId, businessName, dueAt, agentMode: individual.agentMode }, "introCall: creating task");
       const task = await prisma.task.create({
         data: {
           title: `Introduce yourself to ${businessName}`,
@@ -85,7 +135,7 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
             "Introduce yourself as their assistant and learn the basics: what they offer, how booking works, " +
             "usual hours, prices and deposits, what a new client should bring, and how they prefer to be contacted.",
           kind: "call",
-          status: individual.agentMode ? "open" : "suggested",
+          status: "open",
           source: "agent",
           confidence: 1,
           conversationId,
@@ -102,6 +152,7 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
       logger.info({ individualId: individual.id, businessId: business.id, taskId: task.id }, "introCall: queued");
       return { queued: true, taskId: task.id };
     } catch (err) {
+      logger.error({ err, relationshipId: relationship.id }, "introCall: task creation failed, rolling back");
       // Give the claim back so a later add can try again.
       await prisma.relationship.updateMany({ where: { id: relationship.id }, data: { introStatus: "none", introQueuedAt: null } }).catch(() => {});
       throw err;

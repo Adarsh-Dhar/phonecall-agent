@@ -1,10 +1,10 @@
 /**
  * One-off: queue intro calls for individual <-> business pairs that were already mutual before the
- * feature shipped. Needs INTRO_CALL_ENABLED=true. Safe to re-run (each pair is claimed once).
+ * feature shipped. Safe to re-run (each pair is claimed once).
  *
  * Usage:
- *   INTRO_CALL_ENABLED=true npx tsx scripts/queueIntroCalls.ts --dry-run
- *   INTRO_CALL_ENABLED=true npx tsx scripts/queueIntroCalls.ts
+ *   npx tsx scripts/queueIntroCalls.ts --dry-run
+ *   npx tsx scripts/queueIntroCalls.ts
  */
 import { prisma } from "@workspace/db-prisma";
 import { queueIntroCall } from "../artifacts/api-server/src/services/introCall";

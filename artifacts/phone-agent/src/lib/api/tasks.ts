@@ -159,3 +159,19 @@ export const extractTasks = async (
   if (!response.ok) throw new Error('Failed to trigger extraction');
   return response.json();
 };
+
+/** Delete a task (also removes it from Google Calendar if synced). */
+export const deleteTask = async (id: string): Promise<void> => {
+  const response = await apiFetch(`${API_BASE_URL}/tasks/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete task');
+};
+
+/** Delete a Google Calendar event. */
+export const deleteGoogleCalendarEvent = async (eventId: string): Promise<void> => {
+  const response = await apiFetch(`${API_BASE_URL}/calendar/events/${eventId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete Google Calendar event');
+};

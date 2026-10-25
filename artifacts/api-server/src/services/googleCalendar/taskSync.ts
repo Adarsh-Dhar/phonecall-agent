@@ -127,11 +127,9 @@ export async function createEvent(task: {
     } else {
       event.start = {
         dateTime: startTime.toISOString(),
-        timeZone: "UTC",
       };
       event.end = {
         dateTime: endTime.toISOString(),
-        timeZone: "UTC",
       };
     }
 
@@ -257,11 +255,9 @@ export async function updateEvent(task: {
     } else {
       event.start = {
         dateTime: startTime.toISOString(),
-        timeZone: "UTC",
       };
       event.end = {
         dateTime: endTime.toISOString(),
-        timeZone: "UTC",
       };
     }
 

@@ -104,6 +104,20 @@ router.post("/", asyncHandler(async (req, res) => {
 
   const sanitizedMeta = sanitizeMeta(k, meta) as any;
 
+  // Prevent duplicate tasks: check for existing task with same title, contact, and due date
+  const existingTask = await prisma.task.findFirst({
+    where: {
+      title,
+      contactId,
+      status: { not: "cancelled" },
+      ...(due ? { dueDate: due } : {}),
+    },
+  });
+  if (existingTask) {
+    res.status(409).json({ error: "A task with this title and due date already exists for this contact" });
+    return;
+  }
+
   const task = await prisma.task.create({
     data: {
       title,
@@ -237,26 +251,26 @@ router.patch("/:id", asyncHandler(async (req, res) => {
 }, "Failed to update task"));
 
 // ---------------------------------------------------------------------------
-// DELETE /tasks/:id
+// DELETE /:id
 // Delete a task completely
 // ---------------------------------------------------------------------------
-router.delete("/tasks/:id", asyncHandler(async (req, res) => {
+router.delete("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  const existing = await prisma.task.findFirst({
+  const task = await prisma.task.findFirst({
     where: { id: String(id), contact: { ownerId: req.userId! } },
+    include: { contact: true },
   });
-  if (!existing) {
+
+  if (!task) {
     res.status(404).json({ error: "Task not found" });
     return;
   }
 
-  // Delete from Google Calendar if synced (non-blocking)
-  if (existing.googleEventId) {
+  // Delete from Google Calendar if synced
+  if (task.googleEventId) {
     const { deleteEvent } = await import("../services/googleCalendar");
-    deleteEvent({ id: existing.id, googleEventId: existing.googleEventId, userId: req.userId! }).catch((err) => {
-      console.error("Failed to delete calendar event:", err);
-    });
+    await deleteEvent({ id: task.id, googleEventId: task.googleEventId, userId: req.userId! });
   }
 
   await prisma.task.delete({ where: { id: String(id) } });
