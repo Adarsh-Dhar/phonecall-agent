@@ -296,6 +296,7 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
         contactId: call.contactId,
       });
     }
+    return;
   }
 
   const turns = await prisma.message.findMany({
@@ -551,10 +552,8 @@ export async function analyzeCallGoal(callId: string): Promise<{
       goalScore = 90;
     } else if (call.outcome === "needs_user") {
       goalScore = 40;
-      missReason = "gave_up_early";
     } else if (call.outcome === "failed") {
       goalScore = 20;
-      missReason = "unclear";
     }
   } else if (task.kind === "follow_up") {
     if (call.outcome === "info_gathered") {
@@ -562,10 +561,8 @@ export async function analyzeCallGoal(callId: string): Promise<{
       goalScore = 85;
     } else if (call.outcome === "needs_user") {
       goalScore = 45;
-      missReason = "gave_up_early";
     } else if (call.outcome === "failed") {
       goalScore = 25;
-      missReason = "unclear";
     }
   } else if (task.kind === "pay") {
     if (call.outcome === "booked") {
@@ -573,10 +570,8 @@ export async function analyzeCallGoal(callId: string): Promise<{
       goalScore = 90;
     } else if (call.outcome === "needs_user") {
       goalScore = 30;
-      missReason = "fee_not_escalated";
     } else if (call.outcome === "failed") {
       goalScore = 20;
-      missReason = "unclear";
     }
   } else {
     // Generic tasks
@@ -585,10 +580,8 @@ export async function analyzeCallGoal(callId: string): Promise<{
       goalScore = 80;
     } else if (call.outcome === "needs_user") {
       goalScore = 40;
-      missReason = "gave_up_early";
     } else if (call.outcome === "failed") {
       goalScore = 20;
-      missReason = "unclear";
     }
   }
 
@@ -596,7 +589,6 @@ export async function analyzeCallGoal(callId: string): Promise<{
   if (call.durationSec) {
     if (call.durationSec < 15) {
       goalScore -= 20;
-      missReason = "gave_up_early";
     } else if (call.durationSec > 600) {
       goalScore -= 10;
     }

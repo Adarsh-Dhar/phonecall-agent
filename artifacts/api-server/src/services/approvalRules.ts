@@ -160,14 +160,14 @@ export function createSlotApproval(opts: {
 
   function record(
     verdict: ReturnType<typeof decide>,
-    detail: { startsAt: string; via: string }
+    detail: { category: string; via: string; startsAt?: string }
   ): void {
     void prisma.ruleDecision
       .create({
         data: {
           callId: opts.callId,
           ownerId: opts.ownerId,
-          category: "scheduling",
+          category: detail.category,
           decision: verdict.decision,
           source: detail.via,
           detail,
@@ -193,9 +193,15 @@ export function createCallApproval(opts: {
 }) {
   const slot = createSlotApproval(opts);
 
+  // Helper to record decision and return verdict
+  const done = (category: string, v: Record<string, unknown>) => {
+    slot.record(v as any, { category, via: "check_approval" });
+    return v;
+  };
+
   async function handle(args: unknown): Promise<Record<string, unknown>> {
     if (!opts.agentMode) {
-      return { decision: "allow", reason: "owner is on the line", instruction: "" };
+      return done("general", { decision: "allow", reason: "owner is on the line", instruction: "" });
     }
 
     const a = args as {
@@ -217,21 +223,21 @@ export function createCallApproval(opts: {
       const amount = Number.isFinite(a.amount) ? Number(a.amount) : Infinity;
       const deny = opts.rules.find(r => r.category === "money" && r.effect === "deny");
       if (deny) {
-        return { decision: "deny", reason: "rule: never commit money", instruction: "You may not agree to any payment or fee." };
+        return done("money", { decision: "deny", reason: "rule: never commit money", instruction: "You may not agree to any payment or fee." });
       }
       const ask = opts.rules.find(r => r.category === "money" && r.effect === "ask");
       if (ask && amount > Number(ask.params?.threshold ?? 0)) {
-        return { decision: "ask", reason: "rule: ask before large payment", instruction: "Ask your user before agreeing to this payment." };
+        return done("money", { decision: "ask", reason: "rule: ask before large payment", instruction: "Ask your user before agreeing to this payment." });
       }
       const allow = opts.rules.find(r => r.category === "money" && r.effect === "allow");
       if (allow) {
         const threshold = Number(allow.params?.threshold ?? 0);
         if (amount > threshold) {
-          return { decision: "ask", reason: "rule: ask above threshold", instruction: "Ask your user before agreeing to this payment." };
+          return done("money", { decision: "ask", reason: "rule: ask above threshold", instruction: "Ask your user before agreeing to this payment." });
         }
-        return { decision: "allow", reason: "rule: allow up to threshold", instruction: "" };
+        return done("money", { decision: "allow", reason: "rule: allow up to threshold", instruction: "" });
       }
-      return { decision: "ask", reason: "no money rule: ask by default", instruction: "Ask your user before agreeing to any payment." };
+      return done("money", { decision: "ask", reason: "no money rule: ask by default", instruction: "Ask your user before agreeing to any payment." });
     }
 
     // Scheduling: no usable time but a scheduling rule exists -> ask, don't allow
@@ -239,50 +245,50 @@ export function createCallApproval(opts: {
       const start = a.startsAt ? new Date(a.startsAt) : null;
       if (!start || isNaN(+start)) {
         const slotRules = opts.rules.filter(r => r.category === "scheduling");
-        return slotRules.length
+        const verdict = slotRules.length
           ? { decision: "ask", reason: "time not verifiable", instruction: "Ask your user." }
           : { decision: "allow", reason: "no scheduling rules", instruction: "" };
+        return done("scheduling", verdict);
       }
       const verdict = slot.decide(start, a.durationMin ?? 30);
-      slot.record(verdict, { startsAt: a.startsAt || "", via: "check_approval" });
-      return verdict;
+      return done("scheduling", verdict);
     }
 
     if (a.category === "personal_info") {
       const deny = opts.rules.find(r => r.category === "personal_info" && r.effect === "deny");
       if (deny) {
-        return { decision: "deny", reason: "rule: deny sharing personal information", instruction: "You may not share personal information." };
+        return done("personal_info", { decision: "deny", reason: "rule: deny sharing personal information", instruction: "You may not share personal information." });
       }
       const ask = opts.rules.find(r => r.category === "personal_info" && r.effect === "ask");
       if (ask) {
-        return { decision: "ask", reason: "rule: ask before sharing personal information", instruction: "Ask your user before sharing personal information." };
+        return done("personal_info", { decision: "ask", reason: "rule: ask before sharing personal information", instruction: "Ask your user before sharing personal information." });
       }
     }
 
     if (a.category === "commitment") {
       const handoff = opts.rules.find(r => r.category === "commitment" && r.effect === "handoff");
       if (handoff) {
-        return { decision: "handoff", reason: "rule: handoff for commitments", instruction: "Call request_human_handoff so your user can handle this." };
+        return done("commitment", { decision: "handoff", reason: "rule: handoff for commitments", instruction: "Call request_human_handoff so your user can handle this." });
       }
       const deny = opts.rules.find(r => r.category === "commitment" && r.effect === "deny");
       if (deny) {
-        return { decision: "deny", reason: "rule: deny commitments", instruction: "You may not make commitments." };
+        return done("commitment", { decision: "deny", reason: "rule: deny commitments", instruction: "You may not make commitments." });
       }
     }
 
     if (a.category === "other") {
       const deny = opts.rules.find(r => r.category === "other" && r.effect === "deny");
       if (deny) {
-        return { decision: "deny", reason: "rule: deny this action", instruction: "You may not proceed with this action." };
+        return done("other", { decision: "deny", reason: "rule: deny this action", instruction: "You may not proceed with this action." });
       }
       const ask = opts.rules.find(r => r.category === "other" && r.effect === "ask");
       if (ask) {
-        return { decision: "ask", reason: "rule: ask before this action", instruction: "Ask your user before proceeding." };
+        return done("other", { decision: "ask", reason: "rule: ask before this action", instruction: "Ask your user before proceeding." });
       }
     }
 
     // Fail closed on unknown category
-    return { decision: "ask", reason: "unknown category: ask by default", instruction: "Ask your user before proceeding." };
+    return done("unknown", { decision: "ask", reason: "unknown category: ask by default", instruction: "Ask your user before proceeding." });
   }
 
   return { handle, slot };

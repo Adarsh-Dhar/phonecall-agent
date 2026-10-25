@@ -207,7 +207,7 @@ export function createCallCalendarTools(ctx: {
     if (ctx.approval) {
       const verdict = ctx.approval.decide(p.start, p.durationMin);
       if (verdict.decision !== "allow") {
-        ctx.approval.record(verdict, { startsAt: p.start.toISOString(), via: "hold_slot" });
+        ctx.approval.record(verdict, { category: "scheduling", startsAt: p.start.toISOString(), via: "hold_slot" });
         return {
           held: false,
           approval: verdict.decision,
