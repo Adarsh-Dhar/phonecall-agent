@@ -109,7 +109,10 @@ export function createSlotApproval(opts: {
       (p.type === "after_hour" && typeof p.hour === "number" && hour >= p.hour) ||
       (p.type === "before_hour" && typeof p.hour === "number" && hour < p.hour) ||
       (p.type === "weekends" && (weekday === 0 || weekday === 6)) ||
-      (p.type === "outside_hours" && (hour < 9 || hour >= 18 || weekday === 0 || weekday === 6));
+      (p.type === "outside_hours" && (
+        (typeof p.startHour === "number" && typeof p.endHour === "number" && (hour < p.startHour || hour >= p.endHour)) ||
+        (typeof p.startHour !== "number" && typeof p.endHour !== "number" && (hour < 9 || hour >= 18 || weekday === 0 || weekday === 6))
+      ));
 
     // Collect all matching rules
     const hit = slotRules.filter(r => {
@@ -263,6 +266,10 @@ export function createCallApproval(opts: {
       if (ask) {
         return done("personal_info", { decision: "ask", reason: "rule: ask before sharing personal information", instruction: "Ask your user before sharing personal information." });
       }
+      const allow = opts.rules.find(r => r.category === "personal_info" && r.effect === "allow");
+      if (allow) {
+        return done("personal_info", { decision: "allow", reason: "rule: allow sharing personal information", instruction: "" });
+      }
     }
 
     if (a.category === "commitment") {
@@ -274,6 +281,14 @@ export function createCallApproval(opts: {
       if (deny) {
         return done("commitment", { decision: "deny", reason: "rule: deny commitments", instruction: "You may not make commitments." });
       }
+      const ask = opts.rules.find(r => r.category === "commitment" && r.effect === "ask");
+      if (ask) {
+        return done("commitment", { decision: "ask", reason: "rule: ask before commitments", instruction: "Ask your user before making commitments." });
+      }
+      const allow = opts.rules.find(r => r.category === "commitment" && r.effect === "allow");
+      if (allow) {
+        return done("commitment", { decision: "allow", reason: "rule: allow commitments", instruction: "" });
+      }
     }
 
     if (a.category === "other") {
@@ -284,6 +299,10 @@ export function createCallApproval(opts: {
       const ask = opts.rules.find(r => r.category === "other" && r.effect === "ask");
       if (ask) {
         return done("other", { decision: "ask", reason: "rule: ask before this action", instruction: "Ask your user before proceeding." });
+      }
+      const allow = opts.rules.find(r => r.category === "other" && r.effect === "allow");
+      if (allow) {
+        return done("other", { decision: "allow", reason: "rule: allow this action", instruction: "" });
       }
     }
 

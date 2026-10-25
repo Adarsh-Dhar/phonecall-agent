@@ -16,6 +16,7 @@ export interface PromptLesson {
 /**
  * Load active lessons for an owner, optionally filtered to a contact.
  * Only renders lessons that have been seen at least twice (seenCount >= 2).
+ * Includes both global lessons (contactId null) and contact-specific lessons.
  */
 export async function loadLessons(ownerId: string, contactId: string | null): Promise<PromptLesson[]> {
   const lessons = await prisma.promptLesson.findMany({
@@ -36,6 +37,21 @@ export async function loadLessons(ownerId: string, contactId: string | null): Pr
     },
   });
   return lessons;
+}
+
+/**
+ * Mark a lesson as applied when the agent successfully uses it.
+ * Called from the agent's decision logic when it follows a lesson.
+ */
+export async function markLessonApplied(lessonId: string): Promise<void> {
+  try {
+    await prisma.promptLesson.update({
+      where: { id: lessonId },
+      data: { appliedCount: { increment: 1 } },
+    });
+  } catch (err) {
+    logger.error({ err, lessonId }, "callQuality: failed to mark lesson as applied");
+  }
 }
 
 const MISSES = ["wrong_slot","fee_agreed_without_ask","gave_up_early","missed_info","off_task"] as const;
@@ -249,6 +265,8 @@ export async function scoreCall(callId: string): Promise<void> {
  * Extract lessons from a call based on quality score and miss reason.
  * Low-quality or failed calls may generate a lesson to improve future behavior.
  * Only creates lessons when source is "llm" and missReason is in the allowlist.
+ * Lessons are global (contactId null) to apply across all contacts.
+ * Lesson text is learned from the transcript using the evidence field.
  */
 export async function extractLessonsFromCall(callId: string): Promise<void> {
   try {
@@ -271,29 +289,33 @@ export async function extractLessonsFromCall(callId: string): Promise<void> {
     const qualityJson = call.qualityJson as Record<string, unknown> | null;
     const source = qualityJson?.source as string | null;
     const missReason = qualityJson?.missReason as string | null;
+    const evidence = qualityJson?.evidence as string | null;
 
-    // Only create lessons from LLM judgments with valid miss reasons
+    // Only create lessons from LLM judgments with valid miss reasons and evidence
     if (source !== "llm" || !missReason || !MISSES.includes(missReason as MissReason) || !call.individualId) {
       return;
     }
 
-    // Map miss reason codes to lesson text
-    const lessonTexts: Record<MissReason, string> = {
-      wrong_slot: "Verify the time slot carefully before accepting. Use check_availability and confirm the exact date and time.",
-      fee_agreed_without_ask: "When the business mentions a fee or deposit, use ask_user before agreeing anything.",
-      gave_up_early: "This call ended too quickly. Listen more carefully and ask clarifying questions before ending.",
-      missed_info: "You agreed to a booking but did not capture the confirmation details. Always confirm the exact date, time, and reference.",
-      off_task: "Stay focused on the task goal. Don't get sidetracked into unrelated topics.",
-    };
-
     const lessonCode = missReason as MissReason;
-    const lessonText = lessonTexts[lessonCode];
 
-    // Dedupe: check if lesson already exists for this owner, contact, and code
+    // Use evidence as lesson text, or fall back to fixed text
+    let lessonText = evidence || "";
+    if (!lessonText) {
+      const fixedTexts: Record<MissReason, string> = {
+        wrong_slot: "Verify the time slot carefully before accepting. Use check_availability and confirm the exact date and time.",
+        fee_agreed_without_ask: "When the business mentions a fee or deposit, use ask_user before agreeing anything.",
+        gave_up_early: "This call ended too quickly. Listen more carefully and ask clarifying questions before ending.",
+        missed_info: "You agreed to a booking but did not capture the confirmation details. Always confirm the exact date, time, and reference.",
+        off_task: "Stay focused on the task goal. Don't get sidetracked into unrelated topics.",
+      };
+      lessonText = fixedTexts[lessonCode];
+    }
+
+    // Dedupe: check if lesson already exists for this owner with code (global lessons)
     const existing = await prisma.promptLesson.findFirst({
       where: {
         ownerId: call.individualId,
-        contactId: call.contactId,
+        contactId: null, // Global lessons
         code: lessonCode,
       },
     });
@@ -309,13 +331,13 @@ export async function extractLessonsFromCall(callId: string): Promise<void> {
           expiresAt,
         },
       });
-      logger.info({ callId, lessonCode, seenCount: existing.seenCount + 1 }, "callQuality: updated existing lesson");
+      logger.info({ callId, lessonCode, seenCount: existing.seenCount + 1 }, "callQuality: updated existing global lesson");
     } else {
-      // Create new lesson
+      // Create new global lesson
       await prisma.promptLesson.create({
         data: {
           ownerId: call.individualId,
-          contactId: call.contactId,
+          contactId: null, // Global lesson
           code: lessonCode,
           text: lessonText,
           expiresAt,
@@ -323,7 +345,7 @@ export async function extractLessonsFromCall(callId: string): Promise<void> {
           seenCount: 1,
         },
       });
-      logger.info({ callId, lessonCode }, "callQuality: extracted new lesson");
+      logger.info({ callId, lessonCode }, "callQuality: extracted new global lesson");
     }
   } catch (err) {
     logger.error({ err, callId }, "callQuality: failed to extract lessons");

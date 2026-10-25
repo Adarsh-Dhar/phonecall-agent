@@ -85,12 +85,20 @@ async function runOwnerDigest(
   },
   now: Date
 ): Promise<void> {
-  if (!owner.email) return;
-
   // Check if it's time for this owner's digest using their timezone
   const tz = owner.timezone || "UTC";
   const due = localAt(now, tz, 0, owner.digestHour);
   if (now < due || (owner.lastDigestAt && owner.lastDigestAt >= due)) {
+    return;
+  }
+
+  // Get "waiting on you" items first - always include these even if no calls
+  const waitingOnYou = await getWaitingOnYou(owner.id, owner.lastDigestAt);
+
+  // If nothing to report, skip
+  const totalWaiting = waitingOnYou.pendingQueries + waitingOnYou.waitingTasks + waitingOnYou.expiredHandoffs;
+  if (totalWaiting === 0 && !owner.email) {
+    logger.info({ ownerId: owner.id }, "ownerDigest: nothing to report and no email configured");
     return;
   }
 
@@ -116,7 +124,17 @@ async function runOwnerDigest(
     take: 20,
   });
 
-  if (calls.length === 0) return;
+  // If no calls and nothing waiting, skip
+  if (calls.length === 0 && totalWaiting === 0) {
+    logger.info({ ownerId: owner.id }, "ownerDigest: no calls and nothing waiting");
+    return;
+  }
+
+  // If no email configured but there are waiting items, log and return
+  if (!owner.email) {
+    logger.warn({ ownerId: owner.id, waitingOnYou }, "ownerDigest: items waiting but no email configured");
+    return;
+  }
 
   // Get contact names
   const contactIds = calls.map((c) => c.contactId);
@@ -125,9 +143,6 @@ async function runOwnerDigest(
     select: { id: true, name: true },
   });
   const contactMap = new Map(contacts.map((c) => [c.id, c.name]));
-
-  // Get "waiting on you" items
-  const waitingOnYou = await getWaitingOnYou(owner.id, owner.lastDigestAt);
 
   // Build digest content
   const callsWithContact = calls.map((c) => ({

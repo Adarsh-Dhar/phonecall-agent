@@ -4,17 +4,21 @@
  *   1. awaiting_business + overdue (dueAt + grace passed)  ->  one "Check in" call task.
  *        agent mode ON  : task is "open"      -> the scheduler dials it (same hours/closure rules)
  *        agent mode OFF : task is "suggested" -> the owner decides
- *   2. loops whose follow-up task finished     ->  resolved (done) or expired (cancelled / exhausted / stale)
- *   3. loops still open long after their date  ->  expired
+ *   2. awaiting_owner (queries) + overdue       ->  escalate via push notification
+ *   3. scheduled (tasks) + overdue with no dueDate -> mark as stale
+ *   4. loops whose follow-up task finished     ->  resolved (done) or expired (cancelled / exhausted / stale)
+ *   5. loops still open long after their date  ->  expired
  *
  * Multi-instance safe: a loop is claimed with a conditional updateMany before any task is created.
  * Never throws.
  */
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../../lib/logger";
+import { sendPush } from "../push";
 
 export const CHECKIN_GRACE_MS = (Number(process.env.LOOP_CHECKIN_GRACE_MIN) || 120) * 60_000;
 export const LOOP_EXPIRE_MS = (Number(process.env.LOOP_EXPIRE_DAYS) || 14) * 24 * 3600_000;
+const QUERY_OVERDUE_MS = (Number(process.env.QUERY_OVERDUE_HOURS) || 24) * 60 * 60_000;
 const BATCH = 25;
 const ACTIVE = ["suggested", "open", "in_progress", "waiting_user"];
 
@@ -22,16 +26,19 @@ export interface SweepResult {
   created: number;
   resolved: number;
   expired: number;
+  escalated: number;
 }
 
 export async function sweepOverdueLoops(now = new Date()): Promise<SweepResult> {
-  const result: SweepResult = { created: 0, resolved: 0, expired: 0 };
+  const result: SweepResult = { created: 0, resolved: 0, expired: 0, escalated: 0 };
   try {
     result.created = await createCheckIns(now);
+    result.escalated = await escalateOverdueQueries(now);
+    result.escalated += await staleTasksWithoutDueDate(now);
     const r = await reconcileFollowUps();
     result.resolved = r.resolved;
     result.expired = r.expired + (await expireAncient(now));
-    if (result.created || result.resolved || result.expired) logger.info(result, "loopSweeper: cycle done");
+    if (result.created || result.resolved || result.expired || result.escalated) logger.info(result, "loopSweeper: cycle done");
   } catch (err) {
     logger.error({ err }, "loopSweeper: sweep failed");
   }
@@ -146,4 +153,71 @@ async function expireAncient(now: Date): Promise<number> {
     data: { status: "expired" },
   });
   return r.count;
+}
+
+/**
+ * Escalate overdue awaiting_owner loops (queries) via push notification.
+ */
+async function escalateOverdueQueries(now: Date): Promise<number> {
+  const overdue = await prisma.openLoop.findMany({
+    where: {
+      status: "open",
+      kind: "awaiting_owner",
+      dueAt: { not: null, lte: new Date(+now - QUERY_OVERDUE_MS) },
+    },
+    orderBy: { dueAt: "asc" },
+    take: BATCH,
+    include: { relationship: { select: { individualId: true } } },
+  });
+
+  let escalated = 0;
+  for (const loop of overdue) {
+    try {
+      // Send push notification to owner
+      await sendPush(loop.relationship.individualId, {
+        type: "query_overdue",
+        loopId: loop.id,
+        text: loop.text,
+        dueAt: loop.dueAt,
+      }).catch((err) => logger.error({ err, loopId: loop.id }, "loopSweeper: failed to send push notification"));
+
+      // Update lastActionAt to avoid repeated notifications
+      await prisma.openLoop.update({
+        where: { id: loop.id },
+        data: { lastActionAt: now },
+      });
+      escalated++;
+    } catch (err) {
+      logger.error({ err, loopId: loop.id }, "loopSweeper: failed to escalate query");
+    }
+  }
+  return escalated;
+}
+
+/**
+ * Mark scheduled tasks without dueDate as stale (unparseable date).
+ */
+async function staleTasksWithoutDueDate(now: Date): Promise<number> {
+  const stale = await prisma.task.findMany({
+    where: {
+      status: { in: ["open", "suggested"] },
+      kind: "call",
+      dueDate: null,
+      schedulerStatus: "pending",
+      createdAt: { lt: new Date(+now - QUERY_OVERDUE_MS) },
+    },
+    select: { id: true },
+    take: BATCH,
+  });
+
+  if (stale.length === 0) return 0;
+
+  const staleIds = stale.map((t) => t.id);
+  await prisma.task.updateMany({
+    where: { id: { in: staleIds } },
+    data: { schedulerStatus: "stale" },
+  });
+
+  logger.info({ count: staleIds.length }, "loopSweeper: marked tasks without dueDate as stale");
+  return staleIds.length;
 }
