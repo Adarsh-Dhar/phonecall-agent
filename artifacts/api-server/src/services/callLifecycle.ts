@@ -316,8 +316,9 @@ export function createCallLifecycle(opts: {
     scheduleExtraction(opts.conversationId);
 
     // Fire and forget: neither may delay hanging up or ever fail the call.
-    void scoreCall(opts.callId).catch((err) => logger.error({ err, callId: opts.callId }, "callLifecycle: quality scoring failed"));
-    void extractLessonsFromCall(opts.callId).catch((err) => logger.error({ err, callId: opts.callId }, "callLifecycle: lesson extraction failed"));
+    void scoreCall(opts.callId)
+      .then(() => extractLessonsFromCall(opts.callId))
+      .catch((err) => logger.error({ err, callId: opts.callId }, "callLifecycle: quality scoring or lesson extraction failed"));
     if (opts.agentMode) {
       void notifyAgentCallDone(opts.callId).catch((err) => logger.error({ err, callId: opts.callId }, "callLifecycle: per-call notice failed"));
     }

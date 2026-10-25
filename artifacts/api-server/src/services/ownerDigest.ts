@@ -2,21 +2,49 @@ import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
 import { sendEmail } from "./outbound/email";
 import { sendToAccount } from "./presence";
-
-const DIGEST_CLAIM_TTL_MS = 10 * 60 * 1000; // 10 minutes
-let lastDigestRun = 0;
+import { sendPush } from "./push";
+import { localAt } from "./taskKinds";
 
 /**
- * Run the digest cycle. Throttled to once per 10 minutes per owner.
- * Fire-and-forget: called from the scheduler, never delays dialing.
+ * Get items waiting for the owner's input.
+ */
+async function getWaitingOnYou(ownerId: string, since: Date | null): Promise<{
+  pendingQueries: number;
+  waitingTasks: number;
+  expiredHandoffs: number;
+}> {
+  // Get pending queries from contacts
+  const pendingQueries = await prisma.query.count({
+    where: {
+      contact: { ownerId },
+      status: "pending",
+    },
+  });
+
+  // Get tasks waiting for user input or suggested
+  const waitingTasks = await prisma.task.count({
+    where: {
+      contact: { ownerId },
+      status: { in: ["waiting_user", "suggested"] },
+    },
+  });
+
+  // Get expired handoffs since last digest
+  const expiredHandoffs = await prisma.handoff.count({
+    where: {
+      ownerId,
+      status: "expired",
+      requestedAt: since ? { gte: since } : undefined,
+    },
+  });
+
+  return { pendingQueries, waitingTasks, expiredHandoffs };
+}
+
+/**
+ * Run the digest cycle. Fire-and-forget: called from the scheduler, never delays dialing.
  */
 export async function runDigestCycle(now = new Date()): Promise<void> {
-  const nowMs = now.getTime();
-  if (nowMs - lastDigestRun < DIGEST_CLAIM_TTL_MS) {
-    return;
-  }
-  lastDigestRun = nowMs;
-
   try {
     // Find owners with digest enabled and who have autonomous calls since last digest
     const owners = await prisma.account.findMany({
@@ -31,6 +59,7 @@ export async function runDigestCycle(now = new Date()): Promise<void> {
         digestMode: true,
         digestHour: true,
         lastDigestAt: true,
+        timezone: true,
       },
     });
 
@@ -52,14 +81,16 @@ async function runOwnerDigest(
     digestMode: string;
     digestHour: number;
     lastDigestAt: Date | null;
+    timezone: string | null;
   },
   now: Date
 ): Promise<void> {
   if (!owner.email) return;
 
-  // Check if it's time for this owner's digest
-  const hour = now.getHours();
-  if (owner.digestMode === "daily" && hour !== owner.digestHour) {
+  // Check if it's time for this owner's digest using their timezone
+  const tz = owner.timezone || "UTC";
+  const due = localAt(now, tz, 0, owner.digestHour);
+  if (now < due || (owner.lastDigestAt && owner.lastDigestAt >= due)) {
     return;
   }
 
@@ -95,6 +126,9 @@ async function runOwnerDigest(
   });
   const contactMap = new Map(contacts.map((c) => [c.id, c.name]));
 
+  // Get "waiting on you" items
+  const waitingOnYou = await getWaitingOnYou(owner.id, owner.lastDigestAt);
+
   // Build digest content
   const callsWithContact = calls.map((c) => ({
     outcome: c.outcome,
@@ -104,12 +138,14 @@ async function runOwnerDigest(
     qualityScore: c.qualityScore,
     contact: { name: contactMap.get(c.contactId) || "Unknown" },
   }));
-  const summary = buildDigestSummary(callsWithContact, owner.name || "there");
+  const summary = buildDigestSummary(callsWithContact, waitingOnYou, owner.name || "there");
 
   // Send email
-  await sendDigestEmail(owner.email, summary).catch((err) => {
-    logger.warn({ err, ownerId: owner.id }, "ownerDigest: email not configured or failed");
-  });
+  const sent = await sendDigestEmail(owner.email, summary);
+  if (!sent) {
+    logger.warn({ ownerId: owner.id }, "ownerDigest: email not configured or failed");
+    return; // Don't advance lastDigestAt if email failed
+  }
 
   // Update last digest time
   await prisma.account.update({
@@ -129,6 +165,11 @@ function buildDigestSummary(
     qualityScore: number | null;
     contact: { name: string } | null;
   }>,
+  waitingOnYou: {
+    pendingQueries: number;
+    waitingTasks: number;
+    expiredHandoffs: number;
+  },
   ownerName: string
 ): string {
   const successful = calls.filter((c) => c.outcome === "booked" || c.outcome === "rescheduled").length;
@@ -138,6 +179,21 @@ function buildDigestSummary(
   let text = `Hi ${ownerName},\n\n`;
   text += `Your agent handled ${calls.length} call${calls.length !== 1 ? "s" : ""} since your last digest:\n\n`;
   text += `- ${successful} successful${neededUser ? `, ${neededUser} needed your input` : ""}${failed ? `, ${failed} failed` : ""}\n\n`;
+
+  // "Waiting on you" section
+  if (waitingOnYou.pendingQueries > 0 || waitingOnYou.waitingTasks > 0 || waitingOnYou.expiredHandoffs > 0) {
+    text += "WAITING ON YOU:\n";
+    if (waitingOnYou.pendingQueries > 0) {
+      text += `- ${waitingOnYou.pendingQueries} pending question${waitingOnYou.pendingQueries !== 1 ? "s" : ""} from contacts\n`;
+    }
+    if (waitingOnYou.waitingTasks > 0) {
+      text += `- ${waitingOnYou.waitingTasks} task${waitingOnYou.waitingTasks !== 1 ? "s" : ""} waiting for your input or suggested\n`;
+    }
+    if (waitingOnYou.expiredHandoffs > 0) {
+      text += `- ${waitingOnYou.expiredHandoffs} handoff${waitingOnYou.expiredHandoffs !== 1 ? "s" : ""} expired (you weren't available)\n`;
+    }
+    text += "\n";
+  }
 
   if (neededUser > 0) {
     text += "CALLS WAITING FOR YOUR INPUT:\n";
@@ -168,8 +224,8 @@ function buildDigestSummary(
   return text;
 }
 
-async function sendDigestEmail(email: string, content: string): Promise<void> {
-  await sendEmail({
+async function sendDigestEmail(email: string, content: string): Promise<boolean> {
+  return await sendEmail({
     to: email,
     subject: "Your agent call digest",
     text: content,
@@ -204,18 +260,22 @@ export async function notifyAgentCallDone(callId: string): Promise<void> {
     const message = `Your agent finished a call with ${contactName}. Outcome: ${call.outcome || "unknown"}. ${call.outcomeSummary || ""}`;
 
     // Send via presence (real-time)
-    try {
-      if (call.individualId) {
-        sendToAccount(call.individualId, {
-          type: "agent_call_done",
-          callId,
-          contactName: contactName || "a business",
-          outcome: call.outcome,
-          summary: call.outcomeSummary,
-        });
-      }
-    } catch (err) {
-      logger.error({ err }, "ownerDigest: failed to send presence notification");
+    const live = call.individualId ? sendToAccount(call.individualId, {
+      type: "agent_call_done",
+      callId,
+      contactName: contactName || "a business",
+      outcome: call.outcome,
+      summary: call.outcomeSummary,
+    }) : false;
+
+    // Fallback to push if not delivered
+    if (!live && call.individualId) {
+      await sendPush(call.individualId, {
+        type: "agent_call_done",
+        contactName: contactName || "a business",
+        outcome: call.outcome,
+        summary: call.outcomeSummary,
+      }).catch((err) => logger.error({ err }, "ownerDigest: failed to send push notification"));
     }
 
     logger.info({ callId, message }, "ownerDigest: per-call notification sent");

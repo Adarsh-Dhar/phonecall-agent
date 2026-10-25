@@ -1,5 +1,6 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
+import { analyzeCallGoal } from "./callAnalysis";
 
 export interface PromptLesson {
   id: string;
@@ -12,6 +13,7 @@ export interface PromptLesson {
 
 /**
  * Load active lessons for an owner, optionally filtered to a contact.
+ * Only renders lessons that have been seen at least twice (seenCount >= 2).
  */
 export async function loadLessons(ownerId: string, contactId: string | null): Promise<PromptLesson[]> {
   const lessons = await prisma.promptLesson.findMany({
@@ -19,6 +21,7 @@ export async function loadLessons(ownerId: string, contactId: string | null): Pr
       ownerId,
       status: "active",
       expiresAt: { gt: new Date() },
+      seenCount: { gte: 2 },
       OR: [{ contactId: null }, contactId ? { contactId } : { id: { equals: "" } }],
     },
     select: {
@@ -44,7 +47,7 @@ export function renderLessonsBlock(lessons: PromptLesson[]): string {
 }
 
 /**
- * Score a call's quality (1-100) based on outcome, duration, and resolution.
+ * Score a call's quality (1-100) based on goal achievement, outcome, and duration.
  * Fire-and-forget: called at call end, never blocks hangup.
  */
 export async function scoreCall(callId: string): Promise<void> {
@@ -63,41 +66,13 @@ export async function scoreCall(callId: string): Promise<void> {
 
     if (!call) return;
 
-    let score = 50; // baseline
+    // Get goal-based analysis
+    const goalAnalysis = await analyzeCallGoal(callId);
+    let score = goalAnalysis.goalScore;
 
-    // Outcome scoring
-    if (call.outcome === "booked") score += 30;
-    else if (call.outcome === "rescheduled") score += 20;
-    else if (call.outcome === "cancelled") score += 10;
-    else if (call.outcome === "info_gathered") score += 15;
-    else if (call.outcome === "needs_user") score -= 10;
-    else if (call.outcome === "failed") score -= 30;
-
-    // Knowledge score: did the agent get what it needed without escalation?
-    if (call.isEnoughKnowledge === true) score += 10;
-    else if (call.isEnoughKnowledge === false) score -= 15;
-
-    // Duration sanity: too short (< 10s) or too long (> 10min) penalizes
-    if (call.durationSec) {
-      if (call.durationSec < 10) score -= 20;
-      else if (call.durationSec > 600) score -= 10;
-      else if (call.durationSec > 30 && call.durationSec < 300) score += 5; // sweet spot
-    }
-
-    // Task-specific bonus: if there was a task and the outcome matches the task kind
-    if (call.taskId) {
-      const task = await prisma.task.findUnique({
-        where: { id: call.taskId },
-        select: { kind: true },
-      });
-      if (task) {
-        if (task.kind === "appointment" && (call.outcome === "booked" || call.outcome === "rescheduled")) {
-          score += 5;
-        } else if (task.kind === "follow_up" && call.outcome === "info_gathered") {
-          score += 5;
-        }
-      }
-    }
+    // Small adjustment for knowledge: did the agent get what it needed without escalation?
+    if (call.isEnoughKnowledge === true) score += 5;
+    else if (call.isEnoughKnowledge === false) score -= 5;
 
     // Clamp to 1-100
     score = Math.max(1, Math.min(100, score));
@@ -108,6 +83,9 @@ export async function scoreCall(callId: string): Promise<void> {
         qualityScore: score,
         qualityAt: new Date(),
         qualityJson: {
+          goalAchieved: goalAnalysis.goalAchieved,
+          goalScore: goalAnalysis.goalScore,
+          missReason: goalAnalysis.missReason,
           outcome: call.outcome,
           durationSec: call.durationSec,
           isEnoughKnowledge: call.isEnoughKnowledge,
@@ -115,14 +93,14 @@ export async function scoreCall(callId: string): Promise<void> {
       },
     });
 
-    logger.info({ callId, score, outcome: call.outcome }, "callQuality: scored call");
+    logger.info({ callId, score, outcome: call.outcome, goalAchieved: goalAnalysis.goalAchieved }, "callQuality: scored call");
   } catch (err) {
     logger.error({ err, callId }, "callQuality: failed to score call");
   }
 }
 
 /**
- * Extract lessons from a call based on quality score and outcome.
+ * Extract lessons from a call based on quality score and miss reason.
  * Low-quality or failed calls may generate a lesson to improve future behavior.
  */
 export async function extractLessonsFromCall(callId: string): Promise<void> {
@@ -131,10 +109,10 @@ export async function extractLessonsFromCall(callId: string): Promise<void> {
       where: { id: callId },
       select: {
         qualityScore: true,
+        qualityJson: true,
         outcome: true,
         contactId: true,
         individualId: true,
-        conversationId: true,
       },
     });
 
@@ -143,32 +121,45 @@ export async function extractLessonsFromCall(callId: string): Promise<void> {
     // Only extract from calls with issues
     if (call.qualityScore >= 70) return;
 
-    const messages = await prisma.message.findMany({
-      where: { callId },
-      orderBy: { createdAt: "asc" },
-      take: 20,
+    const qualityJson = call.qualityJson as Record<string, unknown> | null;
+    const missReason = qualityJson?.missReason as string | null;
+
+    // Map miss reason codes to lesson text
+    const lessonTexts: Record<string, string> = {
+      fee_not_escalated: "When the business mentions a fee or deposit, use ask_user before agreeing anything.",
+      wrong_slot: "Verify the time slot carefully before accepting. Use check_availability and confirm the exact date and time.",
+      gave_up_early: "This call ended too quickly. Listen more carefully and ask clarifying questions before ending.",
+      unclear: "The call goal was unclear. Be more direct about what you need and persist until you get a clear answer.",
+    };
+
+    if (!missReason || !lessonTexts[missReason] || !call.individualId) return;
+
+    const lessonCode = missReason;
+    const lessonText = lessonTexts[missReason];
+
+    // Dedupe: check if lesson already exists for this owner, contact, and code
+    const existing = await prisma.promptLesson.findFirst({
+      where: {
+        ownerId: call.individualId,
+        contactId: call.contactId,
+        code: lessonCode,
+      },
     });
 
-    const transcript = messages.map((m) => `${m.role}: ${m.content}`).join("\n");
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-    // Simple heuristics for lesson extraction
-    let lessonCode = "";
-    let lessonText = "";
-
-    if (call.outcome === "needs_user" && transcript.toLowerCase().includes("fee")) {
-      lessonCode = "fee_escalation";
-      lessonText = "When the business mentions a fee or deposit, use ask_user before agreeing anything.";
-    } else if (call.outcome === "needs_user" && transcript.toLowerCase().includes("personal")) {
-      lessonCode = "personal_info_protection";
-      lessonText = "Never share personal information without explicit approval from your user.";
-    } else if (call.outcome === "failed" && call.qualityScore < 40) {
-      lessonCode = "failed_call_analysis";
-      lessonText = "This call ended without resolution. Listen more carefully and ask clarifying questions.";
-    }
-
-    if (lessonCode && lessonText && call.individualId) {
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-
+    if (existing) {
+      // Increment seenCount and extend expiresAt
+      await prisma.promptLesson.update({
+        where: { id: existing.id },
+        data: {
+          seenCount: existing.seenCount + 1,
+          expiresAt,
+        },
+      });
+      logger.info({ callId, lessonCode, seenCount: existing.seenCount + 1 }, "callQuality: updated existing lesson");
+    } else {
+      // Create new lesson
       await prisma.promptLesson.create({
         data: {
           ownerId: call.individualId,
@@ -177,10 +168,10 @@ export async function extractLessonsFromCall(callId: string): Promise<void> {
           text: lessonText,
           expiresAt,
           sourceCallId: callId,
+          seenCount: 1,
         },
       });
-
-      logger.info({ callId, lessonCode }, "callQuality: extracted lesson");
+      logger.info({ callId, lessonCode }, "callQuality: extracted new lesson");
     }
   } catch (err) {
     logger.error({ err, callId }, "callQuality: failed to extract lessons");

@@ -296,7 +296,6 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
         contactId: call.contactId,
       });
     }
-    return;
   }
 
   const turns = await prisma.message.findMany({
@@ -497,4 +496,111 @@ export async function analyzeCallForEscalation(callId: string): Promise<void> {
       }
     }
   }
+}
+
+/**
+ * Analyze a call against its task goal. Returns goal metrics for quality scoring.
+ */
+export async function analyzeCallGoal(callId: string): Promise<{
+  goalAchieved: boolean;
+  goalScore: number;
+  missReason: string | null;
+}> {
+  const call = await prisma.call.findUnique({
+    where: { id: callId },
+    select: {
+      outcome: true,
+      durationSec: true,
+      taskId: true,
+      conversationId: true,
+    },
+  });
+
+  if (!call) {
+    return { goalAchieved: false, goalScore: 0, missReason: "call_not_found" };
+  }
+
+  if (!call.taskId) {
+    // No task: score based on outcome only
+    const goalScore = call.outcome === "booked" ? 80 : call.outcome === "rescheduled" ? 70 : call.outcome === "info_gathered" ? 60 : 40;
+    return { goalAchieved: call.outcome === "booked", goalScore, missReason: null };
+  }
+
+  const task = await prisma.task.findUnique({
+    where: { id: call.taskId },
+    select: {
+      title: true,
+      description: true,
+      kind: true,
+      dueDate: true,
+    },
+  });
+
+  if (!task) {
+    return { goalAchieved: false, goalScore: 0, missReason: "task_not_found" };
+  }
+
+  // Analyze based on task kind and outcome
+  let goalAchieved = false;
+  let goalScore = 50;
+  let missReason: string | null = null;
+
+  if (task.kind === "appointment") {
+    if (call.outcome === "booked" || call.outcome === "rescheduled") {
+      goalAchieved = true;
+      goalScore = 90;
+    } else if (call.outcome === "needs_user") {
+      goalScore = 40;
+      missReason = "gave_up_early";
+    } else if (call.outcome === "failed") {
+      goalScore = 20;
+      missReason = "unclear";
+    }
+  } else if (task.kind === "follow_up") {
+    if (call.outcome === "info_gathered") {
+      goalAchieved = true;
+      goalScore = 85;
+    } else if (call.outcome === "needs_user") {
+      goalScore = 45;
+      missReason = "gave_up_early";
+    } else if (call.outcome === "failed") {
+      goalScore = 25;
+      missReason = "unclear";
+    }
+  } else if (task.kind === "pay") {
+    if (call.outcome === "booked") {
+      goalAchieved = true;
+      goalScore = 90;
+    } else if (call.outcome === "needs_user") {
+      goalScore = 30;
+      missReason = "fee_not_escalated";
+    } else if (call.outcome === "failed") {
+      goalScore = 20;
+      missReason = "unclear";
+    }
+  } else {
+    // Generic tasks
+    if (call.outcome === "booked" || call.outcome === "info_gathered") {
+      goalAchieved = true;
+      goalScore = 80;
+    } else if (call.outcome === "needs_user") {
+      goalScore = 40;
+      missReason = "gave_up_early";
+    } else if (call.outcome === "failed") {
+      goalScore = 20;
+      missReason = "unclear";
+    }
+  }
+
+  // Duration penalty: too short suggests rushed, too long suggests rambling
+  if (call.durationSec) {
+    if (call.durationSec < 15) {
+      goalScore -= 20;
+      missReason = "gave_up_early";
+    } else if (call.durationSec > 600) {
+      goalScore -= 10;
+    }
+  }
+
+  return { goalAchieved, goalScore: Math.max(0, Math.min(100, goalScore)), missReason };
 }

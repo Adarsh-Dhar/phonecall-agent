@@ -26,6 +26,8 @@ export function AgentAutonomySettings() {
     effect: 'ask',
     ruleType: 'outside_hours',
     hour: 18,
+    threshold: 100,
+    currency: 'INR',
     note: '',
   });
 
@@ -52,10 +54,12 @@ export function AgentAutonomySettings() {
         } else {
           params = { type: newRule.ruleType };
         }
-      } else if (newRule.category === 'money' && newRule.effect === 'ask') {
-        params = { threshold: 100 }; // Default threshold
+      } else if (newRule.category === 'money') {
+        if (newRule.effect === 'allow' || newRule.effect === 'ask') {
+          params = { threshold: newRule.threshold, currency: newRule.currency };
+        }
       }
-      
+
       await apiFetch('/agent/rules', {
         method: 'POST',
         body: JSON.stringify({
@@ -66,7 +70,7 @@ export function AgentAutonomySettings() {
         }),
       });
       setShowAddRule(false);
-      setNewRule({ category: 'scheduling', effect: 'ask', ruleType: 'outside_hours', hour: 18, note: '' });
+      setNewRule({ category: 'scheduling', effect: 'ask', ruleType: 'outside_hours', hour: 18, threshold: 100, currency: 'INR', note: '' });
       loadRules();
     } catch (err) {
       console.error('Failed to add rule:', err);
@@ -144,6 +148,7 @@ export function AgentAutonomySettings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="any">Any Slot</SelectItem>
                   <SelectItem value="outside_hours">Outside Business Hours</SelectItem>
                   <SelectItem value="weekends">Weekends</SelectItem>
                   <SelectItem value="before_hour">Before Hour</SelectItem>
@@ -164,6 +169,34 @@ export function AgentAutonomySettings() {
                 onChange={(e) => setNewRule({ ...newRule, hour: parseInt(e.target.value) || 0 })}
               />
             </div>
+          )}
+          {newRule.category === 'money' && (newRule.effect === 'allow' || newRule.effect === 'ask') && (
+            <>
+              <div>
+                <Label htmlFor="rule-threshold" className="text-xs">Threshold Amount</Label>
+                <Input
+                  id="rule-threshold"
+                  type="number"
+                  min="0"
+                  value={newRule.threshold}
+                  onChange={(e) => setNewRule({ ...newRule, threshold: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="rule-currency" className="text-xs">Currency</Label>
+                <Select value={newRule.currency} onValueChange={(v) => setNewRule({ ...newRule, currency: v })}>
+                  <SelectTrigger id="rule-currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INR">INR</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
           )}
           <div>
             <Label htmlFor="rule-note" className="text-xs">Note</Label>

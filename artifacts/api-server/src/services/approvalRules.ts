@@ -103,53 +103,55 @@ export function createSlotApproval(opts: {
     const hour = tzDate.getHours();
     const weekday = tzDate.getDay();
 
-    for (const rule of slotRules) {
-      const p = rule.params as Record<string, unknown> || {};
-      if (rule.effect === "deny") {
-        if (p.type === "outside_hours" && (hour < 9 || hour >= 18 || weekday === 0 || weekday === 6)) {
-          return {
-            decision: "deny",
-            reason: "rule: deny outside business hours",
-            instruction: "You may not accept a slot outside 9am-6pm weekdays.",
-          };
+    // Match function for slot rules
+    const matches = (p: Record<string, unknown>): boolean =>
+      p.type === "any" ||
+      (p.type === "after_hour" && typeof p.hour === "number" && hour >= p.hour) ||
+      (p.type === "before_hour" && typeof p.hour === "number" && hour < p.hour) ||
+      (p.type === "weekends" && (weekday === 0 || weekday === 6)) ||
+      (p.type === "outside_hours" && (hour < 9 || hour >= 18 || weekday === 0 || weekday === 6));
+
+    // Collect all matching rules
+    const hit = slotRules.filter(r => {
+      const p = r.params as Record<string, unknown> || {};
+      return matches(p);
+    });
+
+    // Pick by precedence: deny > handoff > allow > ask
+    const pick = (e: string) => hit.find(r => r.effect === e);
+    const r = pick("deny") ?? pick("handoff") ?? pick("allow") ?? pick("ask");
+
+    if (r) {
+      const p = r.params as Record<string, unknown> || {};
+      if (r.effect === "deny") {
+        if (p.type === "outside_hours") {
+          return { decision: "deny", reason: "rule: deny outside business hours", instruction: "You may not accept a slot outside 9am-6pm weekdays." };
         }
-        if (p.type === "weekends" && (weekday === 0 || weekday === 6)) {
-          return {
-            decision: "deny",
-            reason: "rule: deny weekends",
-            instruction: "You may not accept a weekend slot.",
-          };
+        if (p.type === "weekends") {
+          return { decision: "deny", reason: "rule: deny weekends", instruction: "You may not accept a weekend slot." };
         }
-        if (p.type === "before_hour" && typeof p.hour === "number" && hour < p.hour) {
-          return {
-            decision: "deny",
-            reason: `rule: deny before ${p.hour}:00`,
-            instruction: `You may not accept a slot before ${p.hour}:00.`,
-          };
+        if (p.type === "before_hour" && typeof p.hour === "number") {
+          return { decision: "deny", reason: `rule: deny before ${p.hour}:00`, instruction: `You may not accept a slot before ${p.hour}:00.` };
         }
-        if (p.type === "after_hour" && typeof p.hour === "number" && hour >= p.hour) {
-          return {
-            decision: "deny",
-            reason: `rule: deny after ${p.hour}:00`,
-            instruction: `You may not accept a slot after ${p.hour}:00.`,
-          };
+        if (p.type === "after_hour" && typeof p.hour === "number") {
+          return { decision: "deny", reason: `rule: deny after ${p.hour}:00`, instruction: `You may not accept a slot after ${p.hour}:00.` };
         }
+        return { decision: "deny", reason: "rule: deny scheduling", instruction: "You may not accept this slot." };
       }
-      if (rule.effect === "ask") {
-        if (p.type === "outside_hours" && (hour < 9 || hour >= 18 || weekday === 0 || weekday === 6)) {
-          return {
-            decision: "ask",
-            reason: "rule: ask before accepting outside hours",
-            instruction: "Ask your user before accepting this time.",
-          };
+      if (r.effect === "handoff") {
+        return { decision: "handoff", reason: "rule: handoff for scheduling", instruction: "Call request_human_handoff so your user can handle this." };
+      }
+      if (r.effect === "allow") {
+        return { decision: "allow", reason: "rule: allow scheduling", instruction: "" };
+      }
+      if (r.effect === "ask") {
+        if (p.type === "outside_hours") {
+          return { decision: "ask", reason: "rule: ask before accepting outside hours", instruction: "Ask your user before accepting this time." };
         }
-        if (p.type === "weekends" && (weekday === 0 || weekday === 6)) {
-          return {
-            decision: "ask",
-            reason: "rule: ask before accepting weekends",
-            instruction: "Ask your user before accepting this weekend slot.",
-          };
+        if (p.type === "weekends") {
+          return { decision: "ask", reason: "rule: ask before accepting weekends", instruction: "Ask your user before accepting this weekend slot." };
         }
+        return { decision: "ask", reason: "rule: ask before scheduling", instruction: "Ask your user before accepting this slot." };
       }
     }
 
@@ -180,6 +182,7 @@ export function createSlotApproval(opts: {
 /**
  * Call-level approval checker for the check_approval tool.
  * Handles scheduling, money, personal_info, commitment, other.
+ * Always include amount for money and startsAt for scheduling.
  */
 export function createCallApproval(opts: {
   callId: string;
@@ -204,60 +207,82 @@ export function createCallApproval(opts: {
       description?: string;
     };
 
-    if (a.category === "scheduling" && a.startsAt && a.durationMin) {
-      const start = new Date(a.startsAt);
-      const verdict = slot.decide(start, a.durationMin);
-      slot.record(verdict, { startsAt: a.startsAt, via: "check_approval" });
+    // Fail closed on unknown category
+    if (!a.category) {
+      return { decision: "ask", reason: "missing category", instruction: "Ask your user." };
+    }
+
+    // Money: unknown amount is treated as "could be any amount"
+    if (a.category === "money") {
+      const amount = Number.isFinite(a.amount) ? Number(a.amount) : Infinity;
+      const deny = opts.rules.find(r => r.category === "money" && r.effect === "deny");
+      if (deny) {
+        return { decision: "deny", reason: "rule: never commit money", instruction: "You may not agree to any payment or fee." };
+      }
+      const ask = opts.rules.find(r => r.category === "money" && r.effect === "ask");
+      if (ask && amount > Number(ask.params?.threshold ?? 0)) {
+        return { decision: "ask", reason: "rule: ask before large payment", instruction: "Ask your user before agreeing to this payment." };
+      }
+      const allow = opts.rules.find(r => r.category === "money" && r.effect === "allow");
+      if (allow) {
+        const threshold = Number(allow.params?.threshold ?? 0);
+        if (amount > threshold) {
+          return { decision: "ask", reason: "rule: ask above threshold", instruction: "Ask your user before agreeing to this payment." };
+        }
+        return { decision: "allow", reason: "rule: allow up to threshold", instruction: "" };
+      }
+      return { decision: "ask", reason: "no money rule: ask by default", instruction: "Ask your user before agreeing to any payment." };
+    }
+
+    // Scheduling: no usable time but a scheduling rule exists -> ask, don't allow
+    if (a.category === "scheduling") {
+      const start = a.startsAt ? new Date(a.startsAt) : null;
+      if (!start || isNaN(+start)) {
+        const slotRules = opts.rules.filter(r => r.category === "scheduling");
+        return slotRules.length
+          ? { decision: "ask", reason: "time not verifiable", instruction: "Ask your user." }
+          : { decision: "allow", reason: "no scheduling rules", instruction: "" };
+      }
+      const verdict = slot.decide(start, a.durationMin ?? 30);
+      slot.record(verdict, { startsAt: a.startsAt || "", via: "check_approval" });
       return verdict;
     }
 
-    if (a.category === "money" && a.amount !== undefined) {
-      const denyRule = opts.rules.find((r) => r.category === "money" && r.effect === "deny");
-      if (denyRule) {
-        return {
-          decision: "deny",
-          reason: "rule: deny all money commitments",
-          instruction: "You may not agree to any payment or fee.",
-        };
-      }
-      const askRule = opts.rules.find((r) => r.category === "money" && r.effect === "ask");
-      if (askRule) {
-        const threshold = typeof askRule.params === "object" && askRule.params?.threshold
-          ? Number(askRule.params.threshold)
-          : 0;
-        if (a.amount > threshold) {
-          return {
-            decision: "ask",
-            reason: "rule: ask before agreeing to payments above threshold",
-            instruction: "Ask your user before agreeing to this payment.",
-          };
-        }
-      }
-    }
-
     if (a.category === "personal_info") {
-      const rule = opts.rules.find((r) => r.category === "personal_info" && r.effect === "deny");
-      if (rule) {
-        return {
-          decision: "deny",
-          reason: "rule: deny sharing personal information",
-          instruction: "You may not share personal information.",
-        };
+      const deny = opts.rules.find(r => r.category === "personal_info" && r.effect === "deny");
+      if (deny) {
+        return { decision: "deny", reason: "rule: deny sharing personal information", instruction: "You may not share personal information." };
+      }
+      const ask = opts.rules.find(r => r.category === "personal_info" && r.effect === "ask");
+      if (ask) {
+        return { decision: "ask", reason: "rule: ask before sharing personal information", instruction: "Ask your user before sharing personal information." };
       }
     }
 
     if (a.category === "commitment") {
-      const rule = opts.rules.find((r) => r.category === "commitment" && r.effect === "handoff");
-      if (rule) {
-        return {
-          decision: "handoff",
-          reason: "rule: handoff for commitments",
-          instruction: "Call request_human_handoff so your user can handle this.",
-        };
+      const handoff = opts.rules.find(r => r.category === "commitment" && r.effect === "handoff");
+      if (handoff) {
+        return { decision: "handoff", reason: "rule: handoff for commitments", instruction: "Call request_human_handoff so your user can handle this." };
+      }
+      const deny = opts.rules.find(r => r.category === "commitment" && r.effect === "deny");
+      if (deny) {
+        return { decision: "deny", reason: "rule: deny commitments", instruction: "You may not make commitments." };
       }
     }
 
-    return { decision: "allow", reason: "no rule blocks this", instruction: "" };
+    if (a.category === "other") {
+      const deny = opts.rules.find(r => r.category === "other" && r.effect === "deny");
+      if (deny) {
+        return { decision: "deny", reason: "rule: deny this action", instruction: "You may not proceed with this action." };
+      }
+      const ask = opts.rules.find(r => r.category === "other" && r.effect === "ask");
+      if (ask) {
+        return { decision: "ask", reason: "rule: ask before this action", instruction: "Ask your user before proceeding." };
+      }
+    }
+
+    // Fail closed on unknown category
+    return { decision: "ask", reason: "unknown category: ask by default", instruction: "Ask your user before proceeding." };
   }
 
   return { handle, slot };
