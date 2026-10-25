@@ -10,6 +10,14 @@ export interface ApprovalRuleLite {
   contactId: string | null;
 }
 
+function convertParams(params: unknown): Record<string, unknown> | null {
+  if (params === null || params === undefined) return null;
+  if (typeof params === "object" && !Array.isArray(params)) {
+    return params as Record<string, unknown>;
+  }
+  return null;
+}
+
 export type SlotApproval = ReturnType<typeof createSlotApproval>;
 
 /** Cached call-level rules, loaded once when the call starts. */
@@ -23,13 +31,16 @@ export async function loadRulesForCall(ownerId: string, contactId: string | null
     select: {
       id: true,
       category: true,
-      effect: string,
+      effect: true,
       params: true,
       note: true,
       contactId: true,
     },
   });
-  return rules;
+  return rules.map((r) => ({
+    ...r,
+    params: convertParams(r.params),
+  }));
 }
 
 /**
@@ -50,17 +61,17 @@ export function renderRulesBlock(
   const lines = filtered.map((r) => {
     const note = r.note ? ` (${r.note})` : "";
     const contactScope = r.contactId ? "this contact" : "any contact";
-    const effectDesc = describeEffect(r.effect, r.params);
+    const effectDesc = describeEffect(r.effect, r.params, individualName);
     return `- For ${r.category} with ${contactScope}: ${effectDesc}${note}`;
   });
 
   return `\n\nSTANDING RULES:\n${lines.join("\n")}\nUse check_approval BEFORE you agree. Follow the rule exactly. If the rule says "ask", call ask_user. If it says "handoff", call request_human_handoff.`;
 }
 
-function describeEffect(effect: string, params: Record<string, unknown> | null): string {
+function describeEffect(effect: string, params: Record<string, unknown> | null, individualName: string): string {
   if (effect === "allow") return "you may agree without asking";
   if (effect === "deny") return "you must refuse";
-  if (effect === "ask") return "ask ${individualName} before agreeing";
+  if (effect === "ask") return `ask ${individualName} before agreeing`;
   if (effect === "handoff") return "call request_human_handoff";
   return effect;
 }
@@ -87,33 +98,56 @@ export function createSlotApproval(opts: {
       return { decision: "allow", reason: "owner is on the line", instruction: "" };
     }
 
-    const hour = start.getHours();
-    const weekday = start.getDay();
+    // Get time in the owner's timezone
+    const tzDate = new Date(start.toLocaleString("en-US", { timeZone: opts.tz }));
+    const hour = tzDate.getHours();
+    const weekday = tzDate.getDay();
 
     for (const rule of slotRules) {
-      const p = rule.params || {};
+      const p = rule.params as Record<string, unknown> || {};
       if (rule.effect === "deny") {
-        if (p === "outside_hours" && (hour < 9 || hour >= 18 || weekday === 0 || weekday === 6)) {
+        if (p.type === "outside_hours" && (hour < 9 || hour >= 18 || weekday === 0 || weekday === 6)) {
           return {
             decision: "deny",
             reason: "rule: deny outside business hours",
             instruction: "You may not accept a slot outside 9am-6pm weekdays.",
           };
         }
-        if (p === "weekends" && (weekday === 0 || weekday === 6)) {
+        if (p.type === "weekends" && (weekday === 0 || weekday === 6)) {
           return {
             decision: "deny",
             reason: "rule: deny weekends",
             instruction: "You may not accept a weekend slot.",
           };
         }
+        if (p.type === "before_hour" && typeof p.hour === "number" && hour < p.hour) {
+          return {
+            decision: "deny",
+            reason: `rule: deny before ${p.hour}:00`,
+            instruction: `You may not accept a slot before ${p.hour}:00.`,
+          };
+        }
+        if (p.type === "after_hour" && typeof p.hour === "number" && hour >= p.hour) {
+          return {
+            decision: "deny",
+            reason: `rule: deny after ${p.hour}:00`,
+            instruction: `You may not accept a slot after ${p.hour}:00.`,
+          };
+        }
       }
       if (rule.effect === "ask") {
-        if (p === "outside_hours" && (hour < 9 || hour >= 18 || weekday === 0 || weekday === 6)) {
+        if (p.type === "outside_hours" && (hour < 9 || hour >= 18 || weekday === 0 || weekday === 6)) {
           return {
             decision: "ask",
             reason: "rule: ask before accepting outside hours",
             instruction: "Ask your user before accepting this time.",
+          };
+        }
+        if (p.type === "weekends" && (weekday === 0 || weekday === 6)) {
+          return {
+            decision: "ask",
+            reason: "rule: ask before accepting weekends",
+            instruction: "Ask your user before accepting this weekend slot.",
           };
         }
       }
@@ -137,7 +171,7 @@ export function createSlotApproval(opts: {
           detail,
         },
       })
-      .catch((err) => logger.error({ err }, "approvalRules: failed to record decision"));
+      .catch((err: unknown) => logger.error({ err }, "approvalRules: failed to record decision"));
   }
 
   return { decide, record };
@@ -178,10 +212,18 @@ export function createCallApproval(opts: {
     }
 
     if (a.category === "money" && a.amount !== undefined) {
-      const rule = opts.rules.find((r) => r.category === "money" && r.effect === "ask");
-      if (rule) {
-        const threshold = typeof rule.params === "object" && rule.params?.threshold
-          ? Number(rule.params.threshold)
+      const denyRule = opts.rules.find((r) => r.category === "money" && r.effect === "deny");
+      if (denyRule) {
+        return {
+          decision: "deny",
+          reason: "rule: deny all money commitments",
+          instruction: "You may not agree to any payment or fee.",
+        };
+      }
+      const askRule = opts.rules.find((r) => r.category === "money" && r.effect === "ask");
+      if (askRule) {
+        const threshold = typeof askRule.params === "object" && askRule.params?.threshold
+          ? Number(askRule.params.threshold)
           : 0;
         if (a.amount > threshold) {
           return {

@@ -6,7 +6,8 @@ export type PresenceEvent =
   | { type: 'user_question'; queryId: string; callId: string; question: string; urgent: boolean }
   | { type: 'post_call_question'; queryId: string; question: string; contactId: string }
   | { type: 'handoff_request'; handoffId: string; callId: string; contactName: string; reason: string; summary: string; expiresInMs: number }
-  | { type: 'agent_call'; direction: 'outbound' | 'inbound'; callId: string; contactName: string | null; title: string | null };
+  | { type: 'agent_call'; direction: 'outbound' | 'inbound'; callId: string; contactName: string | null; title: string | null }
+  | { type: 'agent_call_done'; callId: string; contactName: string | null; outcome: string | null; summary: string | null };
 
 /**
  * Keeps a WebSocket open to the server's presence registry (/presence)
@@ -26,7 +27,8 @@ export function usePresence(
   onUserQuestion?: (event: Extract<PresenceEvent, { type: 'user_question' }>) => void,
   onPostCallQuestion?: (event: Extract<PresenceEvent, { type: 'post_call_question' }>) => void,
   onAgentCall?: (event: Extract<PresenceEvent, { type: 'agent_call' }>) => void,
-  onHandoffRequest?: (event: Extract<PresenceEvent, { type: 'handoff_request' }>) => void
+  onHandoffRequest?: (event: Extract<PresenceEvent, { type: 'handoff_request' }>) => void,
+  onAgentCallDone?: (event: Extract<PresenceEvent, { type: 'agent_call_done' }>) => void
 ) {
   const onIncomingCallRef = useRef(onIncomingCall);
   const onCallStatusRef = useRef(onCallStatus);
@@ -34,6 +36,7 @@ export function usePresence(
   const onPostCallQuestionRef = useRef(onPostCallQuestion);
   const onAgentCallRef = useRef(onAgentCall);
   const onHandoffRequestRef = useRef(onHandoffRequest);
+  const onAgentCallDoneRef = useRef(onAgentCallDone);
 
   onIncomingCallRef.current = onIncomingCall;
   onCallStatusRef.current = onCallStatus;
@@ -41,6 +44,7 @@ export function usePresence(
   onPostCallQuestionRef.current = onPostCallQuestion;
   onAgentCallRef.current = onAgentCall;
   onHandoffRequestRef.current = onHandoffRequest;
+  onAgentCallDoneRef.current = onAgentCallDone;
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -68,6 +72,8 @@ export function usePresence(
             onHandoffRequestRef.current?.(msg as Extract<PresenceEvent, { type: 'handoff_request' }>);
           } else if (msg?.type === 'agent_call') {
             onAgentCallRef.current?.(msg as Extract<PresenceEvent, { type: 'agent_call' }>);
+          } else if (msg?.type === 'agent_call_done') {
+            onAgentCallDoneRef.current?.(msg as Extract<PresenceEvent, { type: 'agent_call_done' }>);
           }
         } catch (err) {
           console.error('Failed to parse presence message:', err);

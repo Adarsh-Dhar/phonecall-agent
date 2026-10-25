@@ -10,7 +10,7 @@ import { applyPostCallTasks } from "./postCallTasks";
 import { createCallCalendarTools, isCalendarTool } from "./callCalendarTools";
 import { createCallApproval, type ApprovalRuleLite } from "./approvalRules";
 import { requestHandoff, handoffToolResponse, endLiveHandoff, closeCallHandoffs, type HandoffRequestInfo } from "./handoff";
-import { scoreCall } from "./callQuality";
+import { scoreCall, extractLessonsFromCall } from "./callQuality";
 import { notifyAgentCallDone } from "./ownerDigest";
 
 interface EndCallArgs {
@@ -317,6 +317,7 @@ export function createCallLifecycle(opts: {
 
     // Fire and forget: neither may delay hanging up or ever fail the call.
     void scoreCall(opts.callId).catch((err) => logger.error({ err, callId: opts.callId }, "callLifecycle: quality scoring failed"));
+    void extractLessonsFromCall(opts.callId).catch((err) => logger.error({ err, callId: opts.callId }, "callLifecycle: lesson extraction failed"));
     if (opts.agentMode) {
       void notifyAgentCallDone(opts.callId).catch((err) => logger.error({ err, callId: opts.callId }, "callLifecycle: per-call notice failed"));
     }

@@ -208,8 +208,8 @@ export async function openGeminiLiveSession(opts: {
                 }
                 if (fc.name === "request_human_handoff") {
                   const result = opts.onHandoff
-                    ? await opts.onHandoff(fc.args as any).catch(() => handoffToolResponse("unavailable"))
-                    : handoffToolResponse("unavailable");
+                    ? await opts.onHandoff(fc.args as any).catch(() => handoffToolResponse("owner_unavailable"))
+                    : handoffToolResponse("owner_unavailable");
                   return { id: fc.id, name: fc.name, response: result };
                 }
                 if (fc.name && (isCalendarTool(fc.name) || fc.name === "check_approval")) {

@@ -47,10 +47,10 @@ router.post("/rules", async (req, res) => {
       },
     });
 
-    res.json({ rule });
+    return res.json({ rule });
   } catch (err) {
     logger.error({ err }, "agent: failed to create rule");
-    res.status(500).json({ error: "Failed to create rule" });
+    return res.status(500).json({ error: "Failed to create rule" });
   }
 });
 
@@ -81,10 +81,10 @@ router.put("/rules/:id", async (req, res) => {
     }
 
     const updated = await prisma.approvalRule.findUnique({ where: { id } });
-    res.json({ rule: updated });
+    return res.json({ rule: updated });
   } catch (err) {
     logger.error({ err }, "agent: failed to update rule");
-    res.status(500).json({ error: "Failed to update rule" });
+    return res.status(500).json({ error: "Failed to update rule" });
   }
 });
 
@@ -105,10 +105,10 @@ router.delete("/rules/:id", async (req, res) => {
       return res.status(404).json({ error: "Rule not found" });
     }
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (err) {
     logger.error({ err }, "agent: failed to delete rule");
-    res.status(500).json({ error: "Failed to delete rule" });
+    return res.status(500).json({ error: "Failed to delete rule" });
   }
 });
 
@@ -153,10 +153,10 @@ router.put("/lessons/:id", async (req, res) => {
     }
 
     const updated = await prisma.promptLesson.findUnique({ where: { id } });
-    res.json({ lesson: updated });
+    return res.json({ lesson: updated });
   } catch (err) {
     logger.error({ err }, "agent: failed to update lesson");
-    res.status(500).json({ error: "Failed to update lesson" });
+    return res.status(500).json({ error: "Failed to update lesson" });
   }
 });
 
@@ -199,10 +199,10 @@ router.put("/settings", async (req, res) => {
       },
     });
 
-    res.json({ settings: owner });
+    return res.json({ settings: owner });
   } catch (err) {
     logger.error({ err }, "agent: failed to update settings");
-    res.status(500).json({ error: "Failed to update settings" });
+    return res.status(500).json({ error: "Failed to update settings" });
   }
 });
 

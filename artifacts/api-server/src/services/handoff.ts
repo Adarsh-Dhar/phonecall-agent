@@ -1,5 +1,7 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
+import { sendToAccount } from "./presence";
+import { sendPush } from "./push";
 
 const HANDOFF_TIMEOUT_MS = 60_000; // 60 seconds for the owner to accept
 
@@ -54,6 +56,17 @@ export async function requestHandoff(opts: {
   const reachable = roomWatchProbe?.(opts.callId) ?? false;
   if (reachable && opts.onRequested) {
     opts.onRequested(info);
+  } else {
+    // Owner not in the call: send push notification
+    void sendPush(opts.ownerId, {
+      type: "handoff_request",
+      handoffId: info.handoffId,
+      callId: info.callId,
+      contactName: info.contactName,
+      reason: info.reason,
+      summary: info.summary,
+      expiresInMs: info.expiresInMs,
+    }).catch((err) => logger.error({ err, ownerId: opts.ownerId }, "handoff: failed to send push"));
   }
 
   // Wait for acceptance or timeout

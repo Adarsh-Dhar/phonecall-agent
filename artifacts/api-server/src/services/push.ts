@@ -57,3 +57,47 @@ export async function sendPushToAccount(accountId: string, payload: PushPayload)
 
   return success;
 }
+
+/**
+ * Send a custom payload (e.g., for handoff requests or agent call done notifications).
+ * The payload is sent as-is; the frontend must handle the type field.
+ */
+export async function sendPush(accountId: string, payload: Record<string, unknown>): Promise<boolean> {
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    return false;
+  }
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { accountId },
+  });
+
+  if (subscriptions.length === 0) {
+    return false;
+  }
+
+  let success = false;
+  for (const sub of subscriptions) {
+    try {
+      await webpush.sendNotification(
+        {
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: sub.p256dh,
+            auth: sub.auth,
+          },
+        },
+        JSON.stringify(payload)
+      );
+      success = true;
+    } catch (err: any) {
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        await prisma.pushSubscription.delete({ where: { id: sub.id } });
+        logger.info({ subscriptionId: sub.id }, "push: deleted stale subscription");
+      } else {
+        logger.error({ err, subscriptionId: sub.id }, "push: failed to send notification");
+      }
+    }
+  }
+
+  return success;
+}

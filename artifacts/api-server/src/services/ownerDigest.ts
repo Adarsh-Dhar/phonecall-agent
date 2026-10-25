@@ -1,5 +1,7 @@
 import { prisma } from "@workspace/db-prisma";
 import { logger } from "../lib/logger";
+import { sendEmail } from "./outbound/email";
+import { sendToAccount } from "./presence";
 
 const DIGEST_CLAIM_TTL_MS = 10 * 60 * 1000; // 10 minutes
 let lastDigestRun = 0;
@@ -77,11 +79,7 @@ async function runOwnerDigest(
       startedAt: true,
       durationSec: true,
       qualityScore: true,
-      contact: {
-        select: {
-          name: true,
-        },
-      },
+      contactId: true,
     },
     orderBy: { startedAt: "desc" },
     take: 20,
@@ -89,13 +87,29 @@ async function runOwnerDigest(
 
   if (calls.length === 0) return;
 
-  // Build digest content
-  const summary = buildDigestSummary(calls, owner.name || "there");
+  // Get contact names
+  const contactIds = calls.map((c) => c.contactId);
+  const contacts = await prisma.account.findMany({
+    where: { id: { in: contactIds } },
+    select: { id: true, name: true },
+  });
+  const contactMap = new Map(contacts.map((c) => [c.id, c.name]));
 
-  // Send email (placeholder - integrate with your email service)
-  await sendDigestEmail(owner.email, summary).catch((err) =>
-    logger.error({ err, ownerId: owner.id }, "ownerDigest: failed to send email")
-  );
+  // Build digest content
+  const callsWithContact = calls.map((c) => ({
+    outcome: c.outcome,
+    outcomeSummary: c.outcomeSummary,
+    startedAt: c.startedAt!,
+    durationSec: c.durationSec,
+    qualityScore: c.qualityScore,
+    contact: { name: contactMap.get(c.contactId) || "Unknown" },
+  }));
+  const summary = buildDigestSummary(callsWithContact, owner.name || "there");
+
+  // Send email
+  await sendDigestEmail(owner.email, summary).catch((err) => {
+    logger.warn({ err, ownerId: owner.id }, "ownerDigest: email not configured or failed");
+  });
 
   // Update last digest time
   await prisma.account.update({
@@ -113,7 +127,7 @@ function buildDigestSummary(
     startedAt: Date;
     durationSec: number | null;
     qualityScore: number | null;
-    contact: { name: string | null } | null;
+    contact: { name: string } | null;
   }>,
   ownerName: string
 ): string {
@@ -124,6 +138,16 @@ function buildDigestSummary(
   let text = `Hi ${ownerName},\n\n`;
   text += `Your agent handled ${calls.length} call${calls.length !== 1 ? "s" : ""} since your last digest:\n\n`;
   text += `- ${successful} successful${neededUser ? `, ${neededUser} needed your input` : ""}${failed ? `, ${failed} failed` : ""}\n\n`;
+
+  if (neededUser > 0) {
+    text += "CALLS WAITING FOR YOUR INPUT:\n";
+    const waitingCalls = calls.filter((c) => c.outcome === "needs_user");
+    for (const call of waitingCalls) {
+      const contact = call.contact?.name || "Unknown";
+      text += `- ${contact}: ${call.outcomeSummary || "Needs your decision"}\n`;
+    }
+    text += "\n";
+  }
 
   text += "Details:\n";
   for (const call of calls) {
@@ -145,10 +169,11 @@ function buildDigestSummary(
 }
 
 async function sendDigestEmail(email: string, content: string): Promise<void> {
-  // Placeholder: integrate with your email service (e.g., SendGrid, AWS SES, etc.)
-  logger.info({ email, contentLength: content.length }, "ownerDigest: would send email");
-  // Example:
-  // await sendgrid.send({ to: email, subject: "Your agent call digest", text: content });
+  await sendEmail({
+    to: email,
+    subject: "Your agent call digest",
+    text: content,
+  });
 }
 
 /**
@@ -164,20 +189,35 @@ export async function notifyAgentCallDone(callId: string): Promise<void> {
         outcomeSummary: true,
         autonomous: true,
         individualId: true,
-        contact: {
-          select: {
-            name: true,
-          },
-        },
+        contactId: true,
       },
     });
 
     if (!call || !call.autonomous) return;
 
-    const message = `Your agent finished a call with ${call.contact?.name || "a business"}. Outcome: ${call.outcome || "unknown"}. ${call.outcomeSummary || ""}`;
+    const contact = call.contactId ? await prisma.account.findUnique({
+      where: { id: call.contactId },
+      select: { name: true },
+    }) : null;
+
+    const contactName = contact?.name || "a business";
+    const message = `Your agent finished a call with ${contactName}. Outcome: ${call.outcome || "unknown"}. ${call.outcomeSummary || ""}`;
 
     // Send via presence (real-time)
-    // Note: you may want to send this via push or email depending on preferences
+    try {
+      if (call.individualId) {
+        sendToAccount(call.individualId, {
+          type: "agent_call_done",
+          callId,
+          contactName: contactName || "a business",
+          outcome: call.outcome,
+          summary: call.outcomeSummary,
+        });
+      }
+    } catch (err) {
+      logger.error({ err }, "ownerDigest: failed to send presence notification");
+    }
+
     logger.info({ callId, message }, "ownerDigest: per-call notification sent");
   } catch (err) {
     logger.error({ err, callId }, "ownerDigest: failed to notify of call completion");

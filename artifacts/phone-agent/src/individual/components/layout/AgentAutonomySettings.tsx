@@ -24,7 +24,8 @@ export function AgentAutonomySettings() {
   const [newRule, setNewRule] = useState({
     category: 'scheduling',
     effect: 'ask',
-    params: '',
+    ruleType: 'outside_hours',
+    hour: 18,
     note: '',
   });
 
@@ -44,7 +45,17 @@ export function AgentAutonomySettings() {
 
   const addRule = async () => {
     try {
-      const params = newRule.params ? JSON.parse(newRule.params) : null;
+      let params: Record<string, unknown> | null = null;
+      if (newRule.category === 'scheduling') {
+        if (newRule.ruleType === 'before_hour' || newRule.ruleType === 'after_hour') {
+          params = { type: newRule.ruleType, hour: newRule.hour };
+        } else {
+          params = { type: newRule.ruleType };
+        }
+      } else if (newRule.category === 'money' && newRule.effect === 'ask') {
+        params = { threshold: 100 }; // Default threshold
+      }
+      
       await apiFetch('/agent/rules', {
         method: 'POST',
         body: JSON.stringify({
@@ -55,7 +66,7 @@ export function AgentAutonomySettings() {
         }),
       });
       setShowAddRule(false);
-      setNewRule({ category: 'scheduling', effect: 'ask', params: '', note: '' });
+      setNewRule({ category: 'scheduling', effect: 'ask', ruleType: 'outside_hours', hour: 18, note: '' });
       loadRules();
     } catch (err) {
       console.error('Failed to add rule:', err);
@@ -125,15 +136,35 @@ export function AgentAutonomySettings() {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label htmlFor="rule-params" className="text-xs">Parameters (JSON, optional)</Label>
-            <Input
-              id="rule-params"
-              value={newRule.params}
-              onChange={(e) => setNewRule({ ...newRule, params: e.target.value })}
-              placeholder='{"threshold": 100}'
-            />
-          </div>
+          {newRule.category === 'scheduling' && (
+            <div>
+              <Label htmlFor="rule-type" className="text-xs">Rule Type</Label>
+              <Select value={newRule.ruleType} onValueChange={(v) => setNewRule({ ...newRule, ruleType: v })}>
+                <SelectTrigger id="rule-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="outside_hours">Outside Business Hours</SelectItem>
+                  <SelectItem value="weekends">Weekends</SelectItem>
+                  <SelectItem value="before_hour">Before Hour</SelectItem>
+                  <SelectItem value="after_hour">After Hour</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {(newRule.ruleType === 'before_hour' || newRule.ruleType === 'after_hour') && (
+            <div>
+              <Label htmlFor="rule-hour" className="text-xs">Hour (0-23)</Label>
+              <Input
+                id="rule-hour"
+                type="number"
+                min="0"
+                max="23"
+                value={newRule.hour}
+                onChange={(e) => setNewRule({ ...newRule, hour: parseInt(e.target.value) || 0 })}
+              />
+            </div>
+          )}
           <div>
             <Label htmlFor="rule-note" className="text-xs">Note</Label>
             <Textarea

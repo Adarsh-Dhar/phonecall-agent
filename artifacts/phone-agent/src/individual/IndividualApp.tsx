@@ -112,6 +112,13 @@ export default function IndividualApp() {
         contactName: event.contactName || 'the business',
         handoff: { id: event.handoffId, reason: event.reason, summary: event.summary },
       });
+    },
+    (event) => {
+      // Agent completed a call
+      toast({
+        title: 'Agent call completed',
+        description: `Your agent finished a call with ${event.contactName || 'a business'}. Outcome: ${event.outcome || 'unknown'}`,
+      });
     }
   );
 

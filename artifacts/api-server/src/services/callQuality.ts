@@ -54,9 +54,10 @@ export async function scoreCall(callId: string): Promise<void> {
       select: {
         outcome: true,
         durationSec: true,
-        autonomous: true,
         contactId: true,
         individualId: true,
+        taskId: true,
+        isEnoughKnowledge: true,
       },
     });
 
@@ -72,6 +73,10 @@ export async function scoreCall(callId: string): Promise<void> {
     else if (call.outcome === "needs_user") score -= 10;
     else if (call.outcome === "failed") score -= 30;
 
+    // Knowledge score: did the agent get what it needed without escalation?
+    if (call.isEnoughKnowledge === true) score += 10;
+    else if (call.isEnoughKnowledge === false) score -= 15;
+
     // Duration sanity: too short (< 10s) or too long (> 10min) penalizes
     if (call.durationSec) {
       if (call.durationSec < 10) score -= 20;
@@ -79,9 +84,19 @@ export async function scoreCall(callId: string): Promise<void> {
       else if (call.durationSec > 30 && call.durationSec < 300) score += 5; // sweet spot
     }
 
-    // Agent mode bonus: autonomous calls that succeed are impressive
-    if (call.autonomous && (call.outcome === "booked" || call.outcome === "rescheduled")) {
-      score += 10;
+    // Task-specific bonus: if there was a task and the outcome matches the task kind
+    if (call.taskId) {
+      const task = await prisma.task.findUnique({
+        where: { id: call.taskId },
+        select: { kind: true },
+      });
+      if (task) {
+        if (task.kind === "appointment" && (call.outcome === "booked" || call.outcome === "rescheduled")) {
+          score += 5;
+        } else if (task.kind === "follow_up" && call.outcome === "info_gathered") {
+          score += 5;
+        }
+      }
     }
 
     // Clamp to 1-100
@@ -95,7 +110,7 @@ export async function scoreCall(callId: string): Promise<void> {
         qualityJson: {
           outcome: call.outcome,
           durationSec: call.durationSec,
-          autonomous: call.autonomous,
+          isEnoughKnowledge: call.isEnoughKnowledge,
         },
       },
     });
