@@ -9,12 +9,12 @@ import crypto from 'crypto';
 import pkg from 'pg';
 const { Client } = pkg;
 
-const TEST_DATABASE_URL = process.env.DATABASE_URL || process.env.TEST_DATABASE_URL;
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
 const N_INDIVIDUALS = Number(process.env.N_INDIVIDUALS) || 20;
 
 if (!TEST_DATABASE_URL) {
-  console.error('TEST_DATABASE_URL or DATABASE_URL not set in .env');
+  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
   process.exit(1);
 }
 
@@ -22,6 +22,27 @@ if (!JWT_SECRET) {
   console.error('JWT_SECRET not set in .env');
   process.exit(1);
 }
+
+// Database safety check: must be localhost and name ends with _test
+const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
+if (!dbMatch) {
+  console.error('Could not parse TEST_DATABASE_URL');
+  process.exit(1);
+}
+
+const [, host, port, dbName] = dbMatch;
+if (host !== 'localhost' && host !== '127.0.0.1') {
+  console.error('TEST_DATABASE_URL must use localhost for safety');
+  process.exit(1);
+}
+
+if (!dbName.endsWith('_test')) {
+  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
+  console.error('This prevents accidental use of production databases');
+  process.exit(1);
+}
+
+console.log(`Safety check passed: using ${dbName} on localhost:${port}`);
 
 const client = new Client(TEST_DATABASE_URL);
 
@@ -105,9 +126,6 @@ async function seed() {
 
     businesses.push({ id, email, name, business, token });
   }
-
-  // Commit the transaction
-  await client.query('COMMIT');
 
   // Commit the transaction
   try {

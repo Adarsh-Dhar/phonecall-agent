@@ -13,7 +13,30 @@ const { Client } = pkg;
 
 const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
 const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+
+if (!TEST_DATABASE_URL) {
+  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
+  process.exit(1);
+}
+
+// Database safety check: must be localhost and name ends with _test
+const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
+if (!dbMatch) {
+  console.error('Could not parse TEST_DATABASE_URL');
+  process.exit(1);
+}
+
+const [, host, port, dbName] = dbMatch;
+if (host !== 'localhost' && host !== '127.0.0.1') {
+  console.error('TEST_DATABASE_URL must use localhost for safety');
+  process.exit(1);
+}
+
+if (!dbName.endsWith('_test')) {
+  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
+  process.exit(1);
+}
 
 // Load tokens
 let tokens;
@@ -215,23 +238,16 @@ async function runWorkflow(userId, token, businessId) {
     }));
     console.log(`  [User ${userId}]   ✓ Created contact (ID: ${contact2.id})`);
     
-    // 5. Update contact hours (skip if it fails - API authorization issue)
+    // 5. Update contact hours
     console.log(`  [User ${userId}] Step 5: Updating contact hours...`);
-    try {
-      await withTiming('updateContact', () => updateContact(contact2.id, {
-        businessHoursJson: JSON.stringify({
-          days: [1, 2, 3, 4, 5],
-          start: 9,
-          end: 17,
-        }),
-      }));
-      console.log(`  [User ${userId}]   ✓ Update complete`);
-    } catch (error) {
-      console.log(`  [User ${userId}]   ⚠️  Update skipped: ${error.message}`);
-      // Update stats to not count this as an error
-      stats.updateContact.count--;
-      stats.updateContact.errors--;
-    }
+    await withTiming('updateContact', () => updateContact(token, contact2.id, {
+      businessHoursJson: JSON.stringify({
+        days: [1, 2, 3, 4, 5],
+        start: 9,
+        end: 17,
+      }),
+    }));
+    console.log(`  [User ${userId}]   ✓ Update complete`);
     
     // 6. Delete both contacts
     console.log(`  [User ${userId}] Step 6: Deleting first contact...`);

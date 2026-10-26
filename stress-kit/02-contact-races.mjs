@@ -16,7 +16,30 @@ const { Client } = pkg;
 
 const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
 const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+
+if (!TEST_DATABASE_URL) {
+  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
+  process.exit(1);
+}
+
+// Database safety check: must be localhost and name ends with _test
+const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
+if (!dbMatch) {
+  console.error('Could not parse TEST_DATABASE_URL');
+  process.exit(1);
+}
+
+const [, host, port, dbName] = dbMatch;
+if (host !== 'localhost' && host !== '127.0.0.1') {
+  console.error('TEST_DATABASE_URL must use localhost for safety');
+  process.exit(1);
+}
+
+if (!dbName.endsWith('_test')) {
+  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
+  process.exit(1);
+}
 
 // Load tokens
 let tokens;
@@ -229,19 +252,25 @@ async function runChapter() {
   // Pass/Fail criteria
   console.log('PASS/FAIL CRITERIA');
   console.log('='.repeat(80));
-  
-  // These are "expected failures" per the spec, so we report them but don't fail the test
+
   const hasDuplicates = stats.parallelAdds.duplicates > 0;
   const has500Errors = stats.editVsDelete.errors > 0;
-  
-  console.log(`Check 2a (duplicates): ${hasDuplicates ? '⚠️  EXPECTED FAILURE - needs unique index' : '✓ PASS'}`);
-  console.log(`Check 2b (500 errors): ${has500Errors ? '⚠️  EXPECTED FAILURE - needs atomic updates' : '✓ PASS'}`);
+
+  console.log(`Check 2a (duplicates): ${hasDuplicates ? '✗ FAIL - duplicate contacts created' : '✓ PASS'}`);
+  console.log(`Check 2b (500 errors): ${has500Errors ? '✗ FAIL - HTTP 500 errors detected' : '✓ PASS'}`);
   console.log('');
-  
-  console.log(`Overall: INFORMATIONAL (these are known issues to fix)`);
+
+  // FAIL if duplicates or 500 errors
+  if (hasDuplicates || has500Errors) {
+    console.log(`Overall: ✗ FAIL`);
+    console.log('='.repeat(80));
+    process.exit(1);
+  }
+
+  console.log(`Overall: ✓ PASS`);
   console.log('='.repeat(80));
-  
-  process.exit(0); // Always exit 0 since these are expected failures
+
+  process.exit(0);
 }
 
 runChapter().catch(err => {

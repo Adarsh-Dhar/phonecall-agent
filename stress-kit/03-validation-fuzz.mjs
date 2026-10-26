@@ -308,27 +308,30 @@ async function runChapter() {
   console.log('');
   console.log('RESULTS');
   console.log('='.repeat(80));
-  
+
   let failCount = 0;
-  
+
   for (const [test, data] of Object.entries(stats)) {
     const is4xx = data.status >= 400 && data.status < 500;
     const is5xx = data.status >= 500;
-    
+    const is2xx = data.status >= 200 && data.status < 300;
+    const isConnError = data.status === 0;
+
     console.log(`${test}:`);
     console.log(`  Status: ${data.status}`);
     console.log(`  Expected: 4xx`);
-    console.log(`  Result: ${is4xx ? '✓ PASS' : is5xx ? '✗ FAIL (5xx)' : '? UNKNOWN'}`);
-    
-    if (is5xx) failCount++;
+    console.log(`  Result: ${is4xx ? '✓ PASS' : is5xx ? '✗ FAIL (5xx)' : is2xx ? '✗ FAIL (2xx - invalid input accepted)' : isConnError ? '✗ FAIL (connection error)' : '? UNKNOWN'}`);
+
+    // FAIL if not 4xx (including 2xx, 5xx, connection errors, etc.)
+    if (!is4xx) failCount++;
   }
-  
+
   console.log('');
   console.log('PASS/FAIL CRITERIA');
   console.log('='.repeat(80));
-  console.log(`All bad inputs return 4xx (not 5xx): ${failCount === 0 ? '✓ PASS' : '✗ FAIL'}`);
+  console.log(`All bad inputs return 4xx (not 2xx, 5xx, or connection errors): ${failCount === 0 ? '✓ PASS' : '✗ FAIL'}`);
   console.log('');
-  
+
   console.log(`Overall: ${failCount === 0 ? '✓ PASS' : '✗ FAIL'}`);
   console.log('='.repeat(80));
   

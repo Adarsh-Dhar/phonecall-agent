@@ -32,9 +32,20 @@ async function runChapter(chapterFile) {
       env: process.env,
     });
 
+    let output = '';
+    proc.stdout?.on('data', (data) => {
+      output += data.toString();
+    });
+    proc.stderr?.on('data', (data) => {
+      output += data.toString();
+    });
+
     proc.on('close', (code) => {
+      // Check if the chapter reported SKIP in its output
+      const hasSkip = output.includes('⚠️  SKIP') || output.includes('SKIP (manual test required)');
+
       if (code === 0) {
-        resolve();
+        resolve({ status: hasSkip ? 'SKIP' : 'PASS' });
       } else {
         reject(new Error(`${chapterFile} exited with code ${code}`));
       }
@@ -64,11 +75,11 @@ async function main() {
 
   for (const chapter of chaptersToRun) {
     if (!chapter) continue;
-    
+
     console.log(`\nRunning ${chapter}...`);
     try {
-      await runChapter(chapter);
-      results.push({ chapter, status: 'PASS' });
+      const result = await runChapter(chapter);
+      results.push({ chapter, status: result.status });
     } catch (error) {
       results.push({ chapter, status: 'FAIL', error: error.message });
     }
@@ -78,7 +89,7 @@ async function main() {
   console.log('='.repeat(80));
   console.log('SUMMARY');
   console.log('='.repeat(80));
-  
+
   for (const result of results) {
     console.log(`${result.chapter}: ${result.status}`);
     if (result.status === 'FAIL') {
@@ -86,13 +97,29 @@ async function main() {
     }
   }
 
+  const passed = results.filter(r => r.status === 'PASS');
   const failed = results.filter(r => r.status === 'FAIL');
+  const skipped = results.filter(r => r.status === 'SKIP');
+
   console.log('');
-  console.log(`Total: ${results.length}, Passed: ${results.length - failed.length}, Failed: ${failed.length}`);
-  
+  console.log(`Total: ${results.length}, Passed: ${passed.length}, Failed: ${failed.length}, Skipped: ${skipped.length}`);
+
   if (failed.length > 0) {
+    console.log('');
+    console.log('Overall: ✗ FAIL (some chapters failed)');
     process.exit(1);
   }
+
+  if (skipped.length > 0) {
+    console.log('');
+    console.log('Overall: ⚠️  SKIP (manual tests required)');
+    console.log('Note: Skipped chapters require manual verification before certification');
+    process.exit(0); // Exit 0 for SKIP - not a failure, but not a full pass
+  }
+
+  console.log('');
+  console.log('Overall: ✓ PASS');
+  process.exit(0);
 }
 
 main().catch(err => {

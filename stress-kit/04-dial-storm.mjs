@@ -16,7 +16,30 @@ const { Client } = pkg;
 
 const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
 const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+
+if (!TEST_DATABASE_URL) {
+  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
+  process.exit(1);
+}
+
+// Database safety check: must be localhost and name ends with _test
+const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
+if (!dbMatch) {
+  console.error('Could not parse TEST_DATABASE_URL');
+  process.exit(1);
+}
+
+const [, host, port, dbName] = dbMatch;
+if (host !== 'localhost' && host !== '127.0.0.1') {
+  console.error('TEST_DATABASE_URL must use localhost for safety');
+  process.exit(1);
+}
+
+if (!dbName.endsWith('_test')) {
+  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
+  process.exit(1);
+}
 
 // Load tokens
 let tokens;
@@ -92,59 +115,66 @@ async function checkCallbackTasks(contactId) {
 // Test 4a: Parallel dials may leave multiple ringing calls
 async function testParallelDials(individual, business) {
   stats.parallelDials.count++;
-  
+
   let contactId;
-  
+
   console.log(`  [Check 4a] Testing ${individual.id} -> ${business.id}`);
-  
+
   try {
     // Add business as contact
     console.log(`  [Check 4a] Adding business as contact...`);
     const contact = await addContactFromAccount(individual.token, business.id);
     contactId = contact.id;
     console.log(`  [Check 4a] ✓ Contact created (ID: ${contactId})`);
-    
+
     // Fire 5 parallel dial requests
     console.log(`  [Check 4a] Firing 5 parallel dial requests...`);
     const promises = Array.from({ length: 5 }, () =>
       dialCall(individual.token, contactId).catch(e => ({ error: e.message }))
     );
-    
+
     const results = await Promise.all(promises);
     const successful = results.filter(r => !r.error).length;
     console.log(`  [Check 4a] ${successful}/5 dial requests succeeded`);
-    
+
+    // FAIL if no dial requests succeeded (test not executed)
+    if (successful === 0) {
+      stats.parallelDials.multipleRinging++;
+      console.log(`  [Check 4a] ✗ FAIL: No dial requests succeeded - test not properly executed`);
+      throw new Error('No dial requests succeeded');
+    }
+
     // Check for multiple ringing calls
     console.log(`  [Check 4a] Checking for multiple ringing calls...`);
     const ringingCount = await getRingingCalls(individual.id, business.id);
     console.log(`  [Check 4a] Found ${ringingCount} ringing call(s)`);
-    
+
     if (ringingCount > 1) {
       stats.parallelDials.multipleRinging++;
-      console.log(`  [Check 4a] ⚠️  MULTIPLE RINGING: ${ringingCount} calls for ${individual.id} -> ${business.id}`);
+      console.log(`  [Check 4a] ✗ FAIL: Multiple ringing calls: ${ringingCount} calls for ${individual.id} -> ${business.id}`);
     } else {
       stats.parallelDials.success++;
       console.log(`  [Check 4a] ✓ Single ringing call (correct)`);
     }
-    
+
     // Cleanup calls
     console.log(`  [Check 4a] Cleaning up calls...`);
     await client.connect();
     await client.query(`
-      DELETE FROM "Call" 
-      WHERE "individualId" = $1 
+      DELETE FROM "Call"
+      WHERE "individualId" = $1
       AND "businessId" = $2
     `, [individual.id, business.id]);
     await client.end();
     console.log(`  [Check 4a] ✓ Calls cleaned up`);
-    
+
     // Cleanup contact
     await fetch(`${API_BASE}/contacts/${contactId}`, {
       method: 'DELETE',
       headers: { 'Cookie': `token=${individual.token}` },
     });
     console.log(`  [Check 4a] ✓ Contact cleaned up`);
-    
+
   } catch (error) {
     console.log(`  [Check 4a] ✗ Failed: ${error.message}`);
     // Cleanup
@@ -162,59 +192,66 @@ async function testParallelDials(individual, business) {
 // Test 4b: Rapid button mash (25 dial attempts)
 async function testRapidButtonMash(individual, business) {
   stats.rapidButtonMash.count++;
-  
+
   let contactId;
-  
+
   console.log(`  [Check 4b] Testing ${individual.id} -> ${business.id}`);
-  
+
   try {
     const contact = await addContactFromAccount(individual.token, business.id);
     contactId = contact.id;
     console.log(`  [Check 4b] ✓ Contact created (ID: ${contactId})`);
-    
+
     // Fire 25 rapid dial requests
     console.log(`  [Check 4b] Firing 25 rapid dial requests...`);
     const promises = Array.from({ length: 25 }, () =>
       dialCall(individual.token, contactId).catch(e => ({ error: e.message }))
     );
-    
+
     const results = await Promise.all(promises);
     const successful = results.filter(r => !r.error).length;
     console.log(`  [Check 4b] ${successful}/25 dial requests succeeded`);
-    
+
+    // FAIL if no dial requests succeeded (test not executed)
+    if (successful === 0) {
+      stats.rapidButtonMash.duplicateCalls++;
+      console.log(`  [Check 4b] ✗ FAIL: No dial requests succeeded - test not properly executed`);
+      throw new Error('No dial requests succeeded');
+    }
+
     // Check for duplicate calls
     console.log(`  [Check 4b] Checking for duplicate calls...`);
     await client.connect();
     const result = await client.query(`
-      SELECT COUNT(*) FROM "Call" 
+      SELECT COUNT(*) FROM "Call"
       WHERE "contactId" = $1
     `, [contactId]);
     await client.end();
-    
+
     const callCount = parseInt(result.rows[0].count);
     console.log(`  [Check 4b] Found ${callCount} call(s)`);
-    
+
     if (callCount > 1) {
       stats.rapidButtonMash.duplicateCalls++;
-      console.log(`  [Check 4b] ⚠️  DUPLICATE CALLS: ${callCount} calls from 25 attempts`);
+      console.log(`  [Check 4b] ✗ FAIL: Duplicate calls: ${callCount} calls from 25 attempts`);
     } else {
       stats.rapidButtonMash.success++;
       console.log(`  [Check 4b] ✓ Single call (correct)`);
     }
-    
+
     // Cleanup
     console.log(`  [Check 4b] Cleaning up calls...`);
     await client.connect();
     await client.query(`DELETE FROM "Call" WHERE "contactId" = $1`, [contactId]);
     await client.end();
     console.log(`  [Check 4b] ✓ Calls cleaned up`);
-    
+
     await fetch(`${API_BASE}/contacts/${contactId}`, {
       method: 'DELETE',
       headers: { 'Cookie': `token=${individual.token}` },
     });
     console.log(`  [Check 4b] ✓ Contact cleaned up`);
-    
+
   } catch (error) {
     console.log(`  [Check 4b] ✗ Failed: ${error.message}`);
   }
@@ -223,16 +260,16 @@ async function testRapidButtonMash(individual, business) {
 // Test 4d: Parallel dials to closed business (duplicate callback tasks)
 async function testClosedBusinessDials(individual, business) {
   stats.closedBusinessDials.count++;
-  
+
   let contactId;
-  
+
   console.log(`  [Check 4d] Testing ${individual.id} -> ${business.id}`);
-  
+
   try {
     const contact = await addContactFromAccount(individual.token, business.id);
     contactId = contact.id;
     console.log(`  [Check 4d] ✓ Contact created (ID: ${contactId})`);
-    
+
     // Set business hours to "closed" (current time outside hours)
     console.log(`  [Check 4d] Setting business hours to closed...`);
     await fetch(`${API_BASE}/contacts/${contactId}`, {
@@ -250,42 +287,42 @@ async function testClosedBusinessDials(individual, business) {
       }),
     });
     console.log(`  [Check 4d] ✓ Business hours set to closed`);
-    
+
     // Fire 5 parallel dial attempts (should all fail but might create tasks)
     console.log(`  [Check 4d] Firing 5 parallel dial attempts to closed business...`);
     const promises = Array.from({ length: 5 }, () =>
       dialCall(individual.token, contactId).catch(e => ({ error: e.message }))
     );
-    
-    await Promise.all(promises);
+
+    const results = await Promise.all(promises);
     console.log(`  [Check 4d] ✓ Dial attempts complete`);
-    
+
     // Check for duplicate callback tasks
     console.log(`  [Check 4d] Checking for duplicate callback tasks...`);
     const taskCount = await checkCallbackTasks(contactId);
     console.log(`  [Check 4d] Found ${taskCount} callback task(s)`);
-    
+
     if (taskCount > 1) {
       stats.closedBusinessDials.duplicateTasks++;
-      console.log(`  [Check 4d] ⚠️  DUPLICATE TASKS: ${taskCount} tasks for closed business`);
+      console.log(`  [Check 4d] ✗ FAIL: Duplicate tasks: ${taskCount} tasks for closed business`);
     } else {
       stats.closedBusinessDials.success++;
       console.log(`  [Check 4d] ✓ Single or zero tasks (correct)`);
     }
-    
+
     // Cleanup
     console.log(`  [Check 4d] Cleaning up tasks...`);
     await client.connect();
     await client.query(`DELETE FROM "Task" WHERE "contactId" = $1`, [contactId]);
     await client.end();
     console.log(`  [Check 4d] ✓ Tasks cleaned up`);
-    
+
     await fetch(`${API_BASE}/contacts/${contactId}`, {
       method: 'DELETE',
       headers: { 'Cookie': `token=${individual.token}` },
     });
     console.log(`  [Check 4d] ✓ Contact cleaned up`);
-    
+
   } catch (error) {
     console.log(`  [Check 4d] ✗ Failed: ${error.message}`);
   }
@@ -342,26 +379,32 @@ async function runChapter() {
   console.log('');
   console.log('PASS/FAIL CRITERIA');
   console.log('='.repeat(80));
-  
+
   const hasMultipleRinging = stats.parallelDials.multipleRinging > 0;
   const hasDuplicateCalls = stats.rapidButtonMash.duplicateCalls > 0;
   const hasDuplicateTasks = stats.closedBusinessDials.duplicateTasks > 0;
-  
-  console.log(`Check 4a (multiple ringing): ${hasMultipleRinging ? '⚠️  EXPECTED FAILURE - needs unique index' : '✓ PASS'}`);
-  console.log(`Check 4b (duplicate calls): ${hasDuplicateCalls ? '⚠️  EXPECTED FAILURE - needs deduplication' : '✓ PASS'}`);
-  console.log(`Check 4d (duplicate tasks): ${hasDuplicateTasks ? '⚠️  EXPECTED FAILURE - needs task deduplication' : '✓ PASS'}`);
+
+  console.log(`Check 4a (multiple ringing): ${hasMultipleRinging ? '✗ FAIL - multiple ringing calls' : '✓ PASS'}`);
+  console.log(`Check 4b (duplicate calls): ${hasDuplicateCalls ? '✗ FAIL - duplicate calls' : '✓ PASS'}`);
+  console.log(`Check 4d (duplicate tasks): ${hasDuplicateTasks ? '✗ FAIL - duplicate callback tasks' : '✓ PASS'}`);
   console.log('');
-  
-  console.log(`Overall: INFORMATIONAL (these are known issues to fix)`);
+
+  // FAIL if any of the checks failed
+  if (hasMultipleRinging || hasDuplicateCalls || hasDuplicateTasks) {
+    console.log(`Overall: ✗ FAIL`);
+    console.log('='.repeat(80));
+    console.log('');
+    console.log('FIX PATTERN:');
+    console.log('- Add partial unique index: UNIQUE (individualId, businessId) WHERE status = \'ringing\'');
+    console.log('- Handle unique violation by returning existing call');
+    console.log('- Add task deduplication before creating callback tasks');
+    process.exit(1);
+  }
+
+  console.log(`Overall: ✓ PASS`);
   console.log('='.repeat(80));
-  
-  console.log('');
-  console.log('FIX PATTERN:');
-  console.log('- Add partial unique index: UNIQUE (individualId, businessId) WHERE status = \'ringing\'');
-  console.log('- Handle unique violation by returning existing call');
-  console.log('- Add task deduplication before creating callback tasks');
-  
-  process.exit(0); // Always exit 0 since these are expected failures
+
+  process.exit(0);
 }
 
 runChapter().catch(err => {

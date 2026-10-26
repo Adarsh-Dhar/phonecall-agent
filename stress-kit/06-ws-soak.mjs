@@ -23,7 +23,30 @@ const { Client } = pkg;
 const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
 const WS_BASE = process.env.WS_BASE || 'ws://localhost:5175';
 const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+
+if (!TEST_DATABASE_URL) {
+  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
+  process.exit(1);
+}
+
+// Database safety check: must be localhost and name ends with _test
+const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
+if (!dbMatch) {
+  console.error('Could not parse TEST_DATABASE_URL');
+  process.exit(1);
+}
+
+const [, host, port, dbName] = dbMatch;
+if (host !== 'localhost' && host !== '127.0.0.1') {
+  console.error('TEST_DATABASE_URL must use localhost for safety');
+  process.exit(1);
+}
+
+if (!dbName.endsWith('_test')) {
+  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
+  process.exit(1);
+}
 
 // Load tokens
 let tokens;
@@ -233,16 +256,15 @@ async function testRapidReconnect() {
 async function testMemoryLeak() {
   console.log('');
   console.log('[Check 6d] Testing observer joining completed call (memory leak)...');
-  
+
   stats.memoryLeak.count++;
-  
-  // This is a simplified check - in reality you'd monitor process memory
-  // Here we just verify the behavior doesn't crash
-  
-  console.log('  [Check 6d] ℹ️  INFO: Full memory leak check requires process monitoring');
-  console.log('  [Check 6d] ℹ️  INFO: Run with SERVER_PID to watch memory over 300 joins');
-  console.log('  [Check 6d] ✓ PASS: No immediate crash observed');
-  stats.memoryLeak.leaked = 0; // Assume pass for this simplified version
+
+  // Actual memory leak check requires external process monitoring
+  // This is a simplified version that does not measure memory
+  console.log('  [Check 6d] ⚠️  SKIP: Memory leak check requires external process monitoring');
+  console.log('  [Check 6d] ⚠️  SKIP: Use SERVER_PID to monitor RSS over 300 joins in a separate test');
+  console.log('  [Check 6d] ⚠️  SKIP: This test cannot verify memory stability without process monitoring');
+  stats.memoryLeak.leaked = -1; // -1 indicates SKIP
 }
 
 // Check 6e: Junk frames, large frames
@@ -351,28 +373,65 @@ async function runChapter() {
   console.log('');
   console.log('Check 6d - Memory Leak:');
   console.log(`  Attempts: ${stats.memoryLeak.count}`);
-  console.log(`  Leaked: ${stats.memoryLeak.leaked}`);
-  
+  if (stats.memoryLeak.leaked === -1) {
+    console.log(`  Result: ⚠️  SKIP (requires external process monitoring)`);
+  } else {
+    console.log(`  Leaked: ${stats.memoryLeak.leaked}`);
+  }
+
   console.log('');
   console.log('Check 6e - Frame Handling:');
   console.log(`  Junk frames handled: ${stats.junkFrames.handled}`);
   console.log(`  Large frame rejected: ${stats.largeFrame.rejected}`);
-  
+
+  console.log('');
+  console.log('UNIMPLEMENTED CHECKS (reported as SKIP):');
+  console.log('  - Heartbeat behavior (ping/pong)');
+  console.log('  - Room cleanup when last socket leaves');
+  console.log('  - One-hour soak with 20 users');
+  console.log('  - Half-open network connection handling');
+  console.log('  - Rate limiting behavior');
+
   console.log('');
   console.log('PASS/FAIL CRITERIA');
   console.log('='.repeat(80));
-  
-  const allPassed = 
-    stats.authCheck.passed &&
-    stats.disconnectOffline.offlineWithin7s === stats.disconnectOffline.count &&
-    stats.rapidReconnect.consistent === stats.rapidReconnect.count &&
-    stats.memoryLeak.leaked === 0 &&
-    stats.junkFrames.handled > 0;
-  
-  console.log(`All checks passed: ${allPassed ? '✓ PASS' : '✗ FAIL'}`);
+
+  const authPass = stats.authCheck.passed;
+  const disconnectPass = stats.disconnectOffline.offlineWithin7s === stats.disconnectOffline.count;
+  const reconnectPass = stats.rapidReconnect.consistent === stats.rapidReconnect.count;
+  const framesPass = stats.junkFrames.handled > 0 && stats.largeFrame.rejected > 0;
+  const memorySkipped = stats.memoryLeak.leaked === -1;
+
+  console.log(`Check 6a (auth): ${authPass ? '✓ PASS' : '✗ FAIL'}`);
+  console.log(`Check 6b (disconnect offline): ${disconnectPass ? '✓ PASS' : '✗ FAIL'}`);
+  console.log(`Check 6c (rapid reconnect): ${reconnectPass ? '✓ PASS' : '✗ FAIL'}`);
+  console.log(`Check 6d (memory leak): ${memorySkipped ? '⚠️  SKIP' : (stats.memoryLeak.leaked === 0 ? '✓ PASS' : '✗ FAIL')}`);
+  console.log(`Check 6e (frame handling): ${framesPass ? '✓ PASS' : '✗ FAIL'}`);
   console.log('');
-  
-  console.log(`Overall: ${allPassed ? '✓ PASS' : '✗ FAIL'}`);
+
+  // FAIL if any implemented check failed, but allow SKIP for memory leak
+  const implementedChecksPass = authPass && disconnectPass && reconnectPass && framesPass;
+
+  if (!implementedChecksPass) {
+    console.log(`Overall: ✗ FAIL (implemented checks failed)`);
+    console.log('='.repeat(80));
+    process.exit(1);
+  }
+
+  if (memorySkipped) {
+    console.log(`Overall: ⚠️  SKIP (memory leak check requires external monitoring)`);
+    console.log('='.repeat(80));
+    console.log('');
+    console.log('FIX PATTERN:');
+    console.log('- new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 })');
+    console.log('- Add per-socket message rate limits');
+    console.log('- Add ping/pong heartbeats to kill half-open sockets');
+    console.log('- Remove room when last socket leaves');
+    console.log('- Monitor process RSS during soak test');
+    process.exit(0); // Exit 0 for SKIP since implemented checks passed
+  }
+
+  console.log(`Overall: ✓ PASS`);
   console.log('='.repeat(80));
   
   console.log('');

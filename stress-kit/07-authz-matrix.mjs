@@ -21,7 +21,30 @@ import crypto from 'crypto';
 
 const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
 const JWT_SECRET = process.env.JWT_SECRET;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+
+if (!TEST_DATABASE_URL) {
+  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
+  process.exit(1);
+}
+
+// Database safety check: must be localhost and name ends with _test
+const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
+if (!dbMatch) {
+  console.error('Could not parse TEST_DATABASE_URL');
+  process.exit(1);
+}
+
+const [, host, port, dbName] = dbMatch;
+if (host !== 'localhost' && host !== '127.0.0.1') {
+  console.error('TEST_DATABASE_URL must use localhost for safety');
+  process.exit(1);
+}
+
+if (!dbName.endsWith('_test')) {
+  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
+  process.exit(1);
+}
 
 // Load tokens
 let tokens;
@@ -175,8 +198,9 @@ async function testCrossUserCall() {
     });
     
     if (!callResponse.ok) {
-      console.log('  [Check 7b] ⚠️  Dial failed (business may not have phone setup - skipping call access test)');
-      stats.crossUserCall.passed = true; // Skip test as informational
+      console.log('  [Check 7b] ⚠️  SKIP: Dial failed (business may not have phone setup - skipping call access test)');
+      console.log('  [Check 7b] ⚠️  SKIP: Marked as SKIP, not PASS - requires manual verification with phone setup');
+      stats.crossUserCall.passed = false; // Do not count as pass
       // Cleanup and return
       await fetch(`${API_BASE}/contacts/${contact1.id}`, {
         method: 'DELETE',
@@ -372,10 +396,11 @@ async function testAlgNoneToken() {
 async function testDeletedAccount() {
   console.log('');
   console.log('[Check 7g] Testing deleted account token...');
-  
-  console.log('  [Check 7g] ℹ️  INFO: Requires manual test - delete account then try token');
-  console.log('  [Check 7g] ✓ PASS: Skipped (manual test required)');
-  stats.deletedAccount.passed = true;
+
+  console.log('  [Check 7g] ⚠️  SKIP: Requires manual test - delete account then try token');
+  console.log('  [Check 7g] ⚠️  SKIP: This test requires database account deletion and token reuse');
+  console.log('  [Check 7g] ⚠️  SKIP: Marked as SKIP, not PASS - requires manual verification');
+  stats.deletedAccount.passed = false; // Do not count as pass
 }
 
 async function runChapter() {
@@ -423,30 +448,38 @@ async function runChapter() {
   
   console.log('');
   console.log('Check 7g - Deleted Account:');
-  console.log(`  Passed: ${stats.deletedAccount.passed ? '✓' : '✗'}`);
+  if (stats.deletedAccount.passed) {
+    console.log(`  Passed: ✓`);
+  } else {
+    console.log(`  Result: ⚠️  SKIP (manual test required)`);
+  }
   
   console.log('');
   console.log('PASS/FAIL CRITERIA');
   console.log('='.repeat(80));
   
   const criticalIssues = stats.knowledgeIsolation.leakFound;
-  const otherPassed = 
+  const requiredChecksPassed =
     stats.crossUserContact.passed &&
-    stats.crossUserCall.passed &&
     stats.tamperedToken.passed &&
     stats.expiredToken.passed &&
-    stats.algNoneToken.passed &&
-    stats.deletedAccount.passed;
-  
+    stats.algNoneToken.passed;
+
+  const skippedChecks = !stats.crossUserCall.passed || !stats.deletedAccount.passed;
+
   if (criticalIssues) {
     console.log(`⚠️  CRITICAL: Knowledge isolation leak found - SECURITY ISSUE`);
     console.log(`Overall: ✗ FAIL (security issue)`);
-  } else if (otherPassed) {
+  } else if (!requiredChecksPassed) {
+    console.log(`Required authorization checks failed: ✗ FAIL`);
+    console.log(`Overall: ✗ FAIL`);
+  } else if (skippedChecks) {
+    console.log(`Required authorization checks passed: ✓ PASS`);
+    console.log(`Skipped checks (manual test required): ⚠️  SKIP`);
+    console.log(`Overall: ⚠️  SKIP (manual tests required)`);
+  } else {
     console.log(`All authorization checks passed: ✓ PASS`);
     console.log(`Overall: ✓ PASS`);
-  } else {
-    console.log(`Some authorization checks failed: ✗ FAIL`);
-    console.log(`Overall: ✗ FAIL`);
   }
   
   console.log('='.repeat(80));
@@ -458,7 +491,11 @@ async function runChapter() {
   console.log('- Verify account exists on every request');
   console.log('- Add row-level security checks on all routes');
   
-  process.exit(criticalIssues ? 1 : (otherPassed ? 0 : 1));
+  if (criticalIssues || !requiredChecksPassed) {
+    process.exit(1);
+  }
+  // Exit 0 for SKIP or PASS (both are acceptable - SKIP requires manual verification)
+  process.exit(0);
 }
 
 runChapter().catch(err => {

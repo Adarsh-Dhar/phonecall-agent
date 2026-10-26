@@ -17,7 +17,30 @@ const { Client } = pkg;
 
 const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
 const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+
+if (!TEST_DATABASE_URL) {
+  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
+  process.exit(1);
+}
+
+// Database safety check: must be localhost and name ends with _test
+const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
+if (!dbMatch) {
+  console.error('Could not parse TEST_DATABASE_URL');
+  process.exit(1);
+}
+
+const [, host, port, dbName] = dbMatch;
+if (host !== 'localhost' && host !== '127.0.0.1') {
+  console.error('TEST_DATABASE_URL must use localhost for safety');
+  process.exit(1);
+}
+
+if (!dbName.endsWith('_test')) {
+  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
+  process.exit(1);
+}
 
 // Load tokens
 let tokens;
@@ -372,27 +395,33 @@ async function runChapter() {
   console.log('');
   console.log('PASS/FAIL CRITERIA');
   console.log('='.repeat(80));
-  
+
   const both200 = stats.acceptDeclineRace.both200 > 0;
   const overwritten = stats.acceptTimeoutRace.overwritten > 0;
   const earlyNotify = stats.longTimeoutNotify.earlyNotify > 0;
-  
-  console.log(`Check 5b (both 200): ${both200 ? '⚠️  EXPECTED FAILURE - needs atomic updates' : '✓ PASS'}`);
-  console.log(`Check 5d (overwritten): ${overwritten ? '⚠️  EXPECTED FAILURE - needs conditional update' : '✓ PASS'}`);
-  console.log(`Check 5e (early notify): ${earlyNotify ? '⚠️  EXPECTED FAILURE - needs per-business timeout handling' : '✓ PASS'}`);
+
+  console.log(`Check 5b (both 200): ${both200 ? '✗ FAIL - accept and decline both succeeded' : '✓ PASS'}`);
+  console.log(`Check 5d (overwritten): ${overwritten ? '✗ FAIL - accepted call marked as missed' : '✓ PASS'}`);
+  console.log(`Check 5e (early notify): ${earlyNotify ? '✗ FAIL - early notification with long timeout' : '✓ PASS'}`);
   console.log('');
-  
-  console.log(`Overall: INFORMATIONAL (these are known issues to fix)`);
+
+  // FAIL if any of the checks failed
+  if (both200 || overwritten || earlyNotify) {
+    console.log(`Overall: ✗ FAIL`);
+    console.log('='.repeat(80));
+    console.log('');
+    console.log('FIX PATTERN:');
+    console.log('- Make every transition a conditional update:');
+    console.log('  updateMany({ where: { id, status: \'ringing\' }, data: {...} })');
+    console.log('- Treat count === 0 as "someone else won" (return 409)');
+    console.log('- Use per-business ring timeouts consistently');
+    process.exit(1);
+  }
+
+  console.log(`Overall: ✓ PASS`);
   console.log('='.repeat(80));
-  
-  console.log('');
-  console.log('FIX PATTERN:');
-  console.log('- Make every transition a conditional update:');
-  console.log('  updateMany({ where: { id, status: \'ringing\' }, data: {...} })');
-  console.log('- Treat count === 0 as "someone else won" (return 409)');
-  console.log('- Use per-business ring timeouts consistently');
-  
-  process.exit(0); // Always exit 0 since these are expected failures
+
+  process.exit(0);
 }
 
 runChapter().catch(err => {
