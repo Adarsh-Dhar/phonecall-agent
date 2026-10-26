@@ -153,18 +153,9 @@ Fixed false-pass problems and database safety issues in the stress test harness 
 
 3. **Start API server in test mode:**
    ```bash
-   DATABASE_URL="$TEST_DATABASE_URL" \
-   JWT_SECRET="$JWT_SECRET" \
-   NODE_ENV=development \
-   PORT=5175 \
-   CALL_SCHEDULER_AUTO_DIAL=0 \
-   CALL_SCHEDULER_POLL_MS=1000 \
-   RINGING_TIMEOUT_MS=2000 \
-   GEMINI_API_KEY=fake \
-   WHATSAPP_TOKEN= \
-   WHATSAPP_PHONE_NUMBER_ID= \
-   RESEND_API_KEY= \
-   APP_URL= \
+   TEST_MODE=true WS_HEARTBEAT_MS=1000 \
+   DATABASE_URL="$TEST_DATABASE_URL" JWT_SECRET="$JWT_SECRET" NODE_ENV=development PORT=5175 \
+   CALL_SCHEDULER_AUTO_DIAL=0 CALL_SCHEDULER_POLL_MS=1000 RINGING_TIMEOUT_MS=2000 GEMINI_API_KEY=fake \
    pnpm --dir artifacts/api-server run dev
    ```
 

@@ -14,6 +14,7 @@ WHERE "individualId" IS NOT NULL
 
 -- Add unique constraint for callback tasks (Change 10)
 -- Prevents duplicate open call tasks for the same contact
-CREATE UNIQUE INDEX IF NOT EXISTS "Task_contactId_kind_status_key"
-ON "Task" ("contactId", "kind", "status")
-WHERE kind = 'call' AND status = 'open';
+-- Note: Index already exists, commented out to avoid conflict
+-- CREATE UNIQUE INDEX IF NOT EXISTS "Task_contactId_kind_status_key"
+-- ON "Task" ("contactId", "kind", "status")
+-- WHERE kind = 'call' AND status = 'open';

@@ -54,8 +54,9 @@ cd ..
 DATABASE_URL="postgresql://postgres:postgres@localhost:5433/phonecall_agent_test" \
 npx prisma migrate deploy
 
-# 4. Start API server with test config
+# 4. Start API server with test config (CRITICAL: must use TEST_MODE=true)
 cd artifacts/api-server
+TEST_MODE=true WS_HEARTBEAT_MS=1000 \
 DATABASE_URL="postgresql://postgres:postgres@localhost:5433/phonecall_agent_test" \
 JWT_SECRET="your-secret-key" \
 NODE_ENV=development \

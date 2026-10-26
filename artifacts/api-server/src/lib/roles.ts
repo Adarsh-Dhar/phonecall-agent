@@ -11,7 +11,7 @@ export type AccountRole = 'individual' | 'business';
  * Returns null if the account is not found.
  */
 export async function getAccountRole(req: Request): Promise<AccountRole | null> {
-  const userId = req.user?.userId;
+  const userId = req.userId;
   if (!userId) return null;
 
   const account = await prisma.account.findUnique({

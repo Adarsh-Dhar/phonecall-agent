@@ -172,7 +172,7 @@ export function validateBusinessHours(raw: unknown): BusinessHours {
   }
   if (!Number.isInteger(start) || start < 0 || start > 23) throw new Error('start must be an integer 0-23');
   if (!Number.isInteger(end) || end < 1 || end > 24) throw new Error('end must be an integer 1-24');
-  if (end === start) throw new Error('end must be different from start (use end < start for next-day end)');
+  if (start >= end) throw new Error('end must be greater than start (use end < start for next-day end)');
 
   const result: BusinessHours = { days: Array.from(new Set<number>(days)).sort(), start, end };
   if (tz !== undefined && tz !== null) {

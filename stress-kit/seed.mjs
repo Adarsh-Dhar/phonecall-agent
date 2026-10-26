@@ -87,6 +87,13 @@ async function seed() {
     const name = `Test Business ${i}`;
     const business = `Business ${i}`;
     const token = createJWT(id, email);
+    // Business hours: 24/7 for stress testing
+    const businessHoursJson = JSON.stringify({
+      days: [0, 1, 2, 3, 4, 5, 6],
+      start: 0,
+      end: 24,
+      tz: 'UTC'
+    });
 
     try {
       await client.query(`
@@ -94,12 +101,14 @@ async function seed() {
           id, email, name, business, "isService", "ownerId",
           "agentMode", "responseConcise", "askClarifying", "confirmBeforeAction",
           "emailFallback", "digestMode", "digestHour",
+          "businessHoursJson", "timezone",
           "createdAt", "updatedAt"
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
       `, [
         id, email, name, business, true, null,
         false, true, true, false,
-        true, 'daily', 18
+        true, 'daily', 18,
+        businessHoursJson, 'UTC'
       ]);
 
       businesses.push({ id, email, name, business, token });
