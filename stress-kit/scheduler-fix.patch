@@ -1,0 +1,49 @@
+--- a/artifacts/api-server/src/services/callScheduler.ts	2026-10-26 06:25:27.259569049 +0000
++++ b/artifacts/api-server/src/services/callScheduler.ts	2026-10-26 06:25:27.290407988 +0000
+@@ -274,34 +274,20 @@
+       return now.getTime() - ringingAt.getTime() > timeoutMs;
+     });
+ 
+-    // Mark stale ringing calls as missed (calls that have been ringing too long)
+-    const staleRingingCalls = await prisma.call.findMany({
+-      where: {
+-        status: 'ringing',
+-        ringingAt: { lt: ringingTimeoutThreshold },
+-      },
+-      select: {
+-        id: true,
+-        individualId: true,
+-        businessId: true,
+-        taskId: true,
+-        placedByAgent: true,
+-      },
+-    });
+-
+     if (trulyStaleCalls.length > 0) {
+       logger.info({ count: trulyStaleCalls.length }, "callScheduler: marking stale ringing calls as missed");
+       await prisma.call.updateMany({
+         where: {
+           id: { in: trulyStaleCalls.map(c => c.id) },
++          status: 'ringing', // never overwrite a call that was accepted since we read it
+         },
+         data: { status: 'missed' },
+       });
+ 
+-      logger.info({ count: staleRingingCalls.length }, "callScheduler: marked stale ringing calls as missed");
++      logger.info({ count: trulyStaleCalls.length }, "callScheduler: marked stale ringing calls as missed");
+ 
+       // Notify both parties about the status change
+-      for (const call of staleRingingCalls) {
++      for (const call of trulyStaleCalls) {
+         if (call.individualId) {
+           sendToAccount(call.individualId, {
+             type: 'call_status',
+@@ -319,7 +305,7 @@
+       }
+       // The agent's last allowed attempt rang out unanswered: now the owner (and an opted-in
+       // business) can be told the contact could not be reached.
+-      for (const call of staleRingingCalls) {
++      for (const call of trulyStaleCalls) {
+         if (call.taskId && call.placedByAgent) await handleFinalMissedAgentCall(call.id, call.taskId);
+       }
+     }

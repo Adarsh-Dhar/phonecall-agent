@@ -274,11 +274,11 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
     value: k.value,
   }));
 
-  const briefShareableInfo: Fact[] = ownerInfo.map((o) => ({
+  const briefShareableInfo: Fact[] = Array.isArray(ownerInfo) ? ownerInfo.map((o) => ({
     category: o.category,
     key: o.key,
     value: o.value,
-  }));
+  })) : [];
 
   const summaries = recentCalls.length
     ? await prisma.callSummary.findMany({ where: { callId: { in: recentCalls.map((c) => c.id) } } })

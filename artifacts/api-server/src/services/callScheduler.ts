@@ -234,6 +234,7 @@ export async function checkDueTasks(): Promise<void> {
 
     const businessTimeouts = new Map<string, number>();
     for (const { businessId } of businessesWithRinging) {
+      if (!businessId) continue;
       const account = await prisma.account.findUnique({
         where: { id: businessId },
         select: { ringTimeoutSec: true },
@@ -264,6 +265,7 @@ export async function checkDueTasks(): Promise<void> {
         taskId: true,
         placedByAgent: true,
         ringingAt: true,
+        createdAt: true,
       },
     });
 
@@ -274,34 +276,20 @@ export async function checkDueTasks(): Promise<void> {
       return now.getTime() - ringingAt.getTime() > timeoutMs;
     });
 
-    // Mark stale ringing calls as missed (calls that have been ringing too long)
-    const staleRingingCalls = await prisma.call.findMany({
-      where: {
-        status: 'ringing',
-        ringingAt: { lt: ringingTimeoutThreshold },
-      },
-      select: {
-        id: true,
-        individualId: true,
-        businessId: true,
-        taskId: true,
-        placedByAgent: true,
-      },
-    });
-
     if (trulyStaleCalls.length > 0) {
       logger.info({ count: trulyStaleCalls.length }, "callScheduler: marking stale ringing calls as missed");
       await prisma.call.updateMany({
         where: {
           id: { in: trulyStaleCalls.map(c => c.id) },
+          status: 'ringing', // never overwrite a call that was accepted since we read it
         },
         data: { status: 'missed' },
       });
 
-      logger.info({ count: staleRingingCalls.length }, "callScheduler: marked stale ringing calls as missed");
+      logger.info({ count: trulyStaleCalls.length }, "callScheduler: marked stale ringing calls as missed");
 
       // Notify both parties about the status change
-      for (const call of staleRingingCalls) {
+      for (const call of trulyStaleCalls) {
         if (call.individualId) {
           sendToAccount(call.individualId, {
             type: 'call_status',
@@ -319,7 +307,7 @@ export async function checkDueTasks(): Promise<void> {
       }
       // The agent's last allowed attempt rang out unanswered: now the owner (and an opted-in
       // business) can be told the contact could not be reached.
-      for (const call of staleRingingCalls) {
+      for (const call of trulyStaleCalls) {
         if (call.taskId && call.placedByAgent) await handleFinalMissedAgentCall(call.id, call.taskId);
       }
     }

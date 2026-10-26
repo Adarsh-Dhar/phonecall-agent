@@ -181,8 +181,7 @@ async function expireAncient(now: Date): Promise<number> {
   // Get all potentially expired loops
   const loops = await prisma.openLoop.findMany({
     where: { status: "open", dueAt: { not: null } },
-    select: { id: true, dueAt: true },
-    include: { relationship: { select: { individualId: true } } },
+    select: { id: true, dueAt: true, relationship: { select: { individualId: true } } },
   });
 
   // Filter to only those that have exceeded their individual's expiration period
@@ -263,33 +262,19 @@ async function escalateOverdueQueries(now: Date): Promise<number> {
  * Mark scheduled tasks without dueDate as stale (unparseable date).
  */
 async function staleTasksWithoutDueDate(now: Date): Promise<number> {
-  // Load individual-specific query overdue periods (reused for stale task threshold)
-  const individuals = await prisma.account.findMany({
-    where: { isService: false },
-    select: { id: true, loopCheckinGraceMin: true },
-  });
+  // Use a fixed threshold for stale tasks (based on DEFAULT_QUERY_OVERDUE_HOURS)
+  const STALE_THRESHOLD_MS = DEFAULT_CHECKIN_GRACE_MIN * 60_000;
 
-  const staleThresholds = new Map<string, number>();
-  for (const ind of individuals) {
-    staleThresholds.set(ind.id, (ind.loopCheckinGraceMin ?? DEFAULT_CHECKIN_GRACE_MIN) * 60_000);
-  }
-
-  const allStale = await prisma.task.findMany({
+  const stale = await prisma.task.findMany({
     where: {
       status: { in: ["open", "suggested"] },
       kind: "call",
       dueDate: null,
       schedulerStatus: "pending",
-      createdAt: { not: null },
+      createdAt: { lt: new Date(+now - STALE_THRESHOLD_MS) },
     },
-    select: { id: true, createdAt: true, ownerId: true },
+    select: { id: true },
     take: BATCH,
-  });
-
-  // Filter to only those that have exceeded their individual's stale threshold
-  const stale = allStale.filter(task => {
-    const thresholdMs = staleThresholds.get(task.ownerId) ?? DEFAULT_CHECKIN_GRACE_MIN * 60_000;
-    return task.createdAt && new Date(+now - thresholdMs) >= task.createdAt;
   });
 
   if (stale.length === 0) return 0;

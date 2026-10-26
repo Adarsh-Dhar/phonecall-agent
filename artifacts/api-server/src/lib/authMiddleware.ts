@@ -3,7 +3,16 @@ import { verifyToken, type JWTPayload } from './jwt';
 import { logger } from './logger';
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const token = req.cookies?.token;
+  // Check for token in cookie first
+  let token = req.cookies?.token;
+
+  // Fall back to Authorization header for programmatic access
+  if (!token && req.headers.authorization) {
+    const authHeader = req.headers.authorization;
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+  }
 
   if (!token) {
     res.status(401).json({ error: 'Unauthorized - No token provided' });
@@ -22,7 +31,17 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 }
 
 export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
-  const token = req.cookies?.token;
+  // Check for token in cookie first
+  let token = req.cookies?.token;
+
+  // Fall back to Authorization header for programmatic access
+  if (!token && req.headers.authorization) {
+    const authHeader = req.headers.authorization;
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+  }
+
   if (token) {
     const payload = verifyToken(token);
     if (payload) {

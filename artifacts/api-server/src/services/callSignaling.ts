@@ -573,7 +573,19 @@ export async function dialCallAs(
     return { call, status: 'in-progress', delivered: online };
   }
 
-  // Create ringing call
+  // Create ringing call with conditional update to prevent duplicates
+  // Mark any existing ringing calls as missed first
+  if (individualId && businessId) {
+    await prisma.call.updateMany({
+      where: {
+        individualId,
+        businessId,
+        status: 'ringing',
+      },
+      data: { status: 'missed' },
+    });
+  }
+
   const call = await prisma.call.create({
     data: {
       status: 'ringing',
@@ -630,6 +642,36 @@ export async function dialCallAs(
  * Accept a call as a specific role.
  */
 export async function acceptCallAs(callId: string, accountId: string, role: CallRole) {
+  // Conditional update to handle race conditions
+  const result = await prisma.call.updateMany({
+    where: {
+      id: callId,
+      status: 'ringing',
+    },
+    data: {
+      status: 'in-progress',
+      acceptedAt: new Date(),
+    },
+  });
+
+  if (result.count === 0) {
+    // Someone else already accepted or declined
+    const call = await prisma.call.findUnique({
+      where: { id: callId },
+      select: { status: true },
+    });
+    if (!call) {
+      throw new Error('Call not found');
+    }
+    if (call.status === 'in-progress') {
+      throw new Error('Call already accepted by another party');
+    }
+    if (call.status === 'declined') {
+      throw new Error('Call already declined');
+    }
+    throw new Error(`Call is not in ringing state (status: ${call.status})`);
+  }
+
   const call = await prisma.call.findUnique({
     where: { id: callId },
     select: {
@@ -659,19 +701,15 @@ export async function acceptCallAs(callId: string, accountId: string, role: Call
     throw new NotInContactsError();
   }
 
-  if (call.status !== 'ringing' && call.status !== 'in-progress') {
-    throw new Error(`Call is not in ringing state (status: ${call.status})`);
+  // Set startedAt if not already set
+  if (!call.startedAt) {
+    await prisma.call.update({
+      where: { id: callId },
+      data: {
+        startedAt: new Date(),
+      },
+    });
   }
-
-  // Update to in-progress
-  await prisma.call.update({
-    where: { id: callId },
-    data: {
-      status: 'in-progress',
-      acceptedAt: new Date(),
-      startedAt: call.startedAt || new Date(),
-    },
-  });
 
   // Notify the initiator
   if (initiatorId) {
@@ -689,6 +727,35 @@ export async function acceptCallAs(callId: string, accountId: string, role: Call
  * Decline a call as a specific role.
  */
 export async function declineCallAs(callId: string, accountId: string, role: CallRole) {
+  // Conditional update to handle race conditions
+  const result = await prisma.call.updateMany({
+    where: {
+      id: callId,
+      status: 'ringing',
+    },
+    data: {
+      status: 'declined',
+    },
+  });
+
+  if (result.count === 0) {
+    // Someone else already accepted or declined
+    const call = await prisma.call.findUnique({
+      where: { id: callId },
+      select: { status: true },
+    });
+    if (!call) {
+      throw new Error('Call not found');
+    }
+    if (call.status === 'in-progress') {
+      throw new Error('Call already accepted');
+    }
+    if (call.status === 'declined') {
+      throw new Error('Call already declined');
+    }
+    throw new Error(`Call is not in ringing state (status: ${call.status})`);
+  }
+
   const call = await prisma.call.findUnique({
     where: { id: callId },
     select: {

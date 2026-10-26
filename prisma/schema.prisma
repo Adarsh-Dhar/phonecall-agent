@@ -74,6 +74,10 @@ model Account {
   tasks                     Task[]
 
   @@index([ownerId])
+  @@index([ownerId, isService])
+  @@index([ownerId, isService, createdAt])
+  @@index([linkedAccountId])
+  @@unique([ownerId, linkedAccountId])
 }
 
 model Conversation {
@@ -334,6 +338,8 @@ model Call {
   @@index([taskId])
   @@index([individualId])
   @@index([businessId])
+  // Partial unique index to handle NULL values correctly
+  // CREATE UNIQUE INDEX "active_call_per_pair" ON "Call" ("individualId", "businessId") WHERE "individualId" IS NOT NULL AND "businessId" IS NOT NULL
 }
 
 model ContactKnowledge {

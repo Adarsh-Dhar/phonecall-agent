@@ -147,6 +147,8 @@ export function createCallLifecycle(opts: {
   contactName?: string;
   /** Owner preference: ask before taking action. */
   confirmBeforeAction?: boolean;
+  /** Owner preference: how long to wait for response (seconds). */
+  ownerResponseTimeoutSec?: number;
   /** The room forwards a handoff request to owner sockets already inside the call. */
   onHandoffRequested?: (info: HandoffRequestInfo) => void;
   send: (msg: object) => void;

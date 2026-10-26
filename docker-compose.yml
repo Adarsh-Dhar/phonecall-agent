@@ -3,43 +3,24 @@
 # postgres-test: 16-alpine (test DB on port 5435 via local PostgreSQL 16)
 # To enable Docker PostgreSQL again, uncomment the services below and ensure Docker Desktop is working
 
-# services:
-#   postgres:
-#     image: postgres:16-alpine
-#     container_name: phone-agent-postgres
-#     restart: unless-stopped
-#     environment:
-#       POSTGRES_USER: phoneagent
-#       POSTGRES_PASSWORD: phoneagent_password
-#       POSTGRES_DB: phone_agent
-#     ports:
-#       - "5434:5432"
-#     volumes:
-#       - postgres_data:/var/lib/postgresql/data
-#     healthcheck:
-#       test: ["CMD-SHELL", "pg_isready -U phoneagent -d phone_agent"]
-#       interval: 10s
-#       timeout: 5s
-#       retries: 5
-#
-#   postgres-test:
-#     image: postgres:16-alpine
-#     container_name: phone-agent-postgres-test
-#     restart: unless-stopped
-#     environment:
-#       POSTGRES_USER: phoneagent
-#       POSTGRES_PASSWORD: phoneagent_password
-#       POSTGRES_DB: phone_agent_test
-#     ports:
-#       - "5435:5432"
-#     volumes:
-#       - postgres_test_data:/var/lib/postgresql/data
-#     healthcheck:
-#       test: ["CMD-SHELL", "pg_isready -U phoneagent -d phone_agent_test"]
-#       interval: 10s
-#       timeout: 5s
-#       retries: 5
-#
-# volumes:
-#   postgres_data:
-#   postgres_test_data:
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: phone-agent-postgres-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: phoneagent
+      POSTGRES_PASSWORD: phoneagent_password
+      POSTGRES_DB: phone_agent_test
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phoneagent -d phone_agent_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_test_data:

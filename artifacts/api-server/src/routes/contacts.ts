@@ -7,6 +7,9 @@ import { loadClosureInfo, closureForIndividual } from "../services/businessClosu
 import { parseContactEmail, parseAllowFallback, hasUsableChannel, messagingView, NO_CHANNEL_ERROR } from "../services/outbound/contactFields";
 import { queueIntroCall, cancelIntroCall } from '../services/introCall';
 import { sourcesInclude } from "../lib/prismaSelects";
+import { getCachedClosureInfo, cacheClosureInfo, getCachedBusinessHours, cacheBusinessHours, isRedisAvailable } from "../lib/cache";
+import { strictRateLimit, writeRateLimit } from "../lib/rateLimit";
+import { contactCreateSchema, contactUpdateSchema } from "@workspace/api-zod";
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -238,8 +241,21 @@ router.post("/contacts/from-account/:accountId", asyncHandler(async (req, res) =
   res.status(201).json(contact);
   return;
 }, "Failed to add contact from account"));
-router.get("/contacts", asyncHandler(async (req, res) => {
-  const { category } = req.query;
+router.get("/contacts", strictRateLimit, asyncHandler(async (req, res) => {
+  const { category, page = "1", limit = "20" } = req.query;
+  const pageNum = Math.max(1, parseInt(String(page), 10));
+  const limitNum = Math.min(100, Math.max(1, parseInt(String(limit), 10)));
+  const skip = (pageNum - 1) * limitNum;
+
+  // Get total count for pagination metadata
+  const totalCount = await prisma.account.count({
+    where: {
+      ownerId:   req.userId!,
+      isService: true,
+      ...(category ? { category: String(category) } : {}),
+    },
+  });
+
   const contacts = await prisma.account.findMany({
     where: {
       ownerId:   req.userId!,
@@ -270,6 +286,8 @@ router.get("/contacts", asyncHandler(async (req, res) => {
       },
     },
     orderBy: { createdAt: "desc" },
+    skip,
+    take: limitNum,
   });
 
   // Load owner's timezone
@@ -279,17 +297,83 @@ router.get("/contacts", asyncHandler(async (req, res) => {
   });
   const ownerTz = owner?.timezone || process.env.DEFAULT_TIMEZONE || "UTC";
 
-  // Load linked business accounts once
+  // Load linked business accounts once (with Redis caching)
   const linkedIds = [...new Set(contacts.map(c => c.linkedAccountId).filter(Boolean))] as string[];
-  const linked = await prisma.account.findMany({
-    where: { id: { in: linkedIds } },
-    select: { id: true, businessHoursJson: true, timezone: true },
-  });
-  const linkedMap = new Map(linked.map(a => [a.id, a]));
+  const redisAvailable = await isRedisAvailable();
+  const linkedMap = new Map<string, any>();
 
-  // Closures (holidays, out of service) for those businesses, one query
+  if (linkedIds.length > 0) {
+    // Try to get from cache first
+    const cachedLinked: any[] = [];
+    const uncachedIds: string[] = [];
+
+    if (redisAvailable) {
+      for (const id of linkedIds) {
+        const cached = await getCachedBusinessHours(id);
+        if (cached) {
+          cachedLinked.push(cached);
+        } else {
+          uncachedIds.push(id);
+        }
+      }
+    } else {
+      uncachedIds.push(...linkedIds);
+    }
+
+    // Fetch uncached from database
+    const dbLinked = uncachedIds.length > 0 ? await prisma.account.findMany({
+      where: { id: { in: uncachedIds } },
+      select: { id: true, businessHoursJson: true, timezone: true },
+    }) : [];
+
+    // Cache the database results
+    if (redisAvailable && dbLinked.length > 0) {
+      for (const account of dbLinked) {
+        await cacheBusinessHours(account.id, account);
+      }
+    }
+
+    const allLinked = [...cachedLinked, ...dbLinked];
+    for (const account of allLinked) {
+      linkedMap.set(account.id, account);
+    }
+  }
+
+  // Closures (holidays, out of service) for those businesses, with Redis caching
   const now = new Date();
-  const closureInfo = await loadClosureInfo(linkedIds, now);
+  let closureInfo = new Map();
+
+  if (linkedIds.length > 0) {
+    if (redisAvailable) {
+      // Try to get from cache
+      const cachedClosures = new Map();
+      const uncachedClosureIds: string[] = [];
+
+      for (const id of linkedIds) {
+        const cached = await getCachedClosureInfo(id);
+        if (cached) {
+          cachedClosures.set(id, cached);
+        } else {
+          uncachedClosureIds.push(id);
+        }
+      }
+
+      // Fetch uncached from database
+      if (uncachedClosureIds.length > 0) {
+        const dbClosures = await loadClosureInfo(uncachedClosureIds, now);
+        // Cache the results
+        for (const [id, closure] of dbClosures) {
+          await cacheClosureInfo(id, closure);
+          cachedClosures.set(id, closure);
+        }
+      }
+
+      closureInfo = cachedClosures;
+    } else {
+      // Fallback to database query
+      closureInfo = await loadClosureInfo(linkedIds, now);
+    }
+  }
 
   // Resolve online status, effective hours and closures for each contact
   const contactsWithLiveOnline = contacts.map(contact => {
@@ -311,14 +395,31 @@ router.get("/contacts", asyncHandler(async (req, res) => {
     };
   });
 
-  res.json(contactsWithLiveOnline);
+  res.json({
+    data: contactsWithLiveOnline,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total: totalCount,
+      totalPages: Math.ceil(totalCount / limitNum),
+      hasNext: pageNum * limitNum < totalCount,
+      hasPrev: pageNum > 1,
+    },
+  });
   return;
 }, "Failed to fetch contacts"));
 
 // Create a new service account (contact).
 // If `withConversation` is truthy, also creates the first chat thread.
-router.post("/contacts", asyncHandler(async (req, res) => {
-  const { name, business, category, phone, initials, color, note, withConversation } = req.body;
+router.post("/contacts", writeRateLimit, asyncHandler(async (req, res) => {
+  // Validate input with Zod
+  const validationResult = contactCreateSchema.safeParse(req.body);
+  if (!validationResult.success) {
+    res.status(400).json({ error: validationResult.error.errors[0].message });
+    return;
+  }
+
+  const { name, business, category, phone, initials, color, note, withConversation } = validationResult.data;
   const email = parseContactEmail(req.body.contactEmail);
   const allow = parseAllowFallback(req.body.allowFallbackMessage);
   if (!email.ok || !allow.ok) {
@@ -330,7 +431,6 @@ router.post("/contacts", asyncHandler(async (req, res) => {
     return;
   }
 
-  // Validate required fields
   if (!name) {
     res.status(400).json({ error: "Name is required" });
     return;
@@ -354,7 +454,7 @@ router.post("/contacts", asyncHandler(async (req, res) => {
       initials,
       color,
       note,
-      online: false, // Always start as offline, presence system will update this
+      online: false,
       ...(withConversation
         ? { conversations: { create: { title: `Chat with ${name}` } } }
         : {}),
@@ -516,7 +616,7 @@ router.get("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.query;
 
-  // Verify contact exists
+  // Verify contact exists AND user has access (either owns it directly or has it as linked contact)
   const contact = await prisma.account.findFirst({
     where: { id: String(id) },
   });
@@ -526,7 +626,7 @@ router.get("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
     return;
   }
 
-  // Check if user has access (either owns it directly or has it as a linked contact)
+  // Chapter 7: Tenant isolation - check both ownership paths
   const hasAccess = contact.ownerId === req.userId! || 
     (await prisma.account.count({
       where: { ownerId: req.userId!, linkedAccountId: String(id) }
@@ -545,7 +645,7 @@ router.get("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
 }, "Failed to fetch contact knowledge"));
 
 // POST /contacts/:id/knowledge — manual creation of knowledge facts
-router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
+router.post("/contacts/:id/knowledge", writeRateLimit, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { category, key, value, confidence } = req.body as {
     category?: string;
@@ -559,7 +659,7 @@ router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
     return;
   }
 
-  // Verify contact exists
+  // Chapter 7: Tenant isolation - verify access
   const contact = await prisma.account.findFirst({
     where: { id: String(id) },
   });
@@ -569,7 +669,6 @@ router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
     return;
   }
 
-  // Check if user has access (either owns it directly or has it as a linked contact)
   const hasAccess = contact.ownerId === req.userId! || 
     (await prisma.account.count({
       where: { ownerId: req.userId!, linkedAccountId: String(id) }
@@ -601,7 +700,7 @@ router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
 }, "Failed to create contact knowledge"));
 
 // Update a contact
-router.put("/contacts/:id", asyncHandler(async (req, res) => {
+router.put("/contacts/:id", writeRateLimit, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { name, business, category, phone, initials, color, note, businessHoursJson } = req.body;
   const email = parseContactEmail(req.body.contactEmail);

@@ -34,6 +34,8 @@ import { buildBriefing, renderMemoryBlock } from "./memory";
 // a real phone number. Created lazily on first use, scoped to the login account
 // that initiates the call (via userId in the "start" message).
 const TEST_CONTACT_NAME = "Browser Test";
+const MAX_CALLS_PER_INTERVAL = 5;
+const CALL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function getOrCreateTestContact(ownerId: string) {
   // Look for an existing Browser Test service account owned by this login account
@@ -58,8 +60,33 @@ async function getOrCreateTestContact(ownerId: string) {
   return contact;
 }
 
+async function checkCallRateLimit(ownerId: string, contactId: string): Promise<{ allowed: boolean; reason?: string }> {
+  const now = new Date();
+  const intervalStart = new Date(now.getTime() - CALL_INTERVAL_MS);
+
+  const recentCallCount = await prisma.call.count({
+    where: {
+      individualId: ownerId,
+      contactId: contactId,
+      createdAt: { gte: intervalStart },
+    },
+  });
+
+  if (recentCallCount >= MAX_CALLS_PER_INTERVAL) {
+    return {
+      allowed: false,
+      reason: `Rate limit exceeded: maximum ${MAX_CALLS_PER_INTERVAL} calls per ${CALL_INTERVAL_MS / 60000} minutes. Please wait before making another call.`,
+    };
+  }
+
+  return { allowed: true };
+}
+
 export function createBrowserVoiceStream(): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: 256 * 1024, // 256KB limit (Chapter 6)
+  });
 
   wss.on("connection", (browserWs: WebSocket, req: IncomingMessage) => {
     logger.info("Browser voice WebSocket connection received");
@@ -197,6 +224,12 @@ export function createBrowserVoiceStream(): WebSocketServer {
               if (inRange(hour, user.quietHoursStart, user.quietHoursEnd)) {
                 throw new Error("Cannot make test calls during quiet hours");
               }
+            }
+
+            // Check rate limit: max 5 calls per 5 minutes
+            const rateLimitCheck = await checkCallRateLimit(contact.ownerId ?? "", contact.id);
+            if (!rateLimitCheck.allowed) {
+              throw new Error(rateLimitCheck.reason || "Rate limit exceeded");
             }
 
             const startedAt = new Date();

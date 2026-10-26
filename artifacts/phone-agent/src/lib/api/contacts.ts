@@ -75,7 +75,9 @@ export type AccountSearchResult = {
 export const fetchContacts = async (): Promise<Contact[]> => {
   const response = await apiFetch(`${API_BASE_URL}/contacts`);
   if (!response.ok) throw new Error('Failed to fetch contacts');
-  return response.json();
+  const result = await response.json();
+  // Handle paginated response
+  return Array.isArray(result) ? result : result.data || [];
 };
 
 export const createContact = async (

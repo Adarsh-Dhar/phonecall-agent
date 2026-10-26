@@ -10,13 +10,14 @@ const { prisma } = vi.hoisted(() => ({ prisma: {
 } }));
 vi.mock("@workspace/db-prisma", () => ({ prisma }));
 
-import { sweepOverdueLoops, CHECKIN_GRACE_MS } from "../memory/loopSweeper";
+import { sweepOverdueLoops } from "../memory/loopSweeper";
 
 const NOW = new Date("2026-10-30T12:00:00Z");
+const DEFAULT_CHECKIN_GRACE_MS = 120 * 60_000;
 const loop = (agentMode: boolean) => ({
   id: "L1",
   text: "Call back with the quote",
-  dueAt: new Date(+NOW - CHECKIN_GRACE_MS - 60_000),
+  dueAt: new Date(+NOW - DEFAULT_CHECKIN_GRACE_MS - 60_000),
   sourceCallId: "c1",
   relationship: { individualId: "o1", contactId: "k1", individual: { agentMode } },
 });
@@ -36,7 +37,7 @@ describe("sweepOverdueLoops", () => {
     await sweepOverdueLoops(NOW);
     const where = prisma.openLoop.findMany.mock.calls[0][0].where;
     expect(where).toMatchObject({ status: "open", kind: "awaiting_business", followUpTaskId: null, lastActionAt: null });
-    expect(where.dueAt.lte.getTime()).toBe(+NOW - CHECKIN_GRACE_MS);
+    expect(where.dueAt.lte.getTime()).toBe(+NOW - DEFAULT_CHECKIN_GRACE_MS);
   });
 
   it("creates an OPEN check-in call task in agent mode and links the loop", async () => {
