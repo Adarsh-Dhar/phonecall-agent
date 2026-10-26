@@ -66,7 +66,7 @@ async function seed() {
           "createdAt", "updatedAt"
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
       `, [
-        id, email, name, false, id,
+        id, email, name, false, null,
         true, true, true, false,
         true, 'daily', 18
       ]);

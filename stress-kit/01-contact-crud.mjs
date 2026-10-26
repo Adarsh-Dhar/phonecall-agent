@@ -313,7 +313,7 @@ async function runChapter() {
     console.log(``);
 
     let has5xx = false;
-    let listP95OK = stats.listContacts.p95 < 10000;
+    let listP95OK = stats.listContacts.p95 < 800;
 
     for (const [op, data] of Object.entries(stats)) {
       const errorRate = data.count > 0 ? (data.errors / data.count * 100).toFixed(2) : 0;
@@ -343,7 +343,7 @@ async function runChapter() {
     console.log('PASS/FAIL CRITERIA');
     console.log('='.repeat(80));
     console.log(`No 5xx errors: ${!has5xx ? '✓' : '✗'}`);
-    console.log(`List P95 < 10000ms: ${listP95OK ? '✓' : '✗'}`);
+    console.log(`List P95 < 800ms: ${listP95OK ? '✓' : '✗'}`);
     console.log(`Zero leftover contacts: ${leftoverCount === 0 ? '✓' : '✗'}`);
     console.log('');
 

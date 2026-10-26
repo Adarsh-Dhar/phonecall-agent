@@ -21,7 +21,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import pkg from 'pg';
 const { Pool } = pkg;
-import { validateTestConfig, getConfig, verifyApiReachable } from './test-config.mjs';
+import { validateTestConfig, getConfig, verifyApiReachable, linkBoth } from './test-config.mjs';
 
 validateTestConfig();
 await verifyApiReachable();
@@ -204,9 +204,10 @@ async function testCrossUserCall() {
     await cleanupContacts(individual1.token, business.id);
     await cleanupContacts(individual2.token, business.id);
 
-    console.log('  [Check 7b] Creating contact for Individual1...');
-    const contact1 = await addContactFromAccount(individual1.token, business.id);
-    console.log(`  [Check 7b] ✓ Individual1->Business contact created (ID: ${contact1.id})`);
+    console.log('  [Check 7b] Creating mutual contacts for Individual1...');
+    const links = await linkBoth(individual1, business, API_BASE);
+    const contact1 = links.individualContact;
+    console.log(`  [Check 7b] ✓ Mutual contacts created (ID: ${contact1.id})`);
 
     console.log('  [Check 7b] Individual1 dialing...');
     const callResponse = await fetch(`${API_BASE}/calls/dial`, {
@@ -219,8 +220,8 @@ async function testCrossUserCall() {
     });
 
     if (!callResponse.ok) {
-      console.log(`  [Check 7b] ⚠️  Dial failed (business may be closed): ${callResponse.status}`);
-      stats.crossUserCall.passed = true; // Skip if business is closed
+      console.log(`  [Check 7b] ✗ FAIL: Dial failed with status ${callResponse.status}`);
+      stats.crossUserCall.passed = false;
       // Cleanup
       await fetch(`${API_BASE}/contacts/${contact1.id}`, {
         method: 'DELETE',
@@ -346,10 +347,16 @@ async function testKnowledgeIsolation() {
     if (sharedRead.status === 200) {
       try {
         if (JSON.parse(sharedRead.body).some(f => f.key === 'shared-secret')) {
-          console.log('  [Check 7c] ⚠️  SECURITY ISSUE: knowledge shared through business account id');
+          console.log('  [Check 7c] ✗ FAIL: SECURITY ISSUE - knowledge shared through business account id');
           stats.knowledgeIsolation.leakFound = true;
+        } else {
+          console.log('  [Check 7c] ✓ PASS: shared-secret not found in shared business id read');
         }
-      } catch {}
+      } catch (e) {
+        console.log('  [Check 7c] ✓ PASS: cannot parse response, no leak detected');
+      }
+    } else {
+      console.log('  [Check 7c] ✓ PASS: shared business id read blocked (status: ' + sharedRead.status + ')');
     }
 
     stats.knowledgeIsolation.passed = !stats.knowledgeIsolation.leakFound && readOwnResult.status === 200;
@@ -490,7 +497,7 @@ async function testDeletedAccount() {
         "createdAt", "updatedAt"
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
     `, [
-      disposableId, disposableEmail, 'Deleted Test Account', false, disposableId,
+      disposableId, disposableEmail, 'Deleted Test Account', false, null,
       true, true, true, false,
       true, 'daily', 18
     ]);

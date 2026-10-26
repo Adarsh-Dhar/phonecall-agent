@@ -122,3 +122,34 @@ export function getConfig() {
     ITERATIONS: Number(process.env.ITERATIONS) || 200,
   };
 }
+
+export async function linkBoth(ind, biz, API_BASE) {
+  const a = await fetch(`${API_BASE}/contacts/from-account/${biz.id}`, {
+    method: 'POST',
+    headers: { Cookie: `token=${ind.token}` }
+  });
+  const b = await fetch(`${API_BASE}/business/contacts/from-account/${ind.id}`, {
+    method: 'POST',
+    headers: { Cookie: `token=${biz.token}` }
+  });
+  if (![201, 409].includes(a.status) || ![201, 409].includes(b.status)) {
+    throw new Error(`link failed ${a.status}/${b.status}`);
+  }
+  // If 409 (already exists), we need to fetch the existing contact
+  let individualContact = null;
+  if (a.status === 201) {
+    individualContact = await a.json();
+  } else {
+    // Fetch existing contact
+    const list = await fetch(`${API_BASE}/contacts`, {
+      headers: { Cookie: `token=${ind.token}` }
+    });
+    if (list.ok) {
+      const data = await list.json();
+      const contacts = Array.isArray(data) ? data : (data.data || []);
+      individualContact = contacts.find(c => c.linkedAccountId === biz.id);
+    }
+  }
+  const businessContact = b.status === 201 ? await b.json() : null;
+  return { individualContact, businessContact };
+}

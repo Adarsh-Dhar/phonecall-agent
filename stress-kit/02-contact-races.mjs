@@ -68,7 +68,14 @@ async function updateContact(token, contactId, data) {
     },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error(`Update contact failed: ${response.status}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    // Map P2025 error (contact not found) to 404 for better error handling
+    if (error.code === 'P2025') {
+      throw new Error(`Update contact failed: 404`);
+    }
+    throw new Error(`Update contact failed: ${response.status}`);
+  }
   return response.json();
 }
 
