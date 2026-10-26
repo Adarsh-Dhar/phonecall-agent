@@ -193,6 +193,7 @@ export function createCallApproval(opts: {
   agentMode: boolean;
   tz: string;
   rules: ApprovalRuleLite[];
+  confirmBeforeAction?: boolean;
 }) {
   const slot = createSlotApproval(opts);
 
@@ -240,7 +241,8 @@ export function createCallApproval(opts: {
         }
         return done("money", { decision: "allow", reason: "rule: allow up to threshold", instruction: "" });
       }
-      return done("money", { decision: "ask", reason: "no money rule: ask by default", instruction: "Ask your user before agreeing to any payment." });
+      // Default: ask if confirmBeforeAction is on, otherwise ask
+      return done("money", { decision: "ask", reason: opts.confirmBeforeAction ? "preference: ask before payments" : "no money rule: ask by default", instruction: "Ask your user before agreeing to any payment." });
     }
 
     // Scheduling: no usable time but a scheduling rule exists -> ask, don't allow
@@ -250,10 +252,14 @@ export function createCallApproval(opts: {
         const slotRules = opts.rules.filter(r => r.category === "scheduling");
         const verdict = slotRules.length
           ? { decision: "ask", reason: "time not verifiable", instruction: "Ask your user." }
-          : { decision: "allow", reason: "no scheduling rules", instruction: "" };
+          : { decision: opts.confirmBeforeAction ? "ask" : "allow", reason: opts.confirmBeforeAction ? "preference: ask before scheduling" : "no scheduling rules", instruction: opts.confirmBeforeAction ? "Ask your user." : "" };
         return done("scheduling", verdict);
       }
       const verdict = slot.decide(start, a.durationMin ?? 30);
+      // If the slot decision is "allow" but confirmBeforeAction is on, upgrade to "ask"
+      if (verdict.decision === "allow" && opts.confirmBeforeAction) {
+        return done("scheduling", { ...verdict, decision: "ask" as const, reason: "preference: ask before scheduling", instruction: "Ask your user before accepting this slot." });
+      }
       return done("scheduling", verdict);
     }
 
@@ -269,6 +275,10 @@ export function createCallApproval(opts: {
       const allow = opts.rules.find(r => r.category === "personal_info" && r.effect === "allow");
       if (allow) {
         return done("personal_info", { decision: "allow", reason: "rule: allow sharing personal information", instruction: "" });
+      }
+      // Default: ask if confirmBeforeAction is on
+      if (opts.confirmBeforeAction) {
+        return done("personal_info", { decision: "ask", reason: "preference: ask before sharing personal information", instruction: "Ask your user before sharing personal information." });
       }
     }
 
@@ -287,7 +297,15 @@ export function createCallApproval(opts: {
       }
       const allow = opts.rules.find(r => r.category === "commitment" && r.effect === "allow");
       if (allow) {
+        // If confirmBeforeAction is on, upgrade "allow" to "ask"
+        if (opts.confirmBeforeAction) {
+          return done("commitment", { decision: "ask", reason: "preference: ask before commitments", instruction: "Ask your user before making commitments." });
+        }
         return done("commitment", { decision: "allow", reason: "rule: allow commitments", instruction: "" });
+      }
+      // Default: ask if confirmBeforeAction is on
+      if (opts.confirmBeforeAction) {
+        return done("commitment", { decision: "ask", reason: "preference: ask before commitments", instruction: "Ask your user before making commitments." });
       }
     }
 
@@ -302,7 +320,15 @@ export function createCallApproval(opts: {
       }
       const allow = opts.rules.find(r => r.category === "other" && r.effect === "allow");
       if (allow) {
+        // If confirmBeforeAction is on, upgrade "allow" to "ask"
+        if (opts.confirmBeforeAction) {
+          return done("other", { decision: "ask", reason: "preference: ask before this action", instruction: "Ask your user before proceeding." });
+        }
         return done("other", { decision: "allow", reason: "rule: allow this action", instruction: "" });
+      }
+      // Default: ask if confirmBeforeAction is on
+      if (opts.confirmBeforeAction) {
+        return done("other", { decision: "ask", reason: "preference: ask before this action", instruction: "Ask your user before proceeding." });
       }
     }
 

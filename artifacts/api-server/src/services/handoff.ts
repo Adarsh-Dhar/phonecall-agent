@@ -3,7 +3,7 @@ import { logger } from "../lib/logger";
 import { sendToAccount } from "./presence";
 import { sendPush } from "./push";
 
-const HANDOFF_TIMEOUT_MS = 60_000; // 60 seconds for the owner to accept
+const DEFAULT_HANDOFF_TIMEOUT_MS = 60_000; // 60 seconds for the owner to accept
 
 export interface HandoffRequestInfo {
   handoffId: string;
@@ -32,7 +32,10 @@ export async function requestHandoff(opts: {
   reason: string;
   summary?: string;
   onRequested?: (info: HandoffRequestInfo) => void;
+  timeoutMs?: number;
 }): Promise<"owner_joined" | "owner_unavailable"> {
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_HANDOFF_TIMEOUT_MS;
+
   const handoff = await prisma.handoff.create({
     data: {
       callId: opts.callId,
@@ -49,7 +52,7 @@ export async function requestHandoff(opts: {
     contactName: opts.contactName,
     reason: opts.reason,
     summary: opts.summary,
-    expiresInMs: HANDOFF_TIMEOUT_MS,
+    expiresInMs: timeoutMs,
   };
 
   // Notify the owner via presence (if they're already in the call)
@@ -71,7 +74,7 @@ export async function requestHandoff(opts: {
 
   // Wait for acceptance or timeout
   const start = Date.now();
-  while (Date.now() - start < HANDOFF_TIMEOUT_MS) {
+  while (Date.now() - start < timeoutMs) {
     const updated = await prisma.handoff.findUnique({
       where: { id: handoff.id },
       select: { status: true },

@@ -170,6 +170,9 @@ export function buildAgentCallSystemInstruction({
   approvalRules = [],
   lessonsBlock = '',
   contactId,
+  responseConcise = true,
+  askClarifying = true,
+  confirmBeforeAction = false,
 }: {
   individualName: string;
   businessName: string;
@@ -195,6 +198,10 @@ export function buildAgentCallSystemInstruction({
   lessonsBlock?: string;
   /** Lets contact-specific rules be filtered to this contact. */
   contactId?: string;
+  /** Response style preferences */
+  responseConcise?: boolean;
+  askClarifying?: boolean;
+  confirmBeforeAction?: boolean;
 }): string {
   const action = direction === 'inbound' ? 'taking a call' : 'calling';
   const intro =
@@ -205,15 +212,21 @@ export function buildAgentCallSystemInstruction({
       : '') +
     `IMPORTANT: You represent ONLY ${individualName} — never speak as if you are ${businessName} or represent them. ` +
     `${businessName} is the human on the other end of the line; ${individualName} is the human you represent. ` +
-    `Be warm, but direct and concise — this is a live phone conversation, not an email. Get to the point quickly, ` +
-    `don't pad your sentences with filler, and don't repeat back what the other person just said. If you don't have ` +
-    `enough information to commit to something, or the other person can't give you something you need ` +
+    (responseConcise
+      ? `Be warm, but direct and concise — this is a live phone conversation, not an email. Get to the point quickly, ` +
+        `don't pad your sentences with filler, and don't repeat back what the other person just said. `
+      : `Be warm and conversational — this is a live phone conversation, so engage naturally while being respectful of the other person's time. `) +
+    `If you don't have enough information to commit to something, or the other person can't give you something you need ` +
     `(e.g. a reference number or ID you don't have), say plainly that you'll need to check with ` +
     `${individualName} and get back to them — don't guess or invent details.\n\n`;
 
   const baseInstruction = buildBaseCallInstruction(businessName, knowledgeFacts, taskContext, timezone);
+  const clarifyingBlock = askClarifying
+    ? `If the other person's intent is unclear, ask clarifying questions before proceeding. Don't guess — make sure you understand what they want. `
+    : '';
   return (
     intro +
+    clarifyingBlock +
     baseInstruction +
     memoryBlock +
     buildOwnerInfoBlock(individualName, ownerInfo) +

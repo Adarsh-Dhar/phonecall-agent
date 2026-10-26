@@ -47,6 +47,15 @@ model Account {
   digestMode                String             @default("daily")
   digestHour                Int                @default(18)
   lastDigestAt              DateTime?
+  responseConcise           Boolean            @default(true)
+  askClarifying             Boolean            @default(true)
+  confirmBeforeAction       Boolean            @default(false)
+  ownerResponseTimeoutSec   Int?
+  maxIntroCallsPerHour      Int?
+  maxMessagesPerContactPerDay Int?
+  ringTimeoutSec            Int?
+  loopCheckinGraceMin      Int?
+  loopExpireDays           Int?
   owner                     Account?           @relation("AccountOwnership", fields: [ownerId], references: [id], onDelete: Cascade)
   contacts                  Account[]          @relation("AccountOwnership")
   closures                  BusinessClosure[]

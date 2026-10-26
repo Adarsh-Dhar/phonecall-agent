@@ -623,4 +623,157 @@ router.patch("/user/quiet-hours", requireAuth, asyncHandler(async (req, res) => 
   res.json({ success: true });
 }, "Failed to update quiet hours"));
 
+// ---------------------------------------------------------------------------
+// GET /user/response-style
+// Get the user's response style preferences (concise, ask clarifying, confirm before action)
+// ---------------------------------------------------------------------------
+router.get("/user/response-style", requireAuth, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { responseConcise: true, askClarifying: true, confirmBeforeAction: true },
+  });
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  res.json({
+    concise: account.responseConcise,
+    askClarifying: account.askClarifying,
+    confirmBeforeAction: account.confirmBeforeAction,
+  });
+}, "Failed to get response style"));
+
+// ---------------------------------------------------------------------------
+// PATCH /user/response-style
+// Update the user's response style preferences
+// Body: { concise?: boolean, askClarifying?: boolean, confirmBeforeAction?: boolean }
+// ---------------------------------------------------------------------------
+router.patch("/user/response-style", requireAuth, asyncHandler(async (req, res) => {
+  const { concise, askClarifying, confirmBeforeAction } = req.body;
+
+  const updateData: Record<string, boolean> = {};
+  if (typeof concise === "boolean") {
+    updateData.responseConcise = concise;
+  }
+  if (typeof askClarifying === "boolean") {
+    updateData.askClarifying = askClarifying;
+  }
+  if (typeof confirmBeforeAction === "boolean") {
+    updateData.confirmBeforeAction = confirmBeforeAction;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    res.status(400).json({ error: "At least one field must be provided" });
+    return;
+  }
+
+  await prisma.account.update({
+    where: { id: req.userId! },
+    data: updateData,
+  });
+
+  res.json({ success: true });
+}, "Failed to update response style"));
+
+// ---------------------------------------------------------------------------
+// GET /user/owner-response-timeout
+// Get the user's owner response timeout setting (how long agent waits for owner)
+// ---------------------------------------------------------------------------
+router.get("/user/owner-response-timeout", requireAuth, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { ownerResponseTimeoutSec: true },
+  });
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  res.json({ timeoutSec: account.ownerResponseTimeoutSec ?? 60 });
+}, "Failed to get owner response timeout"));
+
+// ---------------------------------------------------------------------------
+// PATCH /user/owner-response-timeout
+// Update the user's owner response timeout setting
+// Body: { timeoutSec: number (15-180) }
+// ---------------------------------------------------------------------------
+router.patch("/user/owner-response-timeout", requireAuth, asyncHandler(async (req, res) => {
+  const { timeoutSec } = req.body;
+
+  if (typeof timeoutSec !== "number" || timeoutSec < 15 || timeoutSec > 180) {
+    res.status(400).json({ error: "timeoutSec must be a number between 15 and 180 seconds" });
+    return;
+  }
+
+  await prisma.account.update({
+    where: { id: req.userId! },
+    data: { ownerResponseTimeoutSec: timeoutSec },
+  });
+
+  res.json({ timeoutSec });
+}, "Failed to update owner response timeout"));
+
+// ---------------------------------------------------------------------------
+// GET /user/loop-settings
+// Get the user's follow-up memory window settings (optional/advanced)
+// ---------------------------------------------------------------------------
+router.get("/user/loop-settings", requireAuth, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { loopCheckinGraceMin: true, loopExpireDays: true },
+  });
+
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+
+  res.json({
+    checkinGraceMin: account.loopCheckinGraceMin ?? 120,
+    expireDays: account.loopExpireDays ?? 14,
+  });
+}, "Failed to get loop settings"));
+
+// ---------------------------------------------------------------------------
+// PATCH /user/loop-settings
+// Update the user's follow-up memory window settings
+// Body: { checkinGraceMin?: number (30-720), expireDays?: number (1-90) }
+// ---------------------------------------------------------------------------
+router.patch("/user/loop-settings", requireAuth, asyncHandler(async (req, res) => {
+  const { checkinGraceMin, expireDays } = req.body;
+
+  const updateData: Record<string, number> = {};
+
+  if (typeof checkinGraceMin === "number") {
+    if (checkinGraceMin < 30 || checkinGraceMin > 720) {
+      res.status(400).json({ error: "checkinGraceMin must be between 30 and 720 minutes" });
+      return;
+    }
+    updateData.loopCheckinGraceMin = checkinGraceMin;
+  }
+
+  if (typeof expireDays === "number") {
+    if (expireDays < 1 || expireDays > 90) {
+      res.status(400).json({ error: "expireDays must be between 1 and 90 days" });
+      return;
+    }
+    updateData.loopExpireDays = expireDays;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    res.status(400).json({ error: "At least one field must be provided" });
+    return;
+  }
+
+  await prisma.account.update({
+    where: { id: req.userId! },
+    data: updateData,
+  });
+
+  res.json(updateData);
+}, "Failed to update loop settings"));
+
 export default router;

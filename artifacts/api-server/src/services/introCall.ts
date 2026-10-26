@@ -15,8 +15,6 @@ export const INTRO_PURPOSE = "intro";
 const HOUR_MS = 3_600_000;
 const SPREAD_MS = 2 * 60_000;
 
-const hourlyCap = () => Number(process.env.INTRO_CALL_MAX_PER_BUSINESS_HOUR) || 10;
-
 export function isIntroTask(task: { meta?: unknown } | null | undefined): boolean {
   const meta = task?.meta;
   return !!meta && typeof meta === "object" && (meta as Record<string, unknown>).purpose === INTRO_PURPOSE;
@@ -33,6 +31,13 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
     if (!owner || !target || owner.isService === target.isService) return { queued: false, reason: "not_a_pair" };
     const individual = owner.isService ? target : owner;
     const business = owner.isService ? owner : target;
+
+    // Load business protection limit for intro calls
+    const businessAccount = await prisma.account.findUnique({
+      where: { id: business.id },
+      select: { maxIntroCallsPerHour: true },
+    });
+    const hourlyCap = businessAccount?.maxIntroCallsPerHour ?? Number(process.env.INTRO_CALL_MAX_PER_BUSINESS_HOUR) ?? 10;
 
     // Both sides must hold the other (the same rule as isContact in callSignaling.ts).
     const [individualContact, businessContact] = await Promise.all([
@@ -78,7 +83,7 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
       const recent = await prisma.relationship.count({
         where: { businessId: business.id, introQueuedAt: { gte: new Date(+now - HOUR_MS) } },
       });
-      logger.info({ businessId: business.id, recent, hourlyCap: hourlyCap() }, "introCall: rate check");
+      logger.info({ businessId: business.id, recent, hourlyCap }, "introCall: rate check");
 
       // Fetch business hours and owner timezone to schedule within business hours
       const [businessAccount, ownerAccount] = await Promise.all([
@@ -101,7 +106,7 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
       });
 
       // Start with minimum delay (5 min + rate limiting spread)
-      let candidateTime = new Date(+now + 5 * 60_000 + Math.max(0, recent - hourlyCap()) * SPREAD_MS);
+      let candidateTime = new Date(+now + 5 * 60_000 + Math.max(0, recent - hourlyCap) * SPREAD_MS);
 
       // Find the next available slot within business hours
       const windowCheck = isWithinAllowedWindow(

@@ -28,8 +28,8 @@ export type FallbackResult = { channel: "email" | "none"; delivered: boolean };
 type Channel = "email" | "whatsapp";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** One message per task, and at most this many per contact, in any rolling 24 hours. */
-export const BUSINESS_PER_CONTACT_DAILY_CAP = 2;
+/** Platform default: one message per task, and at most this many per contact, in any rolling 24 hours. */
+const DEFAULT_BUSINESS_PER_CONTACT_DAILY_CAP = 2;
 
 async function record(row: {
   ownerId: string;
@@ -165,13 +165,20 @@ export async function messageBusinessFallback(input: BusinessFallbackInput): Pro
     if (e164 && whatsappConfigured()) channels.push("whatsapp");
     if (channels.length === 0) return none("no_channel");
 
+    // Load business's max messages per contact per day setting
+    const ownerAccount = await prisma.account.findUnique({
+      where: { id: input.ownerId },
+      select: { maxMessagesPerContactPerDay: true },
+    });
+    const maxPerContact = ownerAccount?.maxMessagesPerContactPerDay ?? DEFAULT_BUSINESS_PER_CONTACT_DAILY_CAP;
+
     const since = new Date(Date.now() - DAY_MS);
     const base = { audience: "business", status: "sent", createdAt: { gte: since } };
     const [forTask, forContact] = await Promise.all([
       prisma.outboundMessage.count({ where: { ...base, taskId: input.taskId } }),
       prisma.outboundMessage.count({ where: { ...base, contactId: input.contactId } }),
     ]);
-    if (forTask >= 1 || forContact >= BUSINESS_PER_CONTACT_DAILY_CAP) return none("rate_limited");
+    if (forTask >= 1 || forContact >= maxPerContact) return none("rate_limited");
 
     const owner = await prisma.account.findUnique({
       where: { id: input.ownerId },

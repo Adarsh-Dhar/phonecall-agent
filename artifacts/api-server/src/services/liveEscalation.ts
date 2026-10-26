@@ -23,6 +23,8 @@ export async function askUserDuringCall(opts: {
    * The question is still saved (with its open loop + push) for the owner to answer afterwards.
    */
   nonBlocking?: boolean;
+  /** Timeout in milliseconds for waiting for user response. Defaults to 45s from env. */
+  timeoutMs?: number;
 }): Promise<string> {
   const q = await prisma.query.create({
     data: {
@@ -84,6 +86,7 @@ export async function askUserDuringCall(opts: {
   }
 
   return new Promise<string>((resolve) => {
+    const timeoutMs = opts.timeoutMs ?? Number(process.env.ASK_USER_TIMEOUT_MS) ?? 45000;
     const timer = setTimeout(async () => {
       pending.delete(q.id);
       // Resolve first so the agent doesn't hang if the DB call fails
@@ -98,7 +101,7 @@ export async function askUserDuringCall(opts: {
       } catch (err) {
         logger.error({ err, queryId: q.id, callId: opts.callId }, "liveEscalation: failed to mark query as expired");
       }
-    }, Number(process.env.ASK_USER_TIMEOUT_MS) || 45000);
+    }, timeoutMs);
     pending.set(q.id, { resolve, timer, callId: opts.callId, queryId: q.id });
   });
 }

@@ -685,4 +685,85 @@ router.delete('/closures/:id', requireBusiness, asyncHandler(async (req, res) =>
   res.status(204).end();
 }, 'Failed to delete closure'));
 
+// ---------------------------------------------------------------------------
+// GET /api/business/protection-limits
+// Get business protection limits (intro calls per hour, messages per contact per day, ring timeout)
+// ---------------------------------------------------------------------------
+router.get('/protection-limits', requireBusiness, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: {
+      maxIntroCallsPerHour: true,
+      maxMessagesPerContactPerDay: true,
+      ringTimeoutSec: true,
+    },
+  });
+
+  if (!account) {
+    res.status(404).json({ error: 'Account not found' });
+    return;
+  }
+
+  // Platform defaults (from .env.example)
+  const DEFAULT_INTRO_CALLS_PER_HOUR = 10;
+  const DEFAULT_MESSAGES_PER_CONTACT_PER_DAY = 2;
+  const DEFAULT_RING_TIMEOUT_SEC = 30;
+
+  res.json({
+    maxIntroCallsPerHour: account.maxIntroCallsPerHour ?? DEFAULT_INTRO_CALLS_PER_HOUR,
+    maxMessagesPerContactPerDay: account.maxMessagesPerContactPerDay ?? DEFAULT_MESSAGES_PER_CONTACT_PER_DAY,
+    ringTimeoutSec: account.ringTimeoutSec ?? DEFAULT_RING_TIMEOUT_SEC,
+  });
+}, 'Failed to get protection limits'));
+
+// ---------------------------------------------------------------------------
+// PATCH /api/business/protection-limits
+// Update business protection limits
+// Body: { maxIntroCallsPerHour?: number, maxMessagesPerContactPerDay?: number, ringTimeoutSec?: number }
+// Validation: maxIntroCallsPerHour and maxMessagesPerContactPerDay cannot exceed platform caps
+// ---------------------------------------------------------------------------
+router.patch('/protection-limits', requireBusiness, asyncHandler(async (req, res) => {
+  const { maxIntroCallsPerHour, maxMessagesPerContactPerDay, ringTimeoutSec } = req.body;
+
+  const updateData: Record<string, number> = {};
+  const PLATFORM_CAP_INTRO_CALLS = 10;
+  const PLATFORM_CAP_MESSAGES_PER_DAY = 2;
+
+  if (typeof maxIntroCallsPerHour === 'number') {
+    if (maxIntroCallsPerHour < 0 || maxIntroCallsPerHour > PLATFORM_CAP_INTRO_CALLS) {
+      res.status(400).json({ error: `maxIntroCallsPerHour must be between 0 and ${PLATFORM_CAP_INTRO_CALLS}` });
+      return;
+    }
+    updateData.maxIntroCallsPerHour = maxIntroCallsPerHour;
+  }
+
+  if (typeof maxMessagesPerContactPerDay === 'number') {
+    if (maxMessagesPerContactPerDay < 0 || maxMessagesPerContactPerDay > PLATFORM_CAP_MESSAGES_PER_DAY) {
+      res.status(400).json({ error: `maxMessagesPerContactPerDay must be between 0 and ${PLATFORM_CAP_MESSAGES_PER_DAY}` });
+      return;
+    }
+    updateData.maxMessagesPerContactPerDay = maxMessagesPerContactPerDay;
+  }
+
+  if (typeof ringTimeoutSec === 'number') {
+    if (ringTimeoutSec < 5 || ringTimeoutSec > 120) {
+      res.status(400).json({ error: 'ringTimeoutSec must be between 5 and 120 seconds' });
+      return;
+    }
+    updateData.ringTimeoutSec = ringTimeoutSec;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    res.status(400).json({ error: 'At least one field must be provided' });
+    return;
+  }
+
+  await prisma.account.update({
+    where: { id: req.userId! },
+    data: updateData,
+  });
+
+  res.json(updateData);
+}, 'Failed to update protection limits'));
+
 export default router;

@@ -6,7 +6,9 @@ import { loadClosureInfo } from './businessClosures';
 import { handleAgentCallDeclined } from './declineHandling';
 
 // Shared ringing timeout constant (default 30 seconds, override via env)
-export const RINGING_TIMEOUT_MS = Number(process.env.RINGING_TIMEOUT_MS) || 30000;
+// This is used by the scheduler for bookkeeping; actual telephony timeout is provider-controlled
+export const DEFAULT_RINGING_TIMEOUT_MS = 30000;
+export const RINGING_TIMEOUT_MS = Number(process.env.RINGING_TIMEOUT_MS) || DEFAULT_RINGING_TIMEOUT_MS;
 
 export type CallRole = 'individual' | 'business';
 

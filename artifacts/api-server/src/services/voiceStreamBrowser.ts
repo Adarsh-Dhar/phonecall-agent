@@ -168,7 +168,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
             // Get the user's name and timezone (the person making the call)
             const user = await prisma.account.findUnique({
               where: { id: contact.ownerId ?? undefined },
-              select: { id: true, name: true, timezone: true, isService: true, quietHoursStart: true, quietHoursEnd: true },
+              select: { id: true, name: true, timezone: true, isService: true, quietHoursStart: true, quietHoursEnd: true, responseConcise: true, askClarifying: true, confirmBeforeAction: true },
             });
 
             if (!user) {
@@ -224,6 +224,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
               ownerId: contact.ownerId ?? "",
               contactId: contact.id,
               startedAt,
+              confirmBeforeAction: user.confirmBeforeAction,
               send: (msg) => browserWs.send(JSON.stringify(msg)),
               closeSocket: () => browserWs.close(),
               getGemini: () => gemini,
@@ -266,6 +267,9 @@ export function createBrowserVoiceStream(): WebSocketServer {
                 timezone: tz,
                 ownerInfo,
                 memoryBlock,
+                responseConcise: user.responseConcise,
+                askClarifying: user.askClarifying,
+                confirmBeforeAction: user.confirmBeforeAction,
               }),
               onAudioOut: (pcm24k) => {
                 lifecycle?.noteAudioOut(pcm24k);

@@ -424,7 +424,7 @@ async function startGeminiSession(room: Room, call: any) {
   // Get individual and business names
   const individual = await prisma.account.findUnique({
     where: { id: room.individualId },
-    select: { name: true, timezone: true },
+    select: { name: true, timezone: true, confirmBeforeAction: true, responseConcise: true, askClarifying: true },
   });
 
   const business = await prisma.account.findUnique({
@@ -472,6 +472,7 @@ async function startGeminiSession(room: Room, call: any) {
     agentMode,
     approvalRules,
     ownerTz: tz,
+    confirmBeforeAction: individual?.confirmBeforeAction,
     contactName: call.contact?.name ?? business.name ?? '',
     onHandoffRequested: (info: HandoffRequestInfo) => {
       room.individualSockets.forEach((ws) => sendJson(ws, { type: 'handoff_request', ...info }));
@@ -513,6 +514,9 @@ async function startGeminiSession(room: Room, call: any) {
       approvalRules,
       lessonsBlock,
       contactId: call.contactId,
+      responseConcise: individual?.responseConcise,
+      askClarifying: individual?.askClarifying,
+      confirmBeforeAction: individual?.confirmBeforeAction,
     }),
     onAudioOut: (pcm24k) => {
       // While the owner is live the model must stay silent, even if it tries to say something.

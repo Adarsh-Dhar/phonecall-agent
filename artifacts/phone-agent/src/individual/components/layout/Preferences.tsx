@@ -27,23 +27,19 @@ const DEFAULT_PREFS: Pref[] = [
     description: 'Always confirm before making calls or changes.',
     enabled: false,
   },
-  {
-    id: 'notifications',
-    label: 'Push notifications',
-    description: 'Receive notifications when calls are due or during calls.',
-    enabled: false,
-  },
 ];
 
 export function Preferences({ onClose }: { onClose: () => void }) {
   const [prefs, setPrefs] = useState<Pref[]>(DEFAULT_PREFS);
-  const [timezone, setTimezone] = useState<string>(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const [timezone, setTimezone] = useState<string>(browserTimezone);
   const [quietHoursStart, setQuietHoursStart] = useState<number | null>(null);
   const [quietHoursEnd, setQuietHoursEnd] = useState<number | null>(null);
   const [agentMode, setAgentMode] = useState(false);
   const [emailFallback, setEmailFallback] = useState(true);
   const [declineDelayMin, setDeclineDelayMin] = useState(30);
   const [declineMaxRetries, setDeclineMaxRetries] = useState(2);
+  const [ownerResponseTimeoutSec, setOwnerResponseTimeoutSec] = useState(60);
   const { permission, subscribe } = usePushSubscription();
 
   const toggle = (id: string) =>
@@ -56,10 +52,23 @@ export function Preferences({ onClose }: { onClose: () => void }) {
     apiFetch('/api/user/timezone')
       .then((res) => res.json())
       .then((data) => {
-        if (data.timezone) setTimezone(data.timezone);
+        if (data.timezone) {
+          setTimezone(data.timezone);
+        } else {
+          // First login: auto-save browser timezone
+          setTimezone(browserTimezone);
+          apiFetch('/api/user/timezone', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ timezone: browserTimezone }),
+          }).catch((err) => {
+            console.error('Failed to auto-save timezone:', err);
+          });
+        }
       })
       .catch(() => {
         // Default to browser timezone
+        setTimezone(browserTimezone);
       });
 
     apiFetch('/api/user/agent-mode')
@@ -94,6 +103,31 @@ export function Preferences({ onClose }: { onClose: () => void }) {
       })
       .catch(() => {
         // Keep defaults (30 min, 2 recalls)
+      });
+
+    apiFetch('/api/user/response-style')
+      .then((res) => res.json())
+      .then((data) => {
+        setPrefs((prev) =>
+          prev.map((p) => {
+            if (p.id === 'concise') return { ...p, enabled: data.concise ?? true };
+            if (p.id === 'clarify') return { ...p, enabled: data.askClarifying ?? true };
+            if (p.id === 'confirm') return { ...p, enabled: data.confirmBeforeAction ?? false };
+            return p;
+          })
+        );
+      })
+      .catch(() => {
+        // Keep defaults
+      });
+
+    apiFetch('/api/user/owner-response-timeout')
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data.timeoutSec === 'number') setOwnerResponseTimeoutSec(data.timeoutSec);
+      })
+      .catch(() => {
+        // Keep default (60 seconds)
       });
   }, []);
 
@@ -131,6 +165,26 @@ export function Preferences({ onClose }: { onClose: () => void }) {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: emailFallback }),
+      });
+
+      const concisePref = prefs.find((p) => p.id === 'concise');
+      const clarifyPref = prefs.find((p) => p.id === 'clarify');
+      const confirmPref = prefs.find((p) => p.id === 'confirm');
+
+      await apiFetch('/api/user/response-style', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          concise: concisePref?.enabled,
+          askClarifying: clarifyPref?.enabled,
+          confirmBeforeAction: confirmPref?.enabled,
+        }),
+      });
+
+      await apiFetch('/api/user/owner-response-timeout', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeoutSec: ownerResponseTimeoutSec }),
       });
     } catch (err) {
       console.error('Failed to save preferences:', err);
@@ -315,24 +369,44 @@ export function Preferences({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          {/* Push notification subscription */}
-          {prefs.find((p) => p.id === 'notifications')?.enabled && (
-            <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
-              <p className="text-sm font-medium">Push notifications</p>
-              <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
-                {permission === 'granted' ? 'Notifications enabled' : permission === 'denied' ? 'Notifications blocked' : 'Enable notifications'}
-              </p>
-              {permission !== 'granted' && (
-                <button
-                  type="button"
-                  onClick={() => subscribe()}
-                  className="mt-2 rounded-lg bg-[#2854cc] px-4 py-2 text-xs font-bold text-white hover:bg-[#2148b4]"
-                >
-                  Enable
-                </button>
-              )}
+          {/* Owner response timeout */}
+          <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
+            <Label htmlFor="owner-timeout" className="text-sm font-medium leading-none">
+              Agent wait time
+            </Label>
+            <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+              How long the agent waits for you to respond during a call (15-180 seconds).
+            </p>
+            <div className="mt-2">
+              <input
+                id="owner-timeout"
+                type="number"
+                min="15"
+                max="180"
+                value={ownerResponseTimeoutSec}
+                onChange={(e) => setOwnerResponseTimeoutSec(parseInt(e.target.value) || 60)}
+                className="w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
+              />
+              <span className="ml-2 text-xs text-[hsl(var(--muted-foreground))]">seconds</span>
             </div>
-          )}
+          </div>
+
+          {/* Push notification subscription */}
+          <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">
+            <p className="text-sm font-medium">Push notifications</p>
+            <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+              {permission === 'granted' ? 'Notifications enabled' : permission === 'denied' ? 'Notifications blocked' : 'Enable notifications'}
+            </p>
+            {permission !== 'granted' && (
+              <button
+                type="button"
+                onClick={() => subscribe()}
+                className="mt-2 rounded-lg bg-[#2854cc] px-4 py-2 text-xs font-bold text-white hover:bg-[#2148b4]"
+              >
+                Enable
+              </button>
+            )}
+          </div>
 
           {/* Email fallback */}
           <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">

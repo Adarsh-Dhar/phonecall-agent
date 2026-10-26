@@ -224,7 +224,55 @@ export async function checkDueTasks(): Promise<void> {
   try {
     const now = new Date();
     const staleThreshold = new Date(now.getTime() - STALE_WINDOW_MS);
-    const ringingTimeoutThreshold = new Date(now.getTime() - RINGING_TIMEOUT_MS);
+
+    // Load business ringing timeout settings for any businesses with ringing calls
+    const businessesWithRinging = await prisma.call.findMany({
+      where: { status: 'ringing' },
+      select: { businessId: true },
+      distinct: ['businessId'],
+    });
+
+    const businessTimeouts = new Map<string, number>();
+    for (const { businessId } of businessesWithRinging) {
+      const account = await prisma.account.findUnique({
+        where: { id: businessId },
+        select: { ringTimeoutSec: true },
+      });
+      if (account) {
+        businessTimeouts.set(businessId, (account.ringTimeoutSec ?? 30) * 1000);
+      }
+    }
+
+    // Function to get the ringing timeout for a specific business
+    const getRingingTimeoutMs = (businessId: string | null) => {
+      if (businessId && businessTimeouts.has(businessId)) {
+        return businessTimeouts.get(businessId)!;
+      }
+      return RINGING_TIMEOUT_MS;
+    };
+
+    // Mark stale ringing calls as missed (calls that have been ringing too long)
+    const staleRingingCalls = await prisma.call.findMany({
+      where: {
+        status: 'ringing',
+        ringingAt: { lt: new Date(now.getTime() - RINGING_TIMEOUT_MS) },
+      },
+      select: {
+        id: true,
+        individualId: true,
+        businessId: true,
+        taskId: true,
+        placedByAgent: true,
+        ringingAt: true,
+      },
+    });
+
+    // Filter to only those that have exceeded their specific business timeout
+    const trulyStaleCalls = staleRingingCalls.filter(call => {
+      const timeoutMs = getRingingTimeoutMs(call.businessId);
+      const ringingAt = call.ringingAt ? new Date(call.ringingAt) : call.createdAt;
+      return now.getTime() - ringingAt.getTime() > timeoutMs;
+    });
 
     // Mark stale ringing calls as missed (calls that have been ringing too long)
     const staleRingingCalls = await prisma.call.findMany({
@@ -241,10 +289,11 @@ export async function checkDueTasks(): Promise<void> {
       },
     });
 
-    if (staleRingingCalls.length > 0) {
+    if (trulyStaleCalls.length > 0) {
+      logger.info({ count: trulyStaleCalls.length }, "callScheduler: marking stale ringing calls as missed");
       await prisma.call.updateMany({
         where: {
-          id: { in: staleRingingCalls.map(c => c.id) },
+          id: { in: trulyStaleCalls.map(c => c.id) },
         },
         data: { status: 'missed' },
       });

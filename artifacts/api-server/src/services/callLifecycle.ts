@@ -145,6 +145,8 @@ export function createCallLifecycle(opts: {
   approvalRules?: ApprovalRuleLite[];
   ownerTz?: string;
   contactName?: string;
+  /** Owner preference: ask before taking action. */
+  confirmBeforeAction?: boolean;
   /** The room forwards a handoff request to owner sockets already inside the call. */
   onHandoffRequested?: (info: HandoffRequestInfo) => void;
   send: (msg: object) => void;
@@ -164,6 +166,7 @@ export function createCallLifecycle(opts: {
     agentMode: opts.agentMode === true,
     tz: opts.ownerTz ?? process.env.DEFAULT_TIMEZONE ?? "UTC",
     rules: opts.approvalRules ?? [],
+    confirmBeforeAction: opts.confirmBeforeAction,
   });
 
   const calendarTools = createCallCalendarTools({
@@ -341,6 +344,7 @@ export function createCallLifecycle(opts: {
       ownerId: opts.ownerId,
       nonBlocking: opts.agentMode === true,
       ...args,
+      timeoutMs: opts.ownerResponseTimeoutSec ? opts.ownerResponseTimeoutSec * 1000 : undefined,
     });
   }
 
@@ -368,6 +372,7 @@ export function createCallLifecycle(opts: {
       reason: args?.reason,
       summary: args?.summary,
       onRequested: opts.onHandoffRequested,
+      timeoutMs: opts.ownerResponseTimeoutSec ? opts.ownerResponseTimeoutSec * 1000 : undefined,
     });
     return handoffToolResponse(result);
   }

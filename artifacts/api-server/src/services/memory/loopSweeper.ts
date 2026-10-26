@@ -16,9 +16,11 @@ import { prisma } from "@workspace/db-prisma";
 import { logger } from "../../lib/logger";
 import { sendPush } from "../push";
 
-export const CHECKIN_GRACE_MS = (Number(process.env.LOOP_CHECKIN_GRACE_MIN) || 120) * 60_000;
-export const LOOP_EXPIRE_MS = (Number(process.env.LOOP_EXPIRE_DAYS) || 14) * 24 * 3600_000;
-const QUERY_OVERDUE_MS = (Number(process.env.QUERY_OVERDUE_HOURS) || 24) * 60 * 60_000;
+// Platform defaults (fallback if account has no custom setting)
+const DEFAULT_CHECKIN_GRACE_MIN = 120;
+const DEFAULT_LOOP_EXPIRE_DAYS = 14;
+const DEFAULT_QUERY_OVERDUE_HOURS = 24;
+
 const BATCH = 25;
 const ACTIVE = ["suggested", "open", "in_progress", "waiting_user"];
 
@@ -46,21 +48,38 @@ export async function sweepOverdueLoops(now = new Date()): Promise<SweepResult> 
 }
 
 async function createCheckIns(now: Date): Promise<number> {
+  // Load individual-specific check-in grace periods
+  const individuals = await prisma.account.findMany({
+    where: { isService: false },
+    select: { id: true, loopCheckinGraceMin: true },
+  });
+
+  const gracePeriods = new Map<string, number>();
+  for (const ind of individuals) {
+    gracePeriods.set(ind.id, (ind.loopCheckinGraceMin ?? DEFAULT_CHECKIN_GRACE_MIN) * 60_000);
+  }
+
   const due = await prisma.openLoop.findMany({
     where: {
       status: "open",
       kind: "awaiting_business",
       followUpTaskId: null,
       lastActionAt: null,
-      dueAt: { not: null, lte: new Date(+now - CHECKIN_GRACE_MS) },
+      dueAt: { not: null },
     },
     orderBy: { dueAt: "asc" },
     take: BATCH,
     include: { relationship: { select: { individualId: true, contactId: true, individual: { select: { agentMode: true } } } } },
   });
 
+  // Filter to only those that have exceeded their individual's grace period
+  const trulyDue = due.filter(loop => {
+    const graceMs = gracePeriods.get(loop.relationship.individualId) ?? DEFAULT_CHECKIN_GRACE_MIN * 60_000;
+    return loop.dueAt && new Date(+now - graceMs) >= loop.dueAt;
+  });
+
   let created = 0;
-  for (const loop of due) {
+  for (const loop of trulyDue) {
     // Claim first: only one instance proceeds.
     const claim = await prisma.openLoop.updateMany({
       where: { id: loop.id, status: "open", followUpTaskId: null, lastActionAt: null },
@@ -148,8 +167,36 @@ async function reconcileFollowUps(): Promise<{ resolved: number; expired: number
 }
 
 async function expireAncient(now: Date): Promise<number> {
+  // Load individual-specific loop expiration periods
+  const individuals = await prisma.account.findMany({
+    where: { isService: false },
+    select: { id: true, loopExpireDays: true },
+  });
+
+  const expirePeriods = new Map<string, number>();
+  for (const ind of individuals) {
+    expirePeriods.set(ind.id, (ind.loopExpireDays ?? DEFAULT_LOOP_EXPIRE_DAYS) * 24 * 3600_000);
+  }
+
+  // Get all potentially expired loops
+  const loops = await prisma.openLoop.findMany({
+    where: { status: "open", dueAt: { not: null } },
+    select: { id: true, dueAt: true },
+    include: { relationship: { select: { individualId: true } } },
+  });
+
+  // Filter to only those that have exceeded their individual's expiration period
+  const expiredIds = loops
+    .filter(loop => {
+      const expireMs = expirePeriods.get(loop.relationship.individualId) ?? DEFAULT_LOOP_EXPIRE_DAYS * 24 * 3600_000;
+      return loop.dueAt && new Date(+now - expireMs) >= loop.dueAt;
+    })
+    .map(l => l.id);
+
+  if (expiredIds.length === 0) return 0;
+
   const r = await prisma.openLoop.updateMany({
-    where: { status: "open", dueAt: { not: null, lt: new Date(+now - LOOP_EXPIRE_MS) } },
+    where: { id: { in: expiredIds } },
     data: { status: "expired" },
   });
   return r.count;
@@ -159,15 +206,33 @@ async function expireAncient(now: Date): Promise<number> {
  * Escalate overdue awaiting_owner loops (queries) via push notification.
  */
 async function escalateOverdueQueries(now: Date): Promise<number> {
-  const overdue = await prisma.openLoop.findMany({
+  // Load individual-specific query overdue periods
+  const individuals = await prisma.account.findMany({
+    where: { isService: false },
+    select: { id: true, loopCheckinGraceMin: true },
+  });
+
+  // Reuse check-in grace period for query overdue (same concept: how long to wait before escalating)
+  const overduePeriods = new Map<string, number>();
+  for (const ind of individuals) {
+    overduePeriods.set(ind.id, (ind.loopCheckinGraceMin ?? DEFAULT_CHECKIN_GRACE_MIN) * 60_000);
+  }
+
+  const loops = await prisma.openLoop.findMany({
     where: {
       status: "open",
       kind: "awaiting_owner",
-      dueAt: { not: null, lte: new Date(+now - QUERY_OVERDUE_MS) },
+      dueAt: { not: null },
     },
     orderBy: { dueAt: "asc" },
     take: BATCH,
     include: { relationship: { select: { individualId: true } } },
+  });
+
+  // Filter to only those that have exceeded their individual's overdue period
+  const overdue = loops.filter(loop => {
+    const overdueMs = overduePeriods.get(loop.relationship.individualId) ?? DEFAULT_CHECKIN_GRACE_MIN * 60_000;
+    return loop.dueAt && new Date(+now - overdueMs) >= loop.dueAt;
   });
 
   let escalated = 0;
@@ -198,16 +263,33 @@ async function escalateOverdueQueries(now: Date): Promise<number> {
  * Mark scheduled tasks without dueDate as stale (unparseable date).
  */
 async function staleTasksWithoutDueDate(now: Date): Promise<number> {
-  const stale = await prisma.task.findMany({
+  // Load individual-specific query overdue periods (reused for stale task threshold)
+  const individuals = await prisma.account.findMany({
+    where: { isService: false },
+    select: { id: true, loopCheckinGraceMin: true },
+  });
+
+  const staleThresholds = new Map<string, number>();
+  for (const ind of individuals) {
+    staleThresholds.set(ind.id, (ind.loopCheckinGraceMin ?? DEFAULT_CHECKIN_GRACE_MIN) * 60_000);
+  }
+
+  const allStale = await prisma.task.findMany({
     where: {
       status: { in: ["open", "suggested"] },
       kind: "call",
       dueDate: null,
       schedulerStatus: "pending",
-      createdAt: { lt: new Date(+now - QUERY_OVERDUE_MS) },
+      createdAt: { not: null },
     },
-    select: { id: true },
+    select: { id: true, createdAt: true, ownerId: true },
     take: BATCH,
+  });
+
+  // Filter to only those that have exceeded their individual's stale threshold
+  const stale = allStale.filter(task => {
+    const thresholdMs = staleThresholds.get(task.ownerId) ?? DEFAULT_CHECKIN_GRACE_MIN * 60_000;
+    return task.createdAt && new Date(+now - thresholdMs) >= task.createdAt;
   });
 
   if (stale.length === 0) return 0;
