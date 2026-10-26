@@ -55,6 +55,7 @@ export async function handleAgentCallDeclined(callId: string, now = new Date()):
     const prefs = resolveDeclinePrefs(owner ?? {});
     const declines = task.declineCount + 1;
     const decision = decideAfterDecline(declines, prefs, now);
+    logger.info({ taskId: task.id, callId, declines, maxRetries: prefs.maxRetries, decision: decision.action }, 'declineHandling: evaluating decline decision');
 
     if (decision.action === "retry") {
       await prisma.task.update({

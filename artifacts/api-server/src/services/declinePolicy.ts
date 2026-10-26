@@ -56,8 +56,10 @@ export function resolveDeclinePrefs(stored: { declineRetryDelayMin?: number | nu
  * @param declines how many calls for this task the business has rejected, INCLUDING the one that
  *                 just happened (so the first rejection is 1).
  */
-export function decideAfterDecline(declines: number, prefs: DeclinePrefs, now: Date): DeclineDecision {
-  if (declines > prefs.maxRetries) return { action: "give_up", declines };
+export function decideAfterDecline(declines: number, prefs: DeclinePrefs, now = new Date()): DeclineDecision {
+  // Stop retrying when declines exceeds maxRetries
+  // Example: maxRetries = 5 → first call + 5 recalls = 6 total, then stop
+  if (declines >= prefs.maxRetries + 1) return { action: "give_up", declines };
   return {
     action: "retry",
     nextAttemptAt: new Date(now.getTime() + prefs.delayMin * 60_000),

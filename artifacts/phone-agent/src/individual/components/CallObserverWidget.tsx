@@ -33,19 +33,23 @@ export function CallObserverWidget({ callId, businessName, mode, onClose, incomi
     }
   };
 
+  const isCallFailed = status === 'declined' || status === 'missed';
+
   return (
     <Card className="fixed bottom-4 right-4 w-96 max-h-[600px] flex flex-col shadow-lg">
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className={`h-10 w-10 rounded-full ${isCallFailed ? 'bg-red-100' : 'bg-primary/10'} flex items-center justify-center`}>
             {status === 'live' ? (
               <Phone className="h-5 w-5 text-primary animate-pulse" />
+            ) : isCallFailed ? (
+              <PhoneOff className="h-5 w-5 text-red-600" />
             ) : (
               <PhoneOff className="h-5 w-5 text-muted-foreground" />
             )}
           </div>
           <div>
-            <h3 className="font-semibold">{getStatusText()}</h3>
+            <h3 className={`font-semibold ${isCallFailed ? 'text-red-600' : ''}`}>{getStatusText()}</h3>
             <p className="text-sm text-muted-foreground">{businessName}</p>
           </div>
         </div>
@@ -106,9 +110,15 @@ export function CallObserverWidget({ callId, businessName, mode, onClose, incomi
       </div>
 
       <div className="p-4 border-t">
-        <p className="text-xs text-muted-foreground text-center">
-          Your AI agent is handling this call. Closing this window will not end the call.
-        </p>
+        {isCallFailed ? (
+          <p className="text-xs text-muted-foreground text-center">
+            This call will close automatically in a few seconds.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground text-center">
+            Your AI agent is handling this call. Closing this window will not end the call.
+          </p>
+        )}
       </div>
     </Card>
   );

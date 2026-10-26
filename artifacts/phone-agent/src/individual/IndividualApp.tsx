@@ -13,6 +13,7 @@ import { useCallDueNotifications, type CallDueNotification, type TaskDueNotifica
 import { usePresence } from '@/hooks/usePresence';
 import { toast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
+import { publishCallStatus } from '@/lib/callStatusBus';
 
 export default function IndividualApp() {
   const [dueCall, setDueCall] = useState<CallDueNotification | null>(null);
@@ -77,8 +78,8 @@ export default function IndividualApp() {
     },
     (event) => {
       console.log('Call status update:', event);
-      // Handle call status updates (ringing → in-progress → missed/declined)
-      // The useCallObserver hook now handles this directly
+      // Publish to the bus so observer widgets can react
+      publishCallStatus(event.callId, event.status);
     },
     (event) => {
       console.log('Live question received:', event);

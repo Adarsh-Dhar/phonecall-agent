@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { usePresence } from '@/hooks/usePresence';
+import { callStatusBus } from '@/lib/callStatusBus';
 
 interface TranscriptTurn {
   role: 'agent' | 'business';
@@ -21,8 +21,6 @@ interface UseCallObserverOptions {
 }
 
 export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObserverOptions) {
-  console.log('useCallObserver: initialized with callId', callId);
-
   const [status, setStatus] = useState<'waiting' | 'connecting' | 'live' | 'ended' | 'missed' | 'declined' | 'error'>('waiting');
   const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
   const [handoff, setHandoff] = useState<HandoffState>({ phase: null, id: null, mine: false });
@@ -36,37 +34,35 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
 
   useEffect(() => { onEndedRef.current = onEnded; }, [onEnded]);
 
-  // Listen for call status updates via presence
-  usePresence(
-    () => {
-      console.log('useCallObserver: presence incoming call callback', { callId });
-    }, // incoming call - not used
-    (event) => {
-      console.log('useCallObserver: presence call status callback', { callId, eventCallId: event.callId, eventStatus: event.status });
-      if (event.callId === callId && (event.status === 'declined' || event.status === 'missed')) {
-        console.log('useCallObserver: call declined/missed via presence, closing', { callId, status: event.status });
-        const ws = wsRef.current;
-        wsRef.current = null;
-        if (!ws) return;
-        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'stop' }));
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
-        onEndedRef.current?.();
+  // Subscribe to call status updates from the bus
+  useEffect(() => {
+    const unsubscribe = callStatusBus.subscribe((event) => {
+      if (event.callId === callId) {
+        if (event.status === 'declined' || event.status === 'missed') {
+          console.log('useCallObserver: call declined/missed via bus', { callId, status: event.status });
+          // Set the status
+          setStatus(event.status);
+          // Close the observer socket
+          const ws = wsRef.current;
+          wsRef.current = null;
+          if (ws) {
+            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'stop' }));
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
+          }
+          // Dismiss the widget after 4 seconds
+          setTimeout(() => {
+            onEndedRef.current?.();
+          }, 4000);
+        } else if (event.status === 'in-progress') {
+          console.log('useCallObserver: call in-progress via bus', { callId });
+          // Set status to live when call is in-progress
+          setStatus('live');
+        }
       }
-    },
-    () => {}, // live question - not used
-    () => {}, // post-call question - not used
-    () => {}, // agent call - not used
-    () => {}, // handoff request - not used
-    () => {}, // agent call completed - not used
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+    });
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isHandoffHandledRef = useRef(false);
-  const onEndedRef = useRef(onEnded);
-  const endedRef = useRef(false);
-
-  useEffect(() => { onEndedRef.current = onEnded; }, [onEnded]);
+    return unsubscribe;
+  }, [callId]);
 
   const leave = useCallback(() => {
     const ws = wsRef.current;
@@ -134,7 +130,10 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
 
         switch (msg.type) {
           case 'ready':
-            setStatus('live');
+            // Don't overwrite declined or missed status
+            if (status !== 'declined' && status !== 'missed') {
+              setStatus('live');
+            }
             break;
 
           case 'transcript':
@@ -149,7 +148,10 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
             break;
 
           case 'error':
-            setStatus('error');
+            // Don't overwrite declined or missed status
+            if (status !== 'declined' && status !== 'missed') {
+              setStatus('error');
+            }
             setHandoffError(msg.message);
             break;
 
@@ -186,14 +188,19 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
     ws.onclose = () => {
       clearTimeout(connectionTimeout);
       if (disposed) return;
-      if (!endedRef.current) setStatus('error');
+      if (!endedRef.current && status !== 'declined' && status !== 'missed') {
+        setStatus('error');
+      }
     };
 
     ws.onerror = (err) => {
       clearTimeout(connectionTimeout);
       if (disposed) return;
       console.error('Voice stream WebSocket error:', err);
-      setStatus('error');
+      // Don't overwrite declined or missed status
+      if (status !== 'declined' && status !== 'missed') {
+        setStatus('error');
+      }
     };
 
     return () => {
@@ -202,6 +209,8 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       if (wsRef.current === ws) wsRef.current = null;
       if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
+      // Clear the call status from the bus when unmounting
+      callStatusBus.clear(callId);
     };
   }, [callId]);
 
