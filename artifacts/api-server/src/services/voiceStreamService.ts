@@ -131,7 +131,7 @@ export async function getTaskContextForCall(
 }
 
 export function createServiceVoiceStream(): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 }); // 256KB limit (Chapter 6)
 
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     const userId = (req as any).userId;

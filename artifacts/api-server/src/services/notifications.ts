@@ -25,7 +25,7 @@ import { sendPushToAccount } from "./push";
 const clients = new Set<WebSocket>();
 
 export function createNotificationsStream(): WebSocketServer {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 }); // 256KB limit (Chapter 6)
 
   wss.on("connection", (ws: WebSocket) => {
     clients.add(ws);

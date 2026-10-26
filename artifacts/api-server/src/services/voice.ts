@@ -67,7 +67,7 @@ export function attachVoiceStreams(server: Server) {
   const notificationsWss = createNotificationsStream();
 
   // Create a single presence WebSocket server to be reused for all connections
-  const presenceWss = new WebSocketServer({ noServer: true });
+  const presenceWss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 }); // 256KB limit (Chapter 6)
 
   // Increase max listeners to prevent EventEmitter warnings
   browserWss.setMaxListeners(50);

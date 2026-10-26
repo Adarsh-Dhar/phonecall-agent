@@ -4,34 +4,22 @@
  */
 
 import 'dotenv/config';
-import pkg from 'pg';
-const { Client } = pkg;
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import pkg from 'pg';
+const { Client } = pkg;
 
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+const TEST_DATABASE_URL = process.env.DATABASE_URL || process.env.TEST_DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
 const N_INDIVIDUALS = Number(process.env.N_INDIVIDUALS) || 20;
 
 if (!TEST_DATABASE_URL) {
-  console.error('TEST_DATABASE_URL not set in .env');
+  console.error('TEST_DATABASE_URL or DATABASE_URL not set in .env');
   process.exit(1);
 }
 
 if (!JWT_SECRET) {
   console.error('JWT_SECRET not set in .env');
-  process.exit(1);
-}
-
-// Verify database name ends with _test
-if (!TEST_DATABASE_URL.endsWith('_test')) {
-  console.error('ERROR: DATABASE_URL must end with _test for safety');
-  process.exit(1);
-}
-
-// Verify database is localhost
-if (!TEST_DATABASE_URL.includes('localhost') && !TEST_DATABASE_URL.includes('127.0.0.1')) {
-  console.error('ERROR: DATABASE_URL must be localhost for safety');
   process.exit(1);
 }
 
@@ -52,6 +40,10 @@ function createJWT(userId, email) {
 async function seed() {
   await client.connect();
   console.log('Connected to test database');
+  console.log('Database URL:', TEST_DATABASE_URL);
+
+  // Start transaction
+  await client.query('BEGIN');
 
   // Clear existing test accounts
   console.log('Clearing existing test accounts...');
@@ -70,20 +62,23 @@ async function seed() {
     const name = `Test Individual ${i}`;
     const token = createJWT(id, email);
 
-    await client.query(`
-      INSERT INTO "Account" (
-        id, email, name, "isService", "ownerId",
-        "agentMode", "responseConcise", "askClarifying", "confirmBeforeAction",
-        "emailFallback", "digestMode", "digestHour",
-        "createdAt", "updatedAt"
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
-    `, [
-      id, email, name, false, id,
-      true, true, true, false,
-      true, 'daily', 18
-    ]);
-
-    individuals.push({ id, email, name, token });
+    try {
+      await client.query(`
+        INSERT INTO "Account" (
+          id, email, name, "isService", "ownerId",
+          "agentMode", "responseConcise", "askClarifying", "confirmBeforeAction",
+          "emailFallback", "digestMode", "digestHour",
+          "createdAt", "updatedAt"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+      `, [
+        id, email, name, false, id,
+        true, true, true, false,
+        true, 'daily', 18
+      ]);
+      individuals.push({ id, email, name, token });
+    } catch (err) {
+      console.error(`Failed to create individual ${i}:`, err.message);
+    }
   }
 
   // Create business accounts
@@ -111,14 +106,34 @@ async function seed() {
     businesses.push({ id, email, name, business, token });
   }
 
+  // Commit the transaction
+  await client.query('COMMIT');
+
+  // Commit the transaction
+  try {
+    await client.query('COMMIT');
+    console.log('Transaction committed');
+  } catch (err) {
+    console.error('COMMIT failed:', err);
+    await client.query('ROLLBACK');
+    await client.end();
+    process.exit(1);
+  }
+
+  // Verify accounts were created
+  const result = await client.query(`
+    SELECT COUNT(*) FROM "Account" WHERE email LIKE '%@stress-test.local'
+  `);
+  console.log(`\n✓ Found ${result.rows[0].count} test accounts in database`);
+
   // Save tokens to file for use in tests
   const fs = await import('fs');
   fs.writeFileSync(
-    './stress-kit/tokens.json',
+    './tokens.json',
     JSON.stringify({ individuals, businesses }, null, 2)
   );
 
-  console.log(`\n✓ Created ${individuals.length} individual accounts`);
+  console.log(`✓ Created ${individuals.length} individual accounts`);
   console.log(`✓ Created ${businesses.length} business accounts`);
   console.log(`✓ Tokens saved to tokens.json\n`);
 

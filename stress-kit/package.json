@@ -10,6 +10,7 @@
     "test:chapter": "node run-all.mjs"
   },
   "dependencies": {
+    "@prisma/client": "^7.10.1",
     "dotenv": "^16.4.7",
     "jsonwebtoken": "^9.0.2",
     "node-fetch": "^3.3.2",

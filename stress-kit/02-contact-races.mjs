@@ -16,12 +16,12 @@ const { Client } = pkg;
 
 const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
 const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
 // Load tokens
 let tokens;
 try {
-  tokens = JSON.parse(fs.readFileSync('./stress-kit/tokens.json', 'utf8'));
+  tokens = JSON.parse(fs.readFileSync('./tokens.json', 'utf8'));
 } catch (err) {
   console.error('Run npm run seed first to generate test accounts');
   process.exit(1);

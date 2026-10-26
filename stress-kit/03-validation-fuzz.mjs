@@ -19,7 +19,7 @@ const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
 // Load tokens
 let tokens;
 try {
-  tokens = JSON.parse(fs.readFileSync('./stress-kit/tokens.json', 'utf8'));
+  tokens = JSON.parse(fs.readFileSync('./tokens.json', 'utf8'));
 } catch (err) {
   console.error('Run npm run seed first to generate test accounts');
   process.exit(1);
