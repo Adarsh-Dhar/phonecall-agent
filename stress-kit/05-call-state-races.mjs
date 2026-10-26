@@ -420,6 +420,7 @@ async function runChapter() {
     console.log('- Use per-business ring timeouts consistently');
   console.log("STRESS_RESULT=FAIL");
   process.exitCode = 1;
+  return;
   }
 
   console.log(`Overall: ✓ PASS`);

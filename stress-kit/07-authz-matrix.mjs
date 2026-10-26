@@ -216,7 +216,7 @@ async function testCrossUserCall() {
       },
     });
     if (!businessContactResponse.ok && businessContactResponse.status !== 409) {
-      console.log(`  [Check 7b] ⚠️  SKIP: Could not create mutual contact: ${businessContactResponse.status}`);
+      console.log(`  [Check 7b] ✗ FAIL: Could not create mutual contact: ${businessContactResponse.status} ${await businessContactResponse.text()}`);
       stats.crossUserCall.passed = false;
       return;
     }
@@ -233,7 +233,7 @@ async function testCrossUserCall() {
     });
     
     if (!callResponse.ok) {
-      console.log('  [Check 7b] ⚠️  SKIP: Dial failed (business may not have phone setup - skipping call access test)');
+      console.log(`  [Check 7b] ✗ FAIL: Dial failed: ${callResponse.status} ${await callResponse.text()}`);
       stats.crossUserCall.passed = false;
       // Cleanup and return
       await fetch(`${API_BASE}/contacts/${contact1.id}`, {
@@ -250,6 +250,13 @@ async function testCrossUserCall() {
 
     const call = await callResponse.json();
     console.log(`  [Check 7b] ✓ Call created (ID: ${call.callId || call.id})`);
+
+    const own = await fetch(`${API_BASE}/calls/${call.callId || call.id}`, { headers: { Cookie: `token=${individual1.token}` } });
+    if (own.status !== 200) {
+      console.log(`  [Check 7b] ✗ FAIL: owner cannot read own call (status ${own.status}); a 404 for others would prove nothing`);
+      stats.crossUserCall.passed = false;
+      return;
+    }
 
     console.log('  [Check 7b] Individual2 trying to access Individual1\'s call...');
     const result = await fetch(`${API_BASE}/calls/${call.callId || call.id}`, {
@@ -338,10 +345,21 @@ async function testKnowledgeIsolation() {
       }
     }
 
-    if (!stats.knowledgeIsolation.leakFound) {
-      stats.knowledgeIsolation.passed = true;
+    // Test 4: write and read through the SHARED business account id (the real finding)
+    console.log('  [Check 7c] Individual1 writes via business.id, Individual2 reads via business.id...');
+    await createKnowledge(individual1.token, business.id, { category: 'test', key: 'shared-secret', value: 'ind1 only' });
+    const sharedRead = await getKnowledge(individual2.token, business.id);
+    if (sharedRead.status === 200) {
+      try {
+        if (JSON.parse(sharedRead.body).some(f => f.key === 'shared-secret')) {
+          console.log('  [Check 7c] ⚠️  SECURITY ISSUE: knowledge shared through business account id');
+          stats.knowledgeIsolation.leakFound = true;
+        }
+      } catch {}
     }
-    
+
+    stats.knowledgeIsolation.passed = !stats.knowledgeIsolation.leakFound && readOwnResult.status === 200;
+
     // Cleanup
     await fetch(`${API_BASE}/contacts/${contact1.id}`, {
       method: 'DELETE',
@@ -389,9 +407,10 @@ async function testExpiredToken() {
   
   try {
     if (!JWT_SECRET) {
-      console.log('  [Check 7e] ⚠️  SKIP: JWT_SECRET not set');
+      console.log('  [Check 7e] ✗ FAIL: JWT_SECRET not set');
+      return;
     }
-    
+
     console.log('  [Check 7e] Creating expired token...');
     const expiredToken = jwt.sign(
       { userId: individual1.id, email: individual1.email },
@@ -422,9 +441,10 @@ async function testAlgNoneToken() {
   
   try {
     if (!JWT_SECRET) {
-      console.log('  [Check 7f] ⚠️  SKIP: JWT_SECRET not set');
+      console.log('  [Check 7f] ✗ FAIL: JWT_SECRET not set');
+      return;
     }
-    
+
     console.log('  [Check 7f] Creating token with alg=none...');
     const header = { alg: 'none', typ: 'JWT' };
     const payload = { userId: individual1.id, email: individual1.email };
@@ -551,53 +571,29 @@ async function runChapter() {
   if (stats.deletedAccount.passed) {
     console.log(`  Passed: ✓`);
   } else {
-    console.log(`  Result: ⚠️  SKIP (manual test required)`);
+    console.log(`  Passed: ✗`);
   }
-  
-  console.log('');
-  console.log('PASS/FAIL CRITERIA');
-  console.log('='.repeat(80));
-  
+
   const criticalIssues = stats.knowledgeIsolation.leakFound;
-  const requiredChecksPassed =
+  const allPassed =
     stats.crossUserContact.passed &&
+    stats.crossUserCall.passed &&
+    stats.knowledgeIsolation.passed &&
     stats.tamperedToken.passed &&
     stats.expiredToken.passed &&
-    stats.algNoneToken.passed;
+    stats.algNoneToken.passed &&
+    stats.deletedAccount.passed;
 
-  const skippedChecks = !stats.crossUserCall.passed || !stats.deletedAccount.passed;
-
-  if (criticalIssues) {
-    console.log(`⚠️  CRITICAL: Knowledge isolation leak found - SECURITY ISSUE`);
-    console.log(`Overall: ✗ FAIL (security issue)`);
-  } else if (!requiredChecksPassed) {
-    console.log(`Required authorization checks failed: ✗ FAIL`);
-    console.log(`Overall: ✗ FAIL`);
-  } else if (skippedChecks) {
-    console.log(`Required authorization checks passed: ✓ PASS`);
-    console.log(`Skipped checks (manual test required): ⚠️  SKIP`);
-    console.log(`Overall: ⚠️  SKIP (manual tests required)`);
-  } else {
-    console.log(`All authorization checks passed: ✓ PASS`);
-    console.log(`Overall: ✓ PASS`);
-  }
-  
   console.log('='.repeat(80));
-  
-  console.log('');
-  console.log('FIX PATTERN:');
-  console.log('- Add unique constraint on (ownerId, contactId) for knowledge');
-  console.log('- Reject tokens with alg=none in JWT verification');
-  console.log('- Verify account exists on every request');
-  console.log('- Add row-level security checks on all routes');
-  
-  if (criticalIssues || !requiredChecksPassed) {
-  console.log("STRESS_RESULT=FAIL");
-  process.exitCode = 1;
+  await db.end().catch(() => {});
+  if (criticalIssues || !allPassed) {
+    console.log(criticalIssues ? '⚠️  CRITICAL: knowledge isolation leak' : 'Overall: ✗ FAIL');
+    console.log('STRESS_RESULT=FAIL');
+    process.exit(1);
   }
-  // Exit 0 for SKIP or PASS (both are acceptable - SKIP requires manual verification)
-  console.log("STRESS_RESULT=PASS");
-  process.exitCode = 0;
+  console.log('Overall: ✓ PASS');
+  console.log('STRESS_RESULT=PASS');
+  process.exit(0);
 }
 
 runChapter().catch(err => {

@@ -14,6 +14,14 @@ import "../lib/authMiddleware"; // Import to ensure Request type augmentation is
 
 const router: IRouter = Router();
 
+async function resolveOwnContactId(userId: string, id: string): Promise<string | null> {
+  const row = await prisma.account.findFirst({
+    where: { ownerId: userId, OR: [{ id }, { linkedAccountId: id }] },
+    select: { id: true },
+  });
+  return row?.id ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // GET /accounts/search?q=<email or name>
 // Discover registered app accounts to add as contacts.
@@ -613,32 +621,14 @@ router.get("/contacts/:id/queries", asyncHandler(async (req, res) => {
 
 // Get knowledge for a contact
 router.get("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
-  const { id } = req.params;
   const { status } = req.query;
-
-  // Verify contact exists AND user has access (either owns it directly or has it as linked contact)
-  const contact = await prisma.account.findFirst({
-    where: { id: String(id) },
-  });
-  
-  if (!contact) {
+  const contactId = await resolveOwnContactId(req.userId!, String(req.params.id));
+  if (!contactId) {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
-
-  // Chapter 7: Tenant isolation - check both ownership paths
-  const hasAccess = contact.ownerId === req.userId! || 
-    (await prisma.account.count({
-      where: { ownerId: req.userId!, linkedAccountId: String(id) }
-    })) > 0;
-
-  if (!hasAccess) {
-    res.status(404).json({ error: "Contact not found" });
-    return;
-  }
-
   const facts = await prisma.contactKnowledge.findMany({
-    where: { contactId: String(id), status: status ? String(status) : "active" },
+    where: { contactId, status: status ? String(status) : "active" },
     orderBy: [{ category: "asc" }, { updatedAt: "desc" }],
   });
   res.json(facts);
@@ -646,43 +636,22 @@ router.get("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
 
 // POST /contacts/:id/knowledge — manual creation of knowledge facts
 router.post("/contacts/:id/knowledge", writeRateLimit, asyncHandler(async (req, res) => {
-  const { id } = req.params;
   const { category, key, value, confidence } = req.body as {
-    category?: string;
-    key?: string;
-    value?: string;
-    confidence?: number;
+    category?: string; key?: string; value?: string; confidence?: number;
   };
-
   if (!category || !key || !value) {
     res.status(400).json({ error: "category, key, and value are required" });
     return;
   }
-
-  // Chapter 7: Tenant isolation - verify access
-  const contact = await prisma.account.findFirst({
-    where: { id: String(id) },
-  });
-  
-  if (!contact) {
+  const contactId = await resolveOwnContactId(req.userId!, String(req.params.id));
+  if (!contactId) {
     res.status(404).json({ error: "Contact not found" });
     return;
   }
-
-  const hasAccess = contact.ownerId === req.userId! || 
-    (await prisma.account.count({
-      where: { ownerId: req.userId!, linkedAccountId: String(id) }
-    })) > 0;
-
-  if (!hasAccess) {
-    res.status(404).json({ error: "Contact not found" });
-    return;
-  }
-
   const fact = await prisma.contactKnowledge.upsert({
-    where: { contactId_key: { contactId: String(id), key: String(key) } },
+    where: { contactId_key: { contactId, key: String(key) } },
     create: {
-      contactId:  String(id),
+      contactId,
       category:   String(category),
       key:        String(key),
       value:      String(value),

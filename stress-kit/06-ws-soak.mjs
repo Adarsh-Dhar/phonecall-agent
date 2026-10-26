@@ -58,7 +58,25 @@ const stats = {
   memoryLeak: { count: 0, leaked: 0 },
   junkFrames: { count: 0, handled: 0 },
   largeFrame: { count: 0, rejected: 0 },
+  heartbeat: { passed: false },
+  serverAlive: { passed: false },
 };
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function openWs(path, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`${WS_BASE}${path}`, opts);
+    ws.once('open', () => resolve(ws));
+    ws.once('error', reject);
+  });
+}
+
+async function getRoomCount() {
+  const r = await fetch(`${API_BASE}/_debug/rooms`, { headers: { Cookie: `token=${individual.token}` } });
+  if (!r.ok) throw new Error(`/_debug/rooms returned ${r.status} (server needs TEST_MODE=true and patch S3)`);
+  return (await r.json()).rooms;
+}
 
 // Check 6a: Upgrade auth - missing token must give 401
 async function testAuthCheck() {
@@ -86,7 +104,7 @@ async function testAuthCheck() {
 
     ws.on('close', (code, reason) => {
       if (code === 1008 || code === 4001) {
-        console.log('  [Check 6a] ✓ PASS: Connection closed with auth error code (code: ${code})');
+        console.log(`  [Check 6a] ✓ PASS: Connection closed with auth error code (code: ${code})`);
         stats.authCheck.passed = true;
         unauthorizedSeen = true;
       }
@@ -239,8 +257,6 @@ async function testRapidReconnect() {
       }
     } catch (dbError) {
       console.log(`  [Check 6c] ⚠️  Could not check account state: ${dbError.message}`);
-      // Assume pass if we can't check
-      stats.rapidReconnect.consistent++;
     }
 
   } catch (error) {
@@ -251,98 +267,100 @@ async function testRapidReconnect() {
 // Check 6d: Observer joining completed call (memory leak)
 async function testMemoryLeak() {
   console.log('');
-  console.log('[Check 6d] Testing observer joining completed call (memory leak)...');
-
+  console.log('[Check 6d] Observer join/leave on a finished call must not leak rooms...');
   stats.memoryLeak.count++;
+  stats.memoryLeak.leaked = 1; // fail until proven otherwise
+  try {
+    const h = { Cookie: `token=${individual.token}`, 'Content-Type': 'application/json' };
+    const hb = { Cookie: `token=${business.token}`, 'Content-Type': 'application/json' };
+    await fetch(`${API_BASE}/contacts/from-account/${business.id}`, { method: 'POST', headers: h });
+    await fetch(`${API_BASE}/business/contacts/from-account/${individual.id}`, { method: 'POST', headers: hb });
+    const { rows } = await db.query(`SELECT id FROM "Account" WHERE "ownerId"=$1 AND "linkedAccountId"=$2 LIMIT 1`, [individual.id, business.id]);
+    if (!rows[0]) throw new Error('contact link not created');
 
-  // Actual memory leak check requires external process monitoring
-  // This is a simplified version that does not measure memory
-  console.log('  [Check 6d] ⚠️  SKIP: Memory leak check requires external process monitoring');
-  console.log('  [Check 6d] ⚠️  SKIP: Use SERVER_PID to monitor RSS over 300 joins in a separate test');
-  console.log('  [Check 6d] ⚠️  SKIP: This test cannot verify memory stability without process monitoring');
-  stats.memoryLeak.leaked = -1; // -1 indicates SKIP
+    const dial = await fetch(`${API_BASE}/calls/dial`, { method: 'POST', headers: h, body: JSON.stringify({ contactId: rows[0].id }) });
+    if (!dial.ok) throw new Error(`dial failed ${dial.status}: ${await dial.text()}`);
+    const dj = await dial.json();
+    const callId = dj.callId || dj.id;
+    const dec = await fetch(`${API_BASE}/calls/${callId}/decline`, { method: 'POST', headers: hb });
+    if (!dec.ok) throw new Error(`decline failed ${dec.status}`);
+
+    const baseline = await getRoomCount();
+    for (let i = 0; i < 300; i++) {
+      const ws = await openWs(`/media/service?token=${individual.token}`);
+      ws.send(JSON.stringify({ type: 'start', callId }));
+      await sleep(30);
+      await new Promise((r) => { ws.once('close', r); ws.close(); });
+    }
+    await sleep(500);
+    const after = await getRoomCount();
+    console.log(`  [Check 6d] rooms before=${baseline} after=${after}`);
+    if (after <= baseline) {
+      stats.memoryLeak.leaked = 0;
+      console.log('  [Check 6d] ✓ PASS: no room left behind');
+    } else {
+      console.log('  [Check 6d] ✗ FAIL: room leaked after last socket left');
+    }
+  } catch (e) {
+    console.log(`  [Check 6d] ✗ FAIL: ${e.message}`);
+  }
 }
 
-// Check 6e: Junk frames, large frames
 async function testFrameHandling() {
   console.log('');
-  console.log('[Check 6e] Testing frame handling (junk, large)...');
-  
+  console.log('[Check 6e] Junk frames, 64 KB frames, one 30 MB frame...');
   stats.junkFrames.count++;
   stats.largeFrame.count++;
-  
   try {
-    console.log('  [Check 6e] Connecting WebSocket...');
-    const ws = new WebSocket(`${WS_BASE}/presence?token=${individual.token}`);
-    
-    ws.on('open', () => {
-      console.log('  [Check 6e] ✓ Connected');
-      
-      // Send 2000 junk frames
-      console.log('  [Check 6e] Sending 2000 junk frames...');
-      for (let i = 0; i < 2000; i++) {
-        ws.send('x'.repeat(100));
-      }
+    const ws = await openWs(`/presence?token=${individual.token}`);
+    let closeCode = null;
+    ws.on('close', (c) => { closeCode = c; });
+    ws.on('error', () => {});
+
+    for (let i = 0; i < 2000; i++) ws.send('x'.repeat(100));
+    for (let i = 0; i < 300; i++) ws.send(Buffer.alloc(64 * 1024));
+    await sleep(500);
+    if (ws.readyState === WebSocket.OPEN) {
       stats.junkFrames.handled++;
-      console.log('  [Check 6e] ✓ Handled 2000 junk frames');
-      
-      // Send 300 audio frames of 64 KB
-      setTimeout(() => {
-        console.log('  [Check 6e] Sending 300 large audio frames (64 KB each)...');
-        for (let i = 0; i < 300; i++) {
-          try {
-            ws.send(Buffer.alloc(64 * 1024));
-          } catch (e) {
-            // Frame rejected
-          }
-        }
-        console.log('  [Check 6e] ✓ Handled 300 large audio frames');
-      }, 100);
-      
-      // Try to send 30 MB frame (should be rejected)
-      setTimeout(() => {
-        console.log('  [Check 6e] Sending 30 MB frame (should be rejected)...');
-        let frameRejected = false;
-        let closeCode = null;
+      console.log('  [Check 6e] ✓ socket survived junk + 64 KB frames');
+    } else {
+      console.log(`  [Check 6e] ✗ FAIL: socket closed on junk (code ${closeCode})`);
+    }
 
-        ws.on('close', (code, reason) => {
-          closeCode = code;
-        });
+    try { ws.send(Buffer.alloc(30 * 1024 * 1024)); } catch {}
+    for (let i = 0; i < 30 && closeCode === null; i++) await sleep(100);
+    if (closeCode === 1009) {
+      stats.largeFrame.rejected++;
+      console.log('  [Check 6e] ✓ 30 MB frame rejected with 1009');
+    } else {
+      console.log(`  [Check 6e] ✗ FAIL: 30 MB frame not rejected (closeCode=${closeCode})`);
+    }
+    ws.terminate();
 
-        try {
-          ws.send(Buffer.alloc(30 * 1024 * 1024));
-          // If send succeeded, wait to see if server closes connection
-          setTimeout(() => {
-            if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-              console.log(`  [Check 6e] ✓ PASS: Server closed connection (code: ${closeCode})`);
-              stats.largeFrame.rejected++;
-              frameRejected = true;
-            } else {
-              console.log('  [Check 6e] ✗ FAIL: 30 MB frame was not rejected and connection stayed open');
-            }
-            ws.close();
-          }, 1000);
-        } catch (e) {
-          console.log('  [Check 6e] ✓ PASS: 30 MB frame rejected on send');
-          stats.largeFrame.rejected++;
-          frameRejected = true;
-          ws.close();
-        }
-      }, 200);
-    });
-    
-    ws.on('error', (error) => {
-      console.log(`  [Check 6e] Connection error: ${error.message}`);
-    });
-    
-    ws.on('close', () => {
-      console.log('  [Check 6e] Connection closed');
-    });
-    
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-  } catch (error) {
-    console.log(`  [Check 6e] ✗ Failed: ${error.message}`);
+    const health = await fetch(`${API_BASE}/health`).catch(() => null);
+    stats.serverAlive.passed = !!(health && health.ok);
+    console.log(`  [Check 6e] ${stats.serverAlive.passed ? '✓' : '✗ FAIL:'} server still answering /health`);
+  } catch (e) {
+    console.log(`  [Check 6e] ✗ FAIL: ${e.message}`);
+  }
+}
+
+async function testHeartbeat() {
+  console.log('');
+  console.log('[Check 6f] Half-open client must be dropped by the server heartbeat...');
+  const HB = Number(process.env.HEARTBEAT_MS || 15000);
+  try {
+    const ws = await openWs(`/presence?token=${individual.token}`, { autoPong: false });
+    ws.on('error', () => {});
+    const closed = await Promise.race([
+      new Promise((r) => ws.once('close', () => r(true))),
+      sleep(HB * 3 + 2000).then(() => false),
+    ]);
+    stats.heartbeat.passed = closed;
+    console.log(closed ? '  [Check 6f] ✓ PASS: server dropped the unresponsive socket' : '  [Check 6f] ✗ FAIL: socket still open (no heartbeat?)');
+    ws.terminate();
+  } catch (e) {
+    console.log(`  [Check 6f] ✗ FAIL: ${e.message}`);
   }
 }
 
@@ -357,7 +375,8 @@ async function runChapter() {
   await testRapidReconnect();
   await testMemoryLeak();
   await testFrameHandling();
-  
+  await testHeartbeat();
+
   // Report results
   console.log('');
   console.log('RESULTS');
@@ -391,64 +410,32 @@ async function runChapter() {
   console.log(`  Large frame rejected: ${stats.largeFrame.rejected}`);
 
   console.log('');
-  console.log('UNIMPLEMENTED CHECKS (reported as SKIP):');
-  console.log('  - Heartbeat behavior (ping/pong)');
-  console.log('  - Room cleanup when last socket leaves');
-  console.log('  - One-hour soak with 20 users');
-  console.log('  - Half-open network connection handling');
-  console.log('  - Rate limiting behavior');
-
-  console.log('');
   console.log('PASS/FAIL CRITERIA');
   console.log('='.repeat(80));
 
-  const authPass = stats.authCheck.passed;
-  const disconnectPass = stats.disconnectOffline.offlineWithin7s === stats.disconnectOffline.count;
-  const reconnectPass = stats.rapidReconnect.consistent === stats.rapidReconnect.count;
-  const framesPass = stats.junkFrames.handled > 0 && stats.largeFrame.rejected > 0;
-  const memorySkipped = stats.memoryLeak.leaked === -1;
+  const checks = {
+    '6a auth': stats.authCheck.passed,
+    '6b disconnect offline': stats.disconnectOffline.offlineWithin7s === stats.disconnectOffline.count,
+    '6c rapid reconnect': stats.rapidReconnect.consistent === stats.rapidReconnect.count,
+    '6d room leak': stats.memoryLeak.leaked === 0,
+    '6e frames': stats.junkFrames.handled > 0 && stats.largeFrame.rejected > 0 && stats.serverAlive.passed,
+    '6f heartbeat': stats.heartbeat.passed,
+  };
+  for (const [name, ok] of Object.entries(checks)) console.log(`Check ${name}: ${ok ? '✓ PASS' : '✗ FAIL'}`);
+  const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([n]) => n);
 
-  console.log(`Check 6a (auth): ${authPass ? '✓ PASS' : '✗ FAIL'}`);
-  console.log(`Check 6b (disconnect offline): ${disconnectPass ? '✓ PASS' : '✗ FAIL'}`);
-  console.log(`Check 6c (rapid reconnect): ${reconnectPass ? '✓ PASS' : '✗ FAIL'}`);
-  console.log(`Check 6d (memory leak): ${memorySkipped ? '⚠️  SKIP' : (stats.memoryLeak.leaked === 0 ? '✓ PASS' : '✗ FAIL')}`);
-  console.log(`Check 6e (frame handling): ${framesPass ? '✓ PASS' : '✗ FAIL'}`);
   console.log('');
-
-  // FAIL if any implemented check failed, but allow SKIP for memory leak
-  const implementedChecksPass = authPass && disconnectPass && reconnectPass && framesPass;
-
-  if (!implementedChecksPass) {
-    console.log(`Overall: ✗ FAIL (implemented checks failed)`);
-    console.log('='.repeat(80));
-  console.log("STRESS_RESULT=FAIL");
-  process.exitCode = 1;
-  }
-
-  if (memorySkipped) {
-    console.log(`Overall: ⚠️  SKIP (memory leak check requires external monitoring)`);
-    console.log('='.repeat(80));
-    console.log('');
-    console.log('FIX PATTERN:');
-    console.log('- new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 })');
-    console.log('- Add per-socket message rate limits');
-    console.log('- Add ping/pong heartbeats to kill half-open sockets');
-    console.log('- Remove room when last socket leaves');
-    console.log('- Monitor process RSS during soak test');
-    process.exit(0); // Exit 0 for SKIP since implemented checks passed
-  }
-
-  console.log(`Overall: ✓ PASS`);
+  console.log('Not automated here (do manually): one-hour soak with 20 users; per-socket message rate limit.');
   console.log('='.repeat(80));
-  
-  console.log('');
-  console.log('FIX PATTERN:');
-  console.log('- new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 })');
-  console.log('- Add per-socket message rate limits');
-  console.log('- Add ping/pong heartbeats to kill half-open sockets');
-  console.log('- Remove room when last socket leaves');
-  
-  process.exit(allPassed ? 0 : 1);
+  await db.end().catch(() => {});
+  if (failed.length) {
+    console.log(`Overall: ✗ FAIL (${failed.join(', ')})`);
+    console.log('STRESS_RESULT=FAIL');
+    process.exit(1);
+  }
+  console.log('Overall: ✓ PASS');
+  console.log('STRESS_RESULT=PASS');
+  process.exit(0);
 }
 
 runChapter().catch(err => {

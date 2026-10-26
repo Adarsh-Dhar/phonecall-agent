@@ -400,6 +400,9 @@ export function createServiceVoiceStream(): WebSocketServer {
         // Individual socket closing does not end the call (but a live owner dropping hands it back)
         if (room.handoff?.ownerSocket === ws) await finishHandoff(room, 'owner_disconnected');
         room.individualSockets.delete(ws);
+        if (room.individualSockets.size === 0 && !room.businessSocket && !room.gemini && !room.handoff) {
+          rooms.delete(callId);
+        }
         logger.info({ callId, remainingIndividuals: room.individualSockets.size }, 'voiceStreamService: individual socket closed');
       }
     });
@@ -589,4 +592,8 @@ async function endCall(callId: string, userId: string) {
   rooms.delete(callId);
 
   logger.info({ callId, userId }, 'voiceStreamService: call ended, room cleaned up');
+}
+
+export function getRoomCount(): number {
+  return rooms.size;
 }

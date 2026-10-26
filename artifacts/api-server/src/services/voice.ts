@@ -22,9 +22,12 @@ import { createNotificationsStream } from "./notifications";
 import { registerPresence, unregisterPresence } from "./presence";
 import { logger } from "../lib/logger";
 import { verifyToken } from "../lib/jwt";
+import { attachHeartbeat } from "../lib/wsHeartbeat";
+
+const safeUrl = (u?: string) => (u ?? "").replace(/token=[^&]+/g, "token=[redacted]");
 
 function extractUserId(req: IncomingMessage): string | null {
-  logger.info({ url: req.url, headers: req.headers }, "WebSocket upgrade request received");
+  logger.info({ url: safeUrl(req.url) }, "WebSocket upgrade request received");
 
   // Try cookie first (both httpOnly and non-httpOnly versions)
   const cookieHeader = req.headers.cookie ?? "";
@@ -37,26 +40,24 @@ function extractUserId(req: IncomingMessage): string | null {
     ? new URLSearchParams(urlParts[1]).get("token")
     : null;
 
-  logger.info({ cookieHeader, cookieMatch, cookieWsMatch, queryToken }, "Token extraction details");
-
   const token = cookieMatch?.[1] || cookieWsMatch?.[1] || queryToken;
 
   if (!token) {
-    logger.warn({ url: req.url, hasCookie: !!cookieHeader, hasQueryParam: !!queryToken }, "WebSocket upgrade failed: no token found");
+    logger.warn({ url: safeUrl(req.url), hasCookie: !!cookieHeader, hasQueryParam: !!queryToken }, "WebSocket upgrade failed: no token found");
     return null;
   }
 
   try {
     const payload = verifyToken(decodeURIComponent(token));
     if (!payload?.userId) {
-      logger.warn({ url: req.url, payload }, "WebSocket upgrade failed: invalid token - no userId in payload");
+      logger.warn({ url: safeUrl(req.url), payload }, "WebSocket upgrade failed: invalid token - no userId in payload");
       return null;
     }
     const source = cookieMatch ? 'cookie' : (cookieWsMatch ? 'cookie_ws' : 'query');
-    logger.info({ userId: payload.userId, url: req.url, source }, "WebSocket upgrade authenticated successfully");
+    logger.info({ userId: payload.userId, url: safeUrl(req.url), source }, "WebSocket upgrade authenticated successfully");
     return payload.userId;
   } catch (error) {
-    logger.error({ error, url: req.url }, "WebSocket upgrade failed: token verification error");
+    logger.error({ error, url: safeUrl(req.url) }, "WebSocket upgrade failed: token verification error");
     return null;
   }
 }
@@ -74,6 +75,9 @@ export function attachVoiceStreams(server: Server) {
   serviceWss.setMaxListeners(50);
   notificationsWss.setMaxListeners(50);
   presenceWss.setMaxListeners(50);
+
+  // Attach heartbeat to all WebSocket servers (S2)
+  for (const w of [browserWss, serviceWss, notificationsWss, presenceWss]) attachHeartbeat(w);
 
   // Handle presence connections
   presenceWss.on("connection", (ws: WebSocket, req: any) => {
@@ -101,7 +105,7 @@ export function attachVoiceStreams(server: Server) {
 
   server.on("upgrade", (req, socket, head) => {
     const pathname = req.url?.split("?")[0];
-    logger.info({ pathname, url: req.url }, "WebSocket upgrade event received");
+    logger.info({ pathname, url: safeUrl(req.url) }, "WebSocket upgrade event received");
 
     // Authentication check for all WebSocket paths
     const userId = extractUserId(req);

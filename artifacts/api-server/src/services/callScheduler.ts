@@ -270,7 +270,7 @@ export async function checkDueTasks(): Promise<void> {
     });
 
     // Filter to only those that have exceeded their specific business timeout
-    const trulyStaleCalls = staleRingingCalls.filter(call => {
+    let trulyStaleCalls = staleRingingCalls.filter(call => {
       const timeoutMs = getRingingTimeoutMs(call.businessId);
       const ringingAt = call.ringingAt ? new Date(call.ringingAt) : call.createdAt;
       return now.getTime() - ringingAt.getTime() > timeoutMs;
@@ -286,6 +286,12 @@ export async function checkDueTasks(): Promise<void> {
         data: { status: 'missed' },
       });
 
+      const flipped = await prisma.call.findMany({
+        where: { id: { in: trulyStaleCalls.map(c => c.id) }, status: 'missed' },
+        select: { id: true },
+      });
+      const flippedIds = new Set(flipped.map(c => c.id));
+      trulyStaleCalls = trulyStaleCalls.filter(c => flippedIds.has(c.id));
       logger.info({ count: trulyStaleCalls.length }, "callScheduler: marked stale ringing calls as missed");
 
       // Notify both parties about the status change
