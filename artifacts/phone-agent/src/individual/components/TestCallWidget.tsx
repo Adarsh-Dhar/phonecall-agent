@@ -82,11 +82,19 @@ export function TestCallWidget({
             >
               <PhoneOff size={13} /> End Call
             </button>
+          ) : status === 'error' ? (
+            <button
+              type="button"
+              onClick={() => void start()}
+              className="flex items-center gap-1.5 rounded-lg bg-[#6366f1] px-4 py-2 text-xs font-bold text-white hover:bg-[#4f46e5]"
+            >
+              <Mic size={13} /> Retry
+            </button>
           ) : (
             <button
               type="button"
               onClick={() => void start()}
-              disabled={status === 'connecting'}
+              disabled={status === 'connecting' || status === 'active'}
               className="flex items-center gap-1.5 rounded-lg bg-[#3f8274] px-4 py-2 text-xs font-bold text-white hover:bg-[#356c61] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {status === 'connecting' ? <LoaderCircle size={13} className="animate-spin" /> : <Mic size={13} />}

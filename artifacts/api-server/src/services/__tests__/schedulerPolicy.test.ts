@@ -77,6 +77,31 @@ describe('business hours', () => {
     const r = isWithinAllowedWindow(new Date('2026-10-08T03:00:00Z'), IST, 22, 6, bh);
     expect(r.nextAllowedTime?.toISOString()).toBe('2026-10-08T03:30:00.000Z');
   });
+
+  it('accepts overnight hours (9 to 8 means 9am to 8am next day)', () => {
+    const overnightBh = { days: [1, 2, 3, 4, 5], start: 9, end: 8, tz: IST };
+    expect(validateBusinessHours(overnightBh)).toEqual(overnightBh);
+  });
+
+  it('allows call at 23:00 IST with overnight hours (9 to 8)', () => {
+    const overnightBh = { days: [1, 2, 3, 4, 5], start: 9, end: 8, tz: IST };
+    // Monday 23:00 IST is within 9am-8am range (crosses midnight)
+    expect(isWithinAllowedWindow(new Date('2026-10-12T17:30:00Z'), 'UTC', null, null, overnightBh).allowed).toBe(true);
+  });
+
+  it('allows call at 02:00 IST with overnight hours (9 to 8)', () => {
+    const overnightBh = { days: [1, 2, 3, 4, 5], start: 9, end: 8, tz: IST };
+    // Tuesday 02:00 IST is within 9am-8am range (crosses midnight)
+    expect(isWithinAllowedWindow(new Date('2026-10-12T20:30:00Z'), 'UTC', null, null, overnightBh).allowed).toBe(true);
+  });
+
+  it('blocks call at 08:30 IST with overnight hours (9 to 8)', () => {
+    const overnightBh = { days: [1, 2, 3, 4, 5], start: 9, end: 8, tz: IST };
+    // Tuesday 08:30 IST is outside 9am-8am range (end is exclusive)
+    const r = isWithinAllowedWindow(new Date('2026-10-12T03:15:00Z'), 'UTC', null, null, overnightBh);
+    expect(r.allowed).toBe(false);
+    expect(r.nextAllowedTime?.toISOString()).toBe('2026-10-12T03:30:00.000Z'); // 09:00 IST
+  });
 });
 
 describe('validateBusinessHours / parseBusinessHours', () => {
@@ -88,7 +113,7 @@ describe('validateBusinessHours / parseBusinessHours', () => {
   it.each([
     [{ days: [], start: 9, end: 17 }],
     [{ days: [7], start: 9, end: 17 }],
-    [{ days: [1], start: 17, end: 9 }],
+    [{ days: [1], start: 9, end: 9 }],
     [{ days: [1], start: 9, end: 25 }],
     [{ days: [1], start: 9, end: 17, tz: 'Not/AZone' }],
     ['not json'],

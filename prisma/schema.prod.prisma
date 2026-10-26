@@ -39,6 +39,8 @@ model Account {
   businessHoursJson         String?
   agentAutoAnswer           Boolean            @default(false)
   agentMode                 Boolean            @default(false)
+  declineRetryDelayMin      Int                @default(30)
+  declineMaxRetries         Int                @default(2)
   emailFallback             Boolean            @default(true)
   contactEmail              String?
   allowFallbackMessage      Boolean            @default(false)
@@ -208,6 +210,7 @@ model Task {
   kind               String              @default("call")
   meta               Json?
   callAttempts       Int                 @default(0)
+  declineCount       Int                 @default(0)
   lastAttemptAt      DateTime?
   nextAttemptAt      DateTime?
   schedulerClaimedAt DateTime?

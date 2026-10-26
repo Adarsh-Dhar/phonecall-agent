@@ -68,10 +68,23 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
 
   useEffect(() => {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${window.location.host}/voice-stream`);
+    // Use same origin - cookies will be sent automatically
+    const wsUrl = `${proto}//${window.location.host}/media/browser`;
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
+    // Set a timeout to detect if connection doesn't establish
+    const connectionTimeout = setTimeout(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket connection timeout in useCallObserver');
+        setStatus('error');
+        setHandoffError('Connection timeout. Please check your network and try again.');
+        ws.close();
+      }
+    }, 10000); // 10 second timeout
+
     ws.onopen = () => {
+      clearTimeout(connectionTimeout);
       setStatus('connecting');
       ws.send(JSON.stringify({ type: 'start', callId }));
     };
@@ -131,12 +144,14 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
     };
 
     ws.onclose = () => {
+      clearTimeout(connectionTimeout);
       if (status !== 'ended') {
         setStatus('error');
       }
     };
 
     ws.onerror = (err) => {
+      clearTimeout(connectionTimeout);
       console.error('Voice stream WebSocket error:', err);
       setStatus('error');
     };
@@ -145,6 +160,7 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
       }
+      clearTimeout(connectionTimeout);
       ws.close();
     };
   }, [callId, onEnded, status]);

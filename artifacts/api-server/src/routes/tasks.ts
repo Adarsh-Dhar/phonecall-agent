@@ -10,36 +10,6 @@ import type { Prisma } from "@workspace/db-prisma";
 const router: IRouter = Router();
 
 // ---------------------------------------------------------------------------
-// GET /contacts/:id/tasks
-// All tasks for a contact across all their conversation threads
-// ---------------------------------------------------------------------------
-router.get("/contacts/:id/tasks", asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { status, kind } = req.query;
-
-  // Verify contact belongs to user
-  const contact = await prisma.account.findFirst({
-    where: { id: String(id), ownerId: req.userId! },
-  });
-  if (!contact) {
-    res.status(404).json({ error: "Contact not found" });
-    return;
-  }
-
-  const tasks = await prisma.task.findMany({
-    where: {
-      contactId: String(id),
-      ...(status ? { status: String(status) } : {}),
-      ...(kind ? { kind: { in: String(kind).split(",") } } : {}),
-    },
-    include: sourcesInclude,
-    orderBy: { createdAt: "desc" },
-  });
-
-  res.json(tasks);
-}, "Failed to fetch contact tasks"));
-
-// ---------------------------------------------------------------------------
 // GET /tasks
 // Global task inbox — cross-contact, filterable by status / priority / contactId / kind
 // e.g. GET /tasks?status=open&priority=high&kind=appointment,bring

@@ -90,8 +90,17 @@ export async function buildBriefing(callId: string, options: BuildOptions = {}):
     throw new Error(`Call not found: ${callId}`);
   }
 
+  // Test calls to unlinked contacts won't have a businessId
+  // In this case, skip briefing since there's no relationship history
   if (!call.individualId || !call.businessId) {
-    throw new Error(`Call missing individualId or businessId: ${callId}`);
+    logger.warn({ callId, individualId: call.individualId, businessId: call.businessId }, "briefing: call missing individualId or businessId, skipping briefing");
+    return {
+      summary: "",
+      knownFacts: [],
+      openLoops: [],
+      businessContext: null,
+      taskContext: null,
+    };
   }
 
   // Get or create the relationship

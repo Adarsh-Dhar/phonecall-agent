@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
-import { UserPlus, Trash2 } from 'lucide-react';
+import { UserPlus, Trash2, AlertCircle } from 'lucide-react';
 import * as api from '@/lib/api';
 import type { Contact } from '@/lib/api';
 import { AppLayout } from '@/individual/components/layout';
@@ -113,6 +113,16 @@ export function ContactsPage() {
                       {contact.online ? 'Online' : 'Offline'}
                     </span>
                   </div>
+                  {contact.closure && (
+                    <div className="flex items-center gap-1.5 rounded-full bg-[#e26951]/10 px-2.5 py-1">
+                      <AlertCircle size={12} className="text-[#e26951]" />
+                      <span className="text-xs font-medium text-[#e26951]">
+                        {contact.closure.kind === 'out_of_service' ? 'Out of service' :
+                         contact.closure.kind === 'holiday' ? 'Holiday' :
+                         contact.closure.kind === 'emergency' ? 'Emergency' : 'Closed'}
+                      </span>
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={(e) => handleDeleteContact(contact.id, e)}

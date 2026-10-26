@@ -42,6 +42,8 @@ export function Preferences({ onClose }: { onClose: () => void }) {
   const [quietHoursEnd, setQuietHoursEnd] = useState<number | null>(null);
   const [agentMode, setAgentMode] = useState(false);
   const [emailFallback, setEmailFallback] = useState(true);
+  const [declineDelayMin, setDeclineDelayMin] = useState(30);
+  const [declineMaxRetries, setDeclineMaxRetries] = useState(2);
   const { permission, subscribe } = usePushSubscription();
 
   const toggle = (id: string) =>
@@ -83,6 +85,16 @@ export function Preferences({ onClose }: { onClose: () => void }) {
       .catch(() => {
         // Default to enabled
       });
+
+    apiFetch('/api/user/decline-retry')
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data.delayMin === 'number') setDeclineDelayMin(data.delayMin);
+        if (typeof data.maxRetries === 'number') setDeclineMaxRetries(data.maxRetries);
+      })
+      .catch(() => {
+        // Keep defaults (30 min, 2 recalls)
+      });
   }, []);
 
   // Get all available timezones, plus the current one if not in the list
@@ -107,6 +119,12 @@ export function Preferences({ onClose }: { onClose: () => void }) {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: agentMode }),
+      });
+
+      await apiFetch('/api/user/decline-retry', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delayMin: declineDelayMin, maxRetries: declineMaxRetries }),
       });
 
       await apiFetch('/api/user/email-fallback', {
@@ -192,6 +210,50 @@ export function Preferences({ onClose }: { onClose: () => void }) {
 
           {/* Standing rules, agent summary and learned lessons (agent mode) */}
           {agentMode && <AgentAutonomySettings />}
+
+          {/* When a business rejects the agent's call */}
+          {agentMode && (
+            <div className="mt-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3" data-testid="decline-retry-settings">
+              <Label className="text-sm font-medium leading-none">If a business rejects the call</Label>
+              <p className="mt-0.5 text-xs text-[hsl(var(--muted-foreground))]">
+                Your agent waits, calls again, and after the last recall stops and tells you the business is not responding.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <div className="flex-1">
+                  <Label htmlFor="decline-delay" className="text-xs">Call again after</Label>
+                  <select
+                    id="decline-delay"
+                    value={declineDelayMin}
+                    onChange={(e) => setDeclineDelayMin(parseInt(e.target.value))}
+                    className="w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
+                  >
+                    {[
+                      [5, '5 minutes'], [15, '15 minutes'], [30, '30 minutes'], [60, '1 hour'],
+                      [120, '2 hours'], [240, '4 hours'], [480, '8 hours'], [1440, '1 day'],
+                    ].map(([m, label]) => (
+                      <option key={m} value={m}>{label}</option>
+                    ))}
+                    {![5, 15, 30, 60, 120, 240, 480, 1440].includes(declineDelayMin) && (
+                      <option value={declineDelayMin}>{declineDelayMin} minutes</option>
+                    )}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="decline-retries" className="text-xs">Recall up to</Label>
+                  <select
+                    id="decline-retries"
+                    value={declineMaxRetries}
+                    onChange={(e) => setDeclineMaxRetries(parseInt(e.target.value))}
+                    className="w-full rounded-lg border border-[hsl(var(--border))] bg-background px-3 py-2 text-sm outline-none focus:border-[hsl(var(--primary))]"
+                  >
+                    {[0, 1, 2, 3, 4, 5, 10].map((n) => (
+                      <option key={n} value={n}>{n === 0 ? 'Never recall' : `${n} time${n === 1 ? '' : 's'}`}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Timezone selector */}
           <div className="mt-6 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-4 py-3">

@@ -55,6 +55,12 @@ export default function BusinessApp() {
           setDialingId(null);
         }
       }
+      // Close incoming call modal if the call is no longer ringing
+      if (incomingCall && event.callId === incomingCall.callId) {
+        if (event.status !== 'ringing') {
+          setIncomingCall(null);
+        }
+      }
     },
     (event) => {
       console.log('Live question received:', event);

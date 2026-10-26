@@ -71,9 +71,11 @@ export function useCallDueNotifications(
     const connect = () => {
       if (stopped) return;
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      // Use same origin - cookies will be sent automatically
+      const wsUrl = `${proto}//${window.location.host}/presence`;
       // The server delivers call_due through the presence registry (services/presence.ts →
       // sendToAccount); the legacy /notifications socket is never written to, so listen here.
-      ws = new WebSocket(`${proto}//${window.location.host}/presence`);
+      ws = new WebSocket(wsUrl);
 
       ws.onmessage = (event) => {
         try {

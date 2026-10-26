@@ -69,12 +69,19 @@ export async function consolidateCall(callId: string): Promise<ConsolidateResult
     return { success: true };
   }
 
+  // Check if individualId and businessId are present (required for relationship)
+  // Test calls (browser test calls) may not have a businessId - skip consolidation for these
+  if (!call.individualId || !call.businessId) {
+    logger.warn({ callId, individualId: call.individualId, businessId: call.businessId }, "consolidator: skipping call without individualId or businessId (likely a test call)");
+    return { success: false };
+  }
+
   // Get or create relationship
   const relationship = await prisma.relationship.findUnique({
     where: {
       individualId_businessId: {
-        individualId: call.individualId!,
-        businessId: call.businessId!,
+        individualId: call.individualId,
+        businessId: call.businessId,
       },
     },
   });
@@ -245,7 +252,7 @@ Key distinctions:
         callId: call.id,
         conversationId: call.conversationId,
         contactId: call.contactId,
-        ownerId: call.individualId!,
+        ownerId: call.individualId,
         promises: parsed.promises,
       });
     } catch (err) {
@@ -294,6 +301,18 @@ Key distinctions:
  * In Phase 3, this runs synchronously. In production, this would enqueue to a job queue.
  */
 export async function scheduleConsolidation(callId: string) {
+  // Quick check: skip if the call doesn't have both individualId and businessId
+  // This prevents unnecessary processing of test calls and unlinked contacts
+  const call = await prisma.call.findUnique({
+    where: { id: callId },
+    select: { individualId: true, businessId: true },
+  });
+
+  if (!call || !call.individualId || !call.businessId) {
+    logger.debug({ callId, individualId: call?.individualId, businessId: call?.businessId }, "consolidator: skipping consolidation (no individualId or businessId)");
+    return;
+  }
+
   // Phase 3: Run synchronously (simple, matches today's debounce)
   // TODO: Phase 3 production: enqueue to job queue (Bull, etc.)
   setTimeout(() => {

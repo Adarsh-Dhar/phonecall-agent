@@ -101,6 +101,12 @@ export function useBrowserVoiceCall(contactId?: string, taskId?: string) {
   }, [releaseAudioResources]);
 
   const start = useCallback(async () => {
+    // Prevent starting if already connecting or active
+    if (status === 'connecting' || status === 'active') {
+      console.warn('Cannot start call: already in progress');
+      return;
+    }
+
     setErrorMessage(null);
     setTranscript([]);
     setStatus('connecting');
@@ -119,10 +125,30 @@ export function useBrowserVoiceCall(contactId?: string, taskId?: string) {
       console.log('AudioContext created with sample rate:', audioCtx.sampleRate);
 
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${proto}//${window.location.host}/media/browser`);
+      // Use same origin - cookies will be sent automatically
+      const apiHost = window.location.host;
+      const wsUrl = `${proto}//${apiHost}/media/browser`;
+      console.log('Connecting to WebSocket:', wsUrl);
+      console.log('Current protocol:', window.location.protocol);
+      console.log('Current host:', window.location.host);
+      console.log('All cookies:', document.cookie);
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
+      // Set a timeout to detect if connection doesn't establish
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          console.error('WebSocket connection timeout');
+          setErrorMessage('Connection timeout. Please check your network and try again.');
+          setStatus('error');
+          releaseAudioResources();
+          ws.close();
+          wsRef.current = null;
+        }
+      }, 10000); // 10 second timeout
+
       ws.onopen = () => {
+        clearTimeout(connectionTimeout);
         console.log('WebSocket connected');
         ws.send(JSON.stringify({ type: 'start', contactId, taskId }));
       };
@@ -193,15 +219,24 @@ export function useBrowserVoiceCall(contactId?: string, taskId?: string) {
           console.error('Received error:', msg.message);
           setErrorMessage(msg.message);
           setStatus('error');
+          releaseAudioResources();
         }
       };
 
-      ws.onerror = () => {
-        setErrorMessage('Connection to the voice agent failed.');
+      ws.onerror = (error) => {
+        clearTimeout(connectionTimeout);
+        console.error('Voice stream WebSocket error:', error);
+        console.error('WebSocket readyState:', ws.readyState);
+        console.error('WebSocket URL:', ws.url);
+        setErrorMessage('Connection to the voice agent failed. Please ensure you are logged in and try again.');
         setStatus('error');
+        releaseAudioResources();
+        wsRef.current = null;
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        clearTimeout(connectionTimeout);
+        console.log('WebSocket closed, code:', event.code, 'reason:', event.reason);
         // Covers both the user-initiated stop() path and a server-initiated
         // close (e.g. the agent ending the call) — idempotent either way.
         releaseAudioResources();
@@ -209,19 +244,27 @@ export function useBrowserVoiceCall(contactId?: string, taskId?: string) {
         setStatus((s) => (s === 'error' ? s : 'idle'));
       };
     } catch (err) {
+      console.error('Failed to start browser voice call:', err);
       setErrorMessage(err instanceof Error ? err.message : 'Microphone access failed.');
       setStatus('error');
+      releaseAudioResources();
     }
-  }, [contactId, taskId, releaseAudioResources]);
+  }, [contactId, taskId, releaseAudioResources, status]);
 
   useEffect(() => {
     return () => {
       // Best-effort cleanup if the modal is closed mid-call.
-      wsRef.current?.send(JSON.stringify({ type: 'stop' }));
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'stop' }));
+      }
       wsRef.current?.close();
+      wsRef.current = null;
       processorRef.current?.disconnect();
+      processorRef.current = null;
       micStreamRef.current?.getTracks().forEach((t) => t.stop());
+      micStreamRef.current = null;
       void audioCtxRef.current?.close();
+      audioCtxRef.current = null;
     };
   }, []);
 

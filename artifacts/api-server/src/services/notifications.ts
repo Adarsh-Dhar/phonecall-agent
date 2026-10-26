@@ -81,6 +81,8 @@ export type CallExhaustedNotification = {
   contactName: string;
   title: string;
   attempts: number;
+  /** "declined" = the business rejected the agent's calls (non-responsive). Absent = could not get through. */
+  reason?: "declined";
 };
 
 export type TaskDueMessage = {
@@ -127,8 +129,11 @@ export async function broadcastCallExhausted(
   const delivered = sendToAccount(payload.ownerId, payload);
   if (!delivered) {
     return sendPushToAccount(payload.ownerId, {
-      title: "Could not reach contact",
-      body: `Couldn't reach ${payload.contactName} about ${payload.title} after ${payload.attempts} attempts`,
+      title: payload.reason === "declined" ? "Business not responding" : "Could not reach contact",
+      body:
+        payload.reason === "declined"
+          ? `${payload.contactName} rejected ${payload.attempts} call${payload.attempts === 1 ? "" : "s"} about ${payload.title}. Marked non-responsive.`
+          : `Couldn't reach ${payload.contactName} about ${payload.title} after ${payload.attempts} attempts`,
       url: `/tasks/${payload.taskId}`,
     });
   }

@@ -119,6 +119,12 @@ export async function judgeCallGoal(callId: string): Promise<{
       .map((m) => `${m.role === "assistant" ? "AGENT" : "CONTACT"}: ${m.content}`)
       .join("\n");
 
+    // Skip LLM judgment if transcript is empty
+    if (!transcript || transcript.trim().length === 0) {
+      logger.warn({ callId }, "callQuality: empty transcript, skipping LLM judgment");
+      return null;
+    }
+
     const system =
       `Judge whether the AGENT achieved this goal: "${task?.title ?? "none"}" ${task?.description ?? ""}.\n` +
       `Facts: outcome=${call.outcome}; standing-rule decisions=${JSON.stringify(decisions)}; owner joined live=${!!handoff}.\n` +

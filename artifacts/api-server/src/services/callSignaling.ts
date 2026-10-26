@@ -3,6 +3,7 @@ import { isOnline, sendToAccount } from './presence';
 import { logger } from '../lib/logger';
 import { isWithinAllowedWindow, DEFAULT_BUSINESS_HOURS, parseBusinessHours } from './schedulerPolicy';
 import { loadClosureInfo } from './businessClosures';
+import { handleAgentCallDeclined } from './declineHandling';
 
 // Shared ringing timeout constant (default 30 seconds, override via env)
 export const RINGING_TIMEOUT_MS = Number(process.env.RINGING_TIMEOUT_MS) || 30000;
@@ -527,32 +528,10 @@ export async function dialCallAs(
   // and the individual does not have to be online.
   const autoAnswer = dialerRole === 'business' && (await agentWillAutoAnswer(calleeAccountId));
 
-  if (!online && !autoAnswer) {
-    // Create missed call
-    const call = await prisma.call.create({
-      data: {
-        status: 'missed',
-        contactId: callContactId,
-        calleeAccountId,
-        conversationId: conversation.id,
-        from: dialerRole === 'individual' ? 'agent' : calleeAccountId,
-        to: calleeAccountId,
-        taskId,
-        individualId,
-        businessId,
-        initiatedBy: dialerRole,
-        placedByAgent: opts.agent ?? false,
-      },
-    });
-
-    // Notify the caller so their call list updates
-    sendToAccount(dialerId, {
-      type: 'call_created',
-      callId: call.id,
-    });
-
-    return { call, status: 'missed' };
-  }
+  // Note: We removed the immediate "missed" check for offline callees.
+  // Calls should always start as "ringing" regardless of online status.
+  // The scheduler will mark them as "missed" after RINGING_TIMEOUT_MS if nobody accepts.
+  // This ensures proper call flow and notification delivery.
 
   if (autoAnswer) {
     const answeredAt = new Date();
@@ -717,6 +696,8 @@ export async function declineCallAs(callId: string, accountId: string, role: Cal
       individualId: true,
       businessId: true,
       initiatedBy: true,
+      placedByAgent: true,
+      taskId: true,
     },
   });
 
@@ -747,6 +728,11 @@ export async function declineCallAs(callId: string, accountId: string, role: Cal
       callId,
       status: 'declined',
     });
+  }
+
+  // The agent placed this call: apply the owner's recall limit (or mark the business non-responsive).
+  if (call.placedByAgent && call.taskId) {
+    await handleAgentCallDeclined(callId);
   }
 
   return { status: 'declined' };

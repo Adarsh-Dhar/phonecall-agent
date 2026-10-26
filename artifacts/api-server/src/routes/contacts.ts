@@ -6,6 +6,7 @@ import { validateBusinessHours, resolveEffectiveHours } from "../services/schedu
 import { loadClosureInfo, closureForIndividual } from "../services/businessClosures";
 import { parseContactEmail, parseAllowFallback, hasUsableChannel, messagingView, NO_CHANNEL_ERROR } from "../services/outbound/contactFields";
 import { queueIntroCall, cancelIntroCall } from '../services/introCall';
+import { sourcesInclude } from "../lib/prismaSelects";
 import "../lib/authMiddleware"; // Import to ensure Request type augmentation is applied
 
 const router: IRouter = Router();
@@ -392,6 +393,212 @@ router.get("/contacts/:id/conversation", asyncHandler(async (req, res) => {
   res.json(conversation);
   return;
 }, "Failed to fetch contact conversation"));
+
+// Get tasks for a contact
+router.get("/contacts/:id/tasks", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status, kind } = req.query;
+
+  // Verify contact exists
+  const contact = await prisma.account.findFirst({
+    where: { id: String(id) },
+  });
+  
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  // Check if user has access (either owns it directly or has it as a linked contact)
+  const hasAccess = contact.ownerId === req.userId! || 
+    (await prisma.account.count({
+      where: { ownerId: req.userId!, linkedAccountId: String(id) }
+    })) > 0;
+
+  if (!hasAccess) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  const tasks = await prisma.task.findMany({
+    where: {
+      contactId: String(id),
+      ...(status ? { status: String(status) } : {}),
+      ...(kind ? { kind: { in: String(kind).split(",") } } : {}),
+    },
+    include: sourcesInclude,
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.json(tasks);
+}, "Failed to fetch contact tasks"));
+
+// Get questions for a contact
+router.get("/contacts/:id/questions", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.query;
+
+  // Verify contact exists
+  const contact = await prisma.account.findFirst({
+    where: { id: String(id) },
+  });
+  
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  // Check if user has access (either owns it directly or has it as a linked contact)
+  const hasAccess = contact.ownerId === req.userId! || 
+    (await prisma.account.count({
+      where: { ownerId: req.userId!, linkedAccountId: String(id) }
+    })) > 0;
+
+  if (!hasAccess) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  const queries = await prisma.query.findMany({
+    where: {
+      contactId: String(id),
+      isKnowledgeGap: true,
+      ...(status ? { status: String(status) } : {}),
+    },
+    include: sourcesInclude,
+    orderBy: { createdAt: "asc" },
+  });
+
+  res.json(queries);
+}, "Failed to fetch contact questions"));
+
+// Get queries for a contact
+router.get("/contacts/:id/queries", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.query;
+
+  // Verify contact exists
+  const contact = await prisma.account.findFirst({
+    where: { id: String(id) },
+  });
+  
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  // Check if user has access (either owns it directly or has it as a linked contact)
+  const hasAccess = contact.ownerId === req.userId! || 
+    (await prisma.account.count({
+      where: { ownerId: req.userId!, linkedAccountId: String(id) }
+    })) > 0;
+
+  if (!hasAccess) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  const queries = await prisma.query.findMany({
+    where: {
+      contactId: String(id),
+      isKnowledgeGap: false,
+      ...(status ? { status: String(status) } : {}),
+    },
+    include: sourcesInclude,
+    orderBy: { createdAt: "asc" },
+  });
+
+  res.json(queries);
+}, "Failed to fetch contact queries"));
+
+// Get knowledge for a contact
+router.get("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.query;
+
+  // Verify contact exists
+  const contact = await prisma.account.findFirst({
+    where: { id: String(id) },
+  });
+  
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  // Check if user has access (either owns it directly or has it as a linked contact)
+  const hasAccess = contact.ownerId === req.userId! || 
+    (await prisma.account.count({
+      where: { ownerId: req.userId!, linkedAccountId: String(id) }
+    })) > 0;
+
+  if (!hasAccess) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  const facts = await prisma.contactKnowledge.findMany({
+    where: { contactId: String(id), status: status ? String(status) : "active" },
+    orderBy: [{ category: "asc" }, { updatedAt: "desc" }],
+  });
+  res.json(facts);
+}, "Failed to fetch contact knowledge"));
+
+// POST /contacts/:id/knowledge — manual creation of knowledge facts
+router.post("/contacts/:id/knowledge", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { category, key, value, confidence } = req.body as {
+    category?: string;
+    key?: string;
+    value?: string;
+    confidence?: number;
+  };
+
+  if (!category || !key || !value) {
+    res.status(400).json({ error: "category, key, and value are required" });
+    return;
+  }
+
+  // Verify contact exists
+  const contact = await prisma.account.findFirst({
+    where: { id: String(id) },
+  });
+  
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  // Check if user has access (either owns it directly or has it as a linked contact)
+  const hasAccess = contact.ownerId === req.userId! || 
+    (await prisma.account.count({
+      where: { ownerId: req.userId!, linkedAccountId: String(id) }
+    })) > 0;
+
+  if (!hasAccess) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  const fact = await prisma.contactKnowledge.upsert({
+    where: { contactId_key: { contactId: String(id), key: String(key) } },
+    create: {
+      contactId:  String(id),
+      category:   String(category),
+      key:        String(key),
+      value:      String(value),
+      confidence: confidence ?? 1.0,
+      status:     "active",
+    },
+    update: {
+      value:      String(value),
+      confidence: confidence ?? 1.0,
+      status:     "active",
+      updatedAt:  new Date(),
+    },
+  });
+  res.status(201).json(fact);
+}, "Failed to create contact knowledge"));
 
 // Update a contact
 router.put("/contacts/:id", asyncHandler(async (req, res) => {

@@ -206,6 +206,13 @@ export function ContactDetailPage() {
               <span className="rounded-full bg-[#edf1ec] px-3 py-1 text-[10px] font-bold uppercase tracking-[.07em] text-[#58645f]">
                 {contact.online ? 'Online' : 'Offline'}
               </span>
+              {contact.closure && (
+                <span className="rounded-full bg-[#e26951]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[.07em] text-[#e26951]">
+                  {contact.closure.kind === 'out_of_service' ? 'Out of service' :
+                   contact.closure.kind === 'holiday' ? 'Holiday' :
+                   contact.closure.kind === 'emergency' ? 'Emergency' : 'Closed'}
+                </span>
+              )}
               {callStatus !== 'idle' && (
                 <span className="rounded-full bg-[#fff0df] px-3 py-1 text-[10px] font-bold uppercase tracking-[.07em] text-[#af5c1c]">
                   {callStatus === 'ringing' ? 'Ringing...' : callStatus}

@@ -100,7 +100,7 @@ function isHourInRange(hour: number, start: number, end: number): boolean {
 
 function isBusinessOpen(date: Date, bh: BusinessHours, tz: string): boolean {
   const { weekday, hour } = localParts(date, tz);
-  return bh.days.includes(weekday) && hour >= bh.start && hour < bh.end;
+  return bh.days.includes(weekday) && isHourInRange(hour, bh.start, bh.end);
 }
 
 /**
@@ -172,7 +172,7 @@ export function validateBusinessHours(raw: unknown): BusinessHours {
   }
   if (!Number.isInteger(start) || start < 0 || start > 23) throw new Error('start must be an integer 0-23');
   if (!Number.isInteger(end) || end < 1 || end > 24) throw new Error('end must be an integer 1-24');
-  if (end <= start) throw new Error('end must be after start');
+  if (end === start) throw new Error('end must be different from start (use end < start for next-day end)');
 
   const result: BusinessHours = { days: Array.from(new Set<number>(days)).sort(), start, end };
   if (tz !== undefined && tz !== null) {

@@ -116,7 +116,15 @@ export function useBusinessVoiceCall(callId: string) {
       console.log('AudioContext created with sample rate:', audioCtx.sampleRate);
 
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${proto}//${window.location.host}/media/service`);
+      // Include token as query parameter for authentication
+      // Use token_ws cookie (non-httpOnly) which JavaScript can read
+      const token = document.cookie.match(/(?:^|;\s*)token_ws=([^;]+)/)?.[1];
+      // Connect directly to API server for WebSocket (bypass Vite proxy which can be unreliable for WebSockets)
+      const apiHost = import.meta.env.DEV ? 'localhost:5175' : window.location.host;
+      const wsUrl = token
+        ? `${proto}//${apiHost}/media/service?token=${encodeURIComponent(token)}`
+        : `${proto}//${apiHost}/media/service`;
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {

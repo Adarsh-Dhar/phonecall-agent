@@ -37,13 +37,15 @@ export default defineConfig({
         target: 'http://localhost:5175',
         changeOrigin: true,
       },
-      // Proxy the browser voice-call WebSocket to the API server. Needs
-      // `ws: true` — Vite's proxy doesn't upgrade WebSocket connections by
-      // default, only plain HTTP.
       '/media': {
         target: 'http://localhost:5175',
-        ws: true,
         changeOrigin: true,
+        ws: true,
+      },
+      '/presence': {
+        target: 'http://localhost:5175',
+        changeOrigin: true,
+        ws: true,
       },
     },
   },
@@ -58,8 +60,13 @@ export default defineConfig({
       },
       '/media': {
         target: 'http://localhost:5175',
-        ws: true,
         changeOrigin: true,
+        ws: true,
+      },
+      '/presence': {
+        target: 'http://localhost:5175',
+        changeOrigin: true,
+        ws: true,
       },
     },
   },

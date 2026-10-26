@@ -23,18 +23,32 @@ export function BusinessIncomingCallModal({ incomingCall, onClose }: BusinessInc
       await acceptCall(incomingCall.callId);
       setAccepted(true);
     } catch (error) {
-      console.error('Failed to accept call:', error);
+      // If the call is no longer in ringing state, just close the modal
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('not in ringing state')) {
+        console.log('Call already ended or declined, closing modal');
+        setOpen(false);
+        onClose();
+      } else {
+        console.error('Failed to accept call:', error);
+      }
     }
   };
 
   const handleDecline = async () => {
     try {
       await declineCall(incomingCall.callId);
-      setOpen(false);
-      onClose();
     } catch (error) {
-      console.error('Failed to decline call:', error);
+      // If the call is no longer in ringing state, it's fine - just close the modal
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('not in ringing state')) {
+        console.log('Call already ended or answered, closing modal');
+      } else {
+        console.error('Failed to decline call:', error);
+      }
     }
+    setOpen(false);
+    onClose();
   };
 
   const handleEnded = () => {

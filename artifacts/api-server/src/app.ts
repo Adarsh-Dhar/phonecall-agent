@@ -37,18 +37,23 @@ app.use(cors({
       callback(null, true);
       return;
     }
-    
-    // In development, allow only the specific Vite port
+
+    // In development, allow multiple localhost ports for flexibility
     if (process.env.NODE_ENV === 'development') {
-      const devOrigin = process.env.FRONTEND_URL || 'http://localhost:5175';
-      if (origin === devOrigin) {
+      const devOrigins = [
+        process.env.FRONTEND_URL || 'http://localhost:5175',
+        'http://localhost:5173', // Vite default
+        'http://localhost:5174', // Alternative
+        'http://localhost:5176', // Alternative
+      ];
+      if (devOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error(`CORS: development only allows ${devOrigin}, got ${origin}`));
+        callback(new Error(`CORS: development only allows ${devOrigins.join(', ')}, got ${origin}`));
       }
       return;
     }
-    
+
     // In production, allow configured FRONTEND_URL(s)
     const allowed = (process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
     if (allowed.includes(origin)) {

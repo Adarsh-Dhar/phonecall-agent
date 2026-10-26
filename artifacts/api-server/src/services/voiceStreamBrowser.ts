@@ -62,12 +62,19 @@ export function createBrowserVoiceStream(): WebSocketServer {
   const wss = new WebSocketServer({ noServer: true });
 
   wss.on("connection", (browserWs: WebSocket, req: IncomingMessage) => {
+    logger.info("Browser voice WebSocket connection received");
+    // Authentication is already handled in voice.ts upgrade handler
+    // If we reach here, userId is guaranteed to be set
     const authUserId = (req as any).userId;
     if (!authUserId) {
-      logger.warn("Browser voice connection without authenticated userId");
+      // This should never happen due to auth check in voice.ts, but if it does,
+      // send an error message before closing to help debugging
+      logger.error("Browser voice connection without authenticated userId - this should not happen");
+      browserWs.send(JSON.stringify({ type: "error", message: "Authentication failed" }));
       browserWs.close();
       return;
     }
+    logger.info({ authUserId }, "Browser voice WebSocket connection authenticated");
 
     let gemini: GeminiVoiceSession | null = null;
     let lifecycle: ReturnType<typeof createCallLifecycle> | null = null;
@@ -235,11 +242,16 @@ export function createBrowserVoiceStream(): WebSocketServer {
             let memoryBlock = "";
             try {
               const briefing = await buildBriefing(call.id);
-              memoryBlock = renderMemoryBlock(briefing, { timezone: tz });
-              await prisma.call.update({
-                where: { id: call.id },
-                data: { briefingVersion: briefing.version, briefingSnapshot: briefing as any },
-              });
+              // Check if briefing has required individual data before rendering
+              if (briefing.individual && briefing.individual.name) {
+                memoryBlock = renderMemoryBlock(briefing, { timezone: tz });
+                await prisma.call.update({
+                  where: { id: call.id },
+                  data: { briefingVersion: briefing.version, briefingSnapshot: briefing as any },
+                });
+              } else {
+                logger.warn({ callId: call.id }, "voiceStreamBrowser: briefing missing individual data, skipping memory");
+              }
             } catch (err) {
               logger.warn({ err, callId: call.id }, "voiceStreamBrowser: no memory briefing, starting without history");
             }

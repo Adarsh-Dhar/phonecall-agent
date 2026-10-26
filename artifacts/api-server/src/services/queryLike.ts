@@ -92,68 +92,6 @@ export function makeQueryLikeRouter(opts: QueryLikeOptions): IRouter {
   );
 
   // ---------------------------------------------------------------------------
-  // GET /contacts/:id/{basePath}
-  // All {resourceCapitalized}s for a contact across all their conversation threads
-  // ---------------------------------------------------------------------------
-  router.get(
-    `/contacts/:id`,
-    asyncHandler(async (req, res) => {
-      // Disable caching to ensure fresh data
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-
-      const { id } = req.params;
-      const { status } = req.query;
-
-      // Verify contact belongs to user
-      const user = await prisma.account.findUnique({
-        where: { id: req.userId! },
-        select: { isService: true, ownerId: true },
-      });
-
-      if (!user) {
-        res.status(401).json({ error: "User not found" });
-        return;
-      }
-
-      let contactFilter: any;
-      if (!user.isService) {
-        // Individual user: must own this contact OR be the linked account
-        contactFilter = {
-          OR: [
-            { id: String(id), ownerId: req.userId!, isService: true },
-            { id: String(id), linkedAccountId: req.userId!, isService: true },
-          ],
-        };
-      } else {
-        // Business user: this contact must be this business account
-        contactFilter = { id: req.userId! };
-      }
-
-      const contact = await prisma.account.findFirst({
-        where: contactFilter,
-      });
-      if (!contact) {
-        res.status(404).json({ error: "Contact not found" });
-        return;
-      }
-
-      const queries = await prisma.query.findMany({
-        where: {
-          contactId: String(id),
-          isKnowledgeGap: opts.isKnowledgeGap,
-          ...(status ? { status: String(status) } : {}),
-        },
-        include: sourcesInclude,
-        orderBy: { createdAt: "desc" },
-      });
-
-      res.json(queries);
-    }, `Failed to fetch contact ${resourceName}s`)
-  );
-
-  // ---------------------------------------------------------------------------
   // GET /{basePath}
   // Global {resourceName} inbox — cross-contact, filterable by ?status= / ?contactId=
   // ---------------------------------------------------------------------------

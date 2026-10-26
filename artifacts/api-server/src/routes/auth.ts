@@ -7,6 +7,7 @@ import { signToken } from "../lib/jwt";
 import { requireAuth } from "../lib/authMiddleware";
 import crypto from 'crypto';
 import { emailConfigured } from "../services/outbound/email";
+import { resolveDeclinePrefs, validateDeclinePrefs } from "../services/declinePolicy";
 
 const router: IRouter = Router();
 
@@ -160,13 +161,24 @@ router.get("/auth/google/callback", asyncHandler(async (req, res) => {
     // Sign JWT token
     const jwtToken = signToken({ userId: account.id, email: account.email ?? "" });
 
-    // Set httpOnly cookie
+    // Set httpOnly cookie for API authentication
     // Only use secure cookies in production if not on localhost
     const isLocalhost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
     res.cookie('token', jwtToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production' && !isLocalhost,
       sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Also set a non-httpOnly cookie for client-side WebSocket authentication
+    // This allows JavaScript to read the token and pass it in WebSocket URLs
+    res.cookie('token_ws', jwtToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production' && !isLocalhost,
+      sameSite: 'lax',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -182,10 +194,11 @@ router.get("/auth/google/callback", asyncHandler(async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /auth/logout
-// Clear the JWT cookie
+// Clear the JWT cookies
 // ---------------------------------------------------------------------------
 router.post("/auth/logout", asyncHandler(async (req, res) => {
   res.clearCookie('token');
+  res.clearCookie('token_ws');
   res.json({ success: true });
 }, "Failed to logout"));
 
@@ -505,6 +518,56 @@ router.patch("/user/timezone", requireAuth, asyncHandler(async (req, res) => {
 
   res.json({ success: true });
 }, "Failed to update timezone"));
+
+// ---------------------------------------------------------------------------
+// GET /user/decline-retry
+// Individuals only (business accounts get 403).
+// ---------------------------------------------------------------------------
+router.get("/user/decline-retry", requireAuth, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({
+    where: { id: req.userId! },
+    select: { declineRetryDelayMin: true, declineMaxRetries: true, isService: true },
+  });
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+  if (account.isService) {
+    res.status(403).json({ error: "Only individual accounts have an AI agent that places calls" });
+    return;
+  }
+  const { delayMin, maxRetries } = resolveDeclinePrefs(account);
+  res.json({ delayMin, maxRetries });
+}, "Failed to get decline retry settings"));
+
+// ---------------------------------------------------------------------------
+// PATCH /user/decline-retry   Body: { delayMin: number (1-1440), maxRetries: number (0-10) }
+// What the agent does when a business rejects its call: wait delayMin minutes, recall up to
+// maxRetries times (0 = never recall), then stop and tell the owner the business is non-responsive.
+// ---------------------------------------------------------------------------
+router.patch("/user/decline-retry", requireAuth, asyncHandler(async (req, res) => {
+  const account = await prisma.account.findUnique({ where: { id: req.userId! }, select: { isService: true } });
+  if (!account) {
+    res.status(404).json({ error: "Account not found" });
+    return;
+  }
+  if (account.isService) {
+    res.status(403).json({ error: "Only individual accounts have an AI agent that places calls" });
+    return;
+  }
+  let prefs;
+  try {
+    prefs = validateDeclinePrefs(req.body ?? {});
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : "Invalid settings" });
+    return;
+  }
+  await prisma.account.update({
+    where: { id: req.userId! },
+    data: { declineRetryDelayMin: prefs.delayMin, declineMaxRetries: prefs.maxRetries },
+  });
+  res.json(prefs);
+}, "Failed to update decline retry settings"));
 
 // ---------------------------------------------------------------------------
 // GET /user/quiet-hours

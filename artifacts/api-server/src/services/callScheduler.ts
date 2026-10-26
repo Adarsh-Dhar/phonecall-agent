@@ -290,6 +290,25 @@ export async function checkDueTasks(): Promise<void> {
       logger.info({ count: staleResult.count }, "callScheduler: marked stale tasks");
     }
 
+    // Recover tasks with past nextAttemptAt that are stuck in non-pending states
+    const stuckPastResult = await prisma.task.updateMany({
+      where: {
+        kind: { in: AGENT_KINDS },
+        status: { in: ["open", "in_progress"] },
+        schedulerStatus: { in: ["claimed", "done", "exhausted"] },
+        nextAttemptAt: { lt: now },
+        schedulerClaimedAt: { lt: new Date(now.getTime() - CLAIM_TTL_MS) },
+      },
+      data: {
+        schedulerStatus: "pending",
+        schedulerClaimedAt: null,
+      },
+    });
+
+    if (stuckPastResult.count > 0) {
+      logger.info({ count: stuckPastResult.count }, "callScheduler: recovered stuck tasks with past nextAttemptAt");
+    }
+
     // Overdue promises -> check-in call tasks. Runs before the due-task query below so a new
     // check-in can fire in this same cycle. Never throws.
     await sweepOverdueLoops(now);

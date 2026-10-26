@@ -54,7 +54,9 @@ export function usePresence(
     const connect = () => {
       if (stopped) return;
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${proto}//${window.location.host}/presence`);
+      // Use same origin - cookies will be sent automatically
+      const wsUrl = `${proto}//${window.location.host}/presence`;
+      ws = new WebSocket(wsUrl);
 
       ws.onmessage = (event) => {
         try {
