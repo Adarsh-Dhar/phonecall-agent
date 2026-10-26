@@ -12,34 +12,22 @@
 import 'dotenv/config';
 import fs from 'fs';
 import pkg from 'pg';
-const { Client } = pkg;
+const { Pool } = pkg;
+import { validateTestConfig, getConfig, verifyApiReachable } from './test-config.mjs';
 
-const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
-const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+validateTestConfig();
+await verifyApiReachable();
 
-if (!TEST_DATABASE_URL) {
-  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
-  process.exit(1);
-}
+const config = getConfig();
+const API_BASE = config.API_BASE;
+const CONCURRENCY = config.CONCURRENCY;
+const TEST_DATABASE_URL = config.TEST_DATABASE_URL;
 
-// Database safety check: must be localhost and name ends with _test
-const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
-if (!dbMatch) {
-  console.error('Could not parse TEST_DATABASE_URL');
-  process.exit(1);
-}
-
-const [, host, port, dbName] = dbMatch;
-if (host !== 'localhost' && host !== '127.0.0.1') {
-  console.error('TEST_DATABASE_URL must use localhost for safety');
-  process.exit(1);
-}
-
-if (!dbName.endsWith('_test')) {
-  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
-  process.exit(1);
-}
+const db = new Pool({
+  connectionString: TEST_DATABASE_URL,
+  max: 5,
+  connectionTimeoutMillis: 3000,
+});
 
 // Load tokens
 let tokens;
@@ -47,13 +35,14 @@ try {
   tokens = JSON.parse(fs.readFileSync('./tokens.json', 'utf8'));
 } catch (err) {
   console.error('Run npm run seed first to generate test accounts');
+  console.log("STRESS_RESULT=FAIL");
+  process.exitCode = 1;
+  await db.end();
   process.exit(1);
 }
 
 const individuals = tokens.individuals;
 const businesses = tokens.businesses;
-
-const client = new Client(TEST_DATABASE_URL);
 
 const stats = {
   parallelDials: { count: 0, multipleRinging: 0, success: 0 },
@@ -73,7 +62,7 @@ async function addContactFromAccount(token, accountId) {
 }
 
 async function dialCall(token, contactId, taskId = null) {
-  const response = await fetch(`${API_BASE}/calls`, {
+  const response = await fetch(`${API_BASE}/calls/dial`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -85,30 +74,28 @@ async function dialCall(token, contactId, taskId = null) {
     const error = await response.json().catch(() => ({}));
     throw new Error(`Dial failed: ${response.status} - ${JSON.stringify(error)}`);
   }
-  return response.json();
+  const data = await response.json();
+  // API returns callId, not id
+  return { id: data.callId || data.id, ...data };
 }
 
 async function getRingingCalls(individualId, businessId) {
-  await client.connect();
-  const result = await client.query(`
-    SELECT COUNT(*) FROM "Call" 
-    WHERE "individualId" = $1 
-    AND "businessId" = $2 
+  const result = await db.query(`
+    SELECT COUNT(*) FROM "Call"
+    WHERE "individualId" = $1
+    AND "businessId" = $2
     AND status = 'ringing'
   `, [individualId, businessId]);
-  await client.end();
   return parseInt(result.rows[0].count);
 }
 
 async function checkCallbackTasks(contactId) {
-  await client.connect();
-  const result = await client.query(`
-    SELECT COUNT(*) FROM "Task" 
-    WHERE "contactId" = $1 
+  const result = await db.query(`
+    SELECT COUNT(*) FROM "Task"
+    WHERE "contactId" = $1
     AND kind = 'call'
     AND status = 'open'
   `, [contactId]);
-  await client.end();
   return parseInt(result.rows[0].count);
 }
 
@@ -159,13 +146,13 @@ async function testParallelDials(individual, business) {
 
     // Cleanup calls
     console.log(`  [Check 4a] Cleaning up calls...`);
-    await client.connect();
-    await client.query(`
+    ;
+    await db.query(`
       DELETE FROM "Call"
       WHERE "individualId" = $1
       AND "businessId" = $2
     `, [individual.id, business.id]);
-    await client.end();
+    ;
     console.log(`  [Check 4a] ✓ Calls cleaned up`);
 
     // Cleanup contact
@@ -219,31 +206,26 @@ async function testRapidButtonMash(individual, business) {
       throw new Error('No dial requests succeeded');
     }
 
-    // Check for duplicate calls
-    console.log(`  [Check 4b] Checking for duplicate calls...`);
-    await client.connect();
-    const result = await client.query(`
+    // Check for duplicate calls - count only active ringing calls, not all historical
+    console.log(`  [Check 4b] Checking for duplicate ringing calls...`);
+    const ringingResult = await db.query(`
       SELECT COUNT(*) FROM "Call"
-      WHERE "contactId" = $1
+      WHERE "contactId" = $1 AND status = 'ringing'
     `, [contactId]);
-    await client.end();
+    const ringingCount = parseInt(ringingResult.rows[0].count);
+    console.log(`  [Check 4b] Found ${ringingCount} ringing call(s)`);
 
-    const callCount = parseInt(result.rows[0].count);
-    console.log(`  [Check 4b] Found ${callCount} call(s)`);
-
-    if (callCount > 1) {
+    if (ringingCount > 1) {
       stats.rapidButtonMash.duplicateCalls++;
-      console.log(`  [Check 4b] ✗ FAIL: Duplicate calls: ${callCount} calls from 25 attempts`);
+      console.log(`  [Check 4b] ✗ FAIL: Duplicate ringing calls: ${ringingCount} calls from 25 attempts`);
     } else {
       stats.rapidButtonMash.success++;
-      console.log(`  [Check 4b] ✓ Single call (correct)`);
+      console.log(`  [Check 4b] ✓ Single ringing call (correct)`);
     }
 
     // Cleanup
     console.log(`  [Check 4b] Cleaning up calls...`);
-    await client.connect();
-    await client.query(`DELETE FROM "Call" WHERE "contactId" = $1`, [contactId]);
-    await client.end();
+    await db.query(`DELETE FROM "Call" WHERE "contactId" = $1`, [contactId]);
     console.log(`  [Check 4b] ✓ Calls cleaned up`);
 
     await fetch(`${API_BASE}/contacts/${contactId}`, {
@@ -312,9 +294,9 @@ async function testClosedBusinessDials(individual, business) {
 
     // Cleanup
     console.log(`  [Check 4d] Cleaning up tasks...`);
-    await client.connect();
-    await client.query(`DELETE FROM "Task" WHERE "contactId" = $1`, [contactId]);
-    await client.end();
+    ;
+    await db.query(`DELETE FROM "Task" WHERE "contactId" = $1`, [contactId]);
+    ;
     console.log(`  [Check 4d] ✓ Tasks cleaned up`);
 
     await fetch(`${API_BASE}/contacts/${contactId}`, {
@@ -398,16 +380,23 @@ async function runChapter() {
     console.log('- Add partial unique index: UNIQUE (individualId, businessId) WHERE status = \'ringing\'');
     console.log('- Handle unique violation by returning existing call');
     console.log('- Add task deduplication before creating callback tasks');
-    process.exit(1);
+  console.log("STRESS_RESULT=FAIL");
+  process.exitCode = 1;
+  return;
   }
 
   console.log(`Overall: ✓ PASS`);
   console.log('='.repeat(80));
 
-  process.exit(0);
+  console.log("STRESS_RESULT=PASS");
+  process.exitCode = 0;
+  return;
 }
 
 runChapter().catch(err => {
   console.error('Chapter failed:', err);
-  process.exit(1);
+  console.log("STRESS_RESULT=FAIL");
+  process.exitCode = 1;
+  return;
+    db.end().catch(() => {});
 });

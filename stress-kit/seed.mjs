@@ -8,41 +8,15 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import pkg from 'pg';
 const { Client } = pkg;
+import { validateTestConfig, getConfig } from './test-config.mjs';
 
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
-const JWT_SECRET = process.env.JWT_SECRET;
-const N_INDIVIDUALS = Number(process.env.N_INDIVIDUALS) || 20;
+// Validate configuration before proceeding
+validateTestConfig();
 
-if (!TEST_DATABASE_URL) {
-  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
-  process.exit(1);
-}
-
-if (!JWT_SECRET) {
-  console.error('JWT_SECRET not set in .env');
-  process.exit(1);
-}
-
-// Database safety check: must be localhost and name ends with _test
-const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
-if (!dbMatch) {
-  console.error('Could not parse TEST_DATABASE_URL');
-  process.exit(1);
-}
-
-const [, host, port, dbName] = dbMatch;
-if (host !== 'localhost' && host !== '127.0.0.1') {
-  console.error('TEST_DATABASE_URL must use localhost for safety');
-  process.exit(1);
-}
-
-if (!dbName.endsWith('_test')) {
-  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
-  console.error('This prevents accidental use of production databases');
-  process.exit(1);
-}
-
-console.log(`Safety check passed: using ${dbName} on localhost:${port}`);
+const config = getConfig();
+const TEST_DATABASE_URL = config.TEST_DATABASE_URL;
+const JWT_SECRET = config.JWT_SECRET;
+const N_INDIVIDUALS = config.N_INDIVIDUALS;
 
 const client = new Client(TEST_DATABASE_URL);
 
@@ -98,7 +72,10 @@ async function seed() {
       ]);
       individuals.push({ id, email, name, token });
     } catch (err) {
-      console.error(`Failed to create individual ${i}:`, err.message);
+      console.error(`✗ Failed to create individual ${i}:`, err.message);
+      await client.query('ROLLBACK');
+      await client.end();
+      process.exit(1);
     }
   }
 
@@ -111,20 +88,27 @@ async function seed() {
     const business = `Business ${i}`;
     const token = createJWT(id, email);
 
-    await client.query(`
-      INSERT INTO "Account" (
-        id, email, name, business, "isService", "ownerId",
-        "agentMode", "responseConcise", "askClarifying", "confirmBeforeAction",
-        "emailFallback", "digestMode", "digestHour",
-        "createdAt", "updatedAt"
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
-    `, [
-      id, email, name, business, true, null,
-      false, true, true, false,
-      true, 'daily', 18
-    ]);
+    try {
+      await client.query(`
+        INSERT INTO "Account" (
+          id, email, name, business, "isService", "ownerId",
+          "agentMode", "responseConcise", "askClarifying", "confirmBeforeAction",
+          "emailFallback", "digestMode", "digestHour",
+          "createdAt", "updatedAt"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+      `, [
+        id, email, name, business, true, null,
+        false, true, true, false,
+        true, 'daily', 18
+      ]);
 
-    businesses.push({ id, email, name, business, token });
+      businesses.push({ id, email, name, business, token });
+    } catch (err) {
+      console.error(`✗ Failed to create business ${i}:`, err.message);
+      await client.query('ROLLBACK');
+      await client.end();
+      process.exit(1);
+    }
   }
 
   // Commit the transaction
@@ -138,22 +122,36 @@ async function seed() {
     process.exit(1);
   }
 
-  // Verify accounts were created
+  // Verify all expected accounts were created
   const result = await client.query(`
     SELECT COUNT(*) FROM "Account" WHERE email LIKE '%@stress-test.local'
   `);
-  console.log(`\n✓ Found ${result.rows[0].count} test accounts in database`);
+  const totalCount = parseInt(result.rows[0].count);
+  const expectedCount = N_INDIVIDUALS * 2; // individuals + businesses
 
-  // Save tokens to file for use in tests
+  if (totalCount !== expectedCount) {
+    console.error(`✗ Expected ${expectedCount} test accounts, found ${totalCount}`);
+    await client.end();
+    process.exit(1);
+  }
+
+  console.log(`\n✓ Found ${totalCount} test accounts in database`);
+
+  // Save tokens to file for use in tests (path relative to script)
   const fs = await import('fs');
+  const path = await import('path');
+  const __filename = new URL(import.meta.url).pathname;
+  const __dirname = path.dirname(__filename);
+  const tokensPath = path.join(__dirname, 'tokens.json');
+
   fs.writeFileSync(
-    './tokens.json',
+    tokensPath,
     JSON.stringify({ individuals, businesses }, null, 2)
   );
 
   console.log(`✓ Created ${individuals.length} individual accounts`);
   console.log(`✓ Created ${businesses.length} business accounts`);
-  console.log(`✓ Tokens saved to tokens.json\n`);
+  console.log(`✓ Tokens saved to ${tokensPath}\n`);
 
   await client.end();
 }

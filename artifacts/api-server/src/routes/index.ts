@@ -27,7 +27,7 @@ router.use(pushRouter);
 router.use(outboundRouter); // opt-out links from messages sent to businesses (signed token, no login)
 
 // ── Protected routes (require authentication) ─────────────────────────────
-router.use(requireAuth);
+router.use(requireAuth as any);
 
 // ── Business routes (protected at route level, calls accessible to both) ───
 router.use("/business", businessRouter);

@@ -252,14 +252,23 @@ export function createServiceVoiceStream(): WebSocketServer {
               if (userId === recipientId && call.status === 'ringing') {
                 logger.info({ callId: callIdParam, userId }, 'voiceStreamService: individual accepting call during join');
 
-                await prisma.call.update({
-                  where: { id: callIdParam },
+                // Conditional update to prevent race conditions - verify call is still ringing
+                const result = await prisma.call.updateMany({
+                  where: {
+                    id: callIdParam,
+                    status: 'ringing',
+                    calleeAccountId: userId,
+                  },
                   data: {
                     status: 'in-progress',
                     acceptedAt: new Date(),
                     startedAt: new Date(),
                   },
                 });
+
+                if (result.count === 0) {
+                  logger.info({ callId: callIdParam, userId }, 'voiceStreamService: auto-accept lost race, call no longer ringing');
+                }
 
                 // Notify the initiator that the call was accepted
                 const initiatorId = initiatorIdOf(call);

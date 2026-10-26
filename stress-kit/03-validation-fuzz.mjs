@@ -13,8 +13,13 @@
 
 import 'dotenv/config';
 import fs from 'fs';
+import { validateTestConfig, getConfig, verifyApiReachable } from './test-config.mjs';
 
-const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
+validateTestConfig();
+await verifyApiReachable();
+
+const config = getConfig();
+const API_BASE = config.API_BASE;
 
 // Load tokens
 let tokens;
@@ -334,15 +339,16 @@ async function runChapter() {
 
   console.log(`Overall: ${failCount === 0 ? '✓ PASS' : '✗ FAIL'}`);
   console.log('='.repeat(80));
-  
+
+  console.log(`STRESS_RESULT=${failCount === 0 ? 'PASS' : 'FAIL'}`);
+  process.exitCode = failCount === 0 ? 0 : 1;
+
   console.log('');
   console.log('FIX PATTERN:');
   console.log('- Add shared schema validator (zod) with max lengths');
   console.log('- Enforce string-only fields');
   console.log('- Strip null bytes from input');
   console.log('- Validate business hours (timezone, day range, start <= end)');
-  
-  process.exit(failCount === 0 ? 0 : 1);
 }
 
 runChapter().catch(err => {

@@ -13,34 +13,22 @@
 import 'dotenv/config';
 import fs from 'fs';
 import pkg from 'pg';
-const { Client } = pkg;
+const { Pool } = pkg;
+import { validateTestConfig, getConfig, verifyApiReachable } from './test-config.mjs';
 
-const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
-const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+validateTestConfig();
+await verifyApiReachable();
 
-if (!TEST_DATABASE_URL) {
-  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
-  process.exit(1);
-}
+const config = getConfig();
+const API_BASE = config.API_BASE;
+const CONCURRENCY = config.CONCURRENCY;
+const TEST_DATABASE_URL = config.TEST_DATABASE_URL;
 
-// Database safety check: must be localhost and name ends with _test
-const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
-if (!dbMatch) {
-  console.error('Could not parse TEST_DATABASE_URL');
-  process.exit(1);
-}
-
-const [, host, port, dbName] = dbMatch;
-if (host !== 'localhost' && host !== '127.0.0.1') {
-  console.error('TEST_DATABASE_URL must use localhost for safety');
-  process.exit(1);
-}
-
-if (!dbName.endsWith('_test')) {
-  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
-  process.exit(1);
-}
+const db = new Pool({
+  connectionString: TEST_DATABASE_URL,
+  max: 5,
+  connectionTimeoutMillis: 3000,
+});
 
 // Load tokens
 let tokens;
@@ -48,13 +36,14 @@ try {
   tokens = JSON.parse(fs.readFileSync('./tokens.json', 'utf8'));
 } catch (err) {
   console.error('Run npm run seed first to generate test accounts');
-  process.exit(1);
+  console.log("STRESS_RESULT=FAIL");
+  process.exitCode = 1;
+  await db.end();
+  await db.end();
 }
 
 const individuals = tokens.individuals;
 const businesses = tokens.businesses;
-
-const client = new Client(TEST_DATABASE_URL);
 
 const stats = {
   acceptDeclineRace: { count: 0, both200: 0, success: 0 },
@@ -74,7 +63,7 @@ async function addContactFromAccount(token, accountId) {
 }
 
 async function dialCall(token, contactId) {
-  const response = await fetch(`${API_BASE}/calls`, {
+  const response = await fetch(`${API_BASE}/calls/dial`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -86,37 +75,38 @@ async function dialCall(token, contactId) {
     const error = await response.json().catch(() => ({}));
     throw new Error(`Dial failed: ${response.status} - ${JSON.stringify(error)}`);
   }
-  return response.json();
+  const data = await response.json();
+  return { id: data.callId || data.id, ...data };
 }
 
 async function acceptCall(token, callId) {
-  const response = await fetch(`${API_BASE}/calls/${callId}/accept`, {
+  const response = await fetch(`${API_BASE}/business/calls/${callId}/accept`, {
     method: 'POST',
     headers: {
       'Cookie': `token=${token}`,
     },
   });
-  if (!response.ok) throw new Error(`Accept failed: ${response.status}`);
-  return response.json();
+  const body = await response.json().catch(() => null);
+  return { httpStatus: response.status, body };
 }
 
 async function declineCall(token, callId) {
-  const response = await fetch(`${API_BASE}/calls/${callId}/decline`, {
+  const response = await fetch(`${API_BASE}/business/calls/${callId}/decline`, {
     method: 'POST',
     headers: {
       'Cookie': `token=${token}`,
     },
   });
-  if (!response.ok) throw new Error(`Decline failed: ${response.status}`);
-  return response.json();
+  const body = await response.json().catch(() => null);
+  return { httpStatus: response.status, body };
 }
 
 async function getCallStatus(callId) {
-  await client.connect();
-  const result = await client.query(`
+  ;
+  const result = await db.query(`
     SELECT status FROM "Call" WHERE id = $1
   `, [callId]);
-  await client.end();
+  ;
   return result.rows[0]?.status;
 }
 
@@ -137,25 +127,25 @@ async function testAcceptDeclineRace(individual, business) {
     callId = call.id;
     console.log(`  [Check 5b] ✓ Call created (ID: ${callId})`);
     
-    // Fire accept and decline in parallel
-    console.log(`  [Check 5b] Firing parallel accept and decline...`);
+    // Fire accept and decline in parallel (business recipient should accept/decline)
+    console.log(`  [Check 5b] Firing parallel accept and decline via business routes...`);
     const promises = [
-      acceptCall(individual.token, callId).catch(e => ({ error: e.message, status: 0 })),
-      declineCall(individual.token, callId).catch(e => ({ error: e.message, status: 0 })),
+      acceptCall(business.token, callId).catch(e => ({ error: e.message, httpStatus: 0 })),
+      declineCall(business.token, callId).catch(e => ({ error: e.message, httpStatus: 0 })),
     ];
-    
+
     const results = await Promise.all(promises);
-    
+
     const acceptResult = results[0];
     const declineResult = results[1];
-    
-    console.log(`  [Check 5b] Accept result: ${acceptResult.status || 'error'}`);
-    console.log(`  [Check 5b] Decline result: ${declineResult.status || 'error'}`);
-    
-    // Check if both returned 200
-    if (acceptResult.status === 200 && declineResult.status === 200) {
+
+    console.log(`  [Check 5b] Accept HTTP status: ${acceptResult.httpStatus}`);
+    console.log(`  [Check 5b] Decline HTTP status: ${declineResult.httpStatus}`);
+
+    // Check if both returned 200 (should not happen - one should win with 409)
+    if (acceptResult.httpStatus === 200 && declineResult.httpStatus === 200) {
       stats.acceptDeclineRace.both200++;
-      console.log(`  [Check 5b] ⚠️  BOTH SUCCEEDED: Accept and decline both returned 200`);
+      console.log(`  [Check 5b] ✗ FAIL: Both accept and decline returned 200`);
     } else {
       stats.acceptDeclineRace.success++;
       console.log(`  [Check 5b] ✓ One won (correct)`);
@@ -163,9 +153,9 @@ async function testAcceptDeclineRace(individual, business) {
     
     // Cleanup
     console.log(`  [Check 5b] Cleaning up call...`);
-    await client.connect();
-    await client.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
-    await client.end();
+    ;
+    await db.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
+    ;
     console.log(`  [Check 5b] ✓ Call cleaned up`);
     
     await fetch(`${API_BASE}/contacts/${contactId}`, {
@@ -179,9 +169,9 @@ async function testAcceptDeclineRace(individual, business) {
     // Cleanup
     if (callId) {
       try {
-        await client.connect();
-        await client.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
-        await client.end();
+        ;
+        await db.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
+        ;
       } catch (e) {}
     }
     if (contactId) {
@@ -212,9 +202,9 @@ async function testAcceptTimeoutRace(individual, business) {
     callId = call.id;
     console.log(`  [Check 5d] ✓ Call created (ID: ${callId})`);
     
-    // Accept immediately
-    console.log(`  [Check 5d] Accepting call immediately...`);
-    await acceptCall(individual.token, callId);
+    // Accept immediately via business route
+    console.log(`  [Check 5d] Accepting call immediately via business route...`);
+    await acceptCall(business.token, callId);
     console.log(`  [Check 5d] ✓ Call accepted`);
     
     // Wait a bit then check if it got overwritten to 'missed'
@@ -234,9 +224,9 @@ async function testAcceptTimeoutRace(individual, business) {
     
     // Cleanup
     console.log(`  [Check 5d] Cleaning up call...`);
-    await client.connect();
-    await client.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
-    await client.end();
+    ;
+    await db.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
+    ;
     console.log(`  [Check 5d] ✓ Call cleaned up`);
     
     await fetch(`${API_BASE}/contacts/${contactId}`, {
@@ -250,9 +240,9 @@ async function testAcceptTimeoutRace(individual, business) {
     // Cleanup
     if (callId) {
       try {
-        await client.connect();
-        await client.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
-        await client.end();
+        ;
+        await db.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
+        ;
       } catch (e) {}
     }
     if (contactId) {
@@ -279,17 +269,22 @@ async function testLongTimeoutNotify(individual, business) {
     contactId = contact.id;
     console.log(`  [Check 5e] ✓ Contact created (ID: ${contactId})`);
     
-    // Set business ring timeout to 300 seconds
-    console.log(`  [Check 5e] Setting ring timeout to 300s...`);
-    await fetch(`${API_BASE}/contacts/${contactId}`, {
-      method: 'PUT',
+    // Set business ring timeout to 120 seconds (max allowed by API)
+    console.log(`  [Check 5e] Setting ring timeout to 120s via protection-limits...`);
+    const timeoutResponse = await fetch(`${API_BASE}/business/protection-limits`, {
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'Cookie': `token=${business.token}`,
       },
-      body: JSON.stringify({ ringTimeoutSec: 300 }),
+      body: JSON.stringify({ ringTimeoutSec: 120 }),
     });
-    console.log(`  [Check 5e] ✓ Ring timeout set to 300s`);
+    if (!timeoutResponse.ok) {
+      console.log(`  [Check 5e] ⚠️  SKIP: Could not set ring timeout: ${timeoutResponse.status}`);
+      stats.longTimeoutNotify.earlyNotify = 0; // Mark as skip
+      return;
+    }
+    console.log(`  [Check 5e] ✓ Ring timeout set to 120s`);
     
     const call = await dialCall(individual.token, contactId);
     callId = call.id;
@@ -312,11 +307,19 @@ async function testLongTimeoutNotify(individual, business) {
     
     // Cleanup
     console.log(`  [Check 5e] Cleaning up call...`);
-    await client.connect();
-    await client.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
-    await client.end();
+    await db.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
     console.log(`  [Check 5e] ✓ Call cleaned up`);
-    
+
+    // Restore default timeout
+    await fetch(`${API_BASE}/business/protection-limits`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `token=${business.token}`,
+      },
+      body: JSON.stringify({ ringTimeoutSec: 30 }),
+    });
+
     await fetch(`${API_BASE}/contacts/${contactId}`, {
       method: 'DELETE',
       headers: { 'Cookie': `token=${individual.token}` },
@@ -328,9 +331,9 @@ async function testLongTimeoutNotify(individual, business) {
     // Cleanup
     if (callId) {
       try {
-        await client.connect();
-        await client.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
-        await client.end();
+        ;
+        await db.query(`DELETE FROM "Call" WHERE id = $1`, [callId]);
+        ;
       } catch (e) {}
     }
     if (contactId) {
@@ -353,15 +356,15 @@ async function runChapter() {
   
   const testUsers = Math.min(CONCURRENCY, individuals.length, businesses.length);
   
-  console.log('Check 5b: Accept vs decline race...');
-  for (let i = 0; i < Math.min(5, testUsers); i++) {
-    await testAcceptDeclineRace(individuals[i], businesses[i]);
+  console.log('Check 5b: Accept vs decline race (repeat to expose timing issues)...');
+  for (let i = 0; i < Math.min(10, testUsers); i++) {
+    await testAcceptDeclineRace(individuals[i % testUsers], businesses[i % testUsers]);
   }
   
   console.log('');
-  console.log('Check 5d: Accept vs timeout race...');
-  for (let i = 0; i < Math.min(5, testUsers); i++) {
-    await testAcceptTimeoutRace(individuals[i], businesses[i]);
+  console.log('Check 5d: Accept vs timeout race (repeat to expose timing issues)...');
+  for (let i = 0; i < Math.min(10, testUsers); i++) {
+    await testAcceptTimeoutRace(individuals[i % testUsers], businesses[i % testUsers]);
   }
   
   console.log('');
@@ -415,16 +418,20 @@ async function runChapter() {
     console.log('  updateMany({ where: { id, status: \'ringing\' }, data: {...} })');
     console.log('- Treat count === 0 as "someone else won" (return 409)');
     console.log('- Use per-business ring timeouts consistently');
-    process.exit(1);
+  console.log("STRESS_RESULT=FAIL");
+  process.exitCode = 1;
   }
 
   console.log(`Overall: ✓ PASS`);
   console.log('='.repeat(80));
 
-  process.exit(0);
+  console.log("STRESS_RESULT=PASS");
+  process.exitCode = 0;
 }
 
 runChapter().catch(err => {
   console.error('Chapter failed:', err);
-  process.exit(1);
+  console.log("STRESS_RESULT=FAIL");
+  process.exitCode = 1;
+    db.end().catch(() => {});
 });

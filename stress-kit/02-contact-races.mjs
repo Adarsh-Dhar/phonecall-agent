@@ -12,34 +12,22 @@
 import 'dotenv/config';
 import fs from 'fs';
 import pkg from 'pg';
-const { Client } = pkg;
+const { Pool } = pkg;
+import { validateTestConfig, getConfig, verifyApiReachable } from './test-config.mjs';
 
-const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
-const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+validateTestConfig();
+await verifyApiReachable();
 
-if (!TEST_DATABASE_URL) {
-  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
-  process.exit(1);
-}
+const config = getConfig();
+const API_BASE = config.API_BASE;
+const CONCURRENCY = config.CONCURRENCY;
+const TEST_DATABASE_URL = config.TEST_DATABASE_URL;
 
-// Database safety check: must be localhost and name ends with _test
-const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
-if (!dbMatch) {
-  console.error('Could not parse TEST_DATABASE_URL');
-  process.exit(1);
-}
-
-const [, host, port, dbName] = dbMatch;
-if (host !== 'localhost' && host !== '127.0.0.1') {
-  console.error('TEST_DATABASE_URL must use localhost for safety');
-  process.exit(1);
-}
-
-if (!dbName.endsWith('_test')) {
-  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
-  process.exit(1);
-}
+const db = new Pool({
+  connectionString: TEST_DATABASE_URL,
+  max: 5,
+  connectionTimeoutMillis: 3000,
+});
 
 // Load tokens
 let tokens;
@@ -53,12 +41,11 @@ try {
 const individuals = tokens.individuals;
 const businesses = tokens.businesses;
 
-const client = new Client(TEST_DATABASE_URL);
-
 const stats = {
   parallelAdds: { count: 0, duplicates: 0, success: 0 },
   editVsDelete: { count: 0, errors: 0, success: 0 },
   deleteMidRing: { count: 0, errors: 0, success: 0 },
+  executionErrors: 0,
 };
 
 async function addContactFromAccount(token, accountId) {
@@ -97,14 +84,12 @@ async function deleteContact(token, contactId) {
 }
 
 async function checkForDuplicates(ownerId, linkedAccountId) {
-  await client.connect();
-  const result = await client.query(`
-    SELECT COUNT(*) FROM "Account" 
-    WHERE "ownerId" = $1 
-    AND "linkedAccountId" = $2 
+  const result = await db.query(`
+    SELECT COUNT(*) FROM "Account"
+    WHERE "ownerId" = $1
+    AND "linkedAccountId" = $2
     AND "isService" = true
   `, [ownerId, linkedAccountId]);
-  await client.end();
   return parseInt(result.rows[0].count);
 }
 
@@ -141,14 +126,12 @@ async function testParallelAdds(individual, business) {
     // Cleanup duplicates
     if (duplicateCount > 0) {
       console.log(`  [Check 2a] Cleaning up duplicates...`);
-      await client.connect();
-      await client.query(`
-        DELETE FROM "Account" 
-        WHERE "ownerId" = $1 
-        AND "linkedAccountId" = $2 
+      await db.query(`
+        DELETE FROM "Account"
+        WHERE "ownerId" = $1
+        AND "linkedAccountId" = $2
         AND "isService" = true
       `, [individual.id, business.id]);
-      await client.end();
       console.log(`  [Check 2a] ✓ Cleanup complete`);
     }
     
@@ -264,16 +247,21 @@ async function runChapter() {
   if (hasDuplicates || has500Errors) {
     console.log(`Overall: ✗ FAIL`);
     console.log('='.repeat(80));
-    process.exit(1);
+    console.log('STRESS_RESULT=FAIL');
+    process.exitCode = 1;
+  } else {
+    console.log(`Overall: ✓ PASS`);
+    console.log('='.repeat(80));
+    console.log('STRESS_RESULT=PASS');
+    process.exitCode = 0;
   }
 
-  console.log(`Overall: ✓ PASS`);
-  console.log('='.repeat(80));
-
-  process.exit(0);
+  await db.end();
 }
 
 runChapter().catch(err => {
   console.error('Chapter failed:', err);
-  process.exit(1);
+  console.log('STRESS_RESULT=FAIL');
+  process.exitCode = 1;
+  db.end().catch(() => {});
 });

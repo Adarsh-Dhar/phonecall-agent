@@ -9,34 +9,24 @@
 import 'dotenv/config';
 import fs from 'fs';
 import pkg from 'pg';
-const { Client } = pkg;
+const { Pool } = pkg;
+import { validateTestConfig, getConfig, verifyApiReachable } from './test-config.mjs';
 
-const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
-const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+// Validate configuration before proceeding
+validateTestConfig();
+await verifyApiReachable();
 
-if (!TEST_DATABASE_URL) {
-  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
-  process.exit(1);
-}
+const config = getConfig();
+const API_BASE = config.API_BASE;
+const CONCURRENCY = config.CONCURRENCY;
+const TEST_DATABASE_URL = config.TEST_DATABASE_URL;
 
-// Database safety check: must be localhost and name ends with _test
-const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
-if (!dbMatch) {
-  console.error('Could not parse TEST_DATABASE_URL');
-  process.exit(1);
-}
-
-const [, host, port, dbName] = dbMatch;
-if (host !== 'localhost' && host !== '127.0.0.1') {
-  console.error('TEST_DATABASE_URL must use localhost for safety');
-  process.exit(1);
-}
-
-if (!dbName.endsWith('_test')) {
-  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
-  process.exit(1);
-}
+// Use a shared pool for database operations
+const db = new Pool({
+  connectionString: TEST_DATABASE_URL,
+  max: 5,
+  connectionTimeoutMillis: 3000,
+});
 
 // Load tokens
 let tokens;
@@ -50,18 +40,14 @@ try {
 const individuals = tokens.individuals;
 const businesses = tokens.businesses;
 
-const client = new Client(TEST_DATABASE_URL);
-
 // Helper function to clean up existing contacts before tests
 async function cleanupContacts() {
-  const cleanupClient = new Client(TEST_DATABASE_URL);
   try {
-    await cleanupClient.connect();
     console.log('Cleaning up existing test contacts...');
 
     // Delete all service account contacts for stress test users
     // Contacts are service accounts (isService=true) with ownerId set to the individual user
-    const result = await cleanupClient.query(`
+    const result = await db.query(`
       DELETE FROM "Account"
       WHERE "isService" = true
       AND "ownerId" IN (
@@ -70,14 +56,9 @@ async function cleanupContacts() {
     `);
 
     console.log(`✓ Cleaned up ${result.rowCount} existing contacts`);
-    await cleanupClient.end();
   } catch (error) {
-    console.log(`⚠️  Cleanup error: ${error.message}`);
-    try {
-      await cleanupClient.end();
-    } catch (e) {
-      // Ignore
-    }
+    console.error(`✗ Cleanup error: ${error.message}`);
+    throw error;
   }
 }
 
@@ -240,14 +221,19 @@ async function runWorkflow(userId, token, businessId) {
     
     // 5. Update contact hours
     console.log(`  [User ${userId}] Step 5: Updating contact hours...`);
-    await withTiming('updateContact', () => updateContact(token, contact2.id, {
-      businessHoursJson: JSON.stringify({
-        days: [1, 2, 3, 4, 5],
-        start: 9,
-        end: 17,
-      }),
-    }));
-    console.log(`  [User ${userId}]   ✓ Update complete`);
+    try {
+      await withTiming('updateContact', () => updateContact(token, contact2.id, {
+        businessHoursJson: JSON.stringify({
+          days: [1, 2, 3, 4, 5],
+          start: 9,
+          end: 17,
+        }),
+      }));
+      console.log(`  [User ${userId}]   ✓ Update complete`);
+    } catch (error) {
+      console.log(`  [User ${userId}]   ✗ Update failed: ${error.message}`);
+      throw error; // Re-throw to count as failure
+    }
     
     // 6. Delete both contacts
     console.log(`  [User ${userId}] Step 6: Deleting first contact...`);
@@ -267,19 +253,15 @@ async function runWorkflow(userId, token, businessId) {
 }
 
 async function checkDatabase() {
-  await client.connect();
-  
   // Check for leftover contacts
-  const result = await client.query(`
-    SELECT COUNT(*) FROM "Account" 
-    WHERE "isService" = true 
+  const result = await db.query(`
+    SELECT COUNT(*) FROM "Account"
+    WHERE "isService" = true
     AND "ownerId" IN (SELECT id FROM "Account" WHERE email LIKE '%@stress-test.local')
   `);
-  
+
   const leftoverCount = parseInt(result.rows[0].count);
-  
-  await client.end();
-  
+
   return leftoverCount;
 }
 
@@ -290,83 +272,96 @@ async function runChapter() {
   console.log(`Concurrency: ${CONCURRENCY}`);
   console.log(``);
 
-  // Cleanup existing contacts before running
-  await cleanupContacts();
-  console.log(``);
-  
-  const startTime = Date.now();
-  
-  // Run workflows with stagger to avoid database locks
-  const promises = individuals.slice(0, CONCURRENCY).map((individual, i) =>
-    (async () => {
-      await new Promise(resolve => setTimeout(resolve, i * 10));
-      return runWorkflow(individual.id, individual.token, businesses[i % businesses.length].id);
-    })()
-  );
-  
-  await Promise.all(promises);
-  
-  const duration = Date.now() - startTime;
-  
-  // Calculate percentiles
-  for (const op of Object.keys(stats)) {
-    const percentiles = calculatePercentiles(stats[op].timings);
-    stats[op].p50 = percentiles.p50;
-    stats[op].p95 = percentiles.p95;
-    stats[op].p99 = percentiles.p99;
-    stats[op].max = percentiles.max;
-  }
-  
-  // Check for leftover contacts
-  const leftoverCount = await checkDatabase();
-  
-  // Report results
-  console.log('');
-  console.log('RESULTS');
-  console.log('='.repeat(80));
-  console.log(`Total Duration: ${duration}ms`);
-  console.log(``);
-  
-  let has5xx = false;
-  let listP95OK = stats.listContacts.p95 < 800;
-  
-  for (const [op, data] of Object.entries(stats)) {
-    const errorRate = data.count > 0 ? (data.errors / data.count * 100).toFixed(2) : 0;
-    console.log(`${op}:`);
-    console.log(`  Count: ${data.count}`);
-    console.log(`  Errors: ${data.errors} (${errorRate}%)`);
-    console.log(`  P50: ${data.p50}ms`);
-    console.log(`  P95: ${data.p95}ms`);
-    console.log(`  P99: ${data.p99}ms`);
-    console.log(`  Max: ${data.max}ms`);
-    
-    if (op === 'listContacts' && data.p95 >= 800) {
-      console.log(`  ⚠️  WARNING: P95 exceeds 800ms threshold`);
+  let exitCode = 0;
+
+  try {
+    // Cleanup existing contacts before running
+    await cleanupContacts();
+    console.log(``);
+
+    const startTime = Date.now();
+
+    // Run workflows with stagger to avoid database locks
+    const promises = individuals.slice(0, CONCURRENCY).map((individual, i) =>
+      (async () => {
+        await new Promise(resolve => setTimeout(resolve, i * 10));
+        return runWorkflow(individual.id, individual.token, businesses[i % businesses.length].id);
+      })()
+    );
+
+    await Promise.all(promises);
+
+    const duration = Date.now() - startTime;
+
+    // Calculate percentiles
+    for (const op of Object.keys(stats)) {
+      const percentiles = calculatePercentiles(stats[op].timings);
+      stats[op].p50 = percentiles.p50;
+      stats[op].p95 = percentiles.p95;
+      stats[op].p99 = percentiles.p99;
+      stats[op].max = percentiles.max;
     }
-    
-    // Check for 5xx errors (any error that contains 5 in the message)
-    if (data.errors > 0) {
-      has5xx = true;
+
+    // Check for leftover contacts
+    const leftoverCount = await checkDatabase();
+
+    // Report results
+    console.log('');
+    console.log('RESULTS');
+    console.log('='.repeat(80));
+    console.log(`Total Duration: ${duration}ms`);
+    console.log(``);
+
+    let has5xx = false;
+    let listP95OK = stats.listContacts.p95 < 800;
+
+    for (const [op, data] of Object.entries(stats)) {
+      const errorRate = data.count > 0 ? (data.errors / data.count * 100).toFixed(2) : 0;
+      console.log(`${op}:`);
+      console.log(`  Count: ${data.count}`);
+      console.log(`  Errors: ${data.errors} (${errorRate}%)`);
+      console.log(`  P50: ${data.p50}ms`);
+      console.log(`  P95: ${data.p95}ms`);
+      console.log(`  P99: ${data.p99}ms`);
+      console.log(`  Max: ${data.max}ms`);
+
+      if (op === 'listContacts' && data.p95 >= 800) {
+        console.log(`  ⚠️  WARNING: P95 exceeds 800ms threshold`);
+      }
+
+      // Check for 5xx errors (any error that contains 5 in the message)
+      if (data.errors > 0) {
+        has5xx = true;
+      }
     }
+
+    console.log('');
+    console.log(`Leftover contacts: ${leftoverCount}`);
+    console.log('');
+
+    // Pass/Fail criteria
+    console.log('PASS/FAIL CRITERIA');
+    console.log('='.repeat(80));
+    console.log(`No 5xx errors: ${!has5xx ? '✓' : '✗'}`);
+    console.log(`List P95 < 800ms: ${listP95OK ? '✓' : '✗'}`);
+    console.log(`Zero leftover contacts: ${leftoverCount === 0 ? '✓' : '✗'}`);
+    console.log('');
+
+    const passed = !has5xx && listP95OK && leftoverCount === 0;
+    console.log(`Overall: ${passed ? '✓ PASS' : '✗ FAIL'}`);
+    console.log('='.repeat(80));
+
+    console.log(`STRESS_RESULT=${passed ? 'PASS' : 'FAIL'}`);
+    exitCode = passed ? 0 : 1;
+  } catch (error) {
+    console.error('Chapter failed:', error);
+    console.log('STRESS_RESULT=FAIL');
+    exitCode = 1;
+  } finally {
+    await db.end();
   }
-  
-  console.log('');
-  console.log(`Leftover contacts: ${leftoverCount}`);
-  console.log('');
-  
-  // Pass/Fail criteria
-  console.log('PASS/FAIL CRITERIA');
-  console.log('='.repeat(80));
-  console.log(`No 5xx errors: ${!has5xx ? '✓' : '✗'}`);
-  console.log(`List P95 < 800ms: ${listP95OK ? '✓' : '✗'}`);
-  console.log(`Zero leftover contacts: ${leftoverCount === 0 ? '✓' : '✗'}`);
-  console.log('');
-  
-  const passed = !has5xx && listP95OK && leftoverCount === 0;
-  console.log(`Overall: ${passed ? '✓ PASS' : '✗ FAIL'}`);
-  console.log('='.repeat(80));
-  
-  process.exit(passed ? 0 : 1);
+
+  process.exitCode = exitCode;
 }
 
 runChapter().catch(err => {

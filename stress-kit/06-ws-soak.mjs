@@ -18,35 +18,23 @@ import 'dotenv/config';
 import fs from 'fs';
 import WebSocket from 'ws';
 import pkg from 'pg';
-const { Client } = pkg;
+const { Pool } = pkg;
+import { validateTestConfig, getConfig, verifyApiReachable } from './test-config.mjs';
 
-const API_BASE = process.env.API_BASE || 'http://localhost:5175/api';
-const WS_BASE = process.env.WS_BASE || 'ws://localhost:5175';
-const CONCURRENCY = Number(process.env.CONCURRENCY) || 20;
-const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
+validateTestConfig();
+await verifyApiReachable();
 
-if (!TEST_DATABASE_URL) {
-  console.error('TEST_DATABASE_URL must be set in .env (DATABASE_URL is not a fallback)');
-  process.exit(1);
-}
+const config = getConfig();
+const API_BASE = config.API_BASE;
+const WS_BASE = config.WS_BASE;
+const CONCURRENCY = config.CONCURRENCY;
+const TEST_DATABASE_URL = config.TEST_DATABASE_URL;
 
-// Database safety check: must be localhost and name ends with _test
-const dbMatch = TEST_DATABASE_URL.match(/@([^:]+):(\d+)\/([^/]+)/);
-if (!dbMatch) {
-  console.error('Could not parse TEST_DATABASE_URL');
-  process.exit(1);
-}
-
-const [, host, port, dbName] = dbMatch;
-if (host !== 'localhost' && host !== '127.0.0.1') {
-  console.error('TEST_DATABASE_URL must use localhost for safety');
-  process.exit(1);
-}
-
-if (!dbName.endsWith('_test')) {
-  console.error(`Database name must end with '_test' for safety (got: ${dbName})`);
-  process.exit(1);
-}
+const db = new Pool({
+  connectionString: TEST_DATABASE_URL,
+  max: 5,
+  connectionTimeoutMillis: 3000,
+});
 
 // Load tokens
 let tokens;
@@ -54,13 +42,14 @@ try {
   tokens = JSON.parse(fs.readFileSync('./tokens.json', 'utf8'));
 } catch (err) {
   console.error('Run npm run seed first to generate test accounts');
-  process.exit(1);
+  console.log("STRESS_RESULT=FAIL");
+  process.exitCode = 1;
+  await db.end();
+  await db.end();
 }
 
 const individual = tokens.individuals[0];
 const business = tokens.businesses[0];
-
-const client = new Client(TEST_DATABASE_URL);
 
 const stats = {
   authCheck: { passed: false },
@@ -74,34 +63,41 @@ const stats = {
 // Check 6a: Upgrade auth - missing token must give 401
 async function testAuthCheck() {
   console.log('[Check 6a] Testing upgrade auth (missing token)...');
-  
+
+  let unauthorizedSeen = false;
+
   try {
     const ws = new WebSocket(`${WS_BASE}/presence`);
-    
+
     ws.on('open', () => {
       console.log('  [Check 6a] ✗ FAIL: Connection opened without token (should have been rejected)');
       ws.close();
     });
-    
+
     ws.on('error', (error) => {
       if (error.message.includes('401') || error.message.includes('Unauthorized')) {
         console.log('  [Check 6a] ✓ PASS: Connection rejected with 401');
         stats.authCheck.passed = true;
+        unauthorizedSeen = true;
       } else {
         console.log(`  [Check 6a] ✗ FAIL: Unexpected error: ${error.message}`);
       }
     });
-    
+
     ws.on('close', (code, reason) => {
       if (code === 1008 || code === 4001) {
-        console.log('  [Check 6a] ✓ PASS: Connection closed with auth error code');
+        console.log('  [Check 6a] ✓ PASS: Connection closed with auth error code (code: ${code})');
         stats.authCheck.passed = true;
+        unauthorizedSeen = true;
       }
     });
-    
+
     await new Promise(resolve => setTimeout(resolve, 2000));
     ws.close();
-    
+
+    if (!unauthorizedSeen) {
+      console.log('  [Check 6a] ✗ FAIL: No 401 response seen');
+    }
   } catch (error) {
     console.log(`  [Check 6a] ✗ Failed: ${error.message}`);
   }
@@ -114,15 +110,23 @@ async function testDisconnectOffline() {
 
   stats.disconnectOffline.count++;
 
+  let socketOpened = false;
+
   try {
     console.log('  [Check 6b] Connecting WebSocket...');
     const ws = new WebSocket(`${WS_BASE}/presence?token=${individual.token}`);
 
     ws.on('open', () => {
+      socketOpened = true;
       console.log('  [Check 6b] ✓ Connected');
     });
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    if (!socketOpened) {
+      console.log('  [Check 6b] ✗ FAIL: Socket never opened');
+      return;
+    }
 
     // Hard disconnect (terminate without close)
     console.log('  [Check 6b] Hard disconnecting (terminate)...');
@@ -135,26 +139,18 @@ async function testDisconnectOffline() {
 
     // Check if account is offline
     console.log('  [Check 6b] Checking account online status...');
-    try {
-      await client.connect();
-      const result = await client.query(`
-        SELECT online FROM "Account" WHERE id = $1
-      `, [individual.id]);
-      await client.end();
+    const result = await db.query(`
+      SELECT online FROM "Account" WHERE id = $1
+    `, [individual.id]);
 
-      const isOnline = result.rows[0]?.online;
-      console.log(`  [Check 6b] Account online: ${isOnline}`);
+    const isOnline = result.rows[0]?.online;
+    console.log(`  [Check 6b] Account online: ${isOnline}`);
 
-      if (!isOnline) {
-        stats.disconnectOffline.offlineWithin7s++;
-        console.log('  [Check 6b] ✓ PASS: Account is offline after hard disconnect');
-      } else {
-        console.log('  [Check 6b] ✗ FAIL: Account still online after hard disconnect');
-      }
-    } catch (dbError) {
-      console.log(`  [Check 6b] ⚠️  Could not check account state: ${dbError.message}`);
-      // Assume pass if we can't check
+    if (!isOnline) {
       stats.disconnectOffline.offlineWithin7s++;
+      console.log('  [Check 6b] ✓ PASS: Account is offline after hard disconnect');
+    } else {
+      console.log('  [Check 6b] ✗ FAIL: Account still online after hard disconnect');
     }
 
   } catch (error) {
@@ -224,11 +220,11 @@ async function testRapidReconnect() {
     // Check account state
     console.log('  [Check 6c] Checking account state...');
     try {
-      await client.connect();
-      const result = await client.query(`
+      ;
+      const result = await db.query(`
         SELECT online FROM "Account" WHERE id = $1
       `, [individual.id]);
-      await client.end();
+      ;
 
       const isOnline = result.rows[0]?.online;
       console.log(`  [Check 6c] Account online: ${isOnline}`);
@@ -306,20 +302,30 @@ async function testFrameHandling() {
       // Try to send 30 MB frame (should be rejected)
       setTimeout(() => {
         console.log('  [Check 6e] Sending 30 MB frame (should be rejected)...');
+        let frameRejected = false;
+        let closeCode = null;
+
+        ws.on('close', (code, reason) => {
+          closeCode = code;
+        });
+
         try {
           ws.send(Buffer.alloc(30 * 1024 * 1024));
-          console.log('  [Check 6e] ⚠️  30 MB frame was not rejected (missing maxPayload)');
-          // If it didn't throw, wait to see if the server closes the connection
+          // If send succeeded, wait to see if server closes connection
           setTimeout(() => {
             if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-              console.log('  [Check 6e] ✓ PASS: Server closed connection due to oversized frame');
+              console.log(`  [Check 6e] ✓ PASS: Server closed connection (code: ${closeCode})`);
               stats.largeFrame.rejected++;
+              frameRejected = true;
+            } else {
+              console.log('  [Check 6e] ✗ FAIL: 30 MB frame was not rejected and connection stayed open');
             }
             ws.close();
           }, 1000);
         } catch (e) {
-          console.log('  [Check 6e] ✓ PASS: 30 MB frame rejected');
+          console.log('  [Check 6e] ✓ PASS: 30 MB frame rejected on send');
           stats.largeFrame.rejected++;
+          frameRejected = true;
           ws.close();
         }
       }, 200);
@@ -415,7 +421,8 @@ async function runChapter() {
   if (!implementedChecksPass) {
     console.log(`Overall: ✗ FAIL (implemented checks failed)`);
     console.log('='.repeat(80));
-    process.exit(1);
+  console.log("STRESS_RESULT=FAIL");
+  process.exitCode = 1;
   }
 
   if (memorySkipped) {
@@ -446,5 +453,7 @@ async function runChapter() {
 
 runChapter().catch(err => {
   console.error('Chapter failed:', err);
-  process.exit(1);
+  console.log("STRESS_RESULT=FAIL");
+  process.exitCode = 1;
+    db.end().catch(() => {});
 });

@@ -27,27 +27,49 @@ const chapterArg = process.argv[2];
 async function runChapter(chapterFile) {
   return new Promise((resolve, reject) => {
     const fullPath = path.join(__dirname, chapterFile);
-    const proc = spawn('node', [fullPath], {
-      stdio: 'inherit',
+    const proc = spawn(process.execPath, [fullPath], {
+      cwd: __dirname,
       env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     let output = '';
-    proc.stdout?.on('data', (data) => {
-      output += data.toString();
+
+    proc.stdout.on('data', chunk => {
+      const text = chunk.toString();
+      output += text;
+      process.stdout.write(text);
     });
-    proc.stderr?.on('data', (data) => {
-      output += data.toString();
+
+    proc.stderr.on('data', chunk => {
+      const text = chunk.toString();
+      output += text;
+      process.stderr.write(text);
     });
 
     proc.on('close', (code) => {
-      // Check if the chapter reported SKIP in its output
-      const hasSkip = output.includes('⚠️  SKIP') || output.includes('SKIP (manual test required)');
+      // Check for machine-readable result marker
+      const resultMatch = output.match(/STRESS_RESULT=(PASS|FAIL|SKIP)/);
+      const explicitResult = resultMatch ? resultMatch[1] : null;
 
-      if (code === 0) {
-        resolve({ status: hasSkip ? 'SKIP' : 'PASS' });
+      // Map exit codes to results: 0=PASS, 1=FAIL, 2=SKIP
+      let status;
+      if (explicitResult) {
+        status = explicitResult;
+      } else if (code === 0) {
+        // Check for SKIP markers in output
+        const hasSkip = output.includes('⚠️  SKIP') || output.includes('SKIP (manual test required)');
+        status = hasSkip ? 'SKIP' : 'PASS';
+      } else if (code === 2) {
+        status = 'SKIP';
       } else {
+        status = 'FAIL';
+      }
+
+      if (status === 'FAIL') {
         reject(new Error(`${chapterFile} exited with code ${code}`));
+      } else {
+        resolve({ status });
       }
     });
 

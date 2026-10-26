@@ -642,36 +642,7 @@ export async function dialCallAs(
  * Accept a call as a specific role.
  */
 export async function acceptCallAs(callId: string, accountId: string, role: CallRole) {
-  // Conditional update to handle race conditions
-  const result = await prisma.call.updateMany({
-    where: {
-      id: callId,
-      status: 'ringing',
-    },
-    data: {
-      status: 'in-progress',
-      acceptedAt: new Date(),
-    },
-  });
-
-  if (result.count === 0) {
-    // Someone else already accepted or declined
-    const call = await prisma.call.findUnique({
-      where: { id: callId },
-      select: { status: true },
-    });
-    if (!call) {
-      throw new Error('Call not found');
-    }
-    if (call.status === 'in-progress') {
-      throw new Error('Call already accepted by another party');
-    }
-    if (call.status === 'declined') {
-      throw new Error('Call already declined');
-    }
-    throw new Error(`Call is not in ringing state (status: ${call.status})`);
-  }
-
+  // First, load the call to verify the account is the recipient
   const call = await prisma.call.findUnique({
     where: { id: callId },
     select: {
@@ -689,7 +660,7 @@ export async function acceptCallAs(callId: string, accountId: string, role: Call
     throw new Error('Call not found');
   }
 
-  // Verify the account is the recipient using calleeAccountId
+  // Verify the account is the recipient using calleeAccountId BEFORE updating
   if (call.calleeAccountId !== accountId) {
     throw new Error('You can only accept calls directed at you');
   }
@@ -699,6 +670,37 @@ export async function acceptCallAs(callId: string, accountId: string, role: Call
   const initiatorId = initiatorIdOf(call);
   if (initiatorId && !(await isContact(initiatorId, accountId))) {
     throw new NotInContactsError();
+  }
+
+  // Conditional update to handle race conditions - include calleeAccountId check
+  const result = await prisma.call.updateMany({
+    where: {
+      id: callId,
+      status: 'ringing',
+      calleeAccountId: accountId,
+    },
+    data: {
+      status: 'in-progress',
+      acceptedAt: new Date(),
+    },
+  });
+
+  if (result.count === 0) {
+    // Someone else already accepted or declined
+    const updatedCall = await prisma.call.findUnique({
+      where: { id: callId },
+      select: { status: true },
+    });
+    if (!updatedCall) {
+      throw new Error('Call not found');
+    }
+    if (updatedCall.status === 'in-progress') {
+      throw new Error('Call already accepted by another party');
+    }
+    if (updatedCall.status === 'declined') {
+      throw new Error('Call already declined');
+    }
+    throw new Error(`Call is not in ringing state (status: ${updatedCall.status})`);
   }
 
   // Set startedAt if not already set
@@ -711,7 +713,7 @@ export async function acceptCallAs(callId: string, accountId: string, role: Call
     });
   }
 
-  // Notify the initiator
+  // Notify the initiator only after successful transition
   if (initiatorId) {
     sendToAccount(initiatorId, {
       type: 'call_status',
@@ -727,35 +729,7 @@ export async function acceptCallAs(callId: string, accountId: string, role: Call
  * Decline a call as a specific role.
  */
 export async function declineCallAs(callId: string, accountId: string, role: CallRole) {
-  // Conditional update to handle race conditions
-  const result = await prisma.call.updateMany({
-    where: {
-      id: callId,
-      status: 'ringing',
-    },
-    data: {
-      status: 'declined',
-    },
-  });
-
-  if (result.count === 0) {
-    // Someone else already accepted or declined
-    const call = await prisma.call.findUnique({
-      where: { id: callId },
-      select: { status: true },
-    });
-    if (!call) {
-      throw new Error('Call not found');
-    }
-    if (call.status === 'in-progress') {
-      throw new Error('Call already accepted');
-    }
-    if (call.status === 'declined') {
-      throw new Error('Call already declined');
-    }
-    throw new Error(`Call is not in ringing state (status: ${call.status})`);
-  }
-
+  // First, load the call to verify the account is the recipient
   const call = await prisma.call.findUnique({
     where: { id: callId },
     select: {
@@ -774,20 +748,44 @@ export async function declineCallAs(callId: string, accountId: string, role: Cal
     throw new Error('Call not found');
   }
 
-  // Verify the account is the recipient
+  // Verify the account is the recipient BEFORE updating
   const recipientId = recipientIdOf(call);
   if (recipientId !== accountId) {
     throw new Error('You can only decline calls directed at you');
   }
 
-  if (call.status !== 'ringing') {
-    throw new Error('Call is not in ringing state');
+  // Conditional update to handle race conditions - include calleeAccountId check
+  const result = await prisma.call.updateMany({
+    where: {
+      id: callId,
+      status: 'ringing',
+      calleeAccountId: accountId,
+    },
+    data: {
+      status: 'declined',
+    },
+  });
+
+  if (result.count === 0) {
+    // Someone else already accepted or declined
+    const updatedCall = await prisma.call.findUnique({
+      where: { id: callId },
+      select: { status: true },
+    });
+    if (!updatedCall) {
+      throw new Error('Call not found');
+    }
+    if (updatedCall.status === 'in-progress') {
+      throw new Error('Call already accepted');
+    }
+    if (updatedCall.status === 'declined') {
+      throw new Error('Call already declined');
+    }
+    throw new Error(`Call is not in ringing state (status: ${updatedCall.status})`);
   }
 
-  await prisma.call.update({
-    where: { id: callId },
-    data: { status: 'declined' },
-  });
+  // Call was successfully declined - use the loaded call data for notification
+  // (No need to re-check status since we already verified the transition succeeded)
 
   // Notify the initiator
   const initiatorId = initiatorIdOf(call);
