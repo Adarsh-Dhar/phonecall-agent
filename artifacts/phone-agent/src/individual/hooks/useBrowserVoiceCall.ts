@@ -90,15 +90,20 @@ export function useBrowserVoiceCall(contactId?: string, taskId?: string) {
     audioCtxRef.current = null;
   }, []);
 
+  // Helper to close the socket safely, marking it as "closed by us" first
+  const closeSocket = useCallback(() => {
+    const ws = wsRef.current;
+    wsRef.current = null;                 // mark "closed by us" first
+    if (!ws) return;
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'stop' }));
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
+  }, []);
+
   const stop = useCallback(() => {
-    wsRef.current?.send(JSON.stringify({ type: 'stop' }));
-    wsRef.current?.close();
-    wsRef.current = null;
-
+    closeSocket();
     releaseAudioResources();
-
     setStatus('idle');
-  }, [releaseAudioResources]);
+  }, [closeSocket, releaseAudioResources]);
 
   const start = useCallback(async () => {
     // Prevent starting if already connecting or active
@@ -225,6 +230,7 @@ export function useBrowserVoiceCall(contactId?: string, taskId?: string) {
 
       ws.onerror = (error) => {
         clearTimeout(connectionTimeout);
+        if (wsRef.current !== ws) return;     // we closed it, not a real failure
         console.error('Voice stream WebSocket error:', error);
         console.error('WebSocket readyState:', ws.readyState);
         console.error('WebSocket URL:', ws.url);
@@ -236,9 +242,7 @@ export function useBrowserVoiceCall(contactId?: string, taskId?: string) {
 
       ws.onclose = (event) => {
         clearTimeout(connectionTimeout);
-        console.log('WebSocket closed, code:', event.code, 'reason:', event.reason);
-        // Covers both the user-initiated stop() path and a server-initiated
-        // close (e.g. the agent ending the call) — idempotent either way.
+        if (wsRef.current !== ws) return;
         releaseAudioResources();
         wsRef.current = null;
         setStatus((s) => (s === 'error' ? s : 'idle'));
@@ -253,20 +257,13 @@ export function useBrowserVoiceCall(contactId?: string, taskId?: string) {
 
   useEffect(() => {
     return () => {
-      // Best-effort cleanup if the modal is closed mid-call.
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'stop' }));
-      }
-      wsRef.current?.close();
-      wsRef.current = null;
+      console.trace('useBrowserVoiceCall unmount');   // temporary: shows who unmounted it
+      closeSocket();
       processorRef.current?.disconnect();
-      processorRef.current = null;
       micStreamRef.current?.getTracks().forEach((t) => t.stop());
-      micStreamRef.current = null;
       void audioCtxRef.current?.close();
-      audioCtxRef.current = null;
     };
-  }, []);
+  }, [closeSocket]);
 
   return { status, errorMessage, transcript, start, stop };
 }

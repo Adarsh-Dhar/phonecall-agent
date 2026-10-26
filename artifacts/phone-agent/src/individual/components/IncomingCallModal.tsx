@@ -13,12 +13,12 @@ interface IncomingCallData {
   } | null;
 }
 
-export function IncomingCallModal({ 
-  incomingCall, 
-  onClose 
-}: { 
+export function IncomingCallModal({
+  incomingCall,
+  onClose
+}: {
   incomingCall: IncomingCallData | null;
-  onClose: () => void;
+  onClose: (declinedCallId?: string) => void;
 }) {
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
 
@@ -47,7 +47,7 @@ export function IncomingCallModal({
   const handleDecline = async () => {
     try {
       await declineCall(incomingCall.callId);
-      onClose();
+      onClose(incomingCall.callId);
     } catch (error) {
       console.error('Error declining call:', error);
     }

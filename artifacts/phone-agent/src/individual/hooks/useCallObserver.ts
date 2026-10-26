@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { usePresence } from '@/hooks/usePresence';
 
 interface TranscriptTurn {
   role: 'agent' | 'business';
@@ -20,6 +21,8 @@ interface UseCallObserverOptions {
 }
 
 export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObserverOptions) {
+  console.log('useCallObserver: initialized with callId', callId);
+
   const [status, setStatus] = useState<'waiting' | 'connecting' | 'live' | 'ended' | 'missed' | 'declined' | 'error'>('waiting');
   const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
   const [handoff, setHandoff] = useState<HandoffState>({ phase: null, id: null, mine: false });
@@ -28,13 +31,49 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHandoffHandledRef = useRef(false);
+  const onEndedRef = useRef(onEnded);
+  const endedRef = useRef(false);
+
+  useEffect(() => { onEndedRef.current = onEnded; }, [onEnded]);
+
+  // Listen for call status updates via presence
+  usePresence(
+    () => {
+      console.log('useCallObserver: presence incoming call callback', { callId });
+    }, // incoming call - not used
+    (event) => {
+      console.log('useCallObserver: presence call status callback', { callId, eventCallId: event.callId, eventStatus: event.status });
+      if (event.callId === callId && (event.status === 'declined' || event.status === 'missed')) {
+        console.log('useCallObserver: call declined/missed via presence, closing', { callId, status: event.status });
+        const ws = wsRef.current;
+        wsRef.current = null;
+        if (!ws) return;
+        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'stop' }));
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
+        onEndedRef.current?.();
+      }
+    },
+    () => {}, // live question - not used
+    () => {}, // post-call question - not used
+    () => {}, // agent call - not used
+    () => {}, // handoff request - not used
+    () => {}, // agent call completed - not used
+  ); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isHandoffHandledRef = useRef(false);
+  const onEndedRef = useRef(onEnded);
+  const endedRef = useRef(false);
+
+  useEffect(() => { onEndedRef.current = onEnded; }, [onEnded]);
 
   const leave = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.send(JSON.stringify({ type: 'stop' }));
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+    const ws = wsRef.current;
+    wsRef.current = null;
+    if (!ws) return;
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'stop' }));
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
   }, []);
 
   const acceptHandoff = useCallback(() => {
@@ -67,29 +106,29 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
   }, [incomingHandoff]);
 
   useEffect(() => {
+    let disposed = false;
+    endedRef.current = false;
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use same origin - cookies will be sent automatically
-    const wsUrl = `${proto}//${window.location.host}/media/browser`;
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(`${proto}//${window.location.host}/media/browser`);
     wsRef.current = ws;
 
-    // Set a timeout to detect if connection doesn't establish
     const connectionTimeout = setTimeout(() => {
-      if (ws.readyState !== WebSocket.OPEN) {
-        console.error('WebSocket connection timeout in useCallObserver');
-        setStatus('error');
-        setHandoffError('Connection timeout. Please check your network and try again.');
-        ws.close();
-      }
-    }, 10000); // 10 second timeout
+      if (disposed || ws.readyState === WebSocket.OPEN) return;
+      console.error('WebSocket connection timeout in useCallObserver');
+      setStatus('error');
+      setHandoffError('Connection timeout. Please check your network and try again.');
+      ws.close();
+    }, 10000);
 
     ws.onopen = () => {
+      if (disposed) return;
       clearTimeout(connectionTimeout);
       setStatus('connecting');
       ws.send(JSON.stringify({ type: 'start', callId }));
     };
 
     ws.onmessage = (event) => {
+      if (disposed) return;
       try {
         const msg = JSON.parse(event.data);
 
@@ -103,8 +142,9 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
             break;
 
           case 'call_ended':
+            endedRef.current = true;
             setStatus('ended');
-            onEnded?.();
+            onEndedRef.current?.();
             ws.close();
             break;
 
@@ -145,25 +185,25 @@ export function useCallObserver({ callId, onEnded, incomingHandoff }: UseCallObs
 
     ws.onclose = () => {
       clearTimeout(connectionTimeout);
-      if (status !== 'ended') {
-        setStatus('error');
-      }
+      if (disposed) return;
+      if (!endedRef.current) setStatus('error');
     };
 
     ws.onerror = (err) => {
       clearTimeout(connectionTimeout);
+      if (disposed) return;
       console.error('Voice stream WebSocket error:', err);
       setStatus('error');
     };
 
     return () => {
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-      }
+      disposed = true;
       clearTimeout(connectionTimeout);
-      ws.close();
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (wsRef.current === ws) wsRef.current = null;
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) ws.close();
     };
-  }, [callId, onEnded, status]);
+  }, [callId]);
 
   return {
     status,

@@ -78,6 +78,7 @@ export default function IndividualApp() {
     (event) => {
       console.log('Call status update:', event);
       // Handle call status updates (ringing → in-progress → missed/declined)
+      // The useCallObserver hook now handles this directly
     },
     (event) => {
       console.log('Live question received:', event);
@@ -146,7 +147,13 @@ export default function IndividualApp() {
       {incomingCall && (
         <IncomingCallModal
           incomingCall={incomingCall}
-          onClose={() => setIncomingCall(null)}
+          onClose={(declinedCallId) => {
+            setIncomingCall(null);
+            // If the declined call matches the observer widget, close it
+            if (declinedCallId && handoffCall?.callId === declinedCallId) {
+              setHandoffCall(null);
+            }
+          }}
         />
       )}
 
