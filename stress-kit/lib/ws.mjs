@@ -59,7 +59,7 @@ class WsClient {
   }
 
   sendAudioFrame(frame) {
-    this.send({ type: 'audio', data: frame });
+    this.send({ type: 'audio', payload: frame });
   }
 
   close(code = 1000, reason = '') {
@@ -81,6 +81,10 @@ class WsClient {
 
   clearMessages() {
     this.messages = [];
+  }
+
+  startCall(callId) {
+    this.send({ type: 'start', callId });
   }
 
   waitForMessage(predicate, timeout = 5000) {
@@ -121,7 +125,7 @@ class BusinessClient extends WsClient {
   }
 
   joinCall(callId) {
-    this.send({ type: 'join', callId });
+    this.send({ type: 'start', callId }); // wire protocol: voiceStreamService.ts header
   }
 
   leaveCall() {
@@ -135,7 +139,7 @@ class IndividualClient extends WsClient {
   }
 
   answerCall(callId) {
-    this.send({ type: 'answer', callId });
+    this.send({ type: 'start', callId });
   }
 
   hangup() {

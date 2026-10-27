@@ -51,7 +51,12 @@ const CLAIM_TTL_MS = Number(process.env.SCHEDULER_CLAIM_TTL_MS) || 5 * 60 * 1000
 const CONCURRENCY_LIMIT = 5;
 
 /** The agent dials by itself when the task's contact is a linked business. 0 = notify only. */
-const AUTO_DIAL = process.env.CALL_SCHEDULER_AUTO_DIAL !== "0";
+let autoDialOverride: boolean | null = null;
+/** Test hook (/_test/scheduler/auto-dial). null = follow CALL_SCHEDULER_AUTO_DIAL. */
+export function setAutoDialOverride(v: boolean | null) { autoDialOverride = v; }
+function isAutoDialEnabled(): boolean {
+  return autoDialOverride ?? (process.env.CALL_SCHEDULER_AUTO_DIAL !== "0");
+}
 /** Calendar-created call tasks ignore quiet hours / business hours unless this is "1" (closures still apply). */
 const CALENDAR_CALLS_RESPECT_HOURS = process.env.CALENDAR_CALLS_RESPECT_HOURS === "1";
 
@@ -663,7 +668,7 @@ async function processTask(
     // (that is what dialCallAs needs). With agent mode off the owner is notified instead.
     let autoDialed = false;
     let delivered = false;
-    if (AUTO_DIAL && owner.agentMode && !owner.isService && contact.linkedAccountId && biz) {
+    if (isAutoDialEnabled() && owner.agentMode && !owner.isService && contact.linkedAccountId && biz) {
       const outcome = await agentPlaceCall({
         ownerId: contact.ownerId,
         contactId: contact.id,

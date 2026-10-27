@@ -6,6 +6,7 @@
 
 import { randomBytes } from 'crypto';
 import { SignJWT, jwtVerify } from 'jose';
+import { db } from './env.mjs';
 
 class AccountManager {
   constructor(opts) {
@@ -32,13 +33,23 @@ class AccountManager {
       email,
       name: accountData.name || 'Test User',
       isService: accountData.isService || false,
-      phone: accountData.phone || `+1${Math.floor(Math.random() * 9000000000) + 1000000000}`,
+      phone: accountData.phone || `+1555${Math.floor(Math.random() * 9000000) + 1000000}`,
       business: accountData.business || 'Test Business',
       category: accountData.category || 'technology',
       timezone: accountData.timezone || 'America/New_York',
-      agentMode: accountData.agentMode || 'auto',
+      agentMode: accountData.agentMode === true,
       ...accountData,
     };
+
+    // Persist: contacts/calls reference Account(id) by FK, and the server looks the user up per request.
+    await db.query(
+      `INSERT INTO "Account"
+         (id, email, name, "isService", phone, business, category, timezone, "agentMode", "createdAt", "updatedAt")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now(), now())
+       ON CONFLICT (id) DO NOTHING`,
+      [account.id, account.email, account.name, account.isService, account.phone,
+       account.business, account.category, account.timezone, account.agentMode],
+    );
 
     this.accounts.set(id, account);
     return account;
@@ -58,11 +69,14 @@ class AccountManager {
     });
   }
 
-  mintJwt(accountId, expiresIn = '24h') {
+  /** Same payload shape as artifacts/api-server/src/lib/jwt.ts signToken(): { userId, email }. */
+  async mintJwt(accountId, expiresIn = '24h') {
+    const account = this.accounts.get(accountId);
+    if (!account) throw new Error(`mintJwt: unknown account ${accountId}`);
     const secret = new TextEncoder().encode(this.jwtSecret);
 
-    return new SignJWT({ sub: accountId, type: 'access' })
-      .setProtectedHeader({ alg: 'HS256' })
+    return new SignJWT({ userId: accountId, email: account.email })
+      .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
       .setIssuedAt()
       .setExpirationTime(expiresIn)
       .sign(secret);

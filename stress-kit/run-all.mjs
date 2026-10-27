@@ -25,6 +25,9 @@ import { InvariantChecker } from './lib/invariants.mjs';
 import { MetricsSampler } from './lib/sampler.mjs';
 import { LoadGenerator } from './lib/loadgen.mjs';
 import { Reporter } from './lib/report.mjs';
+import { GeminiControl } from './lib/gemini.mjs';
+import { db } from './lib/env.mjs';
+import { spawn } from 'child_process';
 
 // Load profiles
 const PROFILES = {
@@ -150,6 +153,7 @@ class Harness {
         dbUrl: this.env.testDatabaseUrl,
         jwtSecret: this.env.jwtSecret,
         testMode: this.profileConfig.testMode !== false,
+        nebiusPort: 9453,
       });
       console.log(`  ✓ Server instance ${i} on port ${port}`);
     }
@@ -190,6 +194,23 @@ class Harness {
     // Set global test runner for check() function
     setTestRunner(this.testRunner);
 
+    // Legacy standalone scripts (01-07) have no default export: run them as child processes,
+    // one check per script, verdict = exit code. Never "import and hope".
+    if (!scenario.file.startsWith('scenarios/')) {
+      await this.testRunner.runCheck(`${scenarioId}-script`, scenario.description, async (t) => {
+        const code = await new Promise((resolve) => {
+          const child = spawn('node', [scenarioPath], {
+            cwd: __dirname,
+            env: { ...process.env, API_BASE: this.env.baseUrl },
+            stdio: 'inherit',
+          });
+          child.on('close', resolve);
+        });
+        t.check(code === 0, `${scenario.file} exited with code ${code}`, 0, code);
+      });
+      return;
+    }
+
     // Import and run scenario
     const scenarioModule = await import(scenarioPath);
     const context = {
@@ -203,10 +224,12 @@ class Harness {
       fixtures: this.fixtureBuilder,
       server: this.serverManager.get('server-0'),
       fakeNebius: this.fakeNebius,
+      gemini: new GeminiControl(this.env.baseUrl),
       loadGen: this.loadGen,
       testRunner: this.testRunner,
     };
     
+    await context.gemini.reset().catch(() => {}); // clean fake-Gemini state per scenario
     await scenarioModule.default(context);
     
     // Run invariants after scenario
@@ -255,6 +278,7 @@ class Harness {
     await this.serverManager.stopAll();
     await this.fakeNebius.stop();
     await this.invariantChecker.close();
+    await db.close();
     
     console.log(`  ✓ Tear down complete`);
   }

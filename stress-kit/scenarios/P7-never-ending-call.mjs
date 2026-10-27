@@ -21,7 +21,8 @@ import { fixtures } from '../lib/fixtures.mjs';
 import { accounts } from '../lib/accounts.mjs';
 
 export default async function run(ctx) {
-  const accountManager = ctx.accountManager;
+  const { api, fixtures, accountManager, fakeNebius, server, env } = ctx;
+  const accounts = accountManager;
 
   await check('P7-call-duration-cap-enforced', async () => {
     // Test that call is hung up at duration cap

@@ -291,6 +291,7 @@ export function createBrowserVoiceStream(): WebSocketServer {
             }
 
             gemini = await openGeminiLiveSession({
+              callId: call.id,
               systemInstructionText: buildAgentCallSystemInstruction({
                 individualName: user.name || '',
                 businessName: contact.name || '',

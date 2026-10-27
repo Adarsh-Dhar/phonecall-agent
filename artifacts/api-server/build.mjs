@@ -117,6 +117,18 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  // Test-only fake Gemini (loaded by dynamic import in geminiVoiceSession.ts). Never built for production.
+  if (process.env.TEST_MODE === "true" && process.env.NODE_ENV !== "production") {
+    await esbuild({
+      entryPoints: [path.resolve(artifactDir, "src/testing/fakeGemini.ts")],
+      platform: "node",
+      bundle: true,
+      format: "esm",
+      outfile: path.resolve(distDir, "testing/fakeGemini.mjs"),
+      logLevel: "info",
+    });
+  }
 }
 
 buildAll().catch((err) => {

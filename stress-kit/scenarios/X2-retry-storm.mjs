@@ -19,7 +19,8 @@ import { fixtures } from '../lib/fixtures.mjs';
 import { accounts } from '../lib/accounts.mjs';
 
 export default async function run(ctx) {
-  const accountManager = ctx.accountManager;
+  const { api, fixtures, accountManager, fakeNebius, server, env } = ctx;
+  const accounts = accountManager;
 
   await check('X2-many-users-no-duplicates', async () => {
     // Create 50 individuals and 3 businesses

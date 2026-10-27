@@ -5,7 +5,6 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { isTestMode } from "./lib/testMode";
-import { testControlRouter } from "./routes/testControl";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
@@ -73,6 +72,8 @@ app.use("/api", router);
 
 // Mount test control routes only in test mode (S3)
 if (isTestMode()) {
+  // Dynamic: the module (and the fake Gemini it drives) must not load in production.
+  const { testControlRouter } = await import("./routes/testControl");
   app.use("/_test", testControlRouter);
   logger.info("Test control routes mounted at /_test");
 }

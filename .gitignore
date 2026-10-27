@@ -18,6 +18,8 @@ node_modules
 # Stress test credentials
 stress-kit/.env
 stress-kit/tokens.json
+stress-kit/results/
+stress-kit/.accounts.json
 
 # IDEs and editors
 /.idea

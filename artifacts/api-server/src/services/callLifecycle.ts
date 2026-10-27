@@ -2,6 +2,7 @@ import { prisma } from "@workspace/db-prisma";
 import { scheduleExtraction } from "./taskExtraction";
 import { analyzeCallForEscalation } from "./callAnalysis";
 import { askUserDuringCall, rejectLiveQueries } from "./liveEscalation";
+import { normalizeEndCallArgs } from "./endCallArgs";
 import { logger } from "../lib/logger";
 import { computeNextAttempt, MAX_ATTEMPTS } from "./schedulerPolicy";
 import { getOrCreateRelationship, ingestMessage, scheduleConsolidation } from "./memory";
@@ -14,7 +15,7 @@ import { requestHandoff, handoffToolResponse, endLiveHandoff, closeCallHandoffs,
 import { scoreCall, extractLessonsFromCall } from "./callQuality";
 import { notifyAgentCallDone } from "./ownerDigest";
 
-interface EndCallArgs {
+export interface EndCallArgs {
   outcome: "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed";
   summary: string;
   confirmedAt?: string;
@@ -254,9 +255,11 @@ export function createCallLifecycle(opts: {
     opts.closeSocket();
   }
 
-  async function end(by: "user" | "agent", args?: EndCallArgs) {
+  async function end(by: "user" | "agent", rawArgs?: EndCallArgs) {
     if (ended) return;
     ended = true;
+    // Model output is untrusted: validate before anything touches the DB.
+    const args = rawArgs ? normalizeEndCallArgs(rawArgs) : undefined;
 
     // Close any handoff first: it tells us whether the owner took part in this call.
     const liveSec = await endLiveHandoff(opts.callId).catch(() => null);
@@ -289,20 +292,29 @@ export function createCallLifecycle(opts: {
       );
     }
 
-    await prisma.call.update({
-      where: { id: opts.callId },
-      data: {
-        status: "completed",
-        endedAt,
-        durationSec,
-        disconnectedBy: by,
-        outcome,
-        outcomeSummary,
-        autonomous: opts.agentMode === true,
-        confirmedAt: args?.confirmedAt ? new Date(args.confirmedAt) : null,
-        confirmationRef: args?.confirmationRef,
-      },
-    });
+    try {
+      await prisma.call.update({
+        where: { id: opts.callId },
+        data: {
+          status: "completed",
+          endedAt,
+          durationSec,
+          disconnectedBy: by,
+          outcome,
+          outcomeSummary,
+          autonomous: opts.agentMode === true,
+          confirmedAt: args?.confirmedAt ? new Date(args.confirmedAt) : null,
+          confirmationRef: args?.confirmationRef,
+        },
+      });
+    } catch (err) {
+      // Never leave the row open: ended is already true, so nothing would retry.
+      logger.error({ err, callId: opts.callId }, "callLifecycle: call update failed, closing minimally");
+      await prisma.call.update({
+        where: { id: opts.callId },
+        data: { status: "completed", endedAt, durationSec, disconnectedBy: by, outcome: "failed" },
+      }).catch((e) => logger.error({ err: e, callId: opts.callId }, "callLifecycle: minimal close failed"));
+    }
 
     await rejectLiveQueries(opts.callId);
 

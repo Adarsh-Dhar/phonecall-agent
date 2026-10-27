@@ -7,36 +7,6 @@ import { handoffToolResponse } from "./handoff";
 const MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-3.8-live";
 const LANGUAGE_CODE = process.env.GEMINI_LIVE_LANGUAGE_CODE ?? "en-US";
 
-// ---------------------------------------------------------------------------
-// Fake Gemini client (S2 seam)
-// ---------------------------------------------------------------------------
-
-interface FakeGeminiClient {
-  live: {
-    connect: (config: any) => Promise<{
-      sendRealtimeInput: (input: any) => void;
-      sendClientContent: (content: any) => void;
-      sendToolResponse: (response: any) => void;
-      close: () => void;
-    }>;
-  };
-}
-
-function createFakeGeminiClient(): FakeGeminiClient {
-  // This is a placeholder - the actual fake implementation will be controlled
-  // via the /_test control plane (S3)
-  // For now, we just return a stub that will be replaced by S3
-  logger.warn("Using fake Gemini client - this should only happen in test mode");
-  
-  return {
-    live: {
-      connect: async (config: any) => {
-        throw new Error("Fake Gemini not yet implemented - implement S3 control plane first");
-      },
-    },
-  };
-}
-
 interface EndCallArgs {
   outcome: "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed";
   summary: string;
@@ -167,6 +137,8 @@ export interface GeminiVoiceSession {
 }
 
 export async function openGeminiLiveSession(opts: {
+  /** Used only by the test-mode fake driver to address a session from /_test/gemini/:callId. */
+  callId?: string;
   systemInstructionText: string;
   onAudioOut: (pcm24k: Int16Array) => void;
   onUserTurnText: (text: string) => void;
@@ -185,9 +157,17 @@ export async function openGeminiLiveSession(opts: {
   logger.info({ apiKeyLength: apiKey.length, model: MODEL }, "geminiVoiceSession: opening session");
 
   // S2: Fake Gemini seam (only in test mode)
-  const client = (process.env.GEMINI_DRIVER === 'fake' && isTestMode())
-    ? createFakeGeminiClient()
-    : new GoogleGenAI({ apiKey });
+  let client: { live: { connect: (a: any) => Promise<any> } };
+  if (process.env.GEMINI_DRIVER === "fake") {
+    if (!isTestMode()) throw new Error("GEMINI_DRIVER=fake requires TEST_MODE=true");
+    // Non-literal specifier: esbuild leaves it alone. build.mjs emits dist/testing/fakeGemini.mjs only when
+    // TEST_MODE=true, so a production build contains no fake and this branch cannot resolve it.
+    const fakePath = "./testing/fakeGemini.mjs";
+    const mod = await import(/* @vite-ignore */ fakePath);
+    client = mod.createFakeGeminiClient(opts.callId ?? "unknown");
+  } else {
+    client = new GoogleGenAI({ apiKey }) as any;
+  }
 
   let userTurnBuffer = "";
   let agentTurnBuffer = "";

@@ -20,8 +20,8 @@ import { fixtures } from '../lib/fixtures.mjs';
 import { accounts } from '../lib/accounts.mjs';
 
 export default async function run(ctx) {
-  const fakeNebius = ctx.fakeNebius;
-  const accountManager = ctx.accountManager;
+  const { api, fixtures, accountManager, fakeNebius, server, env } = ctx;
+  const accounts = accountManager;
 
   await check('M5-constraints-preserved-across-calls', async () => {
     // Create account and contact

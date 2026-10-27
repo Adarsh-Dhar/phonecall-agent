@@ -20,7 +20,8 @@ import { fixtures } from '../lib/fixtures.mjs';
 import { accounts } from '../lib/accounts.mjs';
 
 export default async function run(ctx) {
-  const accountManager = ctx.accountManager;
+  const { api, fixtures, accountManager, fakeNebius, server, env } = ctx;
+  const accounts = accountManager;
 
   await check('P5-tool-rate-limit-enforced', async () => {
     // Test tool rate limiting with many check_availability calls

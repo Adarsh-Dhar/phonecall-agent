@@ -23,6 +23,8 @@ class ServerInstance {
     this.dbUrl = opts.dbUrl;
     this.jwtSecret = opts.jwtSecret;
     this.testMode = opts.testMode !== false;
+    this.nebiusPort = opts.nebiusPort;
+    this.extraEnv = opts.extraEnv;
     this.rootDir = opts.rootDir || join(__dirname, '..', '..');
     this.buildDir = join(this.rootDir, 'artifacts', 'api-server');
     this.process = null;
@@ -42,6 +44,16 @@ class ServerInstance {
       JWT_SECRET: this.jwtSecret,
       TEST_MODE: this.testMode ? 'true' : 'false',
       NODE_ENV: 'development',
+      // Route every external dependency to a fake; never reach real Gemini/Nebius/Google/email/WhatsApp.
+      ...(this.testMode ? {
+        GEMINI_DRIVER: 'fake',
+        GEMINI_API_KEY: 'fake-key-not-used',
+        GOOGLE_CALENDAR_DRIVER: 'fake',
+        OUTBOUND_TRANSPORT: 'capture',
+        NEBIUS_API_KEY: 'fake-key-not-used',
+        NEBIUS_BASE_URL: `http://localhost:${this.nebiusPort || 9453}/v1`,
+      } : {}),
+      ...(this.extraEnv || {}),
       PORT: this.port.toString(),
     };
 

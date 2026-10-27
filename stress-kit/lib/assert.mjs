@@ -5,6 +5,8 @@
  * Tracks verdicts: PASS, FAIL, KNOWN-RED, SKIPPED
  */
 
+import fs from 'fs';
+
 class AssertionError extends Error {
   constructor(message, expected, actual) {
     super(message);
@@ -154,7 +156,15 @@ class AssertionContext {
     throw new AssertionError(message);
   }
 
-  complete(verdict = 'PASS') {
+  /** Number of assertions that actually executed and passed. */
+  passedCount() {
+    return this.assertions.filter(a => (a.type === 'check' && a.passed) || a.type === 'pass').length;
+  }
+
+  complete(verdict) {
+    if (verdict === undefined) {
+      throw new Error('complete() requires an explicit verdict');
+    }
     this.duration = Date.now() - this.startTime;
     this.verdict = verdict;
     return {
@@ -176,16 +186,17 @@ class Ledger {
 
   loadKnownIssues() {
     try {
-      const fs = require('fs');
       if (fs.existsSync(this.knownIssuesPath)) {
         const data = fs.readFileSync(this.knownIssuesPath, 'utf-8');
-        const issues = JSON.parse(data);
+        const parsed = JSON.parse(data);
+        const issues = Array.isArray(parsed) ? parsed : (parsed.issues || []);
         for (const issue of issues) {
           this.knownIssues.set(issue.checkId, issue);
         }
       }
     } catch (error) {
-      console.warn(`Failed to load known issues: ${error.message}`);
+      // A ledger that cannot be read must not silently turn REDs into FAILs or PASSes.
+      throw new Error(`Cannot load known-issues ledger ${this.knownIssuesPath}: ${error.message}`);
     }
   }
 
@@ -217,34 +228,41 @@ class TestRunner {
   async runCheck(checkId, description, fn) {
     const context = new AssertionContext(checkId, description);
     this.currentContext = context;
+    let verdict;
 
     try {
       await fn(context);
-      context.complete('PASS');
-    } catch (error) {
-      if (error instanceof SkipError) {
-        context.complete('SKIPPED');
-      } else if (error instanceof AssertionError) {
-        // Check if this is a known red
-        if (this.ledger && this.ledger.isKnownRed(checkId)) {
-          context.complete('KNOWN-RED');
-        } else {
-          context.complete('FAIL');
-        }
-      } else {
+      if (context.passedCount() === 0) {
+        // A check that asserts nothing proves nothing.
         context.assertions.push({
           type: 'error',
-          message: error.message,
-          stack: error.stack,
+          message: 'No assertions executed (a check must call t.check/assert* at least once)',
         });
-        context.complete('FAIL');
+        verdict = 'FAIL';
+      } else {
+        verdict = 'PASS';
+      }
+    } catch (error) {
+      if (error instanceof SkipError) {
+        verdict = 'SKIPPED';
+      } else if (error instanceof AssertionError) {
+        verdict = this.ledger && this.ledger.isKnownRed(checkId) ? 'KNOWN-RED' : 'FAIL';
+      } else {
+        // Harness/runtime errors are never excused by the ledger.
+        context.assertions.push({
+          type: 'error',
+          message: error && error.message,
+          stack: error && error.stack,
+        });
+        verdict = 'FAIL';
       }
     } finally {
-      this.results.push(context.complete());
       this.currentContext = null;
     }
 
-    return context;
+    const result = context.complete(verdict);
+    this.results.push(result);
+    return result;
   }
 
   getResults() {

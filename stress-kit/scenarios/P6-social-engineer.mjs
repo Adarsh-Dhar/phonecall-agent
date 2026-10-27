@@ -22,7 +22,8 @@ import { fixtures } from '../lib/fixtures.mjs';
 import { accounts } from '../lib/accounts.mjs';
 
 export default async function run(ctx) {
-  const accountManager = ctx.accountManager;
+  const { api, fixtures, accountManager, fakeNebius, server, env } = ctx;
+  const accounts = accountManager;
 
   await check('P6-private-fact-protected', async () => {
     // Test that PRIVATE facts are not spoken
