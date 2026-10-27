@@ -7,6 +7,7 @@ import {
   insertCalendarEvent,
   listAllCalendarEvents,
 } from "../services/googleCalendar";
+import { prisma } from "@workspace/db-prisma";
 
 const router: IRouter = Router();
 
@@ -20,10 +21,10 @@ function sendAuthFailure(res: import("express").Response, reason: "not_connected
 }
 
 // ---------------------------------------------------------------------------
-// POST /calendar/sync
+// POST /sync
 // Manually trigger calendar sync
 // ---------------------------------------------------------------------------
-router.post("/calendar/sync", asyncHandler(async (req, res) => {
+router.post("/sync", asyncHandler(async (req, res) => {
   try {
     const result = await manualSync(req.userId!);
     res.json(result);
@@ -34,10 +35,10 @@ router.post("/calendar/sync", asyncHandler(async (req, res) => {
 }, "Failed to trigger manual calendar sync"));
 
 // ---------------------------------------------------------------------------
-// POST /calendar/events
+// POST /
 // Create a new Google Calendar event
 // ---------------------------------------------------------------------------
-router.post("/calendar/events", asyncHandler(async (req, res) => {
+router.post("/", asyncHandler(async (req, res) => {
   try {
     logger.info("Creating Google Calendar event");
 
@@ -63,16 +64,44 @@ router.post("/calendar/events", asyncHandler(async (req, res) => {
 }, "Failed to create Google Calendar event"));
 
 // ---------------------------------------------------------------------------
-// GET /calendar/events
+// GET /
 // Fetch Google Calendar events directly
 // ---------------------------------------------------------------------------
-router.get("/calendar/events", asyncHandler(async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   try {
     logger.info("Fetching Google Calendar events");
 
     const authed = await getAuthedClientOrReason(req.userId!);
     if (!authed.ok) {
-      sendAuthFailure(res, authed.reason);
+      // If not connected to Google Calendar, return events from database
+      logger.info("Google Calendar not connected, returning database events");
+      const tasks = await prisma.task.findMany({
+        where: {
+          ownerId: req.userId!,
+          googleEventId: { not: null },
+          status: { not: 'cancelled' },
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          dueDate: true,
+          googleEventId: true,
+          googleEtag: true,
+        },
+      });
+      
+      const events = tasks.map(task => ({
+        id: task.googleEventId || task.id,
+        summary: task.title,
+        description: task.description,
+        start: { dateTime: task.dueDate || undefined },
+        end: { dateTime: task.dueDate || undefined },
+        status: 'confirmed',
+        htmlLink: `https://calendar.google.com/calendar/event?eid=${task.googleEventId}`,
+      }));
+      
+      res.json({ events });
       return;
     }
 

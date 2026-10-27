@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, LoaderCircle, Phone, RefreshCw } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, LoaderCircle, Phone, RefreshCw, X, Clock, Info } from 'lucide-react';
 import * as api from '@/lib/api';
 import { getDaysInMonth, isToday } from './calendarDateUtils';
 import { TestCallWidget } from '@/individual/components/TestCallWidget';
 
-type CalendarEvent = { id: string; title: string; type: 'task' | 'google'; contactId?: string };
+type CalendarEvent = { id: string; title: string; type: 'task' | 'google'; contactId?: string; start?: string; end?: string; description?: string | null };
 
 /**
  * Calendar card on the History ("Tasks") page: task due-dates + connected
@@ -16,14 +16,28 @@ export function CalendarSection() {
   const [calendarItems, setCalendarItems] = useState<api.Task[]>([]);
   const [googleCalendarEvents, setGoogleCalendarEvents] = useState<api.GoogleCalendarEvent[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(true);
+  const [googleAuthStatus, setGoogleAuthStatus] = useState<api.GoogleAuthStatus | null>(null);
 
   const [syncing, setSyncing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [callingTask, setCallingTask] = useState<api.Task | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedDateTime, setEditedDateTime] = useState('');
+  const [editError, setEditError] = useState('');
 
   const loadCalendar = useCallback(async () => {
     setCalendarLoading(true);
     try {
+      // Check Google Calendar auth status
+      try {
+        const status = await api.fetchGoogleAuthStatus();
+        setGoogleAuthStatus(status);
+      } catch (err) {
+        console.log('[CalendarSection] Failed to fetch Google auth status');
+        setGoogleAuthStatus({ connected: false, hasAuth: false, expired: false });
+      }
+
       // Load tasks with due dates (handle 404 gracefully if no contacts exist)
       let dated: api.Task[] = [];
       try {
@@ -81,6 +95,14 @@ export function CalendarSection() {
     }
   };
 
+  const handleConnectGoogleCalendar = async () => {
+    try {
+      await api.connectGoogleCalendar();
+    } catch (err) {
+      console.error('[CalendarSection] Failed to connect Google Calendar:', err);
+    }
+  };
+
   const navigateMonth = (direction: 'prev' | 'next') => {
     setCurrentMonth(prev => {
       const newDate = new Date(prev);
@@ -94,17 +116,17 @@ export function CalendarSection() {
   };
 
   const getEventsForDate = (date: Date): CalendarEvent[] => {
-    const targetYear = date.getFullYear();
-    const targetMonth = date.getMonth();
-    const targetDay = date.getDate();
+    const targetYear = date.getUTCFullYear();
+    const targetMonth = date.getUTCMonth();
+    const targetDay = date.getUTCDate();
 
     const taskEvents = calendarItems.filter(t => {
       if (!t.dueDate) return false;
       const taskDate = new Date(t.dueDate);
-      return taskDate.getFullYear() === targetYear &&
-             taskDate.getMonth() === targetMonth &&
-             taskDate.getDate() === targetDay;
-    }).map(t => ({ id: t.id, title: t.title, type: 'task' as const, contactId: t.contactId }));
+      return taskDate.getUTCFullYear() === targetYear &&
+             taskDate.getUTCMonth() === targetMonth &&
+             taskDate.getUTCDate() === targetDay;
+    }).map(t => ({ id: t.id, title: t.title, type: 'task' as const, contactId: t.contactId, start: t.dueDate, description: t.description }));
 
     const googleEvents = googleCalendarEvents.filter(e => {
       let eventDate: Date | undefined;
@@ -119,10 +141,10 @@ export function CalendarSection() {
 
       if (!eventDate) return false;
 
-      return eventDate.getFullYear() === targetYear &&
-             eventDate.getMonth() === targetMonth &&
-             eventDate.getDate() === targetDay;
-    }).map(e => ({ id: e.id, title: e.summary, type: 'google' as const }));
+      return eventDate.getUTCFullYear() === targetYear &&
+             eventDate.getUTCMonth() === targetMonth &&
+             eventDate.getUTCDate() === targetDay;
+    }).map(e => ({ id: e.id, title: e.summary, type: 'google' as const, start: e.start?.dateTime || e.start?.date, end: e.end?.dateTime || e.end?.date, description: e.description }));
 
     return [...taskEvents, ...googleEvents];
   };
@@ -138,21 +160,33 @@ export function CalendarSection() {
           <p className="text-[10px] text-[#af5c1c]">{calendarItems.filter((t) => t.status !== 'done').length + googleCalendarEvents.length} upcoming</p>
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handleSyncCalendar}
-            disabled={syncing}
-            className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-50"
-          >
-            <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-          </button>
-          <button
-            type="button"
-            onClick={handleDisconnectGoogleCalendar}
-            className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
-          >
-            Disconnect
-          </button>
+          {googleAuthStatus?.connected ? (
+            <>
+              <button
+                type="button"
+                onClick={handleSyncCalendar}
+                disabled={syncing}
+                className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-muted disabled:opacity-50"
+              >
+                <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
+              </button>
+              <button
+                type="button"
+                onClick={handleDisconnectGoogleCalendar}
+                className="text-[10px] font-bold text-muted-foreground hover:text-foreground"
+              >
+                Disconnect
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={handleConnectGoogleCalendar}
+              className="text-[10px] font-bold text-[#3159c4] hover:text-[#2a4aa3]"
+            >
+              Connect Google Calendar
+            </button>
+          )}
         </div>
       </div>
 
@@ -223,17 +257,14 @@ export function CalendarSection() {
                       return (
                         <div
                           key={i}
-                          role={callable ? 'button' : undefined}
-                          onClick={callable ? () => {
-                            const task = calendarItems.find((t) => t.id === event.id);
-                            if (task) setCallingTask(task);
-                          } : undefined}
-                          className={`group flex items-center gap-1 truncate rounded px-1 py-0.5 text-[8px] font-medium ${
+                          role="button"
+                          onClick={() => setSelectedEvent(event)}
+                          className={`group flex items-center gap-1 truncate rounded px-1 py-0.5 text-[8px] font-medium cursor-pointer ${
                             event.type === 'task'
-                              ? 'bg-[#fbfaf6] text-[#3f8274]'
-                              : 'bg-[#f0f7ff] text-[#3159c4]'
-                          } ${callable ? 'cursor-pointer hover:bg-[#edf9f5]' : ''}`}
-                          title={callable ? `${event.title} — click to call` : event.title}
+                              ? 'bg-[#fbfaf6] text-[#3f8274] hover:bg-[#edf9f5]'
+                              : 'bg-[#f0f7ff] text-[#3159c4] hover:bg-[#e0efff]'
+                          }`}
+                          title={event.title}
                         >
                           {callable && <Phone size={8} className="shrink-0 opacity-60 group-hover:opacity-100" />}
                           <span className="truncate">{event.title}</span>
@@ -260,6 +291,268 @@ export function CalendarSection() {
           taskTitle={callingTask.title}
           onClose={() => setCallingTask(null)}
         />
+      )}
+
+      {/* Event Details Modal */}
+      {selectedEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-card-border bg-card p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#fff0df] text-[#af5c1c]">
+                  <Info size={15} />
+                </div>
+                <h3 className="text-lg font-bold">{isEditing ? 'Edit Date & Time' : 'Event Details'}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedEvent(null);
+                  setIsEditing(false);
+                  setEditedDateTime('');
+                }}
+                className="rounded-md p-1 text-muted-foreground hover:text-foreground"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {isEditing ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">New Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    value={editedDateTime}
+                    onChange={(e) => {
+                      setEditedDateTime(e.target.value);
+                      setEditError('');
+                    }}
+                    className="w-full rounded-lg border border-card-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                  />
+                  {editError && (
+                    <p className="mt-1 text-xs text-red-500">{editError}</p>
+                  )}
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditError('');
+                    }}
+                    className="flex-1 rounded-xl border border-card-border py-3 text-sm font-bold text-foreground transition-all hover:bg-muted"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!editedDateTime || !selectedEvent.type === 'task') return;
+                      
+                      const newDate = new Date(editedDateTime);
+                      const now = new Date();
+                      
+                      if (newDate <= now) {
+                        setEditError('Date and time must be in the future');
+                        return;
+                      }
+                      
+                      try {
+                        const task = calendarItems.find((t) => t.id === selectedEvent.id);
+                        if (!task) {
+                          setEditError('Task not found in calendar');
+                          return;
+                        }
+                        if (!task.contactId) {
+                          setEditError('Task must have a contact to be edited');
+                          return;
+                        }
+                        
+                        await api.updateTask(task.id, { dueDate: newDate.toISOString() });
+                        await loadCalendar();
+                        setSelectedEvent(null);
+                        setIsEditing(false);
+                        setEditedDateTime('');
+                        setEditError('');
+                      } catch (err: any) {
+                        console.error('Failed to update task:', err);
+                        setEditError(err.message || 'Failed to update. Please try again.');
+                      }
+                    }}
+                    className="flex-1 rounded-xl bg-[#2854cc] py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#2148b4] active:translate-y-0"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Subject</p>
+                <p className="text-sm font-semibold">{selectedEvent.title}</p>
+              </div>
+
+              {selectedEvent.start && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                    <Clock size={12} />
+                    Time
+                  </p>
+                  <p className="text-sm">
+                    {selectedEvent.start.includes('T')
+                      ? new Date(selectedEvent.start).toLocaleString(undefined, {
+                          weekday: 'long',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true,
+                        })
+                      : new Date(selectedEvent.start).toLocaleDateString(undefined, {
+                          weekday: 'long',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                    {selectedEvent.end && selectedEvent.start !== selectedEvent.end && (
+                      <span className="text-muted-foreground">
+                        {' – '}
+                        {selectedEvent.end.includes('T')
+                          ? new Date(selectedEvent.end).toLocaleString(undefined, {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              hour12: true,
+                            })
+                          : ''}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {selectedEvent.description && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selectedEvent.description}</p>
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Type</p>
+                <p className="text-sm">
+                  <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${
+                    selectedEvent.type === 'task'
+                      ? 'bg-[#fbfaf6] text-[#3f8274]'
+                      : 'bg-[#f0f7ff] text-[#3159c4]'
+                  }`}>
+                    {selectedEvent.type === 'task' ? 'Call' : 'Google Calendar Event'}
+                  </span>
+                  {selectedEvent.type === 'task' && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      (Agent will call automatically at scheduled time)
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Status</p>
+                <p className="text-sm">
+                  {(() => {
+                    const now = new Date();
+                    const eventTime = selectedEvent.start ? new Date(selectedEvent.start) : null;
+                    const task = selectedEvent.type === 'task' ? calendarItems.find((t) => t.id === selectedEvent.id) : null;
+                    
+                    // For tasks, use the actual task status
+                    if (task) {
+                      if (task.status === 'done') {
+                        return <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700">Done</span>;
+                      } else if (task.status === 'cancelled') {
+                        return <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700">Cancelled</span>;
+                      } else if (task.status === 'in_progress') {
+                        return <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700">In Progress</span>;
+                      }
+                    }
+                    
+                    // For tasks without explicit status or Google events, check time
+                    if (eventTime) {
+                      if (eventTime < now) {
+                        return <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">Past</span>;
+                      } else {
+                        return <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700">Pending</span>;
+                      }
+                    }
+                    
+                    return <span className="text-muted-foreground">Unknown</span>;
+                  })()}
+                </p>
+              </div>
+
+              {selectedEvent.type === 'task' && selectedEvent.contactId && (
+                <div className="pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const task = calendarItems.find((t) => t.id === selectedEvent.id);
+                      if (task) {
+                        setSelectedEvent(null);
+                        setCallingTask(task);
+                      }
+                    }}
+                    className="w-full rounded-xl bg-[#2854cc] py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#2148b4] active:translate-y-0 flex items-center justify-center gap-2"
+                  >
+                    <Phone size={16} />
+                    Call Now
+                  </button>
+                </div>
+              )}
+
+              {/* Edit button for pending events - only for task events, not Google Calendar events */}
+              {(() => {
+                console.log('[CalendarSection] Checking edit button for event:', selectedEvent);
+                
+                if (selectedEvent.type !== 'task') {
+                  console.log('[CalendarSection] Not a task event, skipping edit button');
+                  return null;
+                }
+                
+                const task = calendarItems.find((t) => t.id === selectedEvent.id);
+                
+                // Only show edit button if task exists
+                if (!task) {
+                  console.log('[CalendarSection] Task not found in calendarItems:', selectedEvent.id, 'Available tasks:', calendarItems.map(t => t.id));
+                  return null;
+                }
+                
+                // Show edit button if task is not done/cancelled/in_progress
+                const isTaskEditable = task.status !== 'done' && task.status !== 'cancelled' && task.status !== 'in_progress';
+                
+                if (!isTaskEditable) {
+                  console.log('[CalendarSection] Task is not editable:', task.status);
+                  return null;
+                }
+                
+                console.log('[CalendarSection] Showing edit button for task:', task.id);
+                
+                return (
+                  <div className="pt-4 border-t">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditedDateTime(selectedEvent.start || '');
+                        setIsEditing(true);
+                      }}
+                      className="w-full rounded-xl border border-card-border bg-muted py-3 text-sm font-bold text-foreground transition-all hover:bg-accent hover:text-accent-foreground flex items-center justify-center gap-2"
+                    >
+                      Edit Date & Time
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -155,18 +155,19 @@ router.post("/", asyncHandler(async (req, res) => {
 }, "Failed to create task"));
 
 // ---------------------------------------------------------------------------
-// PATCH /tasks/:id
+// PATCH /:id
 // User edits a task: status, title, description, dueDate, priority, kind
 // Automatically sets completedAt when status transitions to "done"
 // ---------------------------------------------------------------------------
-router.patch("/tasks/:id", asyncHandler(async (req, res) => {
+router.patch("/:id", asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status, title, description, dueDate, priority, kind } = req.body;
 
-  const existing = await prisma.task.findFirst({
-    where: { id: String(id), contact: { ownerId: req.userId!, isService: true } },
+  const existing = await prisma.task.findUnique({
+    where: { id: String(id) },
     include: { contact: true },
   });
+  
   if (!existing) {
     res.status(404).json({ error: "Task not found" });
     return;

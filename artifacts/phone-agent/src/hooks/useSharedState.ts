@@ -12,11 +12,14 @@ export function useSharedState() {
   useEffect(() => {
     const updateDate = () => {
       const now = new Date();
-      const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'long', day: 'numeric' };
-      setCurrentDate(new Intl.DateTimeFormat('en-US', options).format(now));
+      const dateOptions: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'long', day: 'numeric' };
+      const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+      const dateStr = new Intl.DateTimeFormat('en-US', dateOptions).format(now);
+      const timeStr = new Intl.DateTimeFormat('en-US', timeOptions).format(now);
+      setCurrentDate(`${dateStr} • ${timeStr}`);
     };
     updateDate();
-    const interval = setInterval(updateDate, 60000);
+    const interval = setInterval(updateDate, 1000);
     return () => clearInterval(interval);
   }, []);
 

@@ -48,7 +48,7 @@ export const disconnectGoogleCalendar = async (): Promise<{ success: boolean }> 
 
 /** Manually trigger a calendar sync for the current user. */
 export const syncCalendar = async (): Promise<CalendarSyncResult> => {
-  const response = await apiFetch(`${API_BASE_URL}/calendar/sync`, {
+  const response = await apiFetch(`${API_BASE_URL}/calendar/events/sync`, {
     method: 'POST',
   });
   if (!response.ok) throw new Error('Failed to sync calendar');
