@@ -20,6 +20,20 @@ const CHAPTERS = [
   '05-call-state-races.mjs',
   '06-ws-soak.mjs',
   '07-authz-matrix.mjs',
+  'M1-garbled-reply.mjs',
+  'M2-slow-model.mjs',
+  'M3-liar-transcript.mjs',
+  'M4-double-extraction.mjs',
+  'M5-memory-fades.mjs',
+  'M6-alarm-clock.mjs',
+  'M7-unreachable-owner.mjs',
+  'P1-silent-line.mjs',
+  'P2-hallucinated-hangup.mjs',
+  'P3-rulebook-enforcement.mjs',
+  'P4-question-unanswered.mjs',
+  'P5-fast-talker.mjs',
+  'P6-social-engineer.mjs',
+  'P7-never-ending-call.mjs',
 ];
 
 const chapterArg = process.argv[2];

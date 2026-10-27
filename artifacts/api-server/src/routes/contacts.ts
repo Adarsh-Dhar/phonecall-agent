@@ -668,6 +668,75 @@ router.post("/contacts/:id/knowledge", writeRateLimit, asyncHandler(async (req, 
   res.status(201).json(fact);
 }, "Failed to create contact knowledge"));
 
+// GET /contacts/:id/briefing — get contact briefing with privacy filtering
+router.get("/contacts/:id/briefing", asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const contactId = await resolveOwnContactId(req.userId!, String(id));
+  if (!contactId) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  // Fetch contact info
+  const contact = await prisma.account.findUnique({
+    where: { id: contactId },
+    select: {
+      id: true,
+      name: true,
+      business: true,
+      category: true,
+      phone: true,
+      note: true,
+      description: true,
+      businessHoursJson: true,
+      timezone: true,
+    },
+  });
+
+  if (!contact) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+
+  // Fetch knowledge, filtering out private facts
+  const knowledge = await prisma.contactKnowledge.findMany({
+    where: {
+      contactId,
+      status: "active",
+      isPrivate: false,
+    },
+    select: {
+      category: true,
+      key: true,
+      value: true,
+      confidence: true,
+    },
+  });
+
+  // Fetch recent tasks
+  const tasks = await prisma.task.findMany({
+    where: {
+      contactId,
+      status: { in: ["open", "suggested"] },
+    },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      priority: true,
+      dueDate: true,
+    },
+    orderBy: { dueDate: "asc" },
+    take: 5,
+  });
+
+  res.json({
+    contact,
+    knowledge,
+    tasks,
+  });
+}, "Failed to fetch contact briefing"));
+
 // Update a contact
 router.put("/contacts/:id", writeRateLimit, asyncHandler(async (req, res) => {
   const { id } = req.params;

@@ -278,12 +278,23 @@ export function createCallLifecycle(opts: {
     }
 
     const endedAt = new Date();
+    const durationSec = Math.round((endedAt.getTime() - opts.startedAt.getTime()) / 1000);
+
+    // Enforce maximum call duration
+    const maxDurationMinutes = Number(process.env.MAX_CALL_DURATION_MINUTES) || 0;
+    if (maxDurationMinutes > 0 && durationSec > maxDurationMinutes * 60) {
+      logger.warn(
+        { callId: opts.callId, durationSec, maxDurationMinutes },
+        "callLifecycle: call exceeded maximum duration"
+      );
+    }
+
     await prisma.call.update({
       where: { id: opts.callId },
       data: {
         status: "completed",
         endedAt,
-        durationSec: Math.round((endedAt.getTime() - opts.startedAt.getTime()) / 1000),
+        durationSec,
         disconnectedBy: by,
         outcome,
         outcomeSummary,

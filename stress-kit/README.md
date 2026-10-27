@@ -113,6 +113,21 @@ Tests long-running WebSocket connections, reconnects, and malformed frames.
 Tests tenant isolation and authorization boundaries.
 - Expected finding: Knowledge routes may share across users who saved same business
 
+## Management Agent & Phone Agent Tests (M1-M7, P1-P7)
+
+**Note**: The management agent (M1-M7) and phone agent (P1-P7) chapters described in "The Day the Agents Work Alone" stress test plan require significant database schema alignment and are not yet implemented. These chapters test:
+
+- Management Agent: Model reply handling, extraction validation, memory consolidation, scheduler behavior, fallback messaging
+- Phone Agent: Gemini connection failures, end_call validation, approval enforcement, query management, tool rate limiting, social engineering protection, call duration caps
+
+These advanced tests require:
+1. Database schema updates to match the Conversation table structure (currently uses `contactId` instead of `individualId`/`businessId`)
+2. Integration with the real Nebius API for extraction and consolidation testing
+3. Additional test infrastructure for Gemini Live session simulation
+4. More complex test data setup for memory and scheduling scenarios
+
+The existing 7 chapters provide comprehensive coverage of the contact and call plumbing layer. The M and P chapters can be added once the schema and infrastructure are aligned.
+
 ## Configuration
 
 Environment variables (in `.env`):

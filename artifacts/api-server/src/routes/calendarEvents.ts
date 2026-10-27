@@ -36,6 +36,58 @@ router.post("/sync", asyncHandler(async (req, res) => {
 }, "Failed to trigger manual calendar sync"));
 
 // ---------------------------------------------------------------------------
+// POST /hold
+// Create a calendar hold (placeholder for a time slot)
+// ---------------------------------------------------------------------------
+router.post("/hold", asyncHandler(async (req, res) => {
+  try {
+    const { summary, start, end, contactId } = req.body;
+
+    if (!summary || !start || !end) {
+      res.status(400).json({ error: "Summary, start, and end are required" });
+      return;
+    }
+
+    // Verify contact ownership if provided
+    let contact = null;
+    if (contactId) {
+      contact = await prisma.account.findFirst({
+        where: { id: contactId, ownerId: req.userId! },
+      });
+      if (!contact) {
+        res.status(404).json({ error: "Contact not found" });
+        return;
+      }
+    }
+
+    // Create a task to represent the hold
+    const task = await prisma.task.create({
+      data: {
+        title: summary,
+        description: req.body.description || "Calendar hold",
+        status: "suggested",
+        kind: "call",
+        contactId: contactId || (contact ? contact.id : null),
+        dueDate: new Date(start),
+        nextAttemptAt: new Date(start),
+        conversationId: contact ? (
+          await prisma.conversation.findFirst({
+            where: { contactId: contact.id },
+            select: { id: true },
+          })
+        )?.id : undefined,
+        meta: { type: "hold", end },
+      },
+    });
+
+    res.json({ id: task.id, status: "held" });
+  } catch (error) {
+    logger.error({ error }, "Failed to create calendar hold");
+    res.status(500).json({ error: "Failed to create calendar hold", details: error instanceof Error ? error.message : String(error) });
+  }
+}, "Failed to create calendar hold"));
+
+// ---------------------------------------------------------------------------
 // POST /
 // Create a new Google Calendar event
 // ---------------------------------------------------------------------------

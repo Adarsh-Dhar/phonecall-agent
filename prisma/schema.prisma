@@ -350,6 +350,7 @@ model ContactKnowledge {
   value      String
   confidence Float                    @default(1.0)
   status     String                   @default("active")
+  isPrivate  Boolean                  @default(false)
   createdAt  DateTime                 @default(now())
   updatedAt  DateTime                 @updatedAt
   contact    Account                  @relation(fields: [contactId], references: [id], onDelete: Cascade)
@@ -438,6 +439,7 @@ model ApprovalRule {
   contactId String?
   category  String
   effect    String
+  condition String?
   params    Json?
   note      String?
   enabled   Boolean  @default(true)
@@ -496,4 +498,20 @@ model PromptLesson {
   owner        Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([ownerId, status, expiresAt])
+}
+
+model LiveQuery {
+  id              String   @id @default(cuid())
+  callId          String
+  ownerId         String
+  query           String
+  askedAt         DateTime @default(now())
+  answeredAt      DateTime?
+  answer          String?
+  answeredBy      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([callId])
+  @@index([ownerId])
 }

@@ -93,6 +93,7 @@ async function runExtractionOnce(
   const result = emptyExtractionResult();
 
   const apiKey = process.env.NEBIUS_API_KEY;
+  logger.info({ conversationId, hasApiKey: !!apiKey, keyPrefix: apiKey?.substring(0, 20) }, "extraction: checking API key");
   if (!apiKey) {
     logger.warn({ conversationId }, "extraction: skipped (no API key)");
     return { result, hasMore: false, ok: true };

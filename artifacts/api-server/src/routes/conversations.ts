@@ -305,7 +305,6 @@ router.get("/:id/tasks", asyncHandler(async (req, res) => {
 // button or for backfilling old conversations.
 router.post("/:id/extract", asyncHandler(async (req, res) => {
   const { id } = req.params;
-
   const conversation = await prisma.conversation.findFirst({
     where: { id: String(id), contact: { ownerId: req.userId! } },
   });
@@ -313,7 +312,6 @@ router.post("/:id/extract", asyncHandler(async (req, res) => {
     res.status(404).json({ error: "Conversation not found" });
     return;
   }
-
   const result = await runExtraction(String(id));
   res.json({ ok: true, ...result });
 }, "Extraction failed"));

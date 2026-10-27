@@ -1,26 +1,24 @@
-# PostgreSQL services disabled - using local Homebrew PostgreSQL instead
-# postgres: 16-alpine (main DB on port 5434 via local PostgreSQL 17)
-# postgres-test: 16-alpine (test DB on port 5435 via local PostgreSQL 16)
-# To enable Docker PostgreSQL again, uncomment the services below and ensure Docker Desktop is working
+# PostgreSQL services - using Docker on port 5435
+# Both dev and test databases use the same PostgreSQL instance on port 5435
 
 services:
-  postgres-test:
+  postgres:
     image: postgres:16-alpine
-    container_name: phone-agent-postgres-test
+    container_name: phone-agent-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: phoneagent
       POSTGRES_PASSWORD: phoneagent_password
-      POSTGRES_DB: phone_agent_test
+      POSTGRES_DB: phone_agent
     ports:
       - "5435:5432"
     volumes:
-      - postgres_test_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U phoneagent -d phone_agent_test"]
+      test: ["CMD-SHELL", "pg_isready -U phoneagent -d phone_agent"]
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
-  postgres_test_data:
+  postgres_data:
