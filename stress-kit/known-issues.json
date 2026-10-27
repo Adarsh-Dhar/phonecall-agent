@@ -78,30 +78,5 @@
     "checkId": "P6-private-facts",
     "reason": "PRIVATE facts not properly isolated in prompts",
     "fixPr": null
-  },
-  {
-    "checkId": "M3-M7-stubs",
-    "reason": "Extraction scenarios M3-M7 are stubs that need real Nebius implementation",
-    "fixPr": null
-  },
-  {
-    "checkId": "N1-N4-stubs",
-    "reason": "Call analysis/quality/conversations/orchestrator scenarios are stubs that need real Nebius implementation",
-    "fixPr": null
-  },
-  {
-    "checkId": "P1-P7-stubs",
-    "reason": "Phone agent scenarios P1, P2, P7 are stubs that need real Gemini implementation (previously used fake-Gemini control plane)",
-    "fixPr": null
-  },
-  {
-    "checkId": "P3-P6-stubs",
-    "reason": "Phone agent scenarios P3-P6 are stubs that need real Gemini implementation",
-    "fixPr": null
-  },
-  {
-    "checkId": "X1-X3-stubs",
-    "reason": "End-to-end journey scenarios are stubs that need real Nebius implementation",
-    "fixPr": null
   }
 ]

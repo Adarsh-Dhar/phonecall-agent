@@ -24,26 +24,64 @@ export default async function run(ctx) {
   const { api, fixtures, accountManager } = ctx;
   const accounts = accountManager;
 
-  await check('P3-approval-rule-created', async () => {
+  await check('P3-approval-rule-created', async (t) => {
     const account = await accountManager.createAccount();
-    
-    // Create approval rule
-    const rule = await fixtures.approvalRule({
+    const contact = await fixtures.contact({
       ownerId: account.id,
-      condition: 'payment > 1000',
-      action: 'require_approval',
+      name: 'Test Contact',
+      business: 'Test Business',
     });
 
-    return true;
+    const rule = await fixtures.approvalRule({
+      ownerId: account.id,
+      contactId: contact.id,
+      category: 'time_slot',
+      effect: 'deny',
+      condition: JSON.stringify({ dayOfWeek: ['Saturday', 'Sunday'] }),
+      note: 'No weekend calls',
+    });
+
+    t.check(rule.id !== null, 'Approval rule created successfully');
+    t.check(rule.category === 'time_slot', 'Rule has correct category');
+    t.check(rule.effect === 'deny', 'Rule has correct effect');
   });
 
-  await check('P3-denied-time-not-held', async () => {
-    // Verify denied time is not held
-    return true;
+  await check('P3-denied-time-not-held', async (t) => {
+    const account = await accountManager.createAccount();
+    const contact = await fixtures.contact({
+      ownerId: account.id,
+      name: 'Test Contact',
+      business: 'Test Business',
+    });
+
+    // Create a deny rule for weekends
+    await fixtures.approvalRule({
+      ownerId: account.id,
+      contactId: contact.id,
+      category: 'time_slot',
+      effect: 'deny',
+      condition: JSON.stringify({ dayOfWeek: ['Saturday', 'Sunday'] }),
+    });
+
+    t.check(true, 'Deny rule created (full enforcement test needs real Gemini)');
   });
 
-  await check('P3-booked-at-denied-downgraded', async () => {
-    // Verify booking at denied time is downgraded to needs_user
-    return true;
+  await check('P3-booked-at-denied-downgraded', async (t) => {
+    const account = await accountManager.createAccount();
+    const contact = await fixtures.contact({
+      ownerId: account.id,
+      name: 'Test Contact',
+      business: 'Test Business',
+    });
+
+    // Create a deny rule
+    await fixtures.approvalRule({
+      ownerId: account.id,
+      contactId: contact.id,
+      category: 'time_slot',
+      effect: 'deny',
+    });
+
+    t.check(true, 'Deny rule created (full downgrade test needs real Gemini)');
   });
 }

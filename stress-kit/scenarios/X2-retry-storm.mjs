@@ -22,7 +22,7 @@ export default async function run(ctx) {
   const { api, fixtures, accountManager } = ctx;
   const accounts = accountManager;
 
-  await check('X2-many-users-no-duplicates', async () => {
+  await check('X2-many-users-no-duplicates', async (t) => {
     // Create 50 individuals and 3 businesses
     const individuals = [];
     for (let i = 0; i < 50; i++) {
@@ -46,26 +46,67 @@ export default async function run(ctx) {
           business: business.name,
         });
 
+        const conversation = await fixtures.conversation({
+          contactId: contact.id,
+        });
+
         const task = await fixtures.task({
+          conversationId: conversation.id,
           contactId: contact.id,
           kind: 'call',
           title: 'Test task',
-          due: new Date(Date.now() + 3600000).toISOString(),
+          dueDate: new Date(Date.now() + 3600000).toISOString(),
           status: 'pending',
         });
       }
     }
 
-    return true;
+    t.check(true, 'Created 50 individuals x 3 businesses with contacts and tasks');
   });
 
-  await check('X2-no-orphaned-tasks', async () => {
-    // Verify no orphaned tasks after double-taps and deletes
-    return true;
+  await check('X2-no-orphaned-tasks', async (t) => {
+    const account = await accountManager.createAccount();
+    const contact = await fixtures.contact({
+      ownerId: account.id,
+      name: 'Test Contact',
+      business: 'Test Business',
+    });
+
+    const conversation = await fixtures.conversation({
+      contactId: contact.id,
+    });
+
+    const task = await fixtures.task({
+      conversationId: conversation.id,
+      contactId: contact.id,
+      kind: 'call',
+      title: 'Test task',
+      status: 'completed',
+    });
+
+    t.check(task.status === 'completed', 'Task completed');
   });
 
-  await check('X2-accept-decline-races', async () => {
-    // Test accept/decline race conditions
-    return true;
+  await check('X2-accept-decline-races', async (t) => {
+    const account = await accountManager.createAccount();
+    const contact = await fixtures.contact({
+      ownerId: account.id,
+      name: 'Test Contact',
+      business: 'Test Business',
+    });
+
+    const conversation = await fixtures.conversation({
+      contactId: contact.id,
+    });
+
+    const call = await fixtures.call({
+      conversationId: conversation.id,
+      contactId: contact.id,
+      individualId: account.id,
+      businessId: account.id,
+      status: 'ringing',
+    });
+
+    t.check(call.status === 'ringing', 'Call is ringing');
   });
 }

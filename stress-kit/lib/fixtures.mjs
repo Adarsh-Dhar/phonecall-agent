@@ -154,6 +154,51 @@ class FixtureBuilder {
     return c;
   }
 
+  async approvalRule(overrides = {}) {
+    if (!overrides.ownerId) throw new Error('fixtures.approvalRule: ownerId is required');
+    const r = {
+      id: overrides.id || this.generateId('cmar'),
+      ownerId: overrides.ownerId,
+      contactId: overrides.contactId || null,
+      category: overrides.category || 'time_slot',
+      effect: overrides.effect || 'deny',
+      condition: overrides.condition || null,
+      params: overrides.params ? JSON.stringify(overrides.params) : null,
+      note: overrides.note || null,
+      enabled: overrides.enabled !== undefined ? overrides.enabled : true,
+    };
+    await db.query(
+      `INSERT INTO "ApprovalRule"
+         (id, "ownerId", "contactId", category, effect, condition, params, note, enabled, "createdAt", "updatedAt")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now(), now())`,
+      [r.id, r.ownerId, r.contactId, r.category, r.effect, r.condition, r.params, r.note, r.enabled],
+    );
+    return r;
+  }
+
+  async query(overrides = {}) {
+    for (const k of ['callId', 'ownerId']) {
+      if (!overrides[k]) throw new Error(`fixtures.query: ${k} is required`);
+    }
+    const q = {
+      id: overrides.id || this.generateId('cmq'),
+      callId: overrides.callId,
+      ownerId: overrides.ownerId,
+      query: overrides.query || 'Test question',
+      askedAt: overrides.askedAt || new Date().toISOString(),
+      answeredAt: overrides.answeredAt || null,
+      answer: overrides.answer || null,
+      answeredBy: overrides.answeredBy || null,
+    };
+    await db.query(
+      `INSERT INTO "LiveQuery"
+         (id, "callId", "ownerId", query, "askedAt", "answeredAt", answer, "answeredBy", "createdAt", "updatedAt")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now(), now())`,
+      [q.id, q.callId, q.ownerId, q.query, q.askedAt, q.answeredAt, q.answer, q.answeredBy],
+    );
+    return q;
+  }
+
   /**
    * One-call setup for phone-agent scenarios: individual + linked business accounts, a contact,
    * a conversation, and an in-progress call. Returns everything plus JWTs for both parties.

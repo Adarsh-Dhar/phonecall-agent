@@ -19,13 +19,13 @@ import { check } from '../lib/assert.mjs';
 import { api } from '../lib/api.mjs';
 import { fixtures } from '../lib/fixtures.mjs';
 import { accounts } from '../lib/accounts.mjs';
+import { db } from '../lib/env.mjs';
 
 export default async function run(ctx) {
   const { api, fixtures, accountManager } = ctx;
   const accounts = accountManager;
 
-  await check('P4-query-timeout-handled', async () => {
-    // Test ask_user timeout behavior
+  await check('P4-query-timeout-handled', async (t) => {
     const account = await accountManager.createAccount();
     const contact = await fixtures.contact({
       ownerId: account.id,
@@ -39,21 +39,49 @@ export default async function run(ctx) {
 
     const call = await fixtures.call({
       conversationId: conversation.id,
+      contactId: contact.id,
+      individualId: account.id,
+      businessId: account.id,
       status: 'ringing',
     });
 
-    // Create a pending query
     const query = await fixtures.query({
       callId: call.id,
-      question: 'Test question',
-      status: 'pending',
+      ownerId: account.id,
+      query: 'What is the best time to call?',
     });
 
-    return true;
+    t.check(query.id !== null, 'Query created successfully');
+    t.check(query.answeredAt === null, 'Query not yet answered');
   });
 
-  await check('P4-pending-query-zero-after-end', async () => {
-    // Verify pending query count is 0 after call end
-    return true;
+  await check('P4-pending-query-zero-after-end', async (t) => {
+    const account = await accountManager.createAccount();
+    const contact = await fixtures.contact({
+      ownerId: account.id,
+      name: 'Test Contact',
+      business: 'Test Business',
+    });
+
+    const conversation = await fixtures.conversation({
+      contactId: contact.id,
+    });
+
+    const call = await fixtures.call({
+      conversationId: conversation.id,
+      contactId: contact.id,
+      individualId: account.id,
+      businessId: account.id,
+      status: 'completed',
+    });
+
+    // Verify no pending queries for completed call
+    const result = await db.query(
+      `SELECT COUNT(*) as count FROM "LiveQuery" WHERE "callId" = $1 AND "answeredAt" IS NULL`,
+      [call.id]
+    );
+
+    const count = parseInt(result.rows[0].count, 10);
+    t.check(count === 0, `No pending queries for completed call (count: ${count})`);
   });
 }

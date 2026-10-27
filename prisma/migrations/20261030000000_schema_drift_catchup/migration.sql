@@ -21,13 +21,18 @@ ALTER TABLE "ApprovalRule" ADD COLUMN IF NOT EXISTS "condition" TEXT;
 -- LiveQuery table
 CREATE TABLE IF NOT EXISTS "LiveQuery" (
     id TEXT NOT NULL,
-    callId TEXT NOT NULL,
-    "promptId" TEXT NOT NULL,
-    text TEXT NOT NULL,
+    "callId" TEXT NOT NULL,
+    "ownerId" TEXT NOT NULL,
+    query TEXT NOT NULL,
+    "askedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "answeredAt" TIMESTAMP(3),
+    answer TEXT,
+    "answeredBy" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "LiveQuery_pkey" PRIMARY KEY (id)
 );
 
 CREATE INDEX IF NOT EXISTS "LiveQuery_callId_idx" ON "LiveQuery"("callId");
+CREATE INDEX IF NOT EXISTS "LiveQuery_ownerId_idx" ON "LiveQuery"("ownerId");
