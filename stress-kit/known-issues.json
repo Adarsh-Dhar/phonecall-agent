@@ -35,11 +35,6 @@
     "fixPr": null
   },
   {
-    "checkId": "P2-invalid-date",
-    "reason": "Invalid confirmedAt throws after endedAt is set",
-    "fixPr": null
-  },
-  {
     "checkId": "P3-hold-slot",
     "reason": "Hold slot enforcement not implemented",
     "fixPr": null
@@ -62,11 +57,6 @@
   {
     "checkId": "P5-tool-budget",
     "reason": "Tool budget not enforced",
-    "fixPr": null
-  },
-  {
-    "checkId": "P7-duration-cap",
-    "reason": "Duration cap only logs warning, doesn't enforce hangup",
     "fixPr": null
   },
   {

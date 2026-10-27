@@ -230,7 +230,15 @@ class Harness {
     };
     
     await context.gemini.reset().catch(() => {}); // clean fake-Gemini state per scenario
+    const before = this.testRunner.results.length;
     await scenarioModule.default(context);
+    if (this.testRunner.results.length === before) {
+      // A scenario that records no check proves nothing: never let it look green.
+      this.testRunner.results.push({
+        checkId: `${scenarioId}-no-checks`, description: scenario.description, verdict: 'FAIL', duration: 0,
+        assertions: [{ type: 'error', message: 'Scenario ran but recorded no checks' }],
+      });
+    }
     
     // Run invariants after scenario
     console.log(`  Running invariants...`);

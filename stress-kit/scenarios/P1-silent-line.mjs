@@ -1,80 +1,79 @@
 /**
- * P1: Silent line
- *
- * Tests silent line detection and handling during calls.
- *
- * Drive: connect-mode fail, slow, rate-limit; drop at 2s and at 20s
- *
- * Assert:
- * - Business gets an error frame within 3s
- * - Call.endedAt set, outcome failed
- * - Room count returns to baseline
- * - Business can rejoin without 'already connected'
- * - Task rescheduled once
- * - Owner notified
- * - Partial transcript kept and extracted
- * - Unknown; the rejoin check is the one to watch
+ * P1: Silent line — the voice model cannot connect, or vanishes mid-call.
+ * Drives fake-Gemini connect modes (fail, rate-limit, slow) and a server-side drop.
  */
-
 import { check } from '../lib/assert.mjs';
-import { api } from '../lib/api.mjs';
-import { fixtures } from '../lib/fixtures.mjs';
-import { accounts } from '../lib/accounts.mjs';
+import { BusinessClient } from '../lib/ws.mjs';
+import { openLiveCall, waitForCallClosed } from '../lib/call-driver.mjs';
+
+async function startRaw(ctx, live) {
+  const ws = new BusinessClient({ url: `${ctx.env.wsUrl}/media/service`, token: live.businessToken });
+  await ws.connect();
+  ws.startCall(live.call.id);
+  return ws;
+}
 
 export default async function run(ctx) {
-  const { api, fixtures, accountManager, fakeNebius, server, env } = ctx;
-  const accounts = accountManager;
-
-  await check('P1-silent-line-detected', async () => {
-    // Create account, contact, conversation, and call
-    const account = await accountManager.createAccount();
-    const contact = await fixtures.contact({
-      ownerId: account.id,
-      name: 'Test Contact',
-      business: 'Test Business',
+  for (const mode of ['fail', 'rate-limit']) {
+    await check(`P1-connect-${mode}-business-gets-error`, async (t) => {
+      await ctx.gemini.connectMode(mode);
+      const live = await ctx.fixtures.liveCall(ctx.accountManager);
+      const ws = await startRaw(ctx, live);
+      const began = Date.now();
+      let frame = null;
+      try {
+        frame = await ws.waitForMessage((m) => m.type === 'error', 3000);
+      } catch { /* asserted below */ }
+      t.check(!!frame, `business got an error frame within 3s (mode=${mode})`);
+      t.check(Date.now() - began <= 3200, 'error frame was prompt');
+      ws.disconnect();
+      await ctx.gemini.connectMode('ok');
     });
 
-    const conversation = await fixtures.conversation({
-      contactId: contact.id,
+    await check(`P1-connect-${mode}-call-row-closed`, async (t) => {
+      await ctx.gemini.connectMode(mode);
+      const live = await ctx.fixtures.liveCall(ctx.accountManager);
+      const ws = await startRaw(ctx, live);
+      await ws.waitForMessage((m) => m.type === 'error', 3000).catch(() => null);
+      const row = await waitForCallClosed(live.call.id, 10000);
+      ws.disconnect();
+      await ctx.gemini.connectMode('ok');
+      t.check(row.status !== 'in-progress', `call row must not stay in-progress after the model never connected (status=${row.status})`, 'closed', row.status);
+      t.check(row.outcome === 'failed', `outcome failed (got ${row.outcome})`, 'failed', row.outcome);
     });
+  }
 
-    const call = await fixtures.call({
-      conversationId: conversation.id,
-      status: 'ringing',
-    });
-
-    // Set fake Gemini to simulate silent line (no response)
-    // This would require the fake Gemini control plane from S3
-    // For now, just verify the call can be created
-    return true;
+  await check('P1-business-can-rejoin-after-failure', async (t) => {
+    await ctx.gemini.connectMode('fail', { failNext: 1 });
+    const live = await ctx.fixtures.liveCall(ctx.accountManager);
+    const ws1 = await startRaw(ctx, live);
+    await ws1.waitForMessage((m) => m.type === 'error', 3000).catch(() => null);
+    ws1.disconnect();
+    await ctx.gemini.connectMode('ok');
+    const ws2 = await startRaw(ctx, live);
+    const first = await ws2.waitForMessage((m) => m.type === 'ready' || m.type === 'error', 5000).catch(() => null);
+    ws2.disconnect();
+    t.check(!!first, 'second start got a response');
+    t.check(first.type === 'ready', `rejoin accepted (got ${first.type}: ${first.message ?? ''})`, 'ready', first.type);
   });
 
-  await check('P1-call-ended-on-silence', async () => {
-    const account = await accountManager.createAccount();
-    const contact = await fixtures.contact({
-      ownerId: account.id,
-      name: 'Test Contact',
-      business: 'Test Business',
-    });
-
-    const conversation = await fixtures.conversation({
-      contactId: contact.id,
-    });
-
-    const call = await fixtures.call({
-      conversationId: conversation.id,
-      status: 'ringing',
-    });
-
-    // Verify call can be ended
-    // For now, just verify call creation
-    return true;
+  await check('P1-mid-call-drop-closes-call-as-failed', async (t) => {
+    const live = await openLiveCall(ctx);
+    await ctx.gemini.say(live.call.id, 'Hello, Fixture Dental').catch(() => null);
+    await ctx.gemini.drop(live.call.id);
+    const row = await waitForCallClosed(live.call.id, 15000);
+    live.ws.disconnect();
+    t.assertEquals(row.status, 'completed', 'call closed after drop');
+    t.assertEquals(row.outcome, 'failed', 'dropped session recorded as failed');
   });
 
-  await check('P1-room-count-baseline', async () => {
-    // Verify room count returns to baseline after call end
-    // This would require checking WebSocket room state
-    // For now, just verify infrastructure
-    return true;
+  await check('P1-slow-connect-does-not-hang-forever', async (t) => {
+    await ctx.gemini.connectMode('slow', { slowMs: 4000 });
+    const live = await ctx.fixtures.liveCall(ctx.accountManager);
+    const ws = await startRaw(ctx, live);
+    const msg = await ws.waitForMessage((m) => m.type === 'ready' || m.type === 'error', 15000).catch(() => null);
+    ws.disconnect();
+    await ctx.gemini.connectMode('ok');
+    t.check(!!msg, 'business got ready or error within 15s of a 4s-slow connect');
   });
 }

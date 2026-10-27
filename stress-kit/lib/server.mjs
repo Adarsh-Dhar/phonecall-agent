@@ -50,6 +50,7 @@ class ServerInstance {
         GEMINI_API_KEY: 'fake-key-not-used',
         GOOGLE_CALENDAR_DRIVER: 'fake',
         OUTBOUND_TRANSPORT: 'capture',
+        MAX_CALL_DURATION_MINUTES: process.env.P7_CAP_MINUTES || '1',
         NEBIUS_API_KEY: 'fake-key-not-used',
         NEBIUS_BASE_URL: `http://localhost:${this.nebiusPort || 9453}/v1`,
       } : {}),

@@ -183,6 +183,20 @@ export function createCallLifecycle(opts: {
   // Seconds the owner spent live on this call; > 0 means a human did part of the work.
   let handoffLiveSec = 0;
 
+  // Hard cap: a model that never calls end_call must not hold the line forever.
+  let capTimer: ReturnType<typeof setTimeout> | null = null;
+  const capMinutes = Number(process.env.MAX_CALL_DURATION_MINUTES) || 0;
+  if (capMinutes > 0) {
+    const remainingMs = Math.max(opts.startedAt.getTime() + capMinutes * 60_000 - Date.now(), 0);
+    capTimer = setTimeout(() => {
+      logger.warn({ callId: opts.callId, capMinutes }, "callLifecycle: maximum call duration reached, hanging up");
+      opts.send({ type: "call_ended", reason: "max_duration" });
+      void end("agent", { outcome: "needs_user", summary: `Call hit the ${capMinutes}-minute limit and was ended automatically.` })
+        .finally(() => opts.closeSocket());
+    }, remainingMs);
+    capTimer.unref?.();
+  }
+
   async function logTurn(role: "user" | "assistant", content: string) {
     const currentConversationId = opts.conversationId;
     const currentCallId = opts.callId;
@@ -258,6 +272,7 @@ export function createCallLifecycle(opts: {
   async function end(by: "user" | "agent", rawArgs?: EndCallArgs) {
     if (ended) return;
     ended = true;
+    if (capTimer) { clearTimeout(capTimer); capTimer = null; }
     // Model output is untrusted: validate before anything touches the DB.
     const args = rawArgs ? normalizeEndCallArgs(rawArgs) : undefined;
 
@@ -282,15 +297,6 @@ export function createCallLifecycle(opts: {
 
     const endedAt = new Date();
     const durationSec = Math.round((endedAt.getTime() - opts.startedAt.getTime()) / 1000);
-
-    // Enforce maximum call duration
-    const maxDurationMinutes = Number(process.env.MAX_CALL_DURATION_MINUTES) || 0;
-    if (maxDurationMinutes > 0 && durationSec > maxDurationMinutes * 60) {
-      logger.warn(
-        { callId: opts.callId, durationSec, maxDurationMinutes },
-        "callLifecycle: call exceeded maximum duration"
-      );
-    }
 
     try {
       await prisma.call.update({

@@ -19,7 +19,7 @@ export async function openLiveCall(ctx, opts = {}) {
 
 export async function getCallRow(callId) {
   const r = await db.query(
-    'SELECT status, outcome, "outcomeSummary", "confirmedAt", "endedAt" FROM "Call" WHERE id = $1', [callId]);
+    'SELECT status, outcome, "outcomeSummary", "confirmedAt", "endedAt", "disconnectedBy" FROM "Call" WHERE id = $1', [callId]);
   return r.rows[0] || null;
 }
 
