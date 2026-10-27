@@ -251,8 +251,75 @@ async function testClosedBusinessDials(individual, business) {
   stats.closedBusinessDials.count++;
 
   console.log(`  [Check 4d] Testing ${individual.id} -> ${business.id}`);
-  console.log(`  [Check 4d] ⚠️  Skipping - requires mutual contact setup, not critical for stress test`);
-  stats.closedBusinessDials.success++;
+
+  try {
+    // Create mutual contacts
+    await linkBoth(individual, business, API_BASE);
+    console.log(`  [Check 4d] ✓ Mutual contacts created`);
+
+    // Set business hours to closed (24/7 closed)
+    const closedHours = JSON.stringify([
+      { days: [0,1,2,3,4,5,6], start: "00:00", end: "00:00" }
+    ]);
+
+    await fetch(`${API_BASE}/accounts/${business.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `token=${business.token}`,
+      },
+      body: JSON.stringify({ businessHoursJson: closedHours }),
+    });
+    console.log(`  [Check 4d] ✓ Business hours set to closed`);
+
+    // Fire 5 parallel dial requests
+    const dialPromises = Array(5).fill(null).map(() =>
+      fetch(`${API_BASE}/dial`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': `token=${individual.token}`,
+        },
+        body: JSON.stringify({ contactId: individual.linkedAccountId }),
+      })
+    );
+
+    const responses = await Promise.all(dialPromises);
+    const successCount = responses.filter(r => r.status === 201).length;
+    console.log(`  [Check 4d] ${successCount}/5 dial requests succeeded`);
+
+    // Check for duplicate callback tasks
+    const tasksRes = await fetch(`${API_BASE}/contacts/${individual.linkedAccountId}/tasks?kind=callback`, {
+      headers: { 'Cookie': `token=${individual.token}` },
+    });
+    const tasks = await tasksRes.json();
+    const callbackTasks = Array.isArray(tasks) ? tasks : [];
+    console.log(`  [Check 4d] Found ${callbackTasks.length} callback task(s)`);
+
+    if (callbackTasks.length <= 1) {
+      stats.closedBusinessDials.success++;
+      console.log(`  [Check 4d] ✓ No duplicate tasks`);
+    } else {
+      console.log(`  [Check 4d] ✗ FAIL: Duplicate tasks detected`);
+    }
+
+    // Cleanup: restore business hours and delete contacts
+    await fetch(`${API_BASE}/accounts/${business.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `token=${business.token}`,
+      },
+      body: JSON.stringify({ businessHoursJson: null }),
+    });
+
+    const h = { 'Cookie': `token=${individual.token}` };
+    await fetch(`${API_BASE}/contacts/${individual.linkedAccountId}`, { method: 'DELETE', headers: h });
+    console.log(`  [Check 4d] ✓ Cleanup complete`);
+
+  } catch (error) {
+    console.log(`  [Check 4d] ✗ FAIL: ${error.message}`);
+  }
 }
 
 async function runChapter() {

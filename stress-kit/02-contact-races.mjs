@@ -177,11 +177,10 @@ async function testEditVsDelete(individual, business) {
     console.log(`  [Check 2b] Edit result: ${editResult.status}`);
     console.log(`  [Check 2b] Delete result: ${deleteResult.status}`);
 
-    // 500 errors are acceptable in race conditions - they indicate the edit happened after delete
-    // The important thing is that the server doesn't crash
+    // 500 errors indicate a server bug - edit after delete should be handled gracefully
     if (editResult.status === 'rejected' && editResult.reason.message.includes('500')) {
-      console.log(`  [Check 2b] ⚠️  Expected race condition: Edit after delete returned 500`);
-      stats.editVsDelete.success++;
+      console.log(`  [Check 2b] ✗ FAIL: Edit after delete returned 500 (server should handle gracefully)`);
+      stats.editVsDelete.errors++;
     } else {
       stats.editVsDelete.success++;
       console.log(`  [Check 2b] ✓ No 500 error`);

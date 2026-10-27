@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, type JWTPayload } from './jwt';
+import { prisma } from '@workspace/db-prisma';
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   // Check for token in cookie first
   let token = req.cookies?.token;
 
@@ -21,6 +22,17 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   const payload = verifyToken(token);
   if (!payload) {
     res.status(401).json({ error: 'Unauthorized - Invalid token' });
+    return;
+  }
+
+  // Verify the account still exists (e.g., not deleted)
+  const account = await prisma.account.findUnique({
+    where: { id: payload.userId },
+    select: { id: true },
+  });
+
+  if (!account) {
+    res.status(401).json({ error: 'Unauthorized - Account not found' });
     return;
   }
 

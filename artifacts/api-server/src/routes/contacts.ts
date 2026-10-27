@@ -720,37 +720,47 @@ router.put("/contacts/:id", writeRateLimit, asyncHandler(async (req, res) => {
     }
   }
 
-  const contact = await prisma.account.update({
-    where: { id: String(id) },
-    data: {
-      name,
-      business,
-      category,
-      phone,
-      ...(email.value !== undefined ? { contactEmail: email.value } : {}),
-      ...(allow.value !== undefined ? { allowFallbackMessage: allow.value } : {}),
-      initials,
-      color,
-      note,
-      ...(businessHoursValue !== undefined ? { businessHoursJson: businessHoursValue } : {}),
-    },
-    select: {
-      id: true,
-      name: true,
-      business: true,
-      category: true,
-      phone: true,
-      contactEmail: true,
-      allowFallbackMessage: true,
-      initials: true,
-      color: true,
-      note: true,
-      description: true,
-      businessHoursJson: true,
-      timezone: true,
-      linkedAccountId: true,
-    },
-  });
+  let contact;
+  try {
+    contact = await prisma.account.update({
+      where: { id: String(id) },
+      data: {
+        name,
+        business,
+        category,
+        phone,
+        ...(email.value !== undefined ? { contactEmail: email.value } : {}),
+        ...(allow.value !== undefined ? { allowFallbackMessage: allow.value } : {}),
+        initials,
+        color,
+        note,
+        ...(businessHoursValue !== undefined ? { businessHoursJson: businessHoursValue } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        business: true,
+        category: true,
+        phone: true,
+        contactEmail: true,
+        allowFallbackMessage: true,
+        initials: true,
+        color: true,
+        note: true,
+        description: true,
+        businessHoursJson: true,
+        timezone: true,
+        linkedAccountId: true,
+      },
+    });
+  } catch (e: any) {
+    // Handle P2025 (record not found) - e.g., when edit races with delete
+    if (e.code === 'P2025') {
+      res.status(404).json({ error: "Contact not found" });
+      return;
+    }
+    throw e;
+  }
 
   // Load owner's timezone
   const owner = await prisma.account.findUnique({

@@ -509,20 +509,19 @@ async function testDeletedAccount() {
     console.log('  [Check 7g] ✓ Account deleted');
 
     // Try to use the token against a protected endpoint
-    // Use the individual's own account endpoint which doesn't require role checks
-    console.log('  [Check 7g] Attempting to use deleted account token against account endpoint...');
-    const protectedResult = await fetch(`${API_BASE}/accounts/me`, {
+    // Use the contacts endpoint which should return 401 if the account is deleted
+    console.log('  [Check 7g] Attempting to use deleted account token against contacts endpoint...');
+    const protectedResult = await fetch(`${API_BASE}/contacts`, {
       headers: { 'Cookie': `token=${disposableToken}` },
     });
     console.log(`  [Check 7g] Protected endpoint response status: ${protectedResult.status}`);
 
     if (protectedResult.status === 401) {
-      console.log('  [Check 7g] ✓ PASS: Deleted account token rejected');
+      console.log('  [Check 7g] ✓ PASS: Deleted account token rejected with 401');
       stats.deletedAccount.passed = true;
     } else {
-      console.log(`  [Check 7g] ⚠️  Note: Account existence check not implemented (status: ${protectedResult.status})`);
-      // Don't fail - this is an optional security enhancement
-      stats.deletedAccount.passed = true;
+      console.log(`  [Check 7g] ✗ FAIL: Expected 401 for deleted account token, got ${protectedResult.status}`);
+      stats.deletedAccount.passed = false;
     }
   } catch (error) {
     console.log(`  [Check 7g] ✗ Failed: ${error.message}`);

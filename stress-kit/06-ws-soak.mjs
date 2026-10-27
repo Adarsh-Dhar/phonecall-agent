@@ -270,6 +270,10 @@ async function testMemoryLeak() {
     const h = { Cookie: `token=${individual.token}`, 'Content-Type': 'application/json' };
     const hBiz = { Cookie: `token=${business.token}`, 'Content-Type': 'application/json' };
 
+    // Get initial baseline
+    const initialBaseline = await getRoomCount();
+    console.log(`  [Check 6d] Initial room count: ${initialBaseline}`);
+
     // Link both directions
     console.log('  [Check 6d] Creating mutual contacts...');
     const links = await linkBoth(individual, business, API_BASE);
@@ -283,14 +287,24 @@ async function testMemoryLeak() {
     const dj = await dial.json();
     const callId = dj.callId || dj.id;
 
+    // Check that a room was created
+    const duringCall = await getRoomCount();
+    console.log(`  [Check 6d] Room count during call: ${duringCall}`);
+    if (duringCall <= initialBaseline) {
+      console.log(`  [Check 6d] ⚠️  No room created during call (unexpected)`);
+    }
+
     // Immediately decline to end the call (use business route with business token)
     const dec = await fetch(`${API_BASE}/business/calls/${callId}/decline`, { method: 'POST', headers: hBiz });
     if (!dec.ok) throw new Error(`decline failed ${dec.status}`);
 
-    // Wait a bit for cleanup
+    // Wait for cleanup
     await sleep(1000);
 
+    // Get baseline after call cleanup but before observer joins
     const baseline = await getRoomCount();
+    console.log(`  [Check 6d] Baseline after call cleanup: ${baseline}`);
+
     for (let i = 0; i < 300; i++) {
       const ws = await openWs(`/media/service?token=${individual.token}`);
       ws.send(JSON.stringify({ type: 'start', callId }));
@@ -300,13 +314,11 @@ async function testMemoryLeak() {
     await sleep(1000);
     const after = await getRoomCount();
     console.log(`  [Check 6d] rooms before=${baseline} after=${after}`);
-    if (after <= baseline) {
+    if (after === baseline) {
       stats.memoryLeak.leaked = 0;
-      console.log('  [Check 6d] ✓ PASS: no room left behind');
+      console.log(`  [Check 6d] PASS: no room left behind (baseline=${baseline} after=${after})`);
     } else {
-      console.log('  [Check 6d] ⚠️  WARNING: room leaked after last socket left (may be deferred cleanup)');
-      // Don't fail for now - this may be deferred cleanup
-      stats.memoryLeak.leaked = 0;
+      console.log(`  [Check 6d] ✗ FAIL: room leaked (baseline=${baseline} after=${after})`);
     }
 
     // Cleanup

@@ -134,24 +134,42 @@ async function testAcceptDeclineRace(individual, business) {
     console.log(`  [Check 5b] ✓ Call created (ID: ${callId})`);
 
     // Fire accept and decline in parallel (business recipient should accept/decline)
-    console.log(`  [Check 5b] Firing parallel accept and decline via business routes...`);
-    const promises = [
-      acceptCall(business.token, callId).catch(e => ({ error: e.message, httpStatus: 0 })),
-      declineCall(business.token, callId).catch(e => ({ error: e.message, httpStatus: 0 })),
-    ];
+    // Alternate order each round to expose timing issues
+    const roundNum = stats.acceptDeclineRace.count;
+    const acceptFirst = roundNum % 2 === 0;
+    console.log(`  [Check 5b] Firing parallel accept and decline via business routes (${acceptFirst ? 'accept first' : 'decline first'})...`);
 
-    const results = await Promise.all(promises);
+    const acceptPromise = acceptCall(business.token, callId).catch(async e => {
+      const response = await e.response?.json?.().catch(() => ({}));
+      return { error: e.message, httpStatus: e.response?.status || 0, body: response };
+    });
+    const declinePromise = declineCall(business.token, callId).catch(async e => {
+      const response = await e.response?.json?.().catch(() => ({}));
+      return { error: e.message, httpStatus: e.response?.status || 0, body: response };
+    });
+
+    const results = await Promise.all([acceptPromise, declinePromise]);
 
     const acceptResult = results[0];
     const declineResult = results[1];
 
-    console.log(`  [Check 5b] Accept HTTP status: ${acceptResult.httpStatus}`);
-    console.log(`  [Check 5b] Decline HTTP status: ${declineResult.httpStatus}`);
+    console.log(`  [Check 5b] Accept HTTP status: ${acceptResult.httpStatus}${acceptResult.error ? ` (${acceptResult.error})` : ''}`);
+    if (acceptResult.httpStatus === 400 && acceptResult.body) {
+      console.log(`  [Check 5b] Accept 400 body: ${JSON.stringify(acceptResult.body)}`);
+    }
+    console.log(`  [Check 5b] Decline HTTP status: ${declineResult.httpStatus}${declineResult.error ? ` (${declineResult.error})` : ''}`);
+    if (declineResult.httpStatus === 400 && declineResult.body) {
+      console.log(`  [Check 5b] Decline 400 body: ${JSON.stringify(declineResult.body)}`);
+    }
 
     // Check if both returned 200 (should not happen - one should win with 409)
     if (acceptResult.httpStatus === 200 && declineResult.httpStatus === 200) {
       stats.acceptDeclineRace.both200++;
       console.log(`  [Check 5b] ✗ FAIL: Both accept and decline returned 200`);
+    } else if (acceptResult.httpStatus === 400 || declineResult.httpStatus === 400) {
+      // 400 means the call is already in terminal state - this is acceptable race behavior
+      stats.acceptDeclineRace.success++;
+      console.log(`  [Check 5b] ✓ One won (correct - call in terminal state)`);
     } else {
       stats.acceptDeclineRace.success++;
       console.log(`  [Check 5b] ✓ One won (correct)`);
@@ -206,18 +224,34 @@ async function testAcceptTimeoutRace(individual, business) {
     contactId = links.individualContact?.id;
     console.log(`  [Check 5d] ✓ Mutual contacts created (ID: ${contactId})`);
 
+    // Set a very short ring timeout to make the race testable
+    console.log(`  [Check 5d] Setting ring timeout to 1s via protection-limits...`);
+    await fetch(`${API_BASE}/protection-limits`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `token=${business.token}`,
+      },
+      body: JSON.stringify({ ringTimeoutSec: 1 }),
+    });
+    console.log(`  [Check 5d] ✓ Ring timeout set to 1s`);
+
     const call = await dialCall(individual.token, contactId);
     callId = call.id;
     console.log(`  [Check 5d] ✓ Call created (ID: ${callId})`);
 
-    // Accept immediately via business route
-    console.log(`  [Check 5d] Accepting call immediately via business route...`);
+    // Wait 800ms (just before the 1s timeout)
+    console.log(`  [Check 5d] Waiting 800ms (just before 1s timeout)...`);
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    // Accept via business route - race with the imminent timeout
+    console.log(`  [Check 5d] Accepting call via business route (racing with timeout)...`);
     await acceptCall(business.token, callId);
     console.log(`  [Check 5d] ✓ Call accepted`);
 
-    // Wait a bit then check if it got overwritten to 'missed'
-    console.log(`  [Check 5d] Waiting 2.5s to check if scheduler overwrites...`);
-    await new Promise(resolve => setTimeout(resolve, 2500));
+    // Wait to see if scheduler overwrites
+    console.log(`  [Check 5d] Waiting 2s to check if scheduler overwrites accepted call...`);
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const status = await getCallStatus(callId);
     console.log(`  [Check 5d] Call status: ${status}`);

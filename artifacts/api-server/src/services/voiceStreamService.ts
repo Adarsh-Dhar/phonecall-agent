@@ -203,6 +203,14 @@ export function createServiceVoiceStream(): WebSocketServer {
             // Get or create the room
             let room = rooms.get(callIdParam);
             if (!room) {
+              // Only create a room if the call is in a valid state
+              // If the call is already ended/declined/missed, don't create a room
+              const validCallStates = ['ringing', 'in-progress'];
+              if (!validCallStates.includes(call.status)) {
+                ws.send(JSON.stringify({ type: 'error', message: `Call is not active (status: ${call.status})` }));
+                return;
+              }
+
               // Create new room
               room = {
                 callId: callIdParam,

@@ -17,6 +17,7 @@ import ownerInfoRouter from "./ownerInfo";
 import agentRouter from "./agent";
 import { requireAuth } from "../lib/authMiddleware";
 import { requireBusiness, requireIndividual } from "../lib/roles";
+import { asyncHandler } from "../lib/asyncHandler";
 
 const router: IRouter = Router();
 
@@ -27,7 +28,7 @@ router.use(pushRouter);
 router.use(outboundRouter); // opt-out links from messages sent to businesses (signed token, no login)
 
 // ── Protected routes (require authentication) ─────────────────────────────
-router.use(requireAuth);
+router.use(asyncHandler(requireAuth, "Authentication failed"));
 
 // ── Business routes (protected at route level, calls accessible to both) ───
 router.use("/business", businessRouter);
