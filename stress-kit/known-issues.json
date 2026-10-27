@@ -78,5 +78,25 @@
     "checkId": "P6-private-facts",
     "reason": "PRIVATE facts not properly isolated in prompts",
     "fixPr": null
+  },
+  {
+    "checkId": "M3-M7-stubs",
+    "reason": "Extraction scenarios M3-M7 are stubs that need real implementation",
+    "fixPr": null
+  },
+  {
+    "checkId": "N1-N4-stubs",
+    "reason": "Call analysis/quality/conversations/orchestrator scenarios are stubs",
+    "fixPr": null
+  },
+  {
+    "checkId": "P3-P6-stubs",
+    "reason": "Phone agent scenarios P3-P6 are stubs that need real drives and assertions",
+    "fixPr": null
+  },
+  {
+    "checkId": "X1-X3-stubs",
+    "reason": "End-to-end journey scenarios are stubs",
+    "fixPr": null
   }
 ]

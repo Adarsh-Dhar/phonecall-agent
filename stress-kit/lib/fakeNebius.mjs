@@ -398,7 +398,8 @@ class FakeNebiusServer {
 
       case 'ok':
       default:
-        // Normal successful response
+        // Normal successful response with the real extraction schema
+        // Server expects taskActions / knowledgeActions with confidence and sourceMessageIds
         return {
           status: 200,
           body: {
@@ -412,16 +413,17 @@ class FakeNebiusServer {
                 message: {
                   role: 'assistant',
                   content: JSON.stringify({
-                    tasks: [
+                    taskActions: [
                       {
-                        id: `task-${requestId}`,
                         kind: 'call',
                         title: 'Test task',
+                        description: 'A test task for extraction',
                         due: new Date(Date.now() + 86400000).toISOString(),
+                        confidence: 0.9,
+                        sourceMessageIds: [],
                       },
                     ],
-                    knowledgeUpserted: [],
-                    knowledgeSuggested: [],
+                    knowledgeActions: [],
                   }),
                 },
                 finish_reason: 'stop',

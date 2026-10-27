@@ -22,13 +22,15 @@ class WsClient {
     return new Promise((resolve, reject) => {
       const headers = {};
 
+      let url = this.url;
       if (this.token) {
-        headers['Authorization'] = `Bearer ${this.token}`;
+        // Server's upgrade handler reads token from query param or cookie, not Authorization header
+        url += `${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(this.token)}`;
       } else if (this.cookie) {
         headers['Cookie'] = this.cookie;
       }
 
-      this.ws = new WebSocket(this.url, { headers });
+      this.ws = new WebSocket(url, { headers });
 
       this.ws.on('open', () => {
         this.connected = true;

@@ -86,7 +86,7 @@ export async function askUserDuringCall(opts: {
   }
 
   return new Promise<string>((resolve) => {
-    const timeoutMs = opts.timeoutMs ?? Number(process.env.ASK_USER_TIMEOUT_MS) ?? 45000;
+    const timeoutMs = opts.timeoutMs ?? (Number(process.env.ASK_USER_TIMEOUT_MS) || 45000);
     const timer = setTimeout(async () => {
       pending.delete(q.id);
       // Resolve first so the agent doesn't hang if the DB call fails

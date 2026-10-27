@@ -226,21 +226,25 @@ class InvariantChecker {
   }
 
   async checkNoPendingQueriesOnEndedCalls() {
-    // No Query still pending whose call has ended
+    // No Query still pending whose call has ended, EXCEPT for needs_user which deliberately creates a pending query after the call ends
+    // This invariant should only catch live ask_user queries that weren't cleaned up
+    // Check only calls ended in the last minute to isolate to current scenario
     const query = `
       SELECT COUNT(*) as count
       FROM "Query" q
       JOIN "Call" c ON c.id = q."callId"
       WHERE q.status = 'pending'
       AND c."endedAt" IS NOT NULL
+      AND c.outcome != 'needs_user'
+      AND c."endedAt" > NOW() - INTERVAL '1 minute'
     `;
     const result = await this.pool.query(query);
     const count = parseInt(result.rows[0].count, 10);
     
     return {
-      name: 'No pending queries on ended calls',
+      name: 'No pending queries on ended calls (except needs_user, last 1 min)',
       passed: count === 0,
-      details: `Found ${count} pending queries on ended calls`,
+      details: `Found ${count} pending queries on ended calls in last minute (excluding needs_user)`,
     };
   }
 

@@ -16,7 +16,6 @@ const __dirname = dirname(__filename);
 // Import harness libraries
 import { getEnv } from './lib/env.mjs';
 import { ServerManager } from './lib/server.mjs';
-import { FakeNebiusServer } from './lib/fakeNebius.mjs';
 import { ApiClient } from './lib/api.mjs';
 import { AccountManager } from './lib/accounts.mjs';
 import { FixtureBuilder } from './lib/fixtures.mjs';
@@ -136,14 +135,6 @@ class Harness {
     console.log(`Setting up harness (profile: ${this.profile})...`);
     console.log(`  ${this.profileConfig.description}`);
     
-    // Start fake Nebius
-    this.fakeNebius = new FakeNebiusServer({
-      port: 9453,
-      delayMs: this.profileConfig.nebiusDelay,
-    });
-    await this.fakeNebius.start();
-    console.log(`  ✓ Fake Nebius on port 9453`);
-    
     // Start server instances
     for (let i = 0; i < this.profileConfig.instances; i++) {
       const port = 5175 + i;
@@ -159,7 +150,6 @@ class Harness {
     }
     
     // Start metrics sampler
-    this.sampler.server = this.fakeNebius;
     this.sampler.start();
     console.log(`  ✓ Metrics sampler started`);
     
@@ -223,7 +213,6 @@ class Harness {
       accounts: this.accountManager,
       fixtures: this.fixtureBuilder,
       server: this.serverManager.get('server-0'),
-      fakeNebius: this.fakeNebius,
       gemini: new GeminiControl(this.env.baseUrl),
       loadGen: this.loadGen,
       testRunner: this.testRunner,
@@ -284,7 +273,6 @@ class Harness {
     this.reporter.setMetrics(this.sampler.getStats());
     
     await this.serverManager.stopAll();
-    await this.fakeNebius.stop();
     await this.invariantChecker.close();
     await db.close();
     

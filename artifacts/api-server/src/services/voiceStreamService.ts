@@ -246,7 +246,20 @@ export function createServiceVoiceStream(): WebSocketServer {
 
               // If gemini session doesn't exist yet, create it
               if (!room.gemini) {
-                await startGeminiSession(room, call);
+                try {
+                  await startGeminiSession(room, call);
+                } catch (err) {
+                  logger.error({ err, callId: callIdParam }, 'voiceStreamService: failed to start Gemini session');
+                  // End the call as failed and clean up the room so the scheduler can retry
+                  await room.lifecycle?.end('agent', { outcome: 'failed', summary: 'Failed to connect to voice model' });
+                  if (room.businessSocket) {
+                    room.businessSocket.close();
+                    room.businessSocket = null;
+                  }
+                  rooms.delete(callIdParam);
+                  ws.send(JSON.stringify({ type: 'error', message: 'Failed to connect to voice model' }));
+                  return;
+                }
               }
 
               ws.send(JSON.stringify({ type: 'ready', role: 'business' }));

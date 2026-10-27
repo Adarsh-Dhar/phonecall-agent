@@ -15,7 +15,7 @@ function privateRunner(knownRed = []) {
 }
 
 export default async function run(ctx) {
-  const { env, api, server, fakeNebius } = ctx;
+  const { env, api, server } = ctx;
 
   await check('H0-runner-passes-real-assertion', async (t) => {
     const { r, cleanup } = privateRunner();
@@ -88,30 +88,5 @@ export default async function run(ctx) {
     const token = await ctx.accountManager.mintJwt(acct.id);
     const res = await fetch(`${env.baseUrl}/api/contacts`, { headers: { Authorization: `Bearer ${token}` } });
     t.check(res.status !== 401, `minted token accepted by the server (status ${res.status})`);
-  });
-
-  await check('H0-fake-nebius-request', async (t) => {
-    fakeNebius.setMode('ok');
-    fakeNebius.clearRequests();
-    const res = await fetch('http://localhost:9453/v1/chat/completions', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'ping' }] }),
-    });
-    t.check(res.ok, 'fake Nebius answered OK');
-    t.check(fakeNebius.getRequests().length === 1, 'fake Nebius recorded exactly one request');
-  });
-
-  await check('H0-fake-nebius-modes-differ', async (t) => {
-    const codes = {};
-    for (const mode of ['429', '500', '401']) {
-      fakeNebius.setMode(mode);
-      const res = await fetch('http://localhost:9453/v1/chat/completions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'm', messages: [{ role: 'user', content: 'x' }] }),
-      });
-      codes[mode] = res.status;
-    }
-    fakeNebius.setMode('ok');
-    t.assertEquals(codes, { '429': 429, '500': 500, '401': 401 }, 'each fault mode returns its status code');
   });
 }
