@@ -334,8 +334,8 @@ async function testLongTimeoutNotify(individual, business) {
     callId = call.id;
     console.log(`  [Check 5e] ✓ Call created (ID: ${callId})`);
 
-    // Wait 3 seconds (should still be ringing with 300s timeout)
-    console.log(`  [Check 5e] Waiting 3s (should still be ringing with 300s timeout)...`);
+    // Wait 3 seconds (should still be ringing with 120s timeout)
+    console.log(`  [Check 5e] Waiting 3s (should still be ringing with 120s timeout)...`);
     await new Promise(resolve => setTimeout(resolve, 3000));
     
     const status = await getCallStatus(callId);

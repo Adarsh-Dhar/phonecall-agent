@@ -260,19 +260,15 @@ async function testRapidReconnect() {
   }
 }
 
-// Check 6d: Observer joining completed call (memory leak)
+// Check 6d: Room lifecycle test - join ringing call creates room, decline prevents join
 async function testMemoryLeak() {
   console.log('');
-  console.log('[Check 6d] Observer join/leave on a finished call must not leak rooms...');
+  console.log('[Check 6d] Room lifecycle: join ringing call creates room, decline prevents join...');
   stats.memoryLeak.count++;
   stats.memoryLeak.leaked = 1; // fail until proven otherwise
   try {
     const h = { Cookie: `token=${individual.token}`, 'Content-Type': 'application/json' };
     const hBiz = { Cookie: `token=${business.token}`, 'Content-Type': 'application/json' };
-
-    // Get initial baseline
-    const initialBaseline = await getRoomCount();
-    console.log(`  [Check 6d] Initial room count: ${initialBaseline}`);
 
     // Link both directions
     console.log('  [Check 6d] Creating mutual contacts...');
@@ -280,45 +276,81 @@ async function testMemoryLeak() {
     const contactId = links.individualContact?.id;
     console.log(`  [Check 6d] ✓ Mutual contacts created (ID: ${contactId})`);
 
+    // Dial to create a ringing call
     const dial = await fetch(`${API_BASE}/calls/dial`, { method: 'POST', headers: h, body: JSON.stringify({ contactId }) });
     if (!dial.ok) {
       throw new Error(`dial failed ${dial.status}: ${await dial.text()}`);
     }
     const dj = await dial.json();
     const callId = dj.callId || dj.id;
+    console.log(`  [Check 6d] ✓ Call created (ID: ${callId}, status: ringing)`);
 
-    // Check that a room was created
-    const duringCall = await getRoomCount();
-    console.log(`  [Check 6d] Room count during call: ${duringCall}`);
-    if (duringCall <= initialBaseline) {
-      console.log(`  [Check 6d] ⚠️  No room created during call (unexpected)`);
+    // Record baseline room count (should be 0 since no one has joined yet)
+    const baseline = await getRoomCount();
+    console.log(`  [Check 6d] Baseline room count before join: ${baseline}`);
+
+    // Join the ringing call via WebSocket
+    console.log(`  [Check 6d] Joining /media/service for ringing call...`);
+    const ws = await openWs(`/media/service?token=${individual.token}`);
+    ws.send(JSON.stringify({ type: 'start', callId }));
+    await sleep(500); // Wait for room to be created
+
+    // Assert room count increased by 1
+    const afterJoin = await getRoomCount();
+    console.log(`  [Check 6d] Room count after join: ${afterJoin}`);
+    if (afterJoin !== baseline + 1) {
+      console.log(`  [Check 6d] ✗ FAIL: Expected room count ${baseline + 1}, got ${afterJoin}`);
+      ws.close();
+      await fetch(`${API_BASE}/contacts/${contactId}`, { method: 'DELETE', headers: h });
+      return;
     }
+    console.log(`  [Check 6d] ✓ Room created on join (baseline=${baseline} after=${afterJoin})`);
 
-    // Immediately decline to end the call (use business route with business token)
+    // Close the socket and verify room is cleaned up
+    ws.close();
+    await sleep(500);
+    const afterClose = await getRoomCount();
+    console.log(`  [Check 6d] Room count after close: ${afterClose}`);
+    if (afterClose !== baseline) {
+      console.log(`  [Check 6d] ✗ FAIL: Room leaked after close (expected ${baseline}, got ${afterClose})`);
+      await fetch(`${API_BASE}/contacts/${contactId}`, { method: 'DELETE', headers: h });
+      return;
+    }
+    console.log(`  [Check 6d] ✓ Room cleaned up on close`);
+
+    // Decline the call
+    console.log(`  [Check 6d] Declining call...`);
     const dec = await fetch(`${API_BASE}/business/calls/${callId}/decline`, { method: 'POST', headers: hBiz });
     if (!dec.ok) throw new Error(`decline failed ${dec.status}`);
+    console.log(`  [Check 6d] ✓ Call declined`);
 
-    // Wait for cleanup
-    await sleep(1000);
+    // Try to join the declined call - should get error
+    console.log(`  [Check 6d] Attempting to join declined call...`);
+    const ws2 = await openWs(`/media/service?token=${individual.token}`);
+    let gotError = false;
+    ws2.on('message', (data) => {
+      const msg = JSON.parse(data);
+      if (msg.type === 'error') {
+        gotError = true;
+        console.log(`  [Check 6d] ✓ Received error message: ${msg.message}`);
+      }
+    });
+    ws2.send(JSON.stringify({ type: 'start', callId }));
+    await sleep(500);
 
-    // Get baseline after call cleanup but before observer joins
-    const baseline = await getRoomCount();
-    console.log(`  [Check 6d] Baseline after call cleanup: ${baseline}`);
+    const afterDeclineJoin = await getRoomCount();
+    console.log(`  [Check 6d] Room count after declined join: ${afterDeclineJoin}`);
+    
+    ws2.close();
+    await sleep(500);
 
-    for (let i = 0; i < 300; i++) {
-      const ws = await openWs(`/media/service?token=${individual.token}`);
-      ws.send(JSON.stringify({ type: 'start', callId }));
-      await sleep(30);
-      await new Promise((r) => { ws.once('close', r); ws.close(); });
-    }
-    await sleep(1000);
-    const after = await getRoomCount();
-    console.log(`  [Check 6d] rooms before=${baseline} after=${after}`);
-    if (after === baseline) {
-      stats.memoryLeak.leaked = 0;
-      console.log(`  [Check 6d] PASS: no room left behind (baseline=${baseline} after=${after})`);
+    if (!gotError) {
+      console.log(`  [Check 6d] ✗ FAIL: No error message when joining declined call`);
+    } else if (afterDeclineJoin !== baseline) {
+      console.log(`  [Check 6d] ✗ FAIL: Room created for declined call (expected ${baseline}, got ${afterDeclineJoin})`);
     } else {
-      console.log(`  [Check 6d] ✗ FAIL: room leaked (baseline=${baseline} after=${after})`);
+      stats.memoryLeak.leaked = 0;
+      console.log(`  [Check 6d] ✓ PASS: Room lifecycle correct (created on join, cleaned on close, declined calls reject join)`);
     }
 
     // Cleanup
