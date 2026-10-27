@@ -1,10 +1,41 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { logger } from "../lib/logger";
+import { isTestMode } from "../lib/testMode";
 import { isCalendarTool } from "./callCalendarTools";
 import { handoffToolResponse } from "./handoff";
 
 const MODEL = process.env.GEMINI_LIVE_MODEL ?? "gemini-3.8-live";
 const LANGUAGE_CODE = process.env.GEMINI_LIVE_LANGUAGE_CODE ?? "en-US";
+
+// ---------------------------------------------------------------------------
+// Fake Gemini client (S2 seam)
+// ---------------------------------------------------------------------------
+
+interface FakeGeminiClient {
+  live: {
+    connect: (config: any) => Promise<{
+      sendRealtimeInput: (input: any) => void;
+      sendClientContent: (content: any) => void;
+      sendToolResponse: (response: any) => void;
+      close: () => void;
+    }>;
+  };
+}
+
+function createFakeGeminiClient(): FakeGeminiClient {
+  // This is a placeholder - the actual fake implementation will be controlled
+  // via the /_test control plane (S3)
+  // For now, we just return a stub that will be replaced by S3
+  logger.warn("Using fake Gemini client - this should only happen in test mode");
+  
+  return {
+    live: {
+      connect: async (config: any) => {
+        throw new Error("Fake Gemini not yet implemented - implement S3 control plane first");
+      },
+    },
+  };
+}
 
 interface EndCallArgs {
   outcome: "booked" | "rescheduled" | "cancelled" | "info_gathered" | "needs_user" | "failed";
@@ -153,7 +184,10 @@ export async function openGeminiLiveSession(opts: {
 
   logger.info({ apiKeyLength: apiKey.length, model: MODEL }, "geminiVoiceSession: opening session");
 
-  const client = new GoogleGenAI({ apiKey });
+  // S2: Fake Gemini seam (only in test mode)
+  const client = (process.env.GEMINI_DRIVER === 'fake' && isTestMode())
+    ? createFakeGeminiClient()
+    : new GoogleGenAI({ apiKey });
 
   let userTurnBuffer = "";
   let agentTurnBuffer = "";

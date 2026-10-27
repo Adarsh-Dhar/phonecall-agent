@@ -5,6 +5,7 @@
 import 'dotenv/config';
 import app from "./app";
 import { logger } from "./lib/logger";
+import { requireTestModeOrExit } from "./lib/testMode";
 import { sweepStaleConversations } from "./services/taskExtraction";
 import { attachVoiceStreams } from "./services/voice";
 import { startCalendarSync } from "./services/calendarSync";
@@ -38,6 +39,12 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
 }
+
+// ---------------------------------------------------------------------------
+// Test mode boot guard
+// ---------------------------------------------------------------------------
+
+requireTestModeOrExit();
 
 // ---------------------------------------------------------------------------
 // Start listening

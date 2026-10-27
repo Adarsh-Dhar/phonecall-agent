@@ -1,0 +1,92 @@
+[
+  {
+    "checkId": "M1-garbled-reply-repair",
+    "reason": "Repair regex processes value content, creating false positives for word: in valid JSON",
+    "fixPr": null
+  },
+  {
+    "checkId": "M2-global-limiter",
+    "reason": "No global Nebius rate limiter or circuit breaker",
+    "fixPr": null
+  },
+  {
+    "checkId": "M3-invalidate-path",
+    "reason": "Knowledge invalidation doesn't enforce contact-only rule",
+    "fixPr": null
+  },
+  {
+    "checkId": "M3-null-speaker",
+    "reason": "Null speaker path not handled in extraction",
+    "fixPr": null
+  },
+  {
+    "checkId": "M4-dedupe-turn",
+    "reason": "No turn-based deduplication for identical messages",
+    "fixPr": null
+  },
+  {
+    "checkId": "M4-seq-race",
+    "reason": "Sequence number may race on concurrent message insertion",
+    "fixPr": null
+  },
+  {
+    "checkId": "M5-consolidation",
+    "reason": "Constraint consolidation may lose canary tokens",
+    "fixPr": null
+  },
+  {
+    "checkId": "P2-invalid-date",
+    "reason": "Invalid confirmedAt throws after endedAt is set",
+    "fixPr": null
+  },
+  {
+    "checkId": "P3-hold-slot",
+    "reason": "Hold slot enforcement not implemented",
+    "fixPr": null
+  },
+  {
+    "checkId": "P3-approval-enforcement",
+    "reason": "Approval enforcement not implemented in end()",
+    "fixPr": null
+  },
+  {
+    "checkId": "P4-timeout-unset",
+    "reason": "ASK_USER_TIMEOUT_MS parsing fails when unset",
+    "fixPr": null
+  },
+  {
+    "checkId": "P5-orphan-hold",
+    "reason": "Orphan holds may persist after timeout",
+    "fixPr": null
+  },
+  {
+    "checkId": "P5-tool-budget",
+    "reason": "Tool budget not enforced",
+    "fixPr": null
+  },
+  {
+    "checkId": "P7-duration-cap",
+    "reason": "Duration cap only logs warning, doesn't enforce hangup",
+    "fixPr": null
+  },
+  {
+    "checkId": "P7-boot-sweep",
+    "reason": "Boot sweep doesn't close open calls",
+    "fixPr": null
+  },
+  {
+    "checkId": "M7-count-then-send",
+    "reason": "Outbound rate limit counts before sending, allowing bursts",
+    "fixPr": null
+  },
+  {
+    "checkId": "N2-lesson-sanitizing",
+    "reason": "Lessons not sanitized before placement in prompts",
+    "fixPr": null
+  },
+  {
+    "checkId": "P6-private-facts",
+    "reason": "PRIVATE facts not properly isolated in prompts",
+    "fixPr": null
+  }
+]

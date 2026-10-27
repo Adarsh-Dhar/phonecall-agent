@@ -4,6 +4,8 @@ import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { isTestMode } from "./lib/testMode";
+import { testControlRouter } from "./routes/testControl";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
@@ -68,6 +70,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+// Mount test control routes only in test mode (S3)
+if (isTestMode()) {
+  app.use("/_test", testControlRouter);
+  logger.info("Test control routes mounted at /_test");
+}
 
 // Serve frontend static files only in production (not during development)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

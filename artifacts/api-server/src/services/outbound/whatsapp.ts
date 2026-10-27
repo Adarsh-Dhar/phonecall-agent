@@ -8,6 +8,22 @@
  * Without the first three, sending is disabled and every call returns false.
  */
 import { logger } from "../../lib/logger";
+import { isTestMode } from "../../lib/testMode";
+
+// S7: Capture mode for testing
+const capturedWhatsAppMessages: Array<{
+  to: string;
+  text: string;
+  timestamp: Date;
+}> = [];
+
+export function getCapturedWhatsAppMessages() {
+  return [...capturedWhatsAppMessages];
+}
+
+export function clearCapturedWhatsAppMessages() {
+  capturedWhatsAppMessages.length = 0;
+}
 
 export const whatsappConfigured = () =>
   !!process.env.WHATSAPP_TOKEN && !!process.env.WHATSAPP_PHONE_NUMBER_ID && !!process.env.WHATSAPP_TEMPLATE_NAME;
@@ -19,6 +35,16 @@ export function toTemplateParam(text: string): string {
 
 /** `to` must be E.164 (see phone.ts). */
 export async function sendWhatsApp(input: { to: string; text: string }): Promise<boolean> {
+  // S7: Capture mode for testing
+  if (process.env.OUTBOUND_TRANSPORT === 'capture' && isTestMode()) {
+    capturedWhatsAppMessages.push({
+      ...input,
+      timestamp: new Date(),
+    });
+    logger.info({ to: input.to, text: input.text }, "outbound/whatsapp: captured (test mode)");
+    return true;
+  }
+
   if (!whatsappConfigured()) return false;
   const version = process.env.WHATSAPP_API_VERSION || "v21.0";
   try {

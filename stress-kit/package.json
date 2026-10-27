@@ -12,9 +12,10 @@
   "dependencies": {
     "@prisma/client": "^7.10.1",
     "dotenv": "^16.4.7",
+    "jose": "^6.2.13",
     "jsonwebtoken": "^9.0.2",
     "node-fetch": "^3.3.2",
-    "pg": "^8.13.1",
+    "pg": "^8.23.1",
     "ws": "^8.21.3"
   },
   "devDependencies": {

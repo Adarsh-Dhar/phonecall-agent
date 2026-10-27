@@ -4,6 +4,25 @@
  * Without both, sending is disabled and every call returns false.
  */
 import { logger } from "../../lib/logger";
+import { isTestMode } from "../../lib/testMode";
+
+// S7: Capture mode for testing
+const capturedEmails: Array<{
+  to: string;
+  subject: string;
+  text: string;
+  replyTo?: string;
+  headers?: Record<string, string>;
+  timestamp: Date;
+}> = [];
+
+export function getCapturedEmails() {
+  return [...capturedEmails];
+}
+
+export function clearCapturedEmails() {
+  capturedEmails.length = 0;
+}
 
 export const emailConfigured = () => !!process.env.RESEND_API_KEY && !!process.env.MAIL_FROM;
 
@@ -16,6 +35,16 @@ export async function sendEmail(input: {
   /** Extra headers, e.g. List-Unsubscribe for one-click opt-out. */
   headers?: Record<string, string>;
 }): Promise<boolean> {
+  // S7: Capture mode for testing
+  if (process.env.OUTBOUND_TRANSPORT === 'capture' && isTestMode()) {
+    capturedEmails.push({
+      ...input,
+      timestamp: new Date(),
+    });
+    logger.info({ to: input.to, subject: input.subject }, "outbound/email: captured (test mode)");
+    return true;
+  }
+
   if (!emailConfigured()) return false;
   try {
     const res = await fetch("https://api.resend.com/emails", {

@@ -9,8 +9,12 @@
 
 import { google } from "googleapis";
 import { logger } from "../../lib/logger";
+import { isTestMode } from "../../lib/testMode";
 import { getAuthedClient } from "./authClient";
 import { GOOGLE_CALENDAR_ID } from "./config";
+
+// S4: Fake calendar driver for testing
+const FAKE_CALENDAR_EVENTS = new Map<string, any[]>();
 
 /**
  * Create a Google Calendar event directly from request input (used by the
@@ -32,6 +36,28 @@ export async function insertCalendarEvent(
   end: unknown;
   htmlLink: string | null | undefined;
 }> {
+  // S4: Fake calendar driver
+  if (process.env.GOOGLE_CALENDAR_DRIVER === 'fake' && isTestMode()) {
+    const fakeEvent = {
+      id: `fake-${Date.now()}`,
+      summary: input.summary,
+      description: input.description || "",
+      start: input.start || { dateTime: new Date().toISOString(), timeZone: "UTC" },
+      end: input.end || { dateTime: new Date(Date.now() + 60 * 60 * 1000).toISOString(), timeZone: "UTC" },
+      htmlLink: `https://calendar.google.com/event/fake-${Date.now()}`,
+    };
+
+    // Store in fake calendar
+    const userId = (client as any).fakeUserId || 'test-user';
+    if (!FAKE_CALENDAR_EVENTS.has(userId)) {
+      FAKE_CALENDAR_EVENTS.set(userId, []);
+    }
+    FAKE_CALENDAR_EVENTS.get(userId)!.push(fakeEvent);
+
+    logger.info({ event: fakeEvent }, "Fake calendar event created");
+    return fakeEvent;
+  }
+
   const calendar = google.calendar({ version: "v3", auth: client });
 
   const event = {
@@ -82,6 +108,14 @@ export async function listAllCalendarEvents(client: InstanceType<typeof google.a
     htmlLink: string | null | undefined;
   }>
 > {
+  // S4: Fake calendar driver
+  if (process.env.GOOGLE_CALENDAR_DRIVER === 'fake' && isTestMode()) {
+    const userId = (client as any).fakeUserId || 'test-user';
+    const events = FAKE_CALENDAR_EVENTS.get(userId) || [];
+    logger.info({ eventCount: events.length }, "Fake calendar events fetched");
+    return events;
+  }
+
   const calendar = google.calendar({ version: "v3", auth: client });
 
   // singleEvents + orderBy:"startTime" requires a timeMin — default to
@@ -129,6 +163,19 @@ export async function getBusyIntervals(
   startISO: string,
   endISO: string,
 ): Promise<BusyInterval[] | null> {
+  // S4: Fake calendar driver
+  if (process.env.GOOGLE_CALENDAR_DRIVER === 'fake' && isTestMode()) {
+    const events = FAKE_CALENDAR_EVENTS.get(userId) || [];
+    const busy = events
+      .filter(e => e.status !== 'cancelled')
+      .map(e => ({
+        start: new Date(e.start.dateTime || e.start.date),
+        end: new Date(e.end.dateTime || e.end.date),
+        eventId: e.id,
+      }));
+    return busy;
+  }
+
   const client = await getAuthedClient(userId);
   if (!client) return null;
   try {
@@ -165,6 +212,27 @@ export async function insertHoldEvent(
   userId: string,
   input: { label: string; start: Date; end: Date; callId: string },
 ): Promise<string | null> {
+  // S4: Fake calendar driver
+  if (process.env.GOOGLE_CALENDAR_DRIVER === 'fake' && isTestMode()) {
+    const holdEvent = {
+      id: `fake-hold-${Date.now()}`,
+      summary: `HOLD: ${input.label}`,
+      description: "Tentative slot held by Phone Agent during a live call.",
+      start: { dateTime: input.start.toISOString(), timeZone: "UTC" },
+      end: { dateTime: input.end.toISOString(), timeZone: "UTC" },
+      status: 'confirmed',
+      transparency: 'opaque',
+    };
+
+    if (!FAKE_CALENDAR_EVENTS.has(userId)) {
+      FAKE_CALENDAR_EVENTS.set(userId, []);
+    }
+    FAKE_CALENDAR_EVENTS.get(userId)!.push(holdEvent);
+
+    logger.info({ holdEvent, userId }, "Fake hold event created");
+    return holdEvent.id;
+  }
+
   const client = await getAuthedClient(userId);
   if (!client) return null;
   try {
@@ -189,6 +257,17 @@ export async function insertHoldEvent(
 
 /** Delete one event by id. A missing event (404/410) counts as success. */
 export async function deleteCalendarEventById(userId: string, eventId: string): Promise<boolean> {
+  // S4: Fake calendar driver
+  if (process.env.GOOGLE_CALENDAR_DRIVER === 'fake' && isTestMode()) {
+    const events = FAKE_CALENDAR_EVENTS.get(userId) || [];
+    const index = events.findIndex(e => e.id === eventId);
+    if (index >= 0) {
+      events.splice(index, 1);
+      logger.info({ eventId, userId }, "Fake calendar event deleted");
+    }
+    return true;
+  }
+
   const client = await getAuthedClient(userId);
   if (!client) return false;
   try {
@@ -205,6 +284,14 @@ export async function deleteCalendarEventById(userId: string, eventId: string): 
 
 /** All agent HOLD events on the calendar (any date), with their creation time. */
 export async function listHoldEvents(userId: string): Promise<Array<{ id: string; created: Date | null }> | null> {
+  // S4: Fake calendar driver
+  if (process.env.GOOGLE_CALENDAR_DRIVER === 'fake' && isTestMode()) {
+    const events = FAKE_CALENDAR_EVENTS.get(userId) || [];
+    return events
+      .filter(e => e.summary?.startsWith('HOLD:'))
+      .map(e => ({ id: e.id, created: new Date() }));
+  }
+
   const client = await getAuthedClient(userId);
   if (!client) return null;
   try {

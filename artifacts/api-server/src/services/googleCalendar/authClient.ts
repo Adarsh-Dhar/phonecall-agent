@@ -10,6 +10,7 @@
 import { prisma } from "@workspace/db-prisma";
 import { google } from "googleapis";
 import { logger } from "../../lib/logger";
+import { isTestMode } from "../../lib/testMode";
 import {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
@@ -22,6 +23,14 @@ import {
  * and persists new tokens.
  */
 export async function getAuthedClient(userId: string): Promise<InstanceType<typeof google.auth.OAuth2> | null> {
+  // S4: Fake calendar driver
+  if (process.env.GOOGLE_CALENDAR_DRIVER === 'fake' && isTestMode()) {
+    const client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI);
+    (client as any).fakeUserId = userId;
+    (client as any).isFake = true;
+    return client;
+  }
+
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
     logger.warn("Google OAuth credentials not configured");
     return null;
