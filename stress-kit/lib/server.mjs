@@ -23,7 +23,6 @@ class ServerInstance {
     this.dbUrl = opts.dbUrl;
     this.jwtSecret = opts.jwtSecret;
     this.testMode = opts.testMode !== false;
-    this.nebiusPort = opts.nebiusPort;
     this.extraEnv = opts.extraEnv;
     this.rootDir = opts.rootDir || join(__dirname, '..', '..');
     this.buildDir = join(this.rootDir, 'artifacts', 'api-server');
@@ -38,22 +37,41 @@ class ServerInstance {
       throw new Error(`Server ${this.id} is already running`);
     }
 
+    // Validate required environment variables before starting
+    const requiredVars = [
+      { key: 'GEMINI_API_KEY' },
+      { key: 'GEMINI_MODEL', altKey: 'GEMINI_LIVE_MODEL' },
+      { key: 'NEBIUS_API_KEY' },
+      { key: 'NEBIUS_BASE_URL' },
+      { key: 'NEBIUS_MODEL' },
+    ];
+    const missing = requiredVars.filter(({ key, altKey }) => !process.env[key] && !process.env[altKey]);
+    if (missing.length > 0) {
+      const missingNames = missing.map(({ key, altKey }) => altKey ? `${key} (or ${altKey})` : key).join(', ');
+      throw new Error(`Server ${this.id} cannot start: missing required environment variables: ${missingNames}`);
+    }
+
     const env = {
       ...process.env,
       DATABASE_URL: this.dbUrl,
       JWT_SECRET: this.jwtSecret,
       TEST_MODE: this.testMode ? 'true' : 'false',
       NODE_ENV: 'development',
-      // Route every external dependency to a fake; never reach real Gemini/Nebius/Google/email/WhatsApp.
       ...(this.testMode ? {
-        GEMINI_DRIVER: 'fake',
-        GEMINI_API_KEY: 'fake-key-not-used',
         GOOGLE_CALENDAR_DRIVER: 'fake',
         OUTBOUND_TRANSPORT: 'capture',
         MAX_CALL_DURATION_MINUTES: process.env.P7_CAP_MINUTES || '1',
       } : {}),
       ...(this.extraEnv || {}),
       PORT: this.port.toString(),
+      // Ensure Gemini and Nebius vars are set
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      GEMINI_MODEL: process.env.GEMINI_MODEL || process.env.GEMINI_LIVE_MODEL,
+      GEMINI_LIVE_MODEL: process.env.GEMINI_LIVE_MODEL || process.env.GEMINI_MODEL,
+      NEBIUS_API_KEY: process.env.NEBIUS_API_KEY,
+      NEBIUS_BASE_URL: process.env.NEBIUS_BASE_URL,
+      NEBIUS_MODEL: process.env.NEBIUS_MODEL,
+      NEBIUS_FALLBACK_MODEL: process.env.NEBIUS_FALLBACK_MODEL,
     };
 
     console.log(`[Server ${this.id}] Starting on port ${this.port}...`);
@@ -187,7 +205,9 @@ class ServerInstance {
 
       // Check if process died
       if (!this.process || this.process.exitCode !== null) {
-        throw new Error(`Server ${this.id} exited before becoming ready`);
+        const errorLogs = this.getRecentLogs(20);
+        const errorOutput = errorLogs.map(l => l.raw).join('\n');
+        throw new Error(`Server ${this.id} exited before becoming ready (exit code: ${this.process?.exitCode}). Logs:\n${errorOutput}`);
       }
 
       await new Promise((resolve) => setTimeout(resolve, 100));

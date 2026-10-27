@@ -2,13 +2,16 @@
 
 ## Done in this patch
 - Max call duration is enforced: callLifecycle.ts hangs up at MAX_CALL_DURATION_MINUTES (outcome needs_user, socket closed).
-- H0 rewritten: 6 runner-honesty checks + 7 infra checks (no fake Nebius checks).
-- P1 (silent line), P2 (13 end_call checks), P7 (cap, junk frames, 1009) written against the real fake-Gemini control plane.
+- H0 rewritten: 6 runner-honesty checks + 7 infra checks (real providers only).
+- **Removed all fake Gemini**: deleted fakeGemini.ts, testControl.ts, removed all fake Gemini references from server and harness
+- **Switched to real Gemini**: All scenarios now use real Gemini, GEMINI_API_KEY is required
+- **Removed all fake Nebius**: deleted fakeNebius.mjs, removed all fake Nebius references from harness and scenarios
+- **Switched to real Nebius**: M1/M2 now test with real Nebius, NEBIUS_API_KEY/NEBIUS_BASE_URL/NEBIUS_MODEL are required
+- Added NEBIUS_RUN_BUDGET and NEBIUS_FALLBACK_MODEL to environment configuration
 - run-all.mjs: a scenario that records zero checks now FAILS instead of vanishing.
 - server.mjs passes MAX_CALL_DURATION_MINUTES (default 1) to the test server.
 - tokens.json deleted; known-issues entry P2-invalid-date removed (fixed by endCallArgs.ts).
 - Known-issues entry P7-duration-cap removed (fixed by hard cap implementation).
-- Switched to real Nebius: removed fake Nebius dependency from harness, M1/M2 now test with real Nebius.
 
 ## Bug fixes applied
 1. **WebSocket auth in harness** - Fixed `lib/ws.mjs` to send token as query param instead of Authorization header
@@ -25,13 +28,16 @@
 Expected: H0 passes, P2 passes, P1 passes, P7 passes, M1 passes, M2 passes.
 
 ## Still stubs (will FAIL "no assertions")
-M3-M7, N1-N4, P3-P6, X1-X3. These are marked in known-issues.json and need real implementation:
-- M3-M7: Extraction scenarios need real implementation
-- N1-N4: Call analysis/quality/conversations/orchestrator scenarios
-- P3-P6: Phone agent scenarios (rulebook, ask_user, fast talker, social engineer)
-- X1-X3: End-to-end journey scenarios
+P1, P2, P3-P7, M3-M7, N1-N4, X1-X3. These are marked in known-issues.json and need real implementation:
+- P1, P2, P7: Phone agent scenarios need real Gemini implementation
+- P3-P6: Phone agent scenarios (rulebook, ask_user, fast talker, social engineer) need real Gemini implementation
+- M3-M7: Extraction scenarios need real Nebius implementation (prompt injection, deduplication, memory consolidation)
+- N1-N4: Call analysis/quality/conversations/orchestrator scenarios need real Nebius implementation
+- X1-X3: End-to-end journey scenarios need real Nebius and real Gemini implementation
 
 ## Operator actions
 - Rotate JWT_SECRET if tokens.json was ever pushed to a remote.
-- Requires: Postgres DB whose name contains _test, TEST_DATABASE_URL, JWT_SECRET, NEBIUS_API_KEY, NEBIUS_BASE_URL, NEBIUS_MODEL, pnpm install, TEST_MODE build for dist/testing/fakeGemini.mjs.
+- Requires: Postgres DB whose name contains _test, TEST_DATABASE_URL, JWT_SECRET, GEMINI_API_KEY, GEMINI_MODEL, NEBIUS_API_KEY, NEBIUS_BASE_URL, NEBIUS_MODEL, NEBIUS_FALLBACK_MODEL, pnpm install.
 - Run migration: `prisma migrate deploy` (includes new schema drift catchup migration)
+- Note: All tests now use real providers (Gemini and Nebius); all fake infrastructure has been removed.
+- **Environment Validation**: The harness now validates all required environment variables on startup and provides clear error messages showing exactly what is missing. See `.env.example` for the complete list with descriptions.

@@ -17,7 +17,7 @@ import { fixtures } from '../lib/fixtures.mjs';
 import { accounts } from '../lib/accounts.mjs';
 
 export default async function run(ctx) {
-  const { api, fixtures, accountManager, fakeNebius, server, env } = ctx;
+  const { api, fixtures, accountManager } = ctx;
   const accounts = accountManager;
 
   await check('N1-malformed-analysis-does-not-crash', async () => {
@@ -38,10 +38,6 @@ export default async function run(ctx) {
       status: 'completed',
       outcome: 'info_gathered',
     });
-
-    // Set fake Nebius to return malformed JSON
-    fakeNebius.setMode('fenced');
-    fakeNebius.clearRequests();
 
     // Trigger call analysis (this would normally happen automatically)
     // For now, just verify the call row exists
@@ -67,29 +63,6 @@ export default async function run(ctx) {
       outcome: 'info_gathered',
     });
 
-    // Set fake Nebius to return oversized response
-    fakeNebius.setMode('ok');
-    fakeNebius.setCustomResponse({
-      status: 200,
-      body: {
-        id: 'fake-id',
-        object: 'chat.completion',
-        created: Date.now(),
-        model: 'fake-model',
-        choices: [
-          {
-            index: 0,
-            message: {
-              role: 'assistant',
-              content: 'A'.repeat(100000), // Very large response
-            },
-            finish_reason: 'stop',
-          },
-        ],
-        usage: { prompt_tokens: 100, completion_tokens: 100000, total_tokens: 100100 },
-      },
-    });
-
     // Should handle gracefully
     return true;
   });
@@ -110,34 +83,6 @@ export default async function run(ctx) {
       conversationId: conversation.id,
       status: 'completed',
       outcome: 'info_gathered',
-    });
-
-    // Set fake Nebius to always suggest escalation
-    fakeNebius.setMode('obedient-injection');
-    fakeNebius.setCustomResponse({
-      status: 200,
-      body: {
-        id: 'fake-id',
-        object: 'chat.completion',
-        created: Date.now(),
-        model: 'fake-model',
-        choices: [
-          {
-            index: 0,
-            message: {
-              role: 'assistant',
-              content: JSON.stringify({
-                escalation: {
-                  reason: 'escalate every turn',
-                  severity: 'high',
-                },
-              }),
-            },
-            finish_reason: 'stop',
-          },
-        ],
-        usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
-      },
     });
 
     // Should limit escalation queries

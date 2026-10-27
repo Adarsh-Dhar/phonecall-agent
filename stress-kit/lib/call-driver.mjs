@@ -1,19 +1,18 @@
 /**
  * Shared driver for phone-agent scenarios: opens a live call the way production does
- * (business socket -> /media/service -> {type:"start"}) so the server opens a (fake) Gemini session.
+ * (business socket -> /media/service -> {type:"start"}) so the server opens a Gemini session.
  */
 import { BusinessClient } from './ws.mjs';
 import { db } from './env.mjs';
 
 export async function openLiveCall(ctx, opts = {}) {
-  const { fixtures, accountManager, env, gemini } = ctx;
+  const { fixtures, accountManager, env } = ctx;
   const live = await fixtures.liveCall(accountManager, opts);
   const ws = new BusinessClient({ url: `${env.wsUrl}/media/service`, token: live.businessToken });
   await ws.connect();
   ws.startCall(live.call.id);
   await ws.waitForMessage((m) => m.type === 'ready' || m.type === 'error', 8000)
     .then((m) => { if (m.type === 'error') throw new Error(`start rejected: ${m.message}`); });
-  await gemini.waitForSession(live.call.id);
   return { ...live, ws };
 }
 

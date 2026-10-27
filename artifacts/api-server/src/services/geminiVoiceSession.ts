@@ -156,18 +156,7 @@ export async function openGeminiLiveSession(opts: {
 
   logger.info({ apiKeyLength: apiKey.length, model: MODEL }, "geminiVoiceSession: opening session");
 
-  // S2: Fake Gemini seam (only in test mode)
-  let client: { live: { connect: (a: any) => Promise<any> } };
-  if (process.env.GEMINI_DRIVER === "fake") {
-    if (!isTestMode()) throw new Error("GEMINI_DRIVER=fake requires TEST_MODE=true");
-    // Non-literal specifier: esbuild leaves it alone. build.mjs emits dist/testing/fakeGemini.mjs only when
-    // TEST_MODE=true, so a production build contains no fake and this branch cannot resolve it.
-    const fakePath = "./testing/fakeGemini.mjs";
-    const mod = await import(/* @vite-ignore */ fakePath);
-    client = mod.createFakeGeminiClient(opts.callId ?? "unknown");
-  } else {
-    client = new GoogleGenAI({ apiKey }) as any;
-  }
+  const client = new GoogleGenAI({ apiKey }) as any;
 
   let userTurnBuffer = "";
   let agentTurnBuffer = "";

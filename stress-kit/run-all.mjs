@@ -1,17 +1,26 @@
 /**
  * Stress Harness v2 Runner
- * 
+ *
  * Spawns everything, runs scenarios, prints verdicts, exit codes 0 / 1 / 2
  * Usage: node run-all.mjs [scenario_ids...] [--profile smoke|baseline|stress|soak|break]
  */
 
-import 'dotenv/config';
+import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Load .env from parent directory (project root) instead of stress-kit directory
+const rootEnvPath = join(__dirname, '..', '.env');
+if (existsSync(rootEnvPath)) {
+  config({ path: rootEnvPath });
+} else {
+  // Fallback to stress-kit .env if root doesn't exist
+  config();
+}
 
 // Import harness libraries
 import { getEnv } from './lib/env.mjs';
@@ -24,7 +33,6 @@ import { InvariantChecker } from './lib/invariants.mjs';
 import { MetricsSampler } from './lib/sampler.mjs';
 import { LoadGenerator } from './lib/loadgen.mjs';
 import { Reporter } from './lib/report.mjs';
-import { GeminiControl } from './lib/gemini.mjs';
 import { db } from './lib/env.mjs';
 import { spawn } from 'child_process';
 
@@ -33,32 +41,27 @@ const PROFILES = {
   smoke: {
     accounts: 5,
     instances: 1,
-    nebiusDelay: 200,
-    description: 'Smoke test - 5 accounts, 1 instance, fast Nebius',
+    description: 'Smoke test - 5 accounts, 1 instance',
   },
   baseline: {
     accounts: 20,
     instances: 1,
-    nebiusDelay: 2000,
-    description: 'Baseline - 20 accounts, realistic Nebius latency',
+    description: 'Baseline - 20 accounts',
   },
   stress: {
     accounts: 100,
     instances: 2,
-    nebiusDelay: 0,
-    description: 'Stress - high load, 2 instances, Nebius with errors',
+    description: 'Stress - high load, 2 instances',
   },
   soak: {
     accounts: 20,
     instances: 1,
-    nebiusDelay: 2000,
     duration: 3600000, // 60 minutes
     description: 'Soak - 60 min with random faults',
   },
   break: {
     accounts: 50,
     instances: 1,
-    nebiusDelay: 0,
     testMode: false,
     description: 'Break - raise until errors, rate limiter active',
   },
@@ -115,7 +118,6 @@ class Harness {
     this.testRunner = new TestRunner(this.ledger);
     this.reporter = new Reporter();
     this.serverManager = new ServerManager();
-    this.fakeNebius = null;
     this.invariantChecker = new InvariantChecker(this.env.testDatabaseUrl);
     this.sampler = new MetricsSampler();
     this.accountManager = new AccountManager({
@@ -144,7 +146,6 @@ class Harness {
         dbUrl: this.env.testDatabaseUrl,
         jwtSecret: this.env.jwtSecret,
         testMode: this.profileConfig.testMode !== false,
-        nebiusPort: 9453,
       });
       console.log(`  ✓ Server instance ${i} on port ${port}`);
     }
@@ -213,12 +214,10 @@ class Harness {
       accounts: this.accountManager,
       fixtures: this.fixtureBuilder,
       server: this.serverManager.get('server-0'),
-      gemini: new GeminiControl(this.env.baseUrl),
       loadGen: this.loadGen,
       testRunner: this.testRunner,
     };
-    
-    await context.gemini.reset().catch(() => {}); // clean fake-Gemini state per scenario
+
     const before = this.testRunner.results.length;
     await scenarioModule.default(context);
     if (this.testRunner.results.length === before) {

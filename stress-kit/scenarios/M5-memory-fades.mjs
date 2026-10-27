@@ -3,15 +3,12 @@
  *
  * Tests memory consolidation and constraint preservation.
  *
- * Drive: Five fake-Gemini calls to one business
- *        Ten constraints in different phrasings with canary tokens go through real extraction
- *        Consolidation uses compress-50
+ * TODO: Implement with real Nebius (no fake-Gemini)
  *
  * Assert:
- * - After each call, canaries retrievable from rendered briefing (/_test/briefing)
- * - At least 96% after call five
+ * - Canaries retrievable from rendered briefing
+ * - At least 96% preservation after consolidation
  * - A back-to-back call is flagged incomplete or complete, never silently partial
- * - Likely red
  */
 
 import { check } from '../lib/assert.mjs';
@@ -20,7 +17,7 @@ import { fixtures } from '../lib/fixtures.mjs';
 import { accounts } from '../lib/accounts.mjs';
 
 export default async function run(ctx) {
-  const { api, fixtures, accountManager, fakeNebius, server, env } = ctx;
+  const { api, fixtures, accountManager } = ctx;
   const accounts = accountManager;
 
   await check('M5-constraints-preserved-across-calls', async () => {
@@ -54,9 +51,6 @@ export default async function run(ctx) {
       source: 'app_chat',
     });
 
-    fakeNebius.setMode('ok');
-    fakeNebius.clearRequests();
-
     // Extract to create knowledge
     await api.post(`/conversations/${conversation.id}/extract`, {});
 
@@ -73,7 +67,6 @@ export default async function run(ctx) {
       source: 'app_chat',
     });
 
-    fakeNebius.clearRequests();
     await api.post(`/conversations/${conversation2.id}/extract`, {});
 
     // The constraint should be retrievable in briefing
@@ -117,8 +110,6 @@ export default async function run(ctx) {
         source: 'app_chat',
       });
 
-      fakeNebius.setMode('ok');
-      fakeNebius.clearRequests();
       await api.post(`/conversations/${conversation.id}/extract`, {});
     }
 
@@ -150,9 +141,6 @@ export default async function run(ctx) {
         source: 'app_chat',
       });
     }
-
-    fakeNebius.setMode('compress-50');
-    fakeNebius.clearRequests();
 
     await api.post(`/conversations/${conversation.id}/extract`, {});
 

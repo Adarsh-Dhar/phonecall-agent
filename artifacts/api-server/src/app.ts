@@ -70,14 +70,6 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
-// Mount test control routes only in test mode (S3)
-if (isTestMode()) {
-  // Dynamic: the module (and the fake Gemini it drives) must not load in production.
-  const { testControlRouter } = await import("./routes/testControl");
-  app.use("/_test", testControlRouter);
-  logger.info("Test control routes mounted at /_test");
-}
-
 // Serve frontend static files only in production (not during development)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const frontendDistPath = path.join(__dirname, "../../phone-agent/dist/public");

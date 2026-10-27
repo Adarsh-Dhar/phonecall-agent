@@ -78,11 +78,6 @@ export default async function run(ctx) {
     t.check(res.status < 500, `health returned ${res.status}`);
   });
 
-  await check('H0-test-control-mounted', async (t) => {
-    const res = await ctx.gemini.state();
-    t.check(res.ok, `/_test/state reachable (status ${res.status}); server must run with TEST_MODE=true`);
-  });
-
   await check('H0-authed-call-works', async (t) => {
     const acct = await ctx.accountManager.createIndividual();
     const token = await ctx.accountManager.mintJwt(acct.id);
