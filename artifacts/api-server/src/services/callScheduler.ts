@@ -397,6 +397,7 @@ export async function checkDueTasks(): Promise<void> {
     });
 
     if (claimed.count === 0) {
+      logger.info({ now: now.toISOString() }, "callScheduler: no agent tasks to claim (nextAttemptAt <= now)");
       return;
     }
 
@@ -419,6 +420,8 @@ export async function checkDueTasks(): Promise<void> {
             businessHoursJson: true,
             timezone: true,
             linkedAccountId: true,
+            isService: true,
+            phone: true,
           },
         },
       },
@@ -663,29 +666,47 @@ async function processTask(
       return;
     }
 
-    // Preferred path: the agent places the call itself. It only applies when the owner is an
-    // individual who turned agent mode ON and the contact is linked to a real business account
-    // (that is what dialCallAs needs). With agent mode off the owner is notified instead.
+    // Preferred path: the agent places the call itself. It applies when:
+    // 1. Owner is an individual with agent mode ON, contact is linked to a business account
+    // 2. Owner is an individual with agent mode ON, contact is a business account (intro calls)
+    // With agent mode off the owner is notified instead.
     let autoDialed = false;
     let delivered = false;
-    if (isAutoDialEnabled() && owner.agentMode && !owner.isService && contact.linkedAccountId && biz) {
-      const outcome = await agentPlaceCall({
-        ownerId: contact.ownerId,
-        contactId: contact.id,
-        contactName: contact.name,
-        taskId: task.id,
-        taskTitle: task.title,
-      });
-      if (outcome.kind === "ringing") {
-        autoDialed = true;
-        delivered = true;
-      } else if (outcome.kind === "missed") {
-        autoDialed = true; // business offline; a missed Call row exists, retry soon
-      } else {
-        logger.info(
-          { taskId: task.id, reason: outcome.reason },
-          "callScheduler: agent could not place call, falling back to notification",
-        );
+    
+    logger.info(
+      { taskId: task.id, autoDialEnabled: isAutoDialEnabled(), ownerAgentMode: owner.agentMode, ownerIsService: owner.isService },
+      "callScheduler: auto-dial eligibility check"
+    );
+    
+    if (isAutoDialEnabled() && owner.agentMode && !owner.isService) {
+      // Check if we can auto-dial: either contact is linked to a business, or contact IS a business
+      const canDialLinked = contact.linkedAccountId && biz;
+      const canDialBusiness = contact.isService && contact.phone;
+      
+      logger.info(
+        { taskId: task.id, canDialLinked, canDialBusiness, contactIsService: contact.isService, contactPhone: contact.phone, linkedAccountId: contact.linkedAccountId },
+        "callScheduler: auto-dial check"
+      );
+      
+      if (canDialLinked || canDialBusiness) {
+        const outcome = await agentPlaceCall({
+          ownerId: contact.ownerId,
+          contactId: contact.id,
+          contactName: contact.name,
+          taskId: task.id,
+          taskTitle: task.title,
+        });
+        if (outcome.kind === "ringing") {
+          autoDialed = true;
+          delivered = true;
+        } else if (outcome.kind === "missed") {
+          autoDialed = true; // business offline; a missed Call row exists, retry soon
+        } else {
+          logger.info(
+            { taskId: task.id, reason: outcome.reason },
+            "callScheduler: agent could not place call, falling back to notification",
+          );
+        }
       }
     }
 

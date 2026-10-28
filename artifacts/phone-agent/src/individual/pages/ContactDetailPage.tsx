@@ -11,6 +11,7 @@ import { Avatar, CallButton } from '@/components/shared';
 import { ContactTasksCard } from '@/individual/components/contact/ContactTasksCard';
 import { ContactQuestionsCard } from '@/individual/components/contact/ContactQuestionsCard';
 import { ContactFilesCard } from '@/individual/components/contact/ContactFilesCard';
+import { ContactChat } from '@/individual/components/contact/ContactChat';
 import { BusinessHoursCard } from '@/individual/components/contact/BusinessHoursCard';
 import { ContactClosureBanner } from '@/individual/components/contact/ContactClosureBanner';
 import { KnowledgeBoardPanel } from '@/individual/components/knowledge/KnowledgeBoardPanel';
@@ -289,6 +290,7 @@ export function ContactDetailPage() {
           </div>
         )}
 
+        {!loading && contact && <ContactChat contactId={id} />}
         {!loading && contact && <ContactTasksCard contactId={id} />}
         {!loading && contact && <ContactQuestionsCard contactId={id} />}
         {!loading && contact && <ContactFilesCard contactId={id} />}

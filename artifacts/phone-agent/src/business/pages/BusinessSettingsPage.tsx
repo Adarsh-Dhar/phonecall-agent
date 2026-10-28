@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
 const DEFAULT_HOURS: BusinessHours = { days: [1, 2, 3, 4, 5], start: 9, end: 17 };
+const DEFAULT_TIMEZONE = 'Asia/Calcutta';
 
 export function BusinessSettingsPage() {
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
@@ -31,7 +32,7 @@ export function BusinessSettingsPage() {
       const data = await fetchBusinessSettings();
       setSettings(data);
       setLocalHours(data.hours);
-      setLocalTimezone(data.timezone || '');
+      setLocalTimezone(data.timezone || DEFAULT_TIMEZONE);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load settings');
@@ -113,7 +114,7 @@ export function BusinessSettingsPage() {
           <HoursEditor
             value={localHours}
             onChange={setLocalHours}
-            timezoneRequired
+            showTimezone={false}
           />
 
           <div>

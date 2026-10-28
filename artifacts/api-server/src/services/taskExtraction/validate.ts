@@ -42,7 +42,8 @@ export function parseModelDueDate(
     if (Number.isNaN(noon.getTime())) return null;
     d = localAt(noon, opts.tz ?? "UTC", 0, 18);
   } else {
-    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/i.test(v)) return null;
+    // More permissive: accept any ISO-like date format that JavaScript can parse
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return null;
     d = new Date(v);
   }
   if (Number.isNaN(d.getTime())) return null;

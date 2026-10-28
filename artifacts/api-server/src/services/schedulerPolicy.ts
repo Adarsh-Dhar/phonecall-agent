@@ -77,8 +77,14 @@ function resolveTz(tz: string | null | undefined): string {
 }
 
 function localParts(date: Date, tz: string): { weekday: number; hour: number; minute: number } {
+  // Validate date before formatting
+  if (isNaN(date.getTime())) {
+    throw new Error(`Invalid date value: ${date.toString()}`);
+  }
+  // Validate timezone before formatting
+  const resolvedTz = resolveTz(tz);
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
+    timeZone: resolvedTz,
     weekday: 'short',
     hour: 'numeric',
     minute: 'numeric',

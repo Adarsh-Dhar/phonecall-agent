@@ -24,6 +24,12 @@ export type QueueIntroResult = { queued: boolean; reason?: string; taskId?: stri
 
 export async function queueIntroCall(ownerId: string, targetId: string, now = new Date()): Promise<QueueIntroResult> {
   try {
+    // Validate the now parameter is a valid date
+    if (isNaN(now.getTime())) {
+      logger.error({ now }, "introCall: invalid now parameter, using current time");
+      now = new Date();
+    }
+
     const [owner, target] = await Promise.all([
       prisma.account.findUnique({ where: { id: ownerId }, select: { id: true, isService: true, agentMode: true, name: true } }),
       prisma.account.findUnique({ where: { id: targetId }, select: { id: true, isService: true, agentMode: true, name: true } }),
@@ -33,11 +39,13 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
     const business = owner.isService ? owner : target;
 
     // Load business protection limit for intro calls
-    const businessAccount = await prisma.account.findUnique({
+    const businessWithRateLimit = await prisma.account.findUnique({
       where: { id: business.id },
       select: { maxIntroCallsPerHour: true },
     });
-    const hourlyCap = businessAccount?.maxIntroCallsPerHour ?? Number(process.env.INTRO_CALL_MAX_PER_BUSINESS_HOUR) ?? 10;
+    const hourlyCap = businessWithRateLimit?.maxIntroCallsPerHour ?? Number(process.env.INTRO_CALL_MAX_PER_BUSINESS_HOUR) ?? 10;
+    // Ensure hourlyCap is a valid number
+    const safeHourlyCap = typeof hourlyCap === 'number' && !isNaN(hourlyCap) ? hourlyCap : 10;
 
     // Both sides must hold the other (the same rule as isContact in callSignaling.ts).
     const [individualContact, businessContact] = await Promise.all([
@@ -70,6 +78,30 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
       }
     }
 
+    // Handle stale relationship state: if introStatus is queued/cancelled but no valid task exists, reset it
+    if (relationship.introStatus === "queued" || relationship.introStatus === "cancelled") {
+      if (!relationship.introTaskId) {
+        logger.info({ relationshipId: relationship.id, introStatus: relationship.introStatus }, "introCall: resetting stale relationship status");
+        await prisma.relationship.update({
+          where: { id: relationship.id },
+          data: { introStatus: "none", introQueuedAt: null },
+        });
+      } else {
+        // Check if the task still exists and is valid
+        const existingTask = await prisma.task.findUnique({
+          where: { id: relationship.introTaskId },
+          select: { id: true, status: true },
+        });
+        if (!existingTask || existingTask.status === "cancelled") {
+          logger.info({ relationshipId: relationship.id, introStatus: relationship.introStatus, taskId: relationship.introTaskId }, "introCall: resetting stale relationship status (invalid task)");
+          await prisma.relationship.update({
+            where: { id: relationship.id },
+            data: { introStatus: "none", introQueuedAt: null, introTaskId: null },
+          });
+        }
+      }
+    }
+
     // Claim once per pair. Two adds at the same moment: only one updateMany matches.
     const claim = await prisma.relationship.updateMany({
       where: { id: relationship.id, introStatus: "none" },
@@ -83,7 +115,7 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
       const recent = await prisma.relationship.count({
         where: { businessId: business.id, introQueuedAt: { gte: new Date(+now - HOUR_MS) } },
       });
-      logger.info({ businessId: business.id, recent, hourlyCap }, "introCall: rate check");
+      logger.info({ businessId: business.id, recent, hourlyCap: safeHourlyCap }, "introCall: rate check");
 
       // Fetch business hours and owner timezone to schedule within business hours
       const [businessAccount, ownerAccount] = await Promise.all([
@@ -98,15 +130,48 @@ export async function queueIntroCall(ownerId: string, targetId: string, now = ne
       ]);
 
       const ownerTz = ownerAccount?.timezone ?? "UTC";
+      const businessTz = businessAccount?.timezone ?? ownerTz;
+
+      // Validate timezones before use
+      try {
+        new Intl.DateTimeFormat('en-US', { timeZone: ownerTz });
+        new Intl.DateTimeFormat('en-US', { timeZone: businessTz });
+      } catch (tzErr) {
+        logger.error({ ownerTz, businessTz, err: tzErr }, "introCall: invalid timezone, falling back to UTC");
+        return { queued: false, reason: "invalid_timezone" };
+      }
+
       const { hours: businessHours } = resolveEffectiveHours({
         businessJson: businessAccount?.businessHoursJson,
-        businessTz: businessAccount?.timezone,
+        businessTz,
         contactTz: ownerTz,
         ownerTz,
       });
 
-      // Start with minimum delay (5 min + rate limiting spread)
-      let candidateTime = new Date(+now + 5 * 60_000 + Math.max(0, recent - hourlyCap) * SPREAD_MS);
+      // Check if we can call immediately (within business hours and no rate limit)
+      const immediateTime = new Date(Date.now() + Math.max(0, recent - safeHourlyCap) * SPREAD_MS);
+      const immediateWindowCheck = isWithinAllowedWindow(
+        immediateTime,
+        ownerTz,
+        ownerAccount?.quietHoursStart ?? null,
+        ownerAccount?.quietHoursEnd ?? null,
+        businessHours,
+      );
+
+      let candidateTime: Date;
+      if (immediateWindowCheck.allowed) {
+        // Can call immediately, use current time + rate limiting spread only
+        candidateTime = immediateTime;
+      } else {
+        // Need to wait, add minimum 5 min delay + rate limiting spread
+        candidateTime = new Date(Date.now() + 5 * 60_000 + Math.max(0, recent - safeHourlyCap) * SPREAD_MS);
+      }
+
+      // Validate the candidate time is a valid date
+      if (isNaN(candidateTime.getTime())) {
+        logger.error({ now: now.toISOString(), candidateTime }, "introCall: invalid candidate time, using fallback");
+        candidateTime = new Date(Date.now() + 5 * 60_000);
+      }
 
       // Find the next available slot within business hours
       const windowCheck = isWithinAllowedWindow(

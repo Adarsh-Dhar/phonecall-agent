@@ -10,12 +10,12 @@ export interface BusinessHours {
 interface HoursEditorProps {
   value: BusinessHours;
   onChange: (value: BusinessHours) => void;
-  timezoneRequired?: boolean;
+  showTimezone?: boolean;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function HoursEditor({ value, onChange, timezoneRequired = false }: HoursEditorProps) {
+export function HoursEditor({ value, onChange, showTimezone = false }: HoursEditorProps) {
   const toggleDay = (day: number) => {
     onChange({
       ...value,
@@ -81,23 +81,25 @@ export function HoursEditor({ value, onChange, timezoneRequired = false }: Hours
         </div>
       </div>
 
-      <div>
-        <label className="mb-2 block text-xs font-medium text-muted-foreground">
-          Timezone {timezoneRequired && <span className="text-[#b44343]">*</span>}
-        </label>
-        <select
-          value={value.tz || ''}
-          onChange={(e) => onChange({ ...value, tz: e.target.value || undefined })}
-          className="w-full rounded-lg border border-border bg-[#fbfaf6] px-3 py-2 text-sm outline-none focus:border-[#3b82f6]"
-        >
-          <option value="">Select timezone</option>
-          {timezones.map((tz) => (
-            <option key={tz} value={tz}>
-              {tz}
-            </option>
-          ))}
-        </select>
-      </div>
+      {showTimezone && (
+        <div>
+          <label className="mb-2 block text-xs font-medium text-muted-foreground">
+            Timezone
+          </label>
+          <select
+            value={value.tz || ''}
+            onChange={(e) => onChange({ ...value, tz: e.target.value || undefined })}
+            className="w-full rounded-lg border border-border bg-[#fbfaf6] px-3 py-2 text-sm outline-none focus:border-[#3b82f6]"
+          >
+            <option value="">Select timezone</option>
+            {timezones.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }

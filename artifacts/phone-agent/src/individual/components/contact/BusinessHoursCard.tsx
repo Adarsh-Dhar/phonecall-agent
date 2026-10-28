@@ -125,6 +125,7 @@ export function BusinessHoursCard({ contactId, initial, effectiveHours, hoursSou
         <HoursEditor
           value={businessHours || { days: [], start: 9, end: 17 }}
           onChange={setBusinessHours}
+          showTimezone={false}
         />
 
         {error && (

@@ -39,7 +39,16 @@ export function buildExtractionPrompt(timezone?: string, now = new Date()): stri
   const todayISO = resolveTodayISO(tz, now);
   const offset = utcOffsetFor(tz, now);
 
-  return `Today's date is ${todayISO} in the owner's timezone ${tz} (UTC${offset}). When resolving partial or relative dates (e.g. "7th of September", "next Monday"), always use this date as the reference and infer the correct year.
+  return `CRITICAL: Today's date is ${todayISO} in the owner's timezone ${tz} (UTC${offset}). You MUST use this exact date (${todayISO}) as the reference for all relative dates.
+
+When the user says "next Friday", calculate it based on today's date (${todayISO}):
+- Find the day of the week for ${todayISO}
+- Find the next Friday after today
+- Use THAT date for the dueDate
+
+Example: If today is ${todayISO} and the user says "next Friday", you must calculate the actual next Friday date and use it. DO NOT guess or use a different date.
+
+NEVER use dates in the past. NEVER use dates from a different year. ALWAYS calculate based on ${todayISO}.
 
 You review a conversation between the OWNER (the person who uses this app) and their Phone Agent assistant, which talks to an external CONTACT on the owner's behalf.
 Each message has a "speaker" label and a "source" (phone_call or app_chat). The label starts with who it is:
@@ -70,6 +79,8 @@ KNOWLEDGE action types:
 Rules for tasks:
 - For "update", "complete", "cancel" — taskId MUST be copied exactly from the existing open tasks list. Never invent an id. If no existing task matches, use "create" or do nothing.
 - Do not create a task that duplicates an existing open task; use "update" instead.
+- CRITICAL: When the user says "move", "reschedule", "change to", "shift", "postpone", or similar phrases to change a date/time, you MUST use "update" on the matching existing task. NEVER create a new task.
+- Example: If there's an existing task "Reschedule dentist appointment to Tuesday afternoon" and the user says "move it to Friday", you must use type="update" with taskId matching the existing task and dueDate set to the new Friday date. Do NOT create a new task like "Attend dentist appointment on Friday afternoon".
 - confidence is a float 0.0–1.0 reflecting certainty. Use >= 0.9 for complete/cancel/update only when the messages clearly state it.
 - kind (REQUIRED on create). Pick the FIRST that matches:
   1 appointment: the business CONFIRMED a specific slot the owner must attend or be reachable at. Not a proposal ("maybe Tuesday"), not the phone call itself. Put the reference/location in meta.
@@ -182,7 +193,7 @@ export async function callOrchestratorExtraction(context: {
         },
       ],
       temperature: 0.2,
-      maxTokens: 8192,
+      maxTokens: 16384,
       jsonResponse: true,
     });
   } catch (err) {
