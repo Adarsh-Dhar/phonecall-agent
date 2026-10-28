@@ -5,6 +5,7 @@ import pushRouter from "./push";
 import outboundRouter from "./outbound";
 import orchestratorRouter from "./orchestrator";
 import contactsRouter from "./contacts";
+import contactFilesRouter from "./contactFiles";
 import conversationsRouter from "./conversations";
 import historyRouter from "./history";
 import tasksRouter from "./tasks";
@@ -45,6 +46,7 @@ router.use("/owner-info", requireIndividual, ownerInfoRouter);
 router.use("/agent", requireIndividual, agentRouter);
 router.use("/calls", requireIndividual, callsRouter);
 router.use("/calendar/events", requireIndividual, calendarEventsRouter);
+router.use("/contacts/:contactId/files", requireIndividual, contactFilesRouter); // before contactsRouter
 router.use("", requireIndividual, contactsRouter);
 
 export default router;

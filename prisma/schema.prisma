@@ -63,6 +63,8 @@ model Account {
   knowledge                 ContactKnowledge[]
   conversations             Conversation[]
   ownerInfo                 OwnerInfo[]
+  contactFilesOwned         ContactFile[]      @relation("ContactFileOwner")
+  contactFiles              ContactFile[]      @relation("ContactFileContact")
   outboundMessages          OutboundMessage[]
   approvalRules             ApprovalRule[]
   handoffs                  Handoff[]
@@ -514,4 +516,19 @@ model LiveQuery {
 
   @@index([callId])
   @@index([ownerId])
+}
+
+model ContactFile {
+  id        String   @id @default(cuid())
+  ownerId   String
+  contactId String
+  filename  String
+  mimeType  String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+  owner     Account  @relation("ContactFileOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  contact   Account  @relation("ContactFileContact", fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, contactId])
 }
